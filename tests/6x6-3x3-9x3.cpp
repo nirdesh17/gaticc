@@ -1,7 +1,7 @@
 #include <numeric>
-#include "../sim.h"
-#include "../utils.h"
-#include "../transformers.h"
+#include "../src/sim.h"
+#include "../src/utils.h"
+#include "../src/transformers.h"
 
 int main(int argc, char *argv[]) {
     std::vector<int>expected {
