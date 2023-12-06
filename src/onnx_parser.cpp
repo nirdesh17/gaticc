@@ -14,16 +14,23 @@ Op::Layer::Conv::Conv(ConvParams &cp) {
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
 const char *Op::Layer::Conv::params() const {
   static char ret[64];
-  sprintf(ret, "IW,IH,KN,K,S,P: %d,%d,%d,%d,%d,%d", 
-      m_cp.imap[0], m_cp.imap[1], m_cp.kn, m_cp.k[0], m_cp.stride[0], m_cp.pad[0]);
+  sprintf(ret, "IW,IH,KN,K,S,P: %d,%d,%d,%d,%d,%d", m_cp.imap[0], m_cp.imap[1],
+          m_cp.kn, m_cp.k[0], m_cp.stride[0], m_cp.pad[0]);
   return ret;
 }
 
-Op::Layer::Relu::Relu(int clip) : m_clip{clip} {}
 const char *Op::Layer::Relu::op_type() const { return m_optype; }
 const char *Op::Layer::Relu::params() const {
+  return "";
+}
+
+Op::Layer::Clip::Clip(ClipParams &cp) {
+  std::memcpy(&m_cp, &cp, sizeof(ClipParams));
+}
+const char *Op::Layer::Clip::op_type() const { return m_optype; }
+const char *Op::Layer::Clip::params() const {
   static char ret[64];
-  sprintf(ret, "Clip: %d", m_clip);
+  sprintf(ret, "Clip: %d", m_cp.clip);
   return ret;
 }
 
@@ -85,8 +92,8 @@ Op::Parser::Parser(std::string filename) {
       extract_conv_attr(nodes.at(i), params);
       m_model.add(new Op::Layer::Conv(params));
     }
-    if (opt == "Relu") {
-      m_model.add(new Op::Layer::Relu(10));
+    else if (opt == "Relu") {
+      m_model.add(new Op::Layer::Relu());
     }
   }
 }

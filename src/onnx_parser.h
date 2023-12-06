@@ -12,12 +12,17 @@ struct ConvParams {
   int stride[2];
 };
 
+struct ClipParams {
+  int clip;
+};
+
 struct LayerBase {
   virtual const char *op_type() const;
   virtual const char *params() const;
 };
 
 void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
+void extract_clip_attr(onnx::NodeProto &node, ConvParams &params);
 
 namespace Layer {
 
@@ -31,8 +36,14 @@ struct Conv : public LayerBase {
 
 struct Relu : public LayerBase {
   const char *m_optype = "Relu";
-  int m_clip;
-  Relu(int clip);
+  const char *op_type() const override;
+  const char *params() const override;
+};
+
+struct Clip : public LayerBase {
+  const char *m_optype = "Clip";
+  ClipParams m_cp;
+  Clip(ClipParams &cp);
   const char *op_type() const override;
   const char *params() const override;
 };
