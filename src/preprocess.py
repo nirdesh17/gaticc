@@ -9,8 +9,8 @@
 # 4. define a similarly named function by following the guide
 #    in ffi.cpp 
 
-from keras.utils import load_img, img_to_array
-from keras.applications.vgg16 import preprocess_input
+#from keras.utils import load_img, img_to_array
+#from keras.applications.vgg16 import preprocess_input
 
 import numpy as np
 
@@ -22,19 +22,25 @@ def quantize_f32i8(array):
     quantized_array = f(array)
     return quantized_array.astype(np.int8)
 
+# See https://github.com/tensorflow/tensorflow/issues/24976
+# in order to use tensorflow
+#def preprocess(image):
+#    image = load_img(image, target_size=(224, 224))
+#    image = img_to_array(image)
+#    image = image.reshape((1, image.shape[0], image.shape[1], image.shape[2]))
+#    image = preprocess_input(image)
+#    return image
+
 def preprocess(image):
-    image = load_img(image, target_size=(224, 224))
-    image = img_to_array(image)
-    image = image.reshape((1, image.shape[0], image.shape[1], image.shape[2]))
-    image = preprocess_input(image)
-    return image
+    rng = np.random.default_rng()
+    return rng.integers(0, 255, 224*224*3)
 
 def read_img(s):
     a = preprocess(s)
     q = quantize_f32i8(a)
     return q.flatten().tolist()
 
-model = onnx.load("/home/metal/dev/vaaman-cnn/onnx/vgg16-12-int8.onnx")
+model = onnx.load("/home/metal/dev/vaaman-cnn/onnx/vgg16/vgg16-12-int8.onnx")
 graph_def = model.graph
 initializers = graph_def.initializer
 
