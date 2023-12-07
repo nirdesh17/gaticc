@@ -4,6 +4,9 @@
 #include <fstream>
 #include <iostream>
 
+#include <boost/graph/graph_traits.hpp>
+#include <boost/graph/adjacency_list.hpp>
+
 const char *Op::LayerBase::op_type() const { return "(null)"; }
 const char *Op::LayerBase::params() const { return "(null)"; }
 
@@ -44,19 +47,30 @@ const char *Op::Layer::Gemm::params() const {
   return ret;
 }
 
-void Op::Model::add(Op::LayerBase *layer) { layers.push_back(layer); }
+void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
+  Op::Vertex v = boost::add_vertex(layer, g);
+  auto outputs = node.output();
+  assert(outputs.size() == 1 && "a node must have only one output");
+  output_map.insert({outputs.at(0), v});
+  
+  auto inputs = node.input();
+  for (int i = 0; i < inputs.size(); ++i) {
+    auto itr = output_map.find(inputs.at(i));
+    if (itr != output_map.end()) {
+      boost::add_edge((*itr).second, v, g);
+    }
+  }
+}
+
+#if 0
 Op::LayerBase *Op::Model::operator[](size_t idx) { return layers.at(idx); }
 Op::LayerBase const *Op::Model::operator[](size_t idx) const {
   return layers.at(idx);
 }
-Op::Model::~Model() {
-  for (int i = 0; i < layers.size(); ++i) {
-    delete layers.at(i);
-  }
-}
+#endif
 
-size_t Op::Model::size(void) { return layers.size(); }
-size_t Op::Model::size(void) const { return layers.size(); }
+size_t Op::Model::size(void) { return boost::num_vertices(g); }
+size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 Op::Model &Op::Parser::get_model() { return m_model; }
 
 void parse_onnx_ints(onnx::AttributeProto &attr, int *attr_array) {
@@ -99,14 +113,14 @@ Op::Parser::Parser(std::string filename) {
     if (opt == "Conv") {
       ConvParams params;
       extract_conv_attr(nodes.at(i), params);
-      m_model.add(new Op::Layer::Conv(params));
+      m_model.add(new Op::Layer::Conv(params), nodes.at(i));
     }
     else if (opt == "Relu") {
-      m_model.add(new Op::Layer::Relu());
+      m_model.add(new Op::Layer::Relu(), nodes.at(i));
     }
     else if (opt == "Gemm") {
       GemmParams params;
-      m_model.add(new Op::Layer::Gemm(params));
+      m_model.add(new Op::Layer::Gemm(params), nodes.at(i));
     }
   }
 
@@ -119,6 +133,7 @@ Op::Parser::Parser(std::string filename) {
 
 void Op::Parser::summary() const {
   for (int i = 0; i < m_model.size(); ++i) {
-    std::cout << m_model[i]->op_type() << ' ' << m_model[i]->params() << '\n';
+    std::cout << "summary\n";
+    //std::cout << m_model[i]->op_type() << ' ' << m_model[i]->params() << '\n';
   }
 }

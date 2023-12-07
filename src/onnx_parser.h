@@ -1,5 +1,10 @@
-#include "onnx.pb.h"
 #include <string>
+
+#include <boost/graph/graph_traits.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <utility>
+
+#include "onnx.pb.h"
 
 /* Onnx Parser external interface */
 namespace Op {
@@ -65,17 +70,23 @@ struct Gemm : public LayerBase {
 
 } // namespace Layer
 
-class Model {
-  /* OpLayer array defines the entire neural network */
-  std::vector<LayerBase *> layers;
+using Graph  = boost::adjacency_list<boost::vecS, boost::listS, boost::directedS, LayerBase*>;
+using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
+using Adjacency_iterator = Graph::adjacency_iterator;
+using Neighbours = std::pair<Op::Adjacency_iterator, Op::Adjacency_iterator>;
 
+class Model {
+  Op::Graph g;
+  /* maps an output from a node its corresponding vertex in 'g' */
+  std::map<std::string, Op::Vertex&> output_map;
 public:
-  void add(LayerBase *layer);
+  void add(LayerBase *layer, onnx::NodeProto &node);
+#if 0
   LayerBase *operator[](size_t idx);
   LayerBase const *operator[](size_t idx) const;
+#endif
   size_t size(void);
   size_t size(void) const;
-  ~Model();
 };
 
 class Parser {
