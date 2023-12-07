@@ -16,6 +16,12 @@ struct ClipParams {
   int clip;
 };
 
+struct GemmParams {
+  int wr; /* weight rows */
+  int wc; /* weight columns */
+  int is; /* input size */
+};
+
 struct LayerBase {
   virtual const char *op_type() const;
   virtual const char *params() const;
@@ -23,6 +29,7 @@ struct LayerBase {
 
 void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
 void extract_clip_attr(onnx::NodeProto &node, ConvParams &params);
+void extract_gemm_attr(onnx::NodeProto &node, ConvParams &params);
 
 namespace Layer {
 
@@ -48,17 +55,13 @@ struct Clip : public LayerBase {
   const char *params() const override;
 };
 
-#if 0
 struct Gemm : public LayerBase {
   const char *m_optype = "Gemm";
-  int wr; /* weight rows */
-  int wc; /* weight columns */
-  int is; /* input size */
-  Relu(int clip);
+  GemmParams m_cp;
+  Gemm(GemmParams &cp);
   const char *op_type() const override;
   const char *params() const override;
 };
-#endif
 
 } // namespace Layer
 

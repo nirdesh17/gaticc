@@ -25,12 +25,22 @@ const char *Op::Layer::Relu::params() const {
 }
 
 Op::Layer::Clip::Clip(ClipParams &cp) {
-  std::memcpy(&m_cp, &cp, sizeof(ClipParams));
+  std::memcpy(&m_cp, &cp, sizeof(cp));
 }
 const char *Op::Layer::Clip::op_type() const { return m_optype; }
 const char *Op::Layer::Clip::params() const {
   static char ret[64];
   sprintf(ret, "Clip: %d", m_cp.clip);
+  return ret;
+}
+
+Op::Layer::Gemm::Gemm(GemmParams &cp) {
+  std::memcpy(&m_cp, &cp, sizeof(cp));
+}
+const char *Op::Layer::Gemm::op_type() const { return m_optype; }
+const char *Op::Layer::Gemm::params() const {
+  static char ret[64];
+  sprintf(ret, "wr,wc,is: %d,%d,%d", m_cp.wr, m_cp.wc, m_cp.is);
   return ret;
 }
 
@@ -46,9 +56,7 @@ Op::Model::~Model() {
 }
 
 size_t Op::Model::size(void) { return layers.size(); }
-
 size_t Op::Model::size(void) const { return layers.size(); }
-
 Op::Model &Op::Parser::get_model() { return m_model; }
 
 void parse_onnx_ints(onnx::AttributeProto &attr, int *attr_array) {
@@ -83,8 +91,9 @@ Op::Parser::Parser(std::string filename) {
   onnx::ModelProto p;
   p.ParseFromIstream(&in);
   onnx::GraphProto graph = p.graph();
-  auto nodes = graph.node();
 
+  /* nodes */
+  auto nodes = graph.node();
   for (int i = 0; i < nodes.size(); ++i) {
     auto opt = nodes.at(i).op_type();
     if (opt == "Conv") {
@@ -95,6 +104,16 @@ Op::Parser::Parser(std::string filename) {
     else if (opt == "Relu") {
       m_model.add(new Op::Layer::Relu());
     }
+    else if (opt == "Gemm") {
+      GemmParams params;
+      m_model.add(new Op::Layer::Gemm(params));
+    }
+  }
+
+  /* initializers */
+  auto initializers = graph.initializer();
+  for (int i = 0; i < initializers.size(); ++i) {
+    std::cout << initializers.at(i).name() << '\n'; 
   }
 }
 
