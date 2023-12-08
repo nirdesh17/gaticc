@@ -48,6 +48,10 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   assert(outputs.size() == 1 && "a node must have only one output");
   output_map.insert({outputs.at(0), v});
 
+  if (node.has_name()) {
+    layer->name = node.name();
+  }
+
   auto inputs = node.input();
   for (int i = 0; i < inputs.size(); ++i) {
     auto itr = output_map.find(inputs.at(i));
@@ -61,16 +65,19 @@ void Op::Model::save_initializers(onnx::TensorProto &t) {
   input_map.insert({t.name(), t});
 }
 
-#if 0
-Op::LayerBase *Op::Model::operator[](size_t idx) { return layers.at(idx); }
-Op::LayerBase const *Op::Model::operator[](size_t idx) const {
-  return layers.at(idx);
-}
-#endif
-
 size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
-Op::Model &Op::Parser::get_model() { return m_model; }
+void Op::Model::summary(void) const {
+  Op::VertexIterator vb, ve;
+  std::tie(vb, ve) = boost::vertices(g);
+  for (auto itr = vb; itr != ve; ++itr) {
+    LayerBase* node = g[*itr];
+    std::cout << "Type: " << node->op_type() << '\n';
+    std::cout << "Params: " << node->params() << '\n';
+    std::cout << "Name: " << node->name << '\n';
+    std::cout << '\n';
+  }
+}
 
 void parse_onnx_ints(onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&
@@ -132,4 +139,5 @@ void visitor(Op::Vertex &v, Op::Graph &g) {
 }
 
 void Op::Parser::summary() const {
+  m_model.summary();
 }

@@ -31,7 +31,7 @@ struct GemmParams {
 };
 
 struct LayerBase {
-  /* references to initializers */
+  std::string name;
   virtual const char *op_type() const;
   virtual const char *params() const;
 };
@@ -77,8 +77,9 @@ struct Gemm : public LayerBase {
 using Graph = boost::adjacency_list<boost::vecS, boost::listS, boost::directedS,
                                     LayerBase *>;
 using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
-using Adjacency_iterator = Graph::adjacency_iterator;
-using Neighbours = std::pair<Op::Adjacency_iterator, Op::Adjacency_iterator>;
+using VertexIterator = Graph::vertex_iterator;
+using AdjacencyIterator = Graph::adjacency_iterator;
+using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 
 class Model {
   Op::Graph g;
@@ -89,10 +90,7 @@ class Model {
 public:
   void add(LayerBase *layer, onnx::NodeProto &node);
   void save_initializers(onnx::TensorProto &t);
-#if 0
-  LayerBase *operator[](size_t idx);
-  LayerBase const *operator[](size_t idx) const;
-#endif
+  void summary(void) const;
   size_t size(void);
   size_t size(void) const;
 };
@@ -101,7 +99,6 @@ class Parser {
   Model m_model;
 
 public:
-  Model &get_model();
   Parser(std::string filename);
   void summary(void) const;
 };
