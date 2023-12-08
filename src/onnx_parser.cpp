@@ -3,9 +3,10 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 
-#include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/graph_traits.hpp>
 
 const char *Op::LayerBase::op_type() const { return "(null)"; }
 const char *Op::LayerBase::params() const { return "(null)"; }
@@ -23,13 +24,9 @@ const char *Op::Layer::Conv::params() const {
 }
 
 const char *Op::Layer::Relu::op_type() const { return m_optype; }
-const char *Op::Layer::Relu::params() const {
-  return "";
-}
+const char *Op::Layer::Relu::params() const { return ""; }
 
-Op::Layer::Clip::Clip(ClipParams &cp) {
-  std::memcpy(&m_cp, &cp, sizeof(cp));
-}
+Op::Layer::Clip::Clip(ClipParams &cp) { std::memcpy(&m_cp, &cp, sizeof(cp)); }
 const char *Op::Layer::Clip::op_type() const { return m_optype; }
 const char *Op::Layer::Clip::params() const {
   static char ret[64];
@@ -37,9 +34,7 @@ const char *Op::Layer::Clip::params() const {
   return ret;
 }
 
-Op::Layer::Gemm::Gemm(GemmParams &cp) {
-  std::memcpy(&m_cp, &cp, sizeof(cp));
-}
+Op::Layer::Gemm::Gemm(GemmParams &cp) { std::memcpy(&m_cp, &cp, sizeof(cp)); }
 const char *Op::Layer::Gemm::op_type() const { return m_optype; }
 const char *Op::Layer::Gemm::params() const {
   static char ret[64];
@@ -52,7 +47,7 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   auto outputs = node.output();
   assert(outputs.size() == 1 && "a node must have only one output");
   output_map.insert({outputs.at(0), v});
-  
+
   auto inputs = node.input();
   for (int i = 0; i < inputs.size(); ++i) {
     auto itr = output_map.find(inputs.at(i));
@@ -60,6 +55,10 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
       boost::add_edge((*itr).second, v, g);
     }
   }
+}
+
+void Op::Model::save_initializers(onnx::TensorProto &t) {
+  input_map.insert({t.name(), t});
 }
 
 #if 0
@@ -114,26 +113,23 @@ Op::Parser::Parser(std::string filename) {
       ConvParams params;
       extract_conv_attr(nodes.at(i), params);
       m_model.add(new Op::Layer::Conv(params), nodes.at(i));
-    }
-    else if (opt == "Relu") {
+    } else if (opt == "Relu") {
       m_model.add(new Op::Layer::Relu(), nodes.at(i));
-    }
-    else if (opt == "Gemm") {
+    } else if (opt == "Gemm") {
       GemmParams params;
       m_model.add(new Op::Layer::Gemm(params), nodes.at(i));
     }
   }
 
-  /* initializers */
   auto initializers = graph.initializer();
   for (int i = 0; i < initializers.size(); ++i) {
-    std::cout << initializers.at(i).name() << '\n'; 
+    m_model.save_initializers(initializers.at(i));
   }
 }
 
+void visitor(Op::Vertex &v, Op::Graph &g) {
+  std::cout << g[v]->op_type() << '\n';
+}
+
 void Op::Parser::summary() const {
-  for (int i = 0; i < m_model.size(); ++i) {
-    std::cout << "summary\n";
-    //std::cout << m_model[i]->op_type() << ' ' << m_model[i]->params() << '\n';
-  }
 }

@@ -1,7 +1,10 @@
+#include <functional>
+#include <map>
 #include <string>
+#include <vector>
 
-#include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/graph_traits.hpp>
 #include <utility>
 
 #include "onnx.pb.h"
@@ -28,6 +31,7 @@ struct GemmParams {
 };
 
 struct LayerBase {
+  /* references to initializers */
   virtual const char *op_type() const;
   virtual const char *params() const;
 };
@@ -70,7 +74,8 @@ struct Gemm : public LayerBase {
 
 } // namespace Layer
 
-using Graph  = boost::adjacency_list<boost::vecS, boost::listS, boost::directedS, LayerBase*>;
+using Graph = boost::adjacency_list<boost::vecS, boost::listS, boost::directedS,
+                                    LayerBase *>;
 using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
 using Adjacency_iterator = Graph::adjacency_iterator;
 using Neighbours = std::pair<Op::Adjacency_iterator, Op::Adjacency_iterator>;
@@ -78,9 +83,12 @@ using Neighbours = std::pair<Op::Adjacency_iterator, Op::Adjacency_iterator>;
 class Model {
   Op::Graph g;
   /* maps an output from a node its corresponding vertex in 'g' */
-  std::map<std::string, Op::Vertex&> output_map;
+  std::map<std::string, Op::Vertex &> output_map;
+  std::map<std::string, onnx::TensorProto &> input_map;
+
 public:
   void add(LayerBase *layer, onnx::NodeProto &node);
+  void save_initializers(onnx::TensorProto &t);
 #if 0
   LayerBase *operator[](size_t idx);
   LayerBase const *operator[](size_t idx) const;
