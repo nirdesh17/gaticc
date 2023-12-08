@@ -13,11 +13,12 @@
 namespace Op {
 
 struct ConvParams {
-  int imap[2];
-  int kn;
-  int k[2];
-  int pad[4];
-  int stride[2];
+  int imap[2]; /* input feature map */
+  int kn; /* total number of kernels */
+  int ic; /* input channels */
+  int k[2]; /* kernel width/height */
+  int pad[4]; /* padding across all four sides */
+  int stride[2]; /* stride horizontally/vertically */
 };
 
 struct ClipParams {
@@ -34,6 +35,8 @@ struct LayerBase {
   std::string name;
   virtual const char *op_type() const;
   virtual const char *params() const;
+  virtual void set_initializer_params(onnx::TensorProto &t);
+  virtual void set_value_info_params(onnx::ValueInfoProto &t);
 };
 
 void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
@@ -43,11 +46,15 @@ void extract_gemm_attr(onnx::NodeProto &node, ConvParams &params);
 namespace Layer {
 
 struct Conv : public LayerBase {
+  onnx::TensorProto *weights;
+  onnx::TensorProto *bias;
   const char *m_optype = "Conv";
   ConvParams m_cp;
   Conv(ConvParams &cp);
   const char *op_type() const override;
   const char *params() const override;
+  void set_initializer_params(onnx::TensorProto &t) override;
+  void set_value_info_params(onnx::ValueInfoProto &t) override;
 };
 
 struct Relu : public LayerBase {
@@ -65,12 +72,17 @@ struct Clip : public LayerBase {
 };
 
 struct Gemm : public LayerBase {
+  onnx::TensorProto *weights;
+  onnx::TensorProto *bias;
   const char *m_optype = "Gemm";
   GemmParams m_cp;
   Gemm(GemmParams &cp);
   const char *op_type() const override;
   const char *params() const override;
+  void set_initializer_params(onnx::TensorProto &t) override;
+  void set_value_info_params(onnx::ValueInfoProto &t) override;
 };
+
 
 } // namespace Layer
 
@@ -86,10 +98,13 @@ class Model {
   /* maps an output from a node its corresponding vertex in 'g' */
   std::map<std::string, Op::Vertex &> output_map;
   std::map<std::string, onnx::TensorProto &> input_map;
+  std::map<std::string, onnx::ValueInfoProto &> value_info_map;
 
 public:
   void add(LayerBase *layer, onnx::NodeProto &node);
   void save_initializers(onnx::TensorProto &t);
+  void save_value_info(onnx::ValueInfoProto &t);
+  void save_first_layer_input_dims(onnx::ValueInfoProto &t);
   void summary(void) const;
   size_t size(void);
   size_t size(void) const;
