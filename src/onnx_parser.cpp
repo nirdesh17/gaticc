@@ -67,6 +67,7 @@ void Op::Layer::Conv::set_value_info_params(onnx::ValueInfoProto &t) {
   }
 }
 
+/* TODO: set_value_info_params for RELU */
 const char *Op::Layer::Relu::op_type() const { return m_optype; }
 const char *Op::Layer::Relu::params() const { return ""; }
 
@@ -98,6 +99,7 @@ void Op::Layer::Gemm::set_initializer_params(onnx::TensorProto &t) {
 }
 
 void Op::Layer::Gemm::set_value_info_params(onnx::ValueInfoProto &t) {
+  /* TODO: REFACTOR: this can be cleaned up and turned into a generic function */
   if (t.has_type()) {
     onnx::TypeProto type = t.type();
     if (type.has_tensor_type()) {
@@ -115,6 +117,21 @@ void Op::Layer::Gemm::set_value_info_params(onnx::ValueInfoProto &t) {
       }
     }
   }
+}
+
+/* TODO: set_value_info_params for maxpool */
+Op::Layer::Maxpool::Maxpool(MaxpoolParams &cp) {
+  std::memcpy(&m_cp, &cp, sizeof(MaxpoolParams));
+}
+
+const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
+const char *Op::Layer::Maxpool::params() const {
+  static char ret[64];
+  sprintf(ret, "(KS: %d,%d), (pad: %d,%d,%d,%d), (stride: %d,%d)",
+      m_cp.k[0], m_cp.k[1],
+      m_cp.pad[0],m_cp.pad[1],m_cp.pad[2],m_cp.pad[3],
+      m_cp.stride[0],m_cp.stride[1]);
+  return ret;
 }
 
 void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
@@ -184,7 +201,26 @@ void parse_onnx_ints(onnx::AttributeProto &attr, int *attr_array) {
   }
 }
 
+/* TODO: REFACTOR: this and extract_maxpool_attr are essentially the same function */
 void Op::extract_conv_attr(onnx::NodeProto &node, Op::ConvParams &params) {
+  auto attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "kernel_shape") {
+      assert(itr->ints().size() == 2 &&
+             "expected kernel shape to be 2 integers");
+      parse_onnx_ints(*itr, params.k);
+    } else if (itr->name() == "strides") {
+      assert(itr->ints().size() == 2 &&
+             "expected strides shape to be 2 integers");
+      parse_onnx_ints(*itr, params.stride);
+    } else if (itr->name() == "pads") {
+      assert(itr->ints().size() == 4 && "expected pads shape to be 4 integers");
+      parse_onnx_ints(*itr, params.pad);
+    }
+  }
+}
+
+void Op::extract_maxpool_attr(onnx::NodeProto &node, Op::MaxpoolParams &params) {
   auto attribute = node.attribute();
   for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
     if (itr->name() == "kernel_shape") {
@@ -233,6 +269,10 @@ Op::Parser::Parser(std::string filename) {
     } else if (opt == "Gemm") {
       GemmParams params;
       m_model.add(new Op::Layer::Gemm(params), nodes.at(i));
+    } else if (opt == "MaxPool") {
+      MaxpoolParams params;
+      extract_maxpool_attr(nodes.at(i), params);
+      m_model.add(new Op::Layer::Maxpool(params), nodes.at(i));
     }
   }
   
@@ -242,10 +282,6 @@ Op::Parser::Parser(std::string filename) {
   auto graph_inputs = graph.input();
   assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
-}
-
-void visitor(Op::Vertex &v, Op::Graph &g) {
-  std::cout << g[v]->op_type() << '\n';
 }
 
 void Op::Parser::summary() const {

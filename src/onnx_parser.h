@@ -31,6 +31,12 @@ struct GemmParams {
   int is; /* input size */
 };
 
+struct MaxpoolParams {
+  int k[2];
+  int pad[4];
+  int stride[2];
+};
+
 struct LayerBase {
   std::string name;
   virtual const char *op_type() const;
@@ -40,8 +46,7 @@ struct LayerBase {
 };
 
 void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
-void extract_clip_attr(onnx::NodeProto &node, ConvParams &params);
-void extract_gemm_attr(onnx::NodeProto &node, ConvParams &params);
+void extract_maxpool_attr(onnx::NodeProto &node, MaxpoolParams &params);
 
 namespace Layer {
 
@@ -83,6 +88,13 @@ struct Gemm : public LayerBase {
   void set_value_info_params(onnx::ValueInfoProto &t) override;
 };
 
+struct Maxpool : public LayerBase {
+  const char *m_optype = "Maxpool";
+  MaxpoolParams m_cp;
+  Maxpool(MaxpoolParams &cp);
+  const char *op_type() const override;
+  const char *params() const override;
+};
 
 } // namespace Layer
 
