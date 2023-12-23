@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cmath>
 #include <numeric>
+#include <functional>
 
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
@@ -13,6 +14,7 @@
 #include "utils.h"
 
 #define DEBUG 1
+#define SA_output_dimension ((ip_rows + 2*padding - dilation*(kernel-1)-1)/stride) +1
 
 PE::PE(int id, weight_t w, reg_t r, reg_t input_buffer):
     id {id},
@@ -65,6 +67,8 @@ void PE::print_pe() {
 }
 
 /* auxillary functions */
+
+/* getting coordinates from index */
 Point get_cartesian_cord(int index, int r, int c) {
     int row_n = std::floor((float)index/r);
     int col_n = index % c;
@@ -314,26 +318,6 @@ void SA::print_array() {
     printf("\n");
 }
 
-/* return element at (x,y) in v */
-int Mat_at(Mat const &v, int x, int y) {
-    assert(x < v.size());
-    assert(y < v[0].size());
-    return v.at(x).at(y);
-}
-
-/* convert v into 2d array (Mat) of dims (rows,column) */
-Mat v2mat(std::vector<int> &v, int rows, int columns) {
-    Mat m;
-    for (int i = 0; i < rows; ++i) {
-        std::vector<int> vv;
-        for (int j = 0; j < columns; ++j) {
-            vv.push_back(v.at(i*columns + j));
-        }
-        m.push_back(vv);
-    }
-    return m;
-}
-
 /* load inputs at first n PEs where n = 0 3 6 9 ... for a Mx3 systolic array  */
 void SA::load_inputs(std::vector<int>& inputs) {
     for (int i = 0, vi = 0; i < rows; ++i) {
@@ -359,7 +343,7 @@ void exchange_queues(std::queue<T> &dest, std::queue<T> &src) {
 void SA::prepare_queue(std::queue<PE_Graph::Vertex>& exec_queue) {
     std::vector<int> order(rows*columns);
     std::iota(order.begin(), order.end(), 0);
-    Mat order2d = v2mat(order, rows, columns);
+    Mat order2d = v2mat<int,int>(order, rows, columns);
     Tree t(order2d, rows, columns);
     std::vector<int> new_order = t.breadth_first_order();
     for (auto i: new_order) {
@@ -395,7 +379,7 @@ void Tree::generate_btree(Mat const &v, std::pair<int,int> xy) {
         return;
     }
     if (vertex_map.find(xy) == vertex_map.end()) {
-        Int_Graph::Vertex vertex = boost::add_vertex(Mat_at(v, x, y), g);
+        Int_Graph::Vertex vertex = boost::add_vertex(Mat_at<int>(v, x, y), g);
         vertex_map.insert({xy, vertex});
     }
     Tree::generate_btree(v, std::pair<int,int>(x+1, y));
@@ -551,9 +535,19 @@ int Relu::exec(int x) {
 Quantize::Quantize(int scale, int shift): scale{scale}, shift{shift} {
 }
 
-/* TODO: correct calculation */
 int Quantize::exec(int x) {
-    return (x * scale);
+    return clipper(x);
+}
+
+int Quantize::clipper(int x){   // return type uint8 is not accepting bc exec return type in parent is uint32
+    if( x*scale <= -127){
+        return (-127);
+    }
+    else if( x*scale >= 127 ){
+        return 127;
+    }
+    else 
+    return (x*scale);
 }
 
 BatchNorm::BatchNorm(int mean, int sd, int gamma, int beta):
@@ -562,4 +556,155 @@ BatchNorm::BatchNorm(int mean, int sd, int gamma, int beta):
 
 int BatchNorm::exec(int x) {
     return (gamma * ((x - mean)/sd)) + beta;
+}
+
+int Bias:: exec(int x){
+    return x + bias;  // element wise addition
+}
+
+/* in order to make a convo repeater and max pooler we need and max pool condition and then we can select the elements
+by doing meth on rows and columns
+and make a matrix out of them and again feed it to the transformer
+repeat the process and then finally do the gem
+*/
+
+/*after max pooling the size is reduced to half by usually taking a kernel of 2*2 and stride of 2
+total number of pixels reduced is 75% */
+
+/*
+*different types of pooling : max ,average, L-2 
+*/
+
+
+/*this max pooler pools out the max val when a kernel window is slid over the output matrix after convolution
+*this max pooler has a kernel window of 2*2 and a stride of 2 (by default) which reduces the dimensions of the matrix by 2(half)
+*and overall reduces 75% of pixels from the image
+* max pooler picks the maximum val in the window
+*IF dimension of the input matrix is odd ,
+    in valid padding we crop out the last column
+	in same padding we add a column of zeroes
+	
+*/
+
+// // feeding the same new_ mat to the transformer again and repeat the process
+
+
+auto Pooler::movement(Mat input, int ip_rows, int ip_columns, action func)
+{ 
+    std::vector<int> ret;
+    std::vector<float> temp_matrix;
+    fMat output_matrix;
+  // relation bw stride and dilation stride +dilation < columns
+    for (int i = 0; i + dilation < ip_rows + 2*this->padding -1 ; i+=stride)
+    {
+        for (int j = 0; j + dilation< ip_columns + 2*this->padding -1; j+=stride)
+        {      ret.clear();
+            //    output_matrix.clear();
+            for (int k = 0 ; k < this->kernel ; k++ )
+            {
+                for (int l = 0 ; l < this->kernel ; l++)
+                {
+                    ret.push_back( Mat_at<int>(input,i+(k*this->dilation), j+(l*this->dilation) ));
+                }
+            }  
+
+
+            temp_matrix.push_back(func(ret,ip_rows,ip_columns,stride,padding,dilation,kernel));
+        }
+        
+    }
+
+    output_matrix= v2mat<float,float>(temp_matrix,SA_output_dimension,SA_output_dimension);
+    return output_matrix;
+}
+
+Pooler::Pooler(int stride,int kernel ,int padding ,int dilation) : stride{stride} , kernel{kernel} , padding{padding}, dilation{dilation}
+{
+}
+
+float max_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel){ 
+
+    auto max = max_element(input.begin(),input.end());
+
+    return (*max);  
+
+}
+float average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel){ 
+
+    float avg= std::accumulate(input.begin(),input.end(),0)/((kernel*kernel)+1.0-1.0);
+    return avg ;  
+
+}
+fMat global_average_pooler_action(Mat input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel){
+     
+    float result=0;
+    static std::vector<int> out;
+    static fMat out_matrix;
+
+    
+    out = mat2v<int,int>(input,input.size(),input.at(0).size());
+    result = std::accumulate(out.begin(),out.end(),0)/(out.size()+1.0-1.0);
+    out_matrix.at(0).at(0) = result;
+
+    return out_matrix; 
+
+
+     
+
+
+}
+fMat Pooler :: max_pooler(Mat input , int ip_rows , int ip_columns  ){
+
+    fMat out ;
+    if(padding !=0){
+        input=Padder(input,padding);
+    }
+    out= movement(input,ip_rows , ip_columns, max_pooler_action);
+    return out;
+}
+
+fMat Pooler :: average_pooler(Mat input , int ip_rows , int ip_columns  ){
+    fMat out ;
+    if(padding !=0){
+        input=Padder(input,padding);
+    }
+    out=movement(input,ip_rows, ip_columns, average_pooler_action);
+    return out ;
+}
+
+fMat Pooler :: global_average_pooler(Mat input , int ip_rows , int ip_columns  ){
+
+    Mat out ;
+    if(padding !=0){
+        input=Padder(input,padding);
+    }
+    fMat out_matrix;
+    out_matrix = global_average_pooler_action(input,ip_rows,ip_columns,stride,padding,dilation,kernel);
+    
+    return out_matrix;
+    
+}
+
+
+
+
+Mat Padder(Mat input, int padding){
+    Mat new_mat;
+    std::vector<int> store;
+    for(int i =0 ; i< input.size()+2*padding;i++){
+        for(int j =0 ; j < input.at(0).size()+2*padding;j++){
+            if( ((i<padding)|| ( i >= input.size()+padding )) || ((j < padding) || (j>=input.at(0).size()+padding)) ){
+                store.push_back(0);
+            }
+            else{
+                store.push_back(Mat_at<int>(input,i-padding,j-padding));
+
+
+            }
+        }
+    }
+    new_mat= v2mat<int,int>(store,input.size()+2*padding,input.at(0).size()+2*padding);
+    print_vec_vec("inside padder matrix before returning",new_mat);
+    return new_mat;
+
 }

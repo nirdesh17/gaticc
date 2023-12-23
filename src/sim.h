@@ -8,17 +8,20 @@
 #include <cmath>
 #include <queue>
 #include <vector>
+#include <functional>
 
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 
-using input_t = std::uint8_t;
-using weight_t = std::uint8_t;
+using input_t = std::int8_t;
+using weight_t = std::int8_t;
 /* for partial sums */
-using reg_t = std::uint32_t;
+using reg_t = std::int32_t;
 
 using Point = std::pair<int, int>;
 using Mat = std::vector<std::vector<int>>;
+using fMat = std::vector<std::vector<float>>;
+using action = std::function<float(std::vector<int>, int, int,int  , int  , int , int )> ;
 
 class PE {
     private:
@@ -89,12 +92,18 @@ class Relu: public Chainblock {
         int exec(int x) override;
 };
 
+/*Quantizer is used to re-encode information.It is used to reduce the size and bandwidth required
+ * by 4 times.
+ *In our case we are reducing a 32bit-Int to a 8bit-Int.
+ *the original value is multiplied to a scale value and then clipped into the range of (-127,127)
+ */
 class Quantize: public Chainblock {
     int scale;
     int shift;
     public:
         Quantize(int scale, int shift);
         int exec(int x) override;
+        int clipper(int x);
 };
 
 class BatchNorm: public Chainblock {
@@ -106,6 +115,43 @@ class BatchNorm: public Chainblock {
         BatchNorm(int mean, int sd, int gamma, int beta);
         int exec(int x);
 };
+
+class Bias : public Chainblock
+{
+    int bias;
+
+public:
+    int exec(int x) override;
+};
+
+class Pooler
+{
+    int stride;
+    int kernel;
+    int padding;
+    int dilation;
+
+    auto movement(Mat input,  int ip_rows, int ip_columns, action );
+
+
+public:
+    
+    Pooler(int stride,int kernel ,int padding ,int dilation);
+    
+    
+    fMat max_pooler(Mat input , int ip_rows , int ip_columns  );
+    fMat average_pooler(Mat input , int ip_rows , int ip_columns );
+    fMat global_average_pooler(Mat input, int ip_rows , int ip_columns );
+
+};
+
+
+
+float max_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel);
+
+float average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel);
+
+fMat global_average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel);
 
 namespace PE_Graph {
     using Graph  = boost::adjacency_list<boost::vecS, boost::listS, boost::directedS, PE>;
@@ -186,6 +232,38 @@ class Tree {
         std::vector<int> breadth_first_order();
 };
 
-Mat v2mat(std::vector<int> &v, int rows, int columns);
-int Mat_at(Mat const &v, int x, int y);
+/* return element at (x,y) in v */
+template<typename T1>
+T1 Mat_at(std::vector<std::vector<T1>> const &v, int x, int y) {
+    assert(x < v.size());
+    assert(y < v[0].size());
+    return v.at(x).at(y);
+}
+
+/* convert v into 2d array (Mat) of dims (rows,column) */
+template<typename T1, typename T2>
+std::vector<std::vector<T1>> v2mat(std::vector<T2> &v, int rows, int columns) {
+    std::vector<std::vector<T1>> m;
+    for (int i = 0; i < rows; ++i) {
+        std::vector<T1> vv;
+        for (int j = 0; j < columns; ++j) {
+            vv.push_back(v.at(i*columns + j));
+        }
+        m.push_back(vv);
+    }
+    return m;
+}
+
+template<typename T1, typename T2>
+std::vector<T1> mat2v(std::vector<std::vector<T2>> m,int rows, int columns){
+        std::vector<T1> v;
+        for(int i = 0 ; i <m.size();i++){
+            for( int j = 0 ; j<m.at(0).size();j++){
+                v.push_back(Mat_at<T2>(m ,i,j));
+            }
+        }
+        return v;
+
+}
+Mat Padder(Mat input, int padding);
 
