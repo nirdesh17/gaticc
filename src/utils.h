@@ -40,8 +40,8 @@ std::vector<T> flatten(std::vector<std::vector<T>> const &vec)
     return flattened;
 }
 
-template<typename T>
-bool generate_report(const char *test_name, std::vector<T>& expected, std::vector<T>& computed) {
+template<typename expectedT,typename computedT>
+bool generate_report(const char *test_name, std::vector<expectedT>& expected, std::vector<computedT>& computed) {
     printf("---------------------------------\n");
     printf("Test Name: %s\n", test_name);
     bool status = (expected == computed);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <algorithm>
 #include "sim.h"
 
 /* The transformer interface allows new transformations to be added in a

@@ -1,6 +1,7 @@
 #include <vector>
 #include <numeric>
 #include <utility>
+#include <algorithm>
 
 #include "sim.h"
 #include "transformers.h"
@@ -65,7 +66,7 @@ std::vector<int> GemmTransformer::get_access_frequency(int rows, int cols) {
  *  transpose converts v into 1 4 2 7 5 3 8 6 9
  */
 std::vector<int> GemmTransformer::to_sys_major(std::vector<int> &v, int rows, int columns) {
-    Mat m = v2mat(v, rows, columns);
+    Mat m = v2mat<int,int>(v, rows, columns);
     Tree t = Tree(m, rows, columns);
     std::vector<int> s = t.breadth_first_order();
     return s;
@@ -371,7 +372,7 @@ void ConvTransformer::generate_index(std::vector<Point> const &ibuf2, std::vecto
  */
 
 Mat ConvTransformer::transform(std::vector<int> &a) {
-    Mat input = v2mat(a, IW, IH);
+    Mat input = v2mat<int,int>(a, IW, IH);
     Mat out;
     std::vector<Point> ibuf(KW*KH, std::make_pair(0,0));
     std::vector<Point> ibuf2(KW*KH, std::make_pair(0,0));
