@@ -388,7 +388,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.extract_dropout_constant(node, params);
     m_model.add(new Op::Layer::Dropout(params), node);
   } else {
-    log_fatal("Unimplemented Operator: %s", opt);
+    log_fatal("Unimplemented Operator: %s", opt.c_str());
   }
 }
 
