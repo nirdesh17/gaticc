@@ -1,5 +1,17 @@
 #pragma once
 
+#include <cstdio>
+#include <cstdarg>
+
+inline void log_fatal(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  va_end(ap);
+  fprintf(stderr, "\n");
+  exit(EXIT_FAILURE);
+}
+ 
 template<typename T>
 void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
     printf("%s:\n", s);
@@ -51,4 +63,4 @@ bool generate_report(const char *test_name, std::vector<T>& expected, std::vecto
     return status;
 }
 
-void print_vec_point(const char *s, std::vector<Point> const &v);
+//void print_vec_point(const char *s, std::vector<Point> const &v);
