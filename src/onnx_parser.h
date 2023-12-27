@@ -114,7 +114,7 @@ struct Dropout : public LayerBase {
 
 } // namespace Layer
 
-using Graph = boost::adjacency_list<boost::vecS, boost::listS, boost::directedS,
+using Graph = boost::adjacency_list<boost::vecS, boost::listS, boost::bidirectionalS,
                                     LayerBase *>;
 using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
 using VertexIterator = Graph::vertex_iterator;
