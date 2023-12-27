@@ -13,11 +13,11 @@
 namespace Op {
 
 struct ConvParams {
-  int imap[2]; /* input feature map */
-  int kn; /* total number of kernels */
-  int ic; /* input channels */
-  int k[2]; /* kernel width/height */
-  int pad[4]; /* padding across all four sides */
+  int imap[2];   /* input feature map */
+  int kn;        /* total number of kernels */
+  int ic;        /* input channels */
+  int k[2];      /* kernel width/height */
+  int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
 };
 
@@ -37,6 +37,10 @@ struct MaxpoolParams {
   int stride[2];
 };
 
+struct DropoutParams {
+  float drop;
+};
+
 struct LayerBase {
   std::string name;
   virtual const char *op_type() const;
@@ -45,8 +49,6 @@ struct LayerBase {
   virtual void set_value_info_params(onnx::ValueInfoProto &t);
 };
 
-void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
-void extract_maxpool_attr(onnx::NodeProto &node, MaxpoolParams &params);
 
 namespace Layer {
 
@@ -96,6 +98,20 @@ struct Maxpool : public LayerBase {
   const char *params() const override;
 };
 
+struct Flatten : public LayerBase {
+  const char *m_optype = "Flatten";
+  const char *op_type() const override;
+};
+
+struct Dropout : public LayerBase {
+  DropoutParams m_cp;
+  const char *m_optype = "Dropout";
+  Dropout(DropoutParams &cp);
+  const char *op_type() const override;
+  const char *params() const override;
+};
+
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS, boost::directedS,
@@ -108,24 +124,45 @@ using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 class Model {
   Op::Graph g;
   /* maps an output from a node its corresponding vertex in 'g' */
-  std::map<std::string, Op::Vertex &> output_map;
-  std::map<std::string, onnx::TensorProto &> input_map;
+  std::map<std::string, Op::Vertex> output_map;
+  std::map<std::string, onnx::TensorProto &> initializer_map;
   std::map<std::string, onnx::ValueInfoProto &> value_info_map;
+  std::map<std::string, onnx::ValueInfoProto &> graph_output_map;
 
 public:
   void add(LayerBase *layer, onnx::NodeProto &node);
   void save_initializers(onnx::TensorProto &t);
+  void save_graph_outputs(onnx::ValueInfoProto &t);
   void save_value_info(onnx::ValueInfoProto &t);
+  void connect(onnx::NodeProto &node);
   void save_first_layer_input_dims(onnx::ValueInfoProto &t);
+  void connect_first_last_layer(onnx::GraphProto &graph);
+
+  void extract_dropout_constant(onnx::NodeProto &node, DropoutParams &params);
+  void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
+  void extract_maxpool_attr(onnx::NodeProto &node, MaxpoolParams &params);
+  Op::Vertex &get_input_vertex(void);
+  Op::LayerBase *get_layer_base(Op::Vertex &v);
+  Op::LayerBase *get_layer_base(Op::AdjacencyIterator &itr);
+  void bare_summary(void) const;
   void summary(void) const;
   size_t size(void);
   size_t size(void) const;
+
+  bool is_graph_output(const std::string &s) const;
+  bool is_initializer(const std::string &s) const;
+
+  Op::Vertex get_root_node(void) const;
+  Op::Neighbours get_neighbouring_vertices(Op::Vertex v) const;
+
+  void print_node(Op::Vertex v) const;
 };
 
 class Parser {
   Model m_model;
 
 public:
+  void add_operator(onnx::NodeProto &node);
   Parser(std::string filename);
   void summary(void) const;
 };

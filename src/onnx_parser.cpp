@@ -1,9 +1,12 @@
 #include "onnx.pb.h"
 #include "onnx_parser.h"
+#include "utils.h"
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <algorithm>
+#include <typeinfo>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -12,12 +15,25 @@
 #define GEMM_WEIGHT_TENSOR_DIMS 2
 #define BIAS_TENSOR_DIMS 1
 
+/* An onnx file contains most importantly a list of:
+ *
+ * [nodes]        // deescription of the network
+ * [initializers] // weights/kernels for layers that require it
+ * [value_infos]  // contains shape information
+ *
+ * this has to be read from the onnx file and populate
+ * the Op::Model graph. The graph polymorphically
+ * contains nodes that correspond to layers found
+ * in ML models. Vertices in the graph are layers,
+ * edges are connections b/w the layers. Weighted
+ * layers contain pointers to TensorProto objects
+ * in the onnx file.
+ */
+
 const char *Op::LayerBase::op_type() const { return "(null)"; }
 const char *Op::LayerBase::params() const { return "(null)"; }
-void Op::LayerBase::set_initializer_params(onnx::TensorProto &t) {
-}
-void Op::LayerBase::set_value_info_params(onnx::ValueInfoProto &t) {
-}
+void Op::LayerBase::set_initializer_params(onnx::TensorProto &t) {}
+void Op::LayerBase::set_value_info_params(onnx::ValueInfoProto &t) {}
 
 Op::Layer::Conv::Conv(ConvParams &cp) {
   std::memcpy(&m_cp, &cp, sizeof(ConvParams));
@@ -26,9 +42,8 @@ Op::Layer::Conv::Conv(ConvParams &cp) {
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
 const char *Op::Layer::Conv::params() const {
   static char ret[64];
-  sprintf(ret, "(IW,IH: %d,%d), (KN,IC,KW,KH: %d,%d,%d,%d), (S,P: %d,%d)", 
-      m_cp.imap[0], m_cp.imap[1],
-      m_cp.kn, m_cp.ic, m_cp.k[0], m_cp.k[1],
+  sprintf(ret, "(IW,IH: %d,%d), (KN,IC,KW,KH: %d,%d,%d,%d), (S,P: %d,%d)",
+          m_cp.imap[0], m_cp.imap[1], m_cp.kn, m_cp.ic, m_cp.k[0], m_cp.k[1],
           m_cp.stride[0], m_cp.pad[0]);
   return ret;
 }
@@ -38,10 +53,9 @@ void Op::Layer::Conv::set_initializer_params(onnx::TensorProto &t) {
     m_cp.ic = t.dims()[1];
     m_cp.k[0] = t.dims()[2];
     m_cp.k[1] = t.dims()[3];
-    weights = &t;   
-  }
-  else if (t.dims_size() == BIAS_TENSOR_DIMS) {
-    bias = &t;   
+    weights = &t;
+  } else if (t.dims_size() == BIAS_TENSOR_DIMS) {
+    bias = &t;
   }
 }
 
@@ -91,15 +105,15 @@ void Op::Layer::Gemm::set_initializer_params(onnx::TensorProto &t) {
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
     m_cp.wc = t.dims()[1];
-    weights = &t;   
-  }
-  else if (t.dims_size() == BIAS_TENSOR_DIMS) {
-    bias = &t;   
+    weights = &t;
+  } else if (t.dims_size() == BIAS_TENSOR_DIMS) {
+    bias = &t;
   }
 }
 
 void Op::Layer::Gemm::set_value_info_params(onnx::ValueInfoProto &t) {
-  /* TODO: REFACTOR: this can be cleaned up and turned into a generic function */
+  /* TODO: REFACTOR: this can be cleaned up and turned into a generic function
+   */
   if (t.has_type()) {
     onnx::TypeProto type = t.type();
     if (type.has_tensor_type()) {
@@ -127,44 +141,106 @@ Op::Layer::Maxpool::Maxpool(MaxpoolParams &cp) {
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
 const char *Op::Layer::Maxpool::params() const {
   static char ret[64];
-  sprintf(ret, "(KS: %d,%d), (pad: %d,%d,%d,%d), (stride: %d,%d)",
-      m_cp.k[0], m_cp.k[1],
-      m_cp.pad[0],m_cp.pad[1],m_cp.pad[2],m_cp.pad[3],
-      m_cp.stride[0],m_cp.stride[1]);
+  sprintf(ret, "(KS: %d,%d), (pad: %d,%d,%d,%d), (stride: %d,%d)", m_cp.k[0],
+          m_cp.k[1], m_cp.pad[0], m_cp.pad[1], m_cp.pad[2], m_cp.pad[3],
+          m_cp.stride[0], m_cp.stride[1]);
+  return ret;
+}
+
+const char *Op::Layer::Flatten::op_type() const {
+  return m_optype;
+}
+
+Op::Layer::Dropout::Dropout(DropoutParams &cp) {
+  std::memcpy(&m_cp, &cp, sizeof(DropoutParams));
+}
+
+const char *Op::Layer::Dropout::op_type() const {
+  return m_optype;
+}
+const char *Op::Layer::Dropout::params() const {
+  static char ret[64];
+  sprintf(ret, "Drop: %f", m_cp.drop);
   return ret;
 }
 
 void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   Op::Vertex v = boost::add_vertex(layer, g);
-  auto outputs = node.output();
-  assert(outputs.size() == 1 && "a node must have only one output");
-  output_map.insert({outputs.at(0), v});
 
   if (node.has_name()) {
     layer->name = node.name();
   }
 
-  auto inputs = node.input();
-  for (int i = 0; i < inputs.size(); ++i) {
-    auto itr = output_map.find(inputs.at(i));
-    if (itr != output_map.end()) {
-      boost::add_edge((*itr).second, v, g);
+  for (auto i: node.input()) {
+    if (!is_initializer(i)) {
+      // this is a non-weighted input (i.e. its values
+      // are not pre-computed
+      output_map.insert({i, v});
     }
-    auto itr2 = value_info_map.find(inputs.at(i));
+    /* find value_info param for `i` */
+    auto itr2 = value_info_map.find(i);
     if (itr2 != value_info_map.end()) {
       layer->set_value_info_params(itr2->second);
     }
+    /* find initializer for `i` */
+    auto itr3 = initializer_map.find(i);
+    if (itr3 != initializer_map.end()) {
+      layer->set_initializer_params(itr3->second);
+    }
   }
-  for (int i = 0; i < inputs.size(); ++i) {
-    auto itr = input_map.find(inputs.at(i));
-    if (itr != input_map.end()) {
-      layer->set_initializer_params(itr->second);
+}
+
+bool Op::Model::is_initializer(const std::string &s) const {
+  auto itr = initializer_map.find(s);
+  if (itr != initializer_map.end()) {
+    return true;
+  }
+  return false;
+}
+
+bool Op::Model::is_graph_output(const std::string &s) const {
+  auto itr = graph_output_map.find(s);
+  if (itr != graph_output_map.end()) {
+    return true;
+  }
+  return false;
+}
+
+void Op::Model::connect(onnx::NodeProto &node) {
+  /* find the Op::Vertex for `node` */
+  Op::Vertex current_node;
+  for (auto i : node.input()) {
+    if (!is_initializer(i)) {
+      auto itr2 = output_map.find(i);
+      if (itr2 != output_map.end()) {
+        // found vertex for current node
+        current_node = itr2->second;
+      } else {
+        log_fatal("Coudn't find node %s in output_map", i.c_str());
+      }
+    }
+  }
+
+  /* find and connect all output nodes of `node` */
+  for (auto i : node.output()) {
+    if (!is_graph_output(i)) {
+      auto itr = output_map.find(i);
+      if (itr != output_map.end()) {
+        /* connect */
+        boost::add_edge(current_node, itr->second, g);
+      } else {
+        log_fatal("Coudn't find node %s in output_map", i.c_str());
+      }
     }
   }
 }
 
 void Op::Model::save_initializers(onnx::TensorProto &t) {
-  input_map.insert({t.name(), t});
+  initializer_map.insert({t.name(), t});
+}
+
+void Op::Model::save_graph_outputs(onnx::ValueInfoProto &t) {
+  graph_output_map.insert({t.name(), t});
 }
 
 void Op::Model::save_value_info(onnx::ValueInfoProto &t) {
@@ -180,16 +256,48 @@ void Op::Model::save_first_layer_input_dims(onnx::ValueInfoProto &t) {
 
 size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
-void Op::Model::summary(void) const {
+
+void Op::Model::print_node(Op::Vertex v) const {
+  LayerBase *node = g[v];
+  std::cout << "Type: " << node->op_type() << '\n';
+  std::cout << "Params: " << node->params() << '\n';
+  std::cout << "Name: " << node->name << '\n';
+  std::cout << "Out Degree: " << boost::out_degree(v, g) << '\n';
+  std::cout << "In Degree: " << boost::in_degree(v, g) << '\n';
+  std::cout << '\n';
+}
+
+
+void Op::Model::bare_summary(void) const {
   Op::VertexIterator vb, ve;
   std::tie(vb, ve) = boost::vertices(g);
   for (auto itr = vb; itr != ve; ++itr) {
-    LayerBase* node = g[*itr];
-    std::cout << "Type: " << node->op_type() << '\n';
-    std::cout << "Params: " << node->params() << '\n';
-    std::cout << "Name: " << node->name << '\n';
-    std::cout << '\n';
+    print_node(*itr);
   }
+}
+
+void Op::Model::summary(void) const {
+  Op::Vertex v = get_root_node();
+  auto n = get_neighbouring_vertices(v);
+  for (auto itr = n.first; itr != n.second; ++itr) {
+    print_node(*itr);
+  }
+}
+
+Op::Vertex& Op::Model::get_input_vertex(void) {
+  Op::VertexIterator vb, ve;
+  std::tie(vb, ve) = boost::vertices(g);
+  return *vb;
+}
+
+Op::LayerBase *Op::Model::get_layer_base(Op::Vertex &v) { return g[v]; }
+
+Op::LayerBase *Op::Model::get_layer_base(Op::AdjacencyIterator &itr) {
+  return g[*itr];
+}
+
+Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
+  return boost::adjacent_vertices(v, g);
 }
 
 void parse_onnx_ints(onnx::AttributeProto &attr, int *attr_array) {
@@ -201,8 +309,9 @@ void parse_onnx_ints(onnx::AttributeProto &attr, int *attr_array) {
   }
 }
 
-/* TODO: REFACTOR: this and extract_maxpool_attr are essentially the same function */
-void Op::extract_conv_attr(onnx::NodeProto &node, Op::ConvParams &params) {
+/* TODO: REFACTOR: this and extract_maxpool_attr are essentially the same
+ * function */
+void Op::Model::extract_conv_attr(onnx::NodeProto &node, Op::ConvParams &params) {
   auto attribute = node.attribute();
   for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
     if (itr->name() == "kernel_shape") {
@@ -220,7 +329,8 @@ void Op::extract_conv_attr(onnx::NodeProto &node, Op::ConvParams &params) {
   }
 }
 
-void Op::extract_maxpool_attr(onnx::NodeProto &node, Op::MaxpoolParams &params) {
+void Op::Model::extract_maxpool_attr(onnx::NodeProto &node,
+                              Op::MaxpoolParams &params) {
   auto attribute = node.attribute();
   for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
     if (itr->name() == "kernel_shape") {
@@ -235,6 +345,50 @@ void Op::extract_maxpool_attr(onnx::NodeProto &node, Op::MaxpoolParams &params) 
       assert(itr->ints().size() == 4 && "expected pads shape to be 4 integers");
       parse_onnx_ints(*itr, params.pad);
     }
+  }
+}
+
+void Op::Model::extract_dropout_constant(onnx::NodeProto &node, Op::DropoutParams &params) {
+  auto inputs = node.input();
+  for (auto i: inputs) {
+    auto itr = initializer_map.find(i);
+    if (itr != initializer_map.end()) {
+      onnx::TensorProto &t = itr->second;
+      assert(t.data_type() == 1 && "Expect dropout constant to be a float value");
+      params.drop = t.float_data()[0];
+    }
+  }
+}
+
+Op::Vertex Op::Model::get_root_node(void) const {
+  Op::VertexIterator vb, ve;
+  std::tie(vb, ve) = boost::vertices(g);
+  return *vb;
+}
+
+void Op::Parser::add_operator(onnx::NodeProto &node) {
+  auto opt = node.op_type();
+  if (opt == "Conv") {
+    ConvParams params;
+    m_model.extract_conv_attr(node, params);
+    m_model.add(new Op::Layer::Conv(params), node);
+  } else if (opt == "Relu") {
+    m_model.add(new Op::Layer::Relu(), node);
+  } else if (opt == "Gemm") {
+    GemmParams params;
+    m_model.add(new Op::Layer::Gemm(params), node);
+  } else if (opt == "MaxPool") {
+    MaxpoolParams params;
+    m_model.extract_maxpool_attr(node, params);
+    m_model.add(new Op::Layer::Maxpool(params), node);
+  } else if (opt == "Flatten") {
+    m_model.add(new Op::Layer::Flatten(), node);
+  } else if (opt == "Dropout") {
+    DropoutParams params;
+    m_model.extract_dropout_constant(node, params);
+    m_model.add(new Op::Layer::Dropout(params), node);
+  } else {
+    log_fatal("Unimplemented Operator: %s", opt);
   }
 }
 
@@ -243,39 +397,28 @@ Op::Parser::Parser(std::string filename) {
   onnx::ModelProto p;
   p.ParseFromIstream(&in);
   onnx::GraphProto graph = p.graph();
-
+  auto graph_outputs = graph.output();
+  for (auto i : graph_outputs) {
+    m_model.save_graph_outputs(i);
+  }
   /* value info */
   auto value_infos = graph.value_info();
   for (int i = 0; i < value_infos.size(); ++i) {
     m_model.save_value_info(value_infos.at(i));
   }
-
   /* initializers */
   auto initializers = graph.initializer();
   for (int i = 0; i < initializers.size(); ++i) {
     m_model.save_initializers(initializers.at(i));
   }
-
   /* nodes */
   auto nodes = graph.node();
-  for (int i = 0; i < nodes.size(); ++i) {
-    auto opt = nodes.at(i).op_type();
-    if (opt == "Conv") {
-      ConvParams params;
-      extract_conv_attr(nodes.at(i), params);
-      m_model.add(new Op::Layer::Conv(params), nodes.at(i));
-    } else if (opt == "Relu") {
-      m_model.add(new Op::Layer::Relu(), nodes.at(i));
-    } else if (opt == "Gemm") {
-      GemmParams params;
-      m_model.add(new Op::Layer::Gemm(params), nodes.at(i));
-    } else if (opt == "MaxPool") {
-      MaxpoolParams params;
-      extract_maxpool_attr(nodes.at(i), params);
-      m_model.add(new Op::Layer::Maxpool(params), nodes.at(i));
-    }
+  for (auto i : nodes) {
+    add_operator(i);
   }
-  
+  for (int i = 0; i < nodes.size(); ++i) {
+    m_model.connect(nodes.at(i));
+  }
   /* input dimensions to the first layer are stored in graph.input
    * and needs special treatment
    */
@@ -284,6 +427,5 @@ Op::Parser::Parser(std::string filename) {
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
 }
 
-void Op::Parser::summary() const {
-  m_model.summary();
-}
+void Op::Parser::summary() const { m_model.summary(); }
+
