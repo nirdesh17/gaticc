@@ -65,5 +65,15 @@ bool generate_report(const char *test_name, std::vector<expectedT>& expected, st
     print_vec("Computed: ", computed);
     return status;
 }
+template<typename T1, typename T2>   // put an assert
+ std::vector<std::vector<T1>> add_mat(std::vector<std::vector<T2>> input1, std::vector<std::vector<T2>> input2){
+    std::vector<std::vector<T2>> out(input1.size(),std::vector<T2>(input1.at(0).size(),0));
+    for(int i = 0 ; i < input1.size() ; i ++){
+        for(int j = 0 ; j < input1.at(0).size(); j ++){
+            out.at(i).at(j) = input1.at(i).at(j) + input2.at(i).at(j);
+        }
+    }
+    return out;
+}
 
 //void print_vec_point(const char *s, std::vector<Point> const &v);

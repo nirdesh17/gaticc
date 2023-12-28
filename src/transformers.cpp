@@ -90,7 +90,7 @@ void GemmTransformer::zero_pad(Mat& out, std::vector<int>& frequency, int column
 }
 
 
-Mat GemmTransformer::transform(std::vector<int> &a) {
+Mat GemmTransformer::transform(std::vector<int> &a) {   // retun val should be changed to float?
     if (arows < acolumns) {
         /* TODO: implement this in to_systolic_order() */
         printf("[ERR]: Input rows less than input columns prohibited. This is an "
