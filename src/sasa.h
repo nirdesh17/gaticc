@@ -18,13 +18,13 @@ class SASA{
 		std::vector<SA*> create_sasa(int sa_channel_rows,int sa_channel_columns, int sa_channels);
 		std::vector<ConvTransformer*> create_ConvTransformer(int IW, int IH, int KW, int KH, int srows, int scols){
 
-		std::vector<fMat> input_tensor_transformer(std::vector<fMat> input_tensor, std::vector<ConvTransformer*> CT_ptr);  
-		std::vector<float> load_kernel_tensors(std::vector<std::vector<fMat>> input_kernel, int kernel_channel, int kernel_number); // NCHW
-		void load_weights_tensor(fMat kernel_weight, int column_pos);
-		void master(std::vector<fMat> input_tensor,std::vector<std::vector<fMat>> input_kernel);
-		fMat operatorr(std::vector<fMat> transformed_mats, std::vector<SA*> SA_ptr, ConvTransformer* CT_ptr);
-		void SASA::splitter(std::vector<std::vector<fMat>>&vec , fMat temp_mat , int channel_number);
-		fMat SASA:: adder(std::vector<fMat> input);
+		std::vector<Mat> input_tensor_transformer(std::vector<Mat> input_tensor, std::vector<ConvTransformer*> CT_ptr);  
+		std::vector<int> load_kernel_tensors(std::vector<std::vector<Mat>> input_kernel, int kernel_channel, int kernel_number); // NCHW
+		void load_weights_tensor(Mat kernel_weight, int column_pos);
+		void master(std::vector<Mat> input_tensor,std::vector<std::vector<Mat>> input_kernel);
+		Mat operatorr(std::vector<Mat> transformed_mats, std::vector<SA*> SA_ptr, ConvTransformer* CT_ptr);
+		void SASA::splitter(std::vector<std::vector<Mat>>&vec , Mat temp_mat , int channel_number);
+		Mat SASA:: adder(std::vector<Mat> input);
 	
 };
 
@@ -54,27 +54,27 @@ std::vector<ConvTransformer*> SASA::create_ConvTransformer(int IW, int IH, int K
 
 
 
-std::vector<fMat> SASA::input_tensor_transformer(std::vector<fMat> input_tensor,std::vector<ConvTransformer*> CT_ptr){
+std::vector<Mat> SASA::input_tensor_transformer(std::vector<Mat> input_tensor,std::vector<ConvTransformer*> CT_ptr){
 
-	std::vector<fMat> transformed_mats(input_tensor.size());
+	std::vector<Mat> transformed_mats(input_tensor.size());
 	for(int i = 0 ; i < input_tensor.size() ; i ++){
-		transformed_mats.at(i).push_back( CT_ptr.at(i)->(fMat)transform(mat2v<float,float>(input_tensor.at(i), input_tensor.at(i).size(),input_tensor.at(i).at(i).size()))); 
+		transformed_mats.at(i).push_back( CT_ptr.at(i)->transform(mat2v<int,int>(input_tensor.at(i), input_tensor.at(i).size(),input_tensor.at(i).at(i).size()))); 
 	}
 	return transformed_mats;
 
 }
 
-std::vector<float> SASA:: load_kernel_tensors(std::vector<std::vector<fMat>> input_kernel, int kernel_channel,int kernel_number){
+std::vector<int> SASA:: load_kernel_tensors(std::vector<std::vector<Mat>> input_kernel, int kernel_channel,int kernel_number){
 
 
 
-	std::vector<float> kernel_tensor(sa_channel_rows*sa_channel_columns);
-	std::vector<float> output_tensor(sa_channel_rows*sa_channel_columns);
+	std::vector<int> kernel_tensor(sa_channel_rows*sa_channel_columns);
+	std::vector<int> output_tensor(sa_channel_rows*sa_channel_columns);
 
 
 	for(int i = kernel_number ; i < (kernel_number+ sa_channel_columns) ; i ++){
 		
-		kernel_tensor = mat2v<float,float>(input_kernel.at(i).at(kernel_channel), input_kernel.at(0).at(0).size(),input_kernel.at(0).at(0).at(0).size());
+		kernel_tensor = mat2v<int,int>(input_kernel.at(i).at(kernel_channel), input_kernel.at(0).at(0).size(),input_kernel.at(0).at(0).at(0).size());
 
 		for(int j = 0 ; j < sa_channel_rows; j++){
 		
@@ -88,28 +88,24 @@ std::vector<float> SASA:: load_kernel_tensors(std::vector<std::vector<fMat>> inp
 }
 
 
-void SASA::load_weights_tensor(SA* SA_ptr, ConvTransformer* CT_ptr, std::vector<float> input) {
-    // transform weights is a func of Convtransform
+void SASA::load_weights_tensor(SA* SA_ptr, ConvTransformer* CT_ptr, std::vector<int> input) {
 	SA_ptr->load_weights(CT_ptr->transform_weights(input,sa_channel_rows,sa_channel_columns));
-	
 }
 
 
-fMat SASA::operatorr(fMat transformed_mats, SA* SA_ptr, ConvTransformer* CT_ptr){
+Mat SASA::operatorr(Mat transformed_mats, SA* SA_ptr, ConvTransformer* CT_ptr){
 
-	std::vector<fMat> adder_mat(8); 
-	std::vector<fMat> output;
-	std::vector<float> vec;
-	fMat out_mat;
+	std::vector<Mat> output;
+	std::vector<int> vec;
+	Mat out_mat;
 	
 	for(int i = 0 ; i < sa_channels; i ++){
-			// yaha pr b wo dekhna padega jo limited jaga h fpga pr aur phir reuse krte h
 		
-			SA_ptr->propagate(transformed_mats);
-			output = SA_ptr->get_output(); 
+			SA_ptr->propagate(transformed_mats);  // fix chain here
+			output= SA_ptr->get_output(); 
 			vec = CT_ptr->untransform(output);
 
-			out_mat = v2mat<float,float>(vec,sa_channel_columns,vec.size()/sa_channel_columns);
+			out_mat = v2mat<int,int>(vec,sa_channel_columns,vec.size()/sa_channel_columns);
 
 			// here it is filling the vec (linear) with all the values upto kernel 7 (sa_column)	
 	}
@@ -121,7 +117,7 @@ fMat SASA::operatorr(fMat transformed_mats, SA* SA_ptr, ConvTransformer* CT_ptr)
    that channel will have no significance of its index .
 */
 
-fMat SASA:: adder(std::vector<fMat> input){
+Mat SASA:: adder(std::vector<Mat> input){
 
 
 	for(int m = 0 ; m < input.at(0).size(); m ++){
@@ -134,20 +130,20 @@ fMat SASA:: adder(std::vector<fMat> input){
 		}
 }
 
-void SASA::splitter(std::vector<std::vector<fMat>>&vec , fMat temp_mat , int channel_number , int kernel_number){
+void SASA::splitter(std::vector<std::vector<Mat>>&vec , Mat temp_mat , int channel_number , int kernel_number){
 	for(int i = kernel_number ; i < (kernel_number + temp_mat.size()) ; i ++){
 		vec.at(channel_number).at(i).push_back( temp_mat.at(i));
 	}
 }
 
-void SASA::master(std::vector<fMat> input_tensor,std::vector<std::vector<fMat>> input_kernel){  //NCHW         // master/ Control Unit
+void SASA::master(std::vector<Mat> input_tensor,std::vector<std::vector<Mat>> input_kernel){  //NCHW         // master/ Control Unit
 	
 	std::vector<SA*> SA_ptr = create_sasa(sa_channel_rows,sa_channel_columns,sa_channels);
-	std::vector<fMat> transformed_mats;
-	std::vector<float> output_weights;
-	std::vector<std::vector<fMat>> vec;   // channel pointers -> kernel pointers (0-7) -> linear upto c0k7
-	fMat temp_mat;
-	fMat output_mat;
+	std::vector<Mat> transformed_mats;
+	std::vector<int> output_weights;
+	std::vector<std::vector<Mat>> vec;   // channel pointers -> kernel pointers (0-7) -> linear upto c0k7
+	Mat temp_mat;
+	Mat output_mat;
 	std::vector<ConvTransformer*> CT_ptr= create_ConvTransformer(input_tensor.at(0).size(),input_tensor.at(0).at(0).size(),
 																input_kernel.at(0).at(0).size(),input_kernel.at(0).at(0).at(0).size(),
 																sa_channel_rows,sa_channel_columns);
@@ -178,6 +174,6 @@ void SASA::master(std::vector<fMat> input_tensor,std::vector<std::vector<fMat>> 
 
 /* TODO:
 check the ' at() ' of all vectors , if they exist or not, before 'push_back'ing into them
-templates for the demanding functions 
+chain
 */
 
