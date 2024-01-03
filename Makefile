@@ -1,6 +1,6 @@
 ROOT_DIR=.
 SRC_DIR=${ROOT_DIR}/src
-LIBSIM_OBJ=${ROOT_DIR}/sim.o ${ROOT_DIR}/transformers.o 
+LIBSIM_OBJ=${ROOT_DIR}/sim.o ${ROOT_DIR}/transformers.o ${ROOT_DIR}/sasa.o
 OBJ=${LIBSIM_OBJ} ${ROOT_DIR}/main.o ${ROOT_DIR}/ffi.o ${ROOT_DIR}/ops.o ${ROOT_DIR}/onnx_parser.o ${ROOT_DIR}/onnx.pb.o
 FLAGS=-g -std=c++17 `pkg-config --cflags python3`
 TESTDIR=${ROOT_DIR}/tests
@@ -13,6 +13,9 @@ main.o: ${SRC_DIR}/main.cpp ${SRC_DIR}/utils.h ${SRC_DIR}/sim.h ${SRC_DIR}/trans
 	g++ ${FLAGS} -c $<
 
 sim.o: ${SRC_DIR}/sim.cpp ${SRC_DIR}/sim.h ${SRC_DIR}/utils.h
+	g++ ${FLAGS} -c $<
+
+sasa.o: ${SRC_DIR}/sasa.cpp ${SRC_DIR}/sasa.h ${SRC_DIR}/utils.h
 	g++ ${FLAGS} -c $<
 
 transformers.o: ${SRC_DIR}/transformers.cpp ${SRC_DIR}/transformers.h ${SRC_DIR}/sim.h
