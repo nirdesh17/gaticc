@@ -176,6 +176,14 @@ const char *Op::Layer::BatchNorm::op_type() const {
   return m_optype;
 }
 
+const char *Op::Layer::ReorderOutput::op_type() const {
+  return m_optype;
+}
+
+const char *Op::Layer::Reshape::op_type() const {
+  return m_optype;
+}
+
 void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   Op::Vertex v = boost::add_vertex(layer, g);
 
@@ -292,11 +300,9 @@ void Op::Model::time_estimate(int M, int N, int K) const {
         // depth wise
         available_pe_columns = K;
       } 
-#if 0
       else if (c->m_cp.k[0] == 1 && c->m_cp.k[1] == 1) {
         available_pe_columns = (1 * 32 * 18);
       } 
-#endif
       else {
         // all other types of convolutions
         available_pe_columns = N * K;
@@ -468,6 +474,10 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::GlobalAveragePool(), node);
   } else if (opt == "BatchNormalization") {
     m_model.add(new Op::Layer::BatchNorm(), node);
+  } else if (opt == "ReorderOutput") {
+    m_model.add(new Op::Layer::ReorderOutput(), node);
+  } else if (opt == "Reshape") {
+    m_model.add(new Op::Layer::Reshape(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }

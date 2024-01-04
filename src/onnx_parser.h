@@ -136,7 +136,7 @@ struct Add : public LayerBase {
 };
 
 struct GlobalAveragePool : public LayerBase {
-  const char *m_optype = "Add";
+  const char *m_optype = "GlobalAveragePool";
   const char *op_type() const override;
 };
 
@@ -152,6 +152,18 @@ struct BatchNorm : public LayerBase {
   onnx::TensorProto *mean;
   onnx::TensorProto *var;
   /* TODO: get  TensorProtos above */
+};
+
+struct ReorderOutput : public LayerBase {
+  const char *m_optype = "ReorderOutput";
+  const char *op_type() const override;
+  /* TODO: this layer, what even is this? */
+};
+
+struct Reshape : public LayerBase {
+  const char *m_optype = "Reshape";
+  const char *op_type() const override;
+  /* TODO: add params to this layer */
 };
 
 } // namespace Layer
