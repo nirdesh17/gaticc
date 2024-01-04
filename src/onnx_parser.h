@@ -22,7 +22,8 @@ struct ConvParams {
 };
 
 struct ClipParams {
-  int clip;
+  int min;
+  int max;
 };
 
 struct GemmParams {
@@ -111,6 +112,15 @@ struct Dropout : public LayerBase {
   const char *params() const override;
 };
 
+struct Add : public LayerBase {
+  const char *m_optype = "Add";
+  const char *op_type() const override;
+};
+
+struct GlobalAveragePool : public LayerBase {
+  const char *m_optype = "Add";
+  const char *op_type() const override;
+};
 
 } // namespace Layer
 
@@ -128,9 +138,12 @@ class Model {
   std::map<std::string, onnx::TensorProto &> initializer_map;
   std::map<std::string, onnx::ValueInfoProto &> value_info_map;
   std::map<std::string, onnx::ValueInfoProto &> graph_output_map;
+  /* All 'Constants' in the onnx model are looked up using this table */
+  std::map<std::string, onnx::NodeProto &> constant_pool;
 
 public:
   void add(LayerBase *layer, onnx::NodeProto &node);
+  void add_to_constant_pool(onnx::NodeProto &node);
   void save_initializers(onnx::TensorProto &t);
   void save_graph_outputs(onnx::ValueInfoProto &t);
   void save_value_info(onnx::ValueInfoProto &t);
@@ -141,11 +154,13 @@ public:
   void extract_dropout_constant(onnx::NodeProto &node, DropoutParams &params);
   void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
   void extract_maxpool_attr(onnx::NodeProto &node, MaxpoolParams &params);
+  void extract_clip_params(onnx::NodeProto &node, ClipParams &params);
   Op::Vertex &get_input_vertex(void);
   Op::LayerBase *get_layer_base(Op::Vertex &v);
   Op::LayerBase *get_layer_base(Op::AdjacencyIterator &itr);
   void bare_summary(void) const;
   void summary(void) const;
+  void time_estimate(int M, int N, int K) const;
   size_t size(void);
   size_t size(void) const;
 
@@ -165,6 +180,7 @@ public:
   void add_operator(onnx::NodeProto &node);
   Parser(std::string filename);
   void summary(void) const;
+  void time_estimate(int M, int N, int K) const;
 };
 
 } // namespace Op

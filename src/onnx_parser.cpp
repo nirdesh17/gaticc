@@ -89,7 +89,7 @@ Op::Layer::Clip::Clip(ClipParams &cp) { std::memcpy(&m_cp, &cp, sizeof(cp)); }
 const char *Op::Layer::Clip::op_type() const { return m_optype; }
 const char *Op::Layer::Clip::params() const {
   static char ret[64];
-  sprintf(ret, "Clip: %d", m_cp.clip);
+  sprintf(ret, "Clip: (%d, %d)", m_cp.min, m_cp.max);
   return ret;
 }
 
@@ -162,6 +162,14 @@ const char *Op::Layer::Dropout::params() const {
   static char ret[64];
   sprintf(ret, "Drop: %f", m_cp.drop);
   return ret;
+}
+
+const char *Op::Layer::Add::op_type() const {
+  return m_optype;
+}
+
+const char *Op::Layer::GlobalAveragePool::op_type() const {
+  return m_optype;
 }
 
 void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
@@ -267,6 +275,46 @@ void Op::Model::print_node(Op::Vertex v) const {
   std::cout << '\n';
 }
 
+void Op::Model::time_estimate(int M, int N, int K) const {
+  Op::VertexIterator vb, ve;
+  std::tie(vb, ve) = boost::vertices(g);
+  long cycles = 0;
+  for (auto itr = vb; itr != ve; ++itr) {
+    LayerBase *node = g[*itr];
+    if (node->op_type() == "Conv") {
+      Op::Layer::Conv *c = (Op::Layer::Conv *)node;
+      int available_pe_columns = 0;
+      if (c->m_cp.ic == 1) {
+        // depth wise
+        available_pe_columns = K;
+      } 
+#if 0
+      else if (c->m_cp.k[0] == 1 && c->m_cp.k[1] == 1) {
+        available_pe_columns = (1 * 32 * 18);
+      } 
+#endif
+      else {
+        // all other types of convolutions
+        available_pe_columns = N * K;
+      }
+      int t = (((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) *
+               (c->m_cp.imap[0] * c->m_cp.imap[1]));
+      cycles += t;
+      std::cout << "Time: " << (float)t / 1e5 << "ms\n";
+      print_node(*itr);
+    } else if (node->op_type() == "Gemm") {
+      Op::Layer::Gemm *g = (Op::Layer::Gemm *)node;
+      assert(g->m_cp.wc == g->m_cp.is);
+      int available_pe_columns = (N*K > 32) ? 32 : N*K;
+      int t = (g->m_cp.wr / available_pe_columns) * g->m_cp.is;
+      cycles += t;
+      std::cout << "Time: " << (float)t / 1e5 << "ms\n";
+      print_node(*itr);
+    }
+  }
+  std::cout << "Total Estimated time for convolutions: " << (float)cycles / 1e5
+            << "ms\n";
+}
 
 void Op::Model::bare_summary(void) const {
   Op::VertexIterator vb, ve;
@@ -329,6 +377,18 @@ void Op::Model::extract_conv_attr(onnx::NodeProto &node, Op::ConvParams &params)
   }
 }
 
+void Op::Model::extract_clip_params(onnx::NodeProto &node, ClipParams &params) {
+  for (auto i : node.input()) {
+    auto itr = constant_pool.find(i);
+    if (itr != constant_pool.end()) {
+      // extract attributes
+      /* TODO: complete this function */
+    } else {
+      //log_fatal("Could'nt find constants for clip params");
+    }
+  }
+}
+
 void Op::Model::extract_maxpool_attr(onnx::NodeProto &node,
                               Op::MaxpoolParams &params) {
   auto attribute = node.attribute();
@@ -366,6 +426,11 @@ Op::Vertex Op::Model::get_root_node(void) const {
   return *vb;
 }
 
+void Op::Model::add_to_constant_pool(onnx::NodeProto &node) {
+  constant_pool.insert({node.name(), node});
+}
+
+
 void Op::Parser::add_operator(onnx::NodeProto &node) {
   auto opt = node.op_type();
   if (opt == "Conv") {
@@ -387,6 +452,16 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     DropoutParams params;
     m_model.extract_dropout_constant(node, params);
     m_model.add(new Op::Layer::Dropout(params), node);
+  } else if (opt == "Constant") {
+    // do nothing, constants have already been added
+  } else if (opt == "Clip") {
+    ClipParams params;
+    m_model.extract_clip_params(node, params);
+    m_model.add(new Op::Layer::Clip(params), node);
+  } else if (opt == "Add") {
+    m_model.add(new Op::Layer::Add(), node);
+  } else if (opt == "GlobalAveragePool") {
+    m_model.add(new Op::Layer::GlobalAveragePool(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }
@@ -413,19 +488,30 @@ Op::Parser::Parser(std::string filename) {
   }
   /* nodes */
   auto nodes = graph.node();
+  // add constants
+  for (auto i : nodes) {
+    if (i.op_type() == "Constant") {
+      m_model.add_to_constant_pool(i);
+    }
+  }
   for (auto i : nodes) {
     add_operator(i);
   }
   for (int i = 0; i < nodes.size(); ++i) {
+    if (nodes.at(i).op_type() == "Constant") {
+      continue;
+    }
     m_model.connect(nodes.at(i));
   }
   /* input dimensions to the first layer are stored in graph.input
    * and needs special treatment
    */
   auto graph_inputs = graph.input();
-  assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
+  //assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
 }
 
-void Op::Parser::summary() const { m_model.summary(); }
-
+void Op::Parser::summary() const { m_model.bare_summary(); }
+void Op::Parser::time_estimate(int M, int N, int K) const {
+  m_model.time_estimate(M, N, K);
+}
