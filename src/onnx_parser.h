@@ -45,8 +45,26 @@ struct DropoutParams {
 struct LayerBase {
   std::string name;
   virtual const char *op_type() const;
+  /* Returns a pretty-formatted string of hyper-parameters that
+   * the layer takes. Layers without any parameters may not override
+   * this.
+   */
   virtual const char *params() const;
+  /* Initializers are onnx::TensorProto objects that contains 
+   * weights of a weighted layer (for eg, conv, gemm, batchnorm).
+   * Classes that override this function should be weighted layers
+   * that store a pointer to all the TensorProto they care about.
+   * Not all layers have a TensorProto.
+   * See Op::Layer::Conv for eg.
+   */
   virtual void set_initializer_params(onnx::TensorProto &t);
+  /* ValueInfos are onnx::ValueInfoProto objects that contain
+   * shape/dimension information among other things of a node.
+   * Classes that override this function should be layers that
+   * care about these extra values.
+   * Not all layers have a ValueInfoProto.
+   * See Op::Layer::Conv for eg.
+   */
   virtual void set_value_info_params(onnx::ValueInfoProto &t);
 };
 
@@ -121,6 +139,7 @@ struct GlobalAveragePool : public LayerBase {
   const char *m_optype = "Add";
   const char *op_type() const override;
 };
+
 
 } // namespace Layer
 
