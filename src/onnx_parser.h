@@ -140,6 +140,19 @@ struct GlobalAveragePool : public LayerBase {
   const char *op_type() const override;
 };
 
+struct BatchNorm : public LayerBase {
+  const char *m_optype = "BatchNorm";
+  const char *op_type() const override;
+  /* BatchNorm has static parameters namely epsilon and momentum.
+   * These are not used during inference, hence the omission of
+   * params() override.
+   */
+  onnx::TensorProto *scale;
+  onnx::TensorProto *B;
+  onnx::TensorProto *mean;
+  onnx::TensorProto *var;
+  /* TODO: get  TensorProtos above */
+};
 
 } // namespace Layer
 

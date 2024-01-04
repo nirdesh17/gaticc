@@ -172,6 +172,10 @@ const char *Op::Layer::GlobalAveragePool::op_type() const {
   return m_optype;
 }
 
+const char *Op::Layer::BatchNorm::op_type() const {
+  return m_optype;
+}
+
 void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   Op::Vertex v = boost::add_vertex(layer, g);
 
@@ -462,6 +466,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Add(), node);
   } else if (opt == "GlobalAveragePool") {
     m_model.add(new Op::Layer::GlobalAveragePool(), node);
+  } else if (opt == "BatchNormalization") {
+    m_model.add(new Op::Layer::BatchNorm(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }
