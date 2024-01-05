@@ -287,6 +287,8 @@ void Op::Model::print_node(Op::Vertex v) const {
   std::cout << '\n';
 }
 
+#define sa_odims(i, k, s, p) ((i - k + 2*p)/s)
+
 void Op::Model::time_estimate(int M, int N, int K) const {
   Op::VertexIterator vb, ve;
   std::tie(vb, ve) = boost::vertices(g);
@@ -296,19 +298,30 @@ void Op::Model::time_estimate(int M, int N, int K) const {
     if (node->op_type() == "Conv") {
       Op::Layer::Conv *c = (Op::Layer::Conv *)node;
       int available_pe_columns = 0;
+      int input_columns = 
+        sa_odims(c->m_cp.imap[0], c->m_cp.k[0], c->m_cp.stride[0], c->m_cp.pad[0])
+        * sa_odims(c->m_cp.imap[1], c->m_cp.k[1], c->m_cp.stride[0], c->m_cp.pad[0]);
+
       if (c->m_cp.ic == 1) {
-        // depth wise
+        // depth wise default
         available_pe_columns = K;
       } 
+#if 0
       else if (c->m_cp.k[0] == 1 && c->m_cp.k[1] == 1) {
+        // point wise optimization
         available_pe_columns = (1 * 32 * 18);
       } 
+#endif
+      else if (c->m_cp.k[0] > 3 && c->m_cp.k[1] > 3) {
+        // kernels greater than 3x3 
+        available_pe_columns = K;
+      }
       else {
         // all other types of convolutions
         available_pe_columns = N * K;
       }
-      int t = (((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) *
-               (c->m_cp.imap[0] * c->m_cp.imap[1]));
+
+      int t = ((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) * input_columns;
       cycles += t;
       std::cout << "Time: " << (float)t / 1e5 << "ms\n";
       print_node(*itr);
