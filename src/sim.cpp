@@ -352,7 +352,7 @@ void SA::prepare_queue(std::queue<PE_Graph::Vertex>& exec_queue) {
 }
 
 // iterate over all PEs in systolic manner and call _propagate on them
-void SA::propagate(Mat input_mat, Chain &chain) {
+void SA::propagate(Mat& input_mat, Chain &chain) {
     std::queue<PE_Graph::Vertex> exec_queue;
     std::queue<PE_Graph::Vertex> alt_queue;
     

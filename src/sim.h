@@ -188,7 +188,7 @@ class SA {
     public:
         SA(int r, int c);
         SA(int r, int c, bool profile_enabled);
-        void propagate(Mat input_mat, Chain &chain);
+        void propagate(Mat& input_mat, Chain &chain);
         Mat get_output();
         void load_weights(std::vector<int>& weights);
         void print_array();
