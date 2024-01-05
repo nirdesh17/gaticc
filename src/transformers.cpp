@@ -401,7 +401,7 @@ Mat ConvTransformer::transform(std::vector<int> &a) {
         std::copy(ibuf.begin(), ibuf.end(), ibuf2.begin());
         fill_index(out, input, ibuf, KW*KH, i);
     }
-    for (int i = 0; i < (KW-2); ++i) {
+    for (int i = 0; i < (scols-2); ++i) {
         std::vector<int> tmp(KW*KH, 0);
         out.push_back(tmp);
     }
