@@ -14,7 +14,7 @@
 #include "utils.h"
 
 #define DEBUG 1
-#define SA_output_dimension ((ip_rows + 2*padding - dilation*(kernel-1)-1)/stride) +1
+#define SA_output_dimension ((ip_rows + 2*padding - dilation*(kernel_rows-1)-1)/stride) +1
 
 PE::PE(int id, weight_t w, reg_t r, reg_t input_buffer):
     id {id},
@@ -67,8 +67,6 @@ void PE::print_pe() {
 }
 
 /* auxillary functions */
-
-/* getting coordinates from index */
 Point get_cartesian_cord(int index, int r, int c) {
     int row_n = std::floor((float)index/r);
     int col_n = index % c;
@@ -562,33 +560,26 @@ int Bias:: exec(int x){
     return x + bias;  // element wise addition
 }
 
-/* in order to make a convo repeater and max pooler we need and max pool condition and then we can select the elements
-by doing meth on rows and columns
-and make a matrix out of them and again feed it to the transformer
-repeat the process and then finally do the gem
-*/
-
-/*after max pooling the size is reduced to half by usually taking a kernel of 2*2 and stride of 2
-total number of pixels reduced is 75% */
-
-/*
-*different types of pooling : max ,average, L-2 
-*/
-
 
 /*this max pooler pools out the max val when a kernel window is slid over the output matrix after convolution
-*this max pooler has a kernel window of 2*2 and a stride of 2 (by default) which reduces the dimensions of the matrix by 2(half)
-*and overall reduces 75% of pixels from the image
-* max pooler picks the maximum val in the window
-*IF dimension of the input matrix is odd ,
+* this max pooler has a kernel window and a stride whos value can be set manually, and this process overall reduces the 
+* size of the input image.
+
+* IF dimension of the input matrix is odd ,
     in valid padding we crop out the last column
 	in same padding we add a column of zeroes
-	
 */
 
-// // feeding the same new_ mat to the transformer again and repeat the process
+/* 
+* feeding the same new_ mat to the transformer again and repeat the process 
+*/
 
+/*
+* the process is divided into two parts: 1. Movement   2. Action
 
+    1. Movement : moves the kernel window over the input matrix and call a generic action on it which will be decided
+                  by the caller.
+*/
 auto Pooler::movement(Mat input, int ip_rows, int ip_columns, action func)
 { 
     std::vector<int> ret;
@@ -600,16 +591,16 @@ auto Pooler::movement(Mat input, int ip_rows, int ip_columns, action func)
         for (int j = 0; j + dilation< ip_columns + 2*this->padding -1; j+=stride)
         {      ret.clear();
             //    output_matrix.clear();
-            for (int k = 0 ; k < this->kernel ; k++ )
+            for (int k = 0 ; k < this->kernel_cols ; k++ )
             {
-                for (int l = 0 ; l < this->kernel ; l++)
+                for (int l = 0 ; l < this->kernel_rows ; l++)
                 {
                     ret.push_back( Mat_at<int>(input,i+(k*this->dilation), j+(l*this->dilation) ));
                 }
             }  
 
 
-            temp_matrix.push_back(func(ret,ip_rows,ip_columns,stride,padding,dilation,kernel));
+            temp_matrix.push_back(func(ret,ip_rows,ip_columns,stride,padding,dilation,kernel_rows, kernel_cols));
         }
         
     }
@@ -618,33 +609,33 @@ auto Pooler::movement(Mat input, int ip_rows, int ip_columns, action func)
     return output_matrix;
 }
 
-Pooler::Pooler(int stride,int kernel ,int padding ,int dilation) : stride{stride} , kernel{kernel} , padding{padding}, dilation{dilation}
+Pooler::Pooler(int stride,int kernel_rows, int kernel_cols ,int padding ,int dilation) : stride{stride} , kernel_rows{kernel_rows}, kernel_cols{kernel_cols} , padding{padding}, dilation{dilation}
 {
 }
 
-float max_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel){ 
+float max_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols){ 
 
     auto max = max_element(input.begin(),input.end());
 
     return (*max);  
 
 }
-float average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel){ 
+float average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols){ 
 
-    float avg= std::accumulate(input.begin(),input.end(),0)/((kernel*kernel)+1.0-1.0);
+    float avg= std::accumulate(input.begin(),input.end(),0)/((float)(kernel_rows*kernel_cols));
     return avg ;  
 
 }
-fMat global_average_pooler_action(Mat input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel){
+fMat global_average_pooler_action(Mat input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols){
      
     float result=0;
     static std::vector<int> out;
-    static fMat out_matrix;
+    static fMat out_matrix(1);
 
-    
     out = mat2v<int,int>(input,input.size(),input.at(0).size());
-    result = std::accumulate(out.begin(),out.end(),0)/(out.size()+1.0-1.0);
-    out_matrix.at(0).at(0) = result;
+    result = std::accumulate(out.begin(),out.end(),0)/(float)out.size();
+    out_matrix.at(0).push_back(result);
+    std::cout<< " yaha masla che? ... kya gandav che"<<std::endl;
 
     return out_matrix; 
 
@@ -679,7 +670,9 @@ fMat Pooler :: global_average_pooler(Mat input , int ip_rows , int ip_columns  )
         input=Padder(input,padding);
     }
     fMat out_matrix;
-    out_matrix = global_average_pooler_action(input,ip_rows,ip_columns,stride,padding,dilation,kernel);
+    // out_matrix = global_average_pooler_action(input,ip_rows,ip_columns,stride,padding,dilation,kernel_rows,kernel_cols);
+        out_matrix=movement(input,ip_rows, ip_columns, average_pooler_action);
+
     
     return out_matrix;
     

@@ -34,7 +34,7 @@ int main(int argc, char* argv[]){
 	SA1.print_array();
 	auto t1 = SA1.get_output();
     auto computed = GT1.untransform(t1);
-	Pooler p1(2,2,1,1);
+	Pooler p1(2,2,2,1,1);
 	fMat pooler_output = p1.average_pooler(v2mat<int,int>(computed,7,7),7,7);
 	std::vector<float> output;
 	output = mat2v<float,float>(pooler_output,7,7);

@@ -21,7 +21,7 @@ using reg_t = std::int32_t;
 using Point = std::pair<int, int>;
 using Mat = std::vector<std::vector<int>>;
 using fMat = std::vector<std::vector<float>>;
-using action = std::function<float(std::vector<int>, int, int,int  , int  , int , int )> ;
+using action = std::function<float(std::vector<int>, int, int,int  , int  , int , int,int )> ;
 
 class PE {
     private:
@@ -127,7 +127,8 @@ public:
 class Pooler
 {
     int stride;
-    int kernel;
+    int kernel_rows;
+    int kernel_cols;
     int padding;
     int dilation;
 
@@ -136,7 +137,7 @@ class Pooler
 
 public:
     
-    Pooler(int stride,int kernel ,int padding ,int dilation);
+    Pooler(int stride,int kernel_rows,int kernel_cols ,int padding ,int dilation);
     
     
     fMat max_pooler(Mat input , int ip_rows , int ip_columns  );
@@ -147,11 +148,11 @@ public:
 
 
 
-float max_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel);
+float max_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows,int kernel_cols);
 
-float average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel);
+float average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols);
 
-fMat global_average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel);
+fMat global_average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols);
 
 namespace PE_Graph {
     using Graph  = boost::adjacency_list<boost::vecS, boost::listS, boost::directedS, PE>;
