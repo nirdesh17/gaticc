@@ -6,7 +6,7 @@
 
 int main(int argc, char* argv[]){
 
-	std::vector<float> expected {(float)487.57};
+	std::vector<float> expected { 487.57};
 
 	const int SA_rows = 7;
 	const int SA_columns = 7;
@@ -24,8 +24,9 @@ int main(int argc, char* argv[]){
 
 	Chain c1;
 	c1.push(new Chainblock());
-
 	Mat temp_mat;
+
+
 
 	GemmTransformer GT1(input_rows,input_columns,SA_rows,SA_columns);
 	auto out = GT1.transform(input_matrix);
@@ -36,7 +37,7 @@ int main(int argc, char* argv[]){
     auto computed = GT1.untransform(t1);
 	Pooler p1;
 	temp_mat= v2mat<int,int>(computed,7,7);
-	fMat pooler_output = p1.global_average_pooler(temp_mat,7,7,1,2,1,2,2);
+	fMat pooler_output = p1.global_average_pooler( temp_mat,7,7,1,2,1,2,2);
 	std::vector<float> output =mat2v< float, float>(pooler_output,7,7);
     bool status = generate_report<float,float>(argv[0], expected, output );
 
