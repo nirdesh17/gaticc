@@ -14,8 +14,8 @@
 #include "utils.h"
 
 #define DEBUG 1
-#define SA_output_dimension                                                    \
-  ((ip_rows + 2 * padding - dilation * (kernel_rows - 1) - 1) / stride) + 1
+#define sa_output_dims(ip_rows,padding,dilation,kernel_rows,stride)        \
+  (((ip_rows + 2 * padding - dilation * (kernel_rows - 1) - 1) / stride) + 1)
 
 PE::PE(int id, weight_t w, reg_t r, reg_t input_buffer)
     : id{id}, weight{w}, reg{r}, input_buffer{input_buffer}, aux_buffer{0},
@@ -552,8 +552,8 @@ auto Pooler::movement(Mat &input, int ip_rows, int ip_columns, int stride,
                                  dilation, kernel_rows, kernel_cols));
     }
   }
-  output_matrix = v2mat<float, float>(temp_matrix, SA_output_dimension,
-                                      SA_output_dimension);
+  output_matrix = v2mat<float, float>(temp_matrix, sa_output_dims(ip_rows,padding,dilation,kernel_rows,stride),
+                                      sa_output_dims(ip_rows,padding,dilation,kernel_rows,stride));
   return output_matrix;
 }
 

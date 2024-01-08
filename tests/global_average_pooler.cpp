@@ -6,7 +6,7 @@
 
 int main(int argc, char* argv[]){
 
-	std::vector<float> expected { 487.57};
+	std::vector<float> expected { 487.57025146 };
 
 	const int SA_rows = 7;
 	const int SA_columns = 7;
