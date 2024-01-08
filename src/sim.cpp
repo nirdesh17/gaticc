@@ -580,22 +580,22 @@ int Bias:: exec(int x){
     1. Movement : moves the kernel window over the input matrix and call a generic action on it which will be decided
                   by the caller.
 */
-auto Pooler::movement(Mat input, int ip_rows, int ip_columns, action func)
+auto Pooler::movement(Mat& input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows,int kernel_cols, action func)
 { 
     std::vector<int> ret;
     std::vector<float> temp_matrix;
     fMat output_matrix;
   // relation bw stride and dilation stride +dilation < columns
-    for (int i = 0; i + dilation < ip_rows + 2*this->padding -1 ; i+=stride)
+    for (int i = 0; i + (dilation * (kernel_rows-1))  < ip_rows + 2*padding  ; i+=stride)
     {
-        for (int j = 0; j + dilation< ip_columns + 2*this->padding -1; j+=stride)
+        for (int j = 0; j + (dilation * (kernel_cols-1))< ip_columns + 2*padding ; j+=stride)
         {      ret.clear();
             //    output_matrix.clear();
-            for (int k = 0 ; k < this->kernel_cols ; k++ )
+            for (int k = 0 ; k < (kernel_rows) ; k++ )
             {
-                for (int l = 0 ; l < this->kernel_rows ; l++)
+                for (int l = 0 ; l < kernel_cols ; l++)
                 {
-                    ret.push_back( Mat_at<int>(input,i+(k*this->dilation), j+(l*this->dilation) ));
+                    ret.push_back( Mat_at<int>(input,i+(k*dilation), j+(l*dilation) ));
                 }
             }  
 
@@ -604,74 +604,60 @@ auto Pooler::movement(Mat input, int ip_rows, int ip_columns, action func)
         }
         
     }
-
     output_matrix= v2mat<float,float>(temp_matrix,SA_output_dimension,SA_output_dimension);
     return output_matrix;
 }
 
-Pooler::Pooler(int stride,int kernel_rows, int kernel_cols ,int padding ,int dilation) : stride{stride} , kernel_rows{kernel_rows}, kernel_cols{kernel_cols} , padding{padding}, dilation{dilation}
-{
-}
+// Pooler::Pooler(int stride,int kernel_rows, int kernel_cols ,int padding ,int dilation) : //stride{stride} , kernel_rows{kernel_rows}, kernel_cols{kernel_cols} , padding{padding}, dilation{dilation}
+// {
+// }
 
-float max_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols){ 
+float Pooler::max_pooler_action(std::vector<int>& input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols){ 
 
     auto max = max_element(input.begin(),input.end());
 
-    return (*max);  
+    return ((float)*max);  
 
 }
-float average_pooler_action(std::vector<int> input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols){ 
+float Pooler::average_pooler_action(std::vector<int>& input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols){ 
 
     float avg= std::accumulate(input.begin(),input.end(),0)/((float)(kernel_rows*kernel_cols));
     return avg ;  
 
 }
-fMat global_average_pooler_action(Mat input, int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows, int kernel_cols){
-     
-    float result=0;
-    static std::vector<int> out;
-    static fMat out_matrix(1);
 
-    out = mat2v<int,int>(input,input.size(),input.at(0).size());
-    result = std::accumulate(out.begin(),out.end(),0)/(float)out.size();
-    out_matrix.at(0).push_back(result);
-    std::cout<< " yaha masla che? ... kya gandav che"<<std::endl;
-
-    return out_matrix; 
-
-
-     
-
-
-}
-fMat Pooler :: max_pooler(Mat input , int ip_rows , int ip_columns  ){
+fMat Pooler :: max_pooler(Mat& input , int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows,int kernel_cols ){
 
     fMat out ;
     if(padding !=0){
         input=Padder(input,padding);
     }
-    out= movement(input,ip_rows , ip_columns, max_pooler_action);
+    out= movement(input,ip_rows , ip_columns,stride , padding , dilation , kernel_rows , kernel_cols,  max_pooler_action);
     return out;
 }
 
-fMat Pooler :: average_pooler(Mat input , int ip_rows , int ip_columns  ){
+fMat Pooler :: average_pooler(Mat& input , int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows,int kernel_cols ){
     fMat out ;
     if(padding !=0){
         input=Padder(input,padding);
     }
-    out=movement(input,ip_rows, ip_columns, average_pooler_action);
+    out=movement(input,ip_rows, ip_columns,stride , padding , dilation , kernel_rows , kernel_cols, average_pooler_action);
     return out ;
 }
 
-fMat Pooler :: global_average_pooler(Mat input , int ip_rows , int ip_columns  ){
+//  global average pooler is using average pooler inside it with kernel dims == input_dims  + padding .
+fMat Pooler :: global_average_pooler(Mat& input , int ip_rows, int ip_columns,int stride , int padding , int dilation, int kernel_rows,int kernel_cols  ){
 
     Mat out ;
     if(padding !=0){
         input=Padder(input,padding);
     }
+    int temp_stride= stride + ip_rows + 2*padding;
+    int temp_kernel_rows =  ip_rows + 2*padding;
+    int temp_kernel_cols = ip_columns + 2*padding;
     fMat out_matrix;
-    // out_matrix = global_average_pooler_action(input,ip_rows,ip_columns,stride,padding,dilation,kernel_rows,kernel_cols);
-        out_matrix=movement(input,ip_rows, ip_columns, average_pooler_action);
+    
+    out_matrix=movement(input,ip_rows, ip_columns, temp_stride , padding , dilation , temp_kernel_rows , temp_kernel_cols, average_pooler_action);
 
     
     return out_matrix;

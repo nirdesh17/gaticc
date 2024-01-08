@@ -41,6 +41,6 @@ int main(int argc, char *argv[]) {
     a1.propagate(out, c1);
     auto t1 = a1.get_output();
     auto computed = t.untransform(t1);
-    bool status = generate_report<int>(argv[0], expected, computed);
+    bool status = generate_report<int,int>(argv[0], expected, computed);
     return status;
 }

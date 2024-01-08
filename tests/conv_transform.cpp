@@ -41,6 +41,6 @@ int main(int argc, char *argv[]) {
     std::iota(v.begin(), v.end(), 1);
     auto tmp = t.transform(v);
     auto computed = flatten<int>(tmp);
-    bool status = generate_report<int>(argv[0], expected, computed);
+    bool status = generate_report<int,int>(argv[0], expected, computed);
     return status;
 }

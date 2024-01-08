@@ -39,6 +39,6 @@ int main(int argc, char *argv[]) {
     a1.propagate(transformed_input, c1);
     auto output = a1.get_output();
     auto computed = t.untransform(output);
-    bool status = generate_report<int>(argv[0], expected, computed);
+    bool status = generate_report<int,int>(argv[0], expected, computed);
     return status;
 }
