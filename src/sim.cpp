@@ -506,26 +506,26 @@ int Bias::exec(int x) {
   return x + bias; // element wise addition
 }
 
-/*this max pooler pools out the max val when a kernel window is slid over the
-output matrix after convolution
+/*
+* this max pooler pools out the max val when a kernel window is slid over the
+* output matrix after convolution
 * this max pooler has a kernel window and a stride whos value can be set
-manually, and this process overall reduces the
+* manually, and this process overall reduces the
 * size of the input image.
 
 * IF dimension of the input matrix is odd ,
-    in valid padding we crop out the last column
-        in same padding we add a column of zeroes
-*/
+* in valid padding we crop out the last column
+* in same padding we add a column of zeroes
 
-/*
- * feeding the same new_ mat to the transformer again and repeat the process
- */
+* feeding the same new_ mat to the transformer again and repeat the process
 
-/*
 * the process is divided into two parts: 1. Movement   2. Action
 
-    1. Movement : moves the kernel window over the input matrix and call a
-generic action on it which will be decided by the caller.
+* Movement : moves the kernel window over the input matrix and call a
+* generic action on it which will be decided by the caller.
+
+* action : performs the told mathematical operation ( max, average etc.) 
+* on the selected elements of the kernel window
 */
 fMat Pooler::movement(Mat &input, int ip_rows, int ip_columns, int stride,
                       int padding, int dilation, int kernel_rows,
