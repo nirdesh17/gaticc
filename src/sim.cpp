@@ -527,7 +527,7 @@ manually, and this process overall reduces the
     1. Movement : moves the kernel window over the input matrix and call a
 generic action on it which will be decided by the caller.
 */
-auto Pooler::movement(Mat &input, int ip_rows, int ip_columns, int stride,
+fMat Pooler::movement(Mat &input, int ip_rows, int ip_columns, int stride,
                       int padding, int dilation, int kernel_rows,
                       int kernel_cols, action func) {
   std::vector<int> ret;
@@ -562,7 +562,7 @@ float Pooler::max_pooler_action(std::vector<int> &input, int ip_rows,
                                 int dilation, int kernel_rows,
                                 int kernel_cols) {
 
-  auto max = max_element(input.begin(), input.end());
+  auto max = std::max_element(input.begin(), input.end());
 
   return ((float)*max);
 }
@@ -623,7 +623,7 @@ fMat Pooler ::global_average_pooler(Mat &input, int ip_rows, int ip_columns,
   return out_matrix;
 }
 
-Mat Padder(Mat input, int padding) {
+Mat Padder(Mat& input, int padding) {
   Mat new_mat;
   std::vector<int> store;
   for (int i = 0; i < input.size() + 2 * padding; i++) {
@@ -638,6 +638,5 @@ Mat Padder(Mat input, int padding) {
   }
   new_mat = v2mat<int, int>(store, input.size() + 2 * padding,
                             input.at(0).size() + 2 * padding);
-  print_vec_vec("inside padder matrix before returning", new_mat);
   return new_mat;
 }
