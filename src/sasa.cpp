@@ -78,11 +78,10 @@ void SASA::load_weights_tensor(SA *SA_ptr, ConvTransformer *CT_ptr,
   SA_ptr->load_weights(temp_vec);
 }
 
-Mat SASA::slave(Mat &transformed_mats, SA *SA_ptr,
-                    ConvTransformer *CT_ptr) {
-  static int timer = 0 ;
-  if(timer == 0){
-	time_req = clock();
+Mat SASA::slave(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr) {
+  static int timer = 0;
+  if (timer == 0) {
+    time_req = clock();
   }
   Mat output;
   std::vector<int> vec;
@@ -94,11 +93,12 @@ Mat SASA::slave(Mat &transformed_mats, SA *SA_ptr,
   vec = CT_ptr->untransform(output);
   out_mat =
       v2mat<int, int>(vec, sa_channel_columns, vec.size() / sa_channel_columns);
-  
-  if(timer==0){
-	time_req = clock() - time_req;
-	std::cout << "Time taken by slave in seconds : " << float(time_req)/CLOCKS_PER_SEC<<std::endl;
-	timer++;
+
+  if (timer == 0) {
+    time_req = clock() - time_req;
+    std::cout << "Time taken by slave in seconds : "
+              << float(time_req) / CLOCKS_PER_SEC << std::endl;
+    timer++;
   }
 
   // here it is filling the vec (linear) with all the values upto kernel 7
@@ -144,7 +144,7 @@ void SASA::splitter(std::vector<Mat> &vec, Mat &temp_mat, int channel_number,
  */
 Mat SASA::master(std::vector<Mat> &input_tensor,
                  std::vector<std::vector<Mat>> &input_kernel) { // NCHW
-	clock_t timer = clock();
+  clock_t timer = clock();
   std::vector<SA *> SA_ptr =
       create_sasa(sa_channel_rows, sa_channel_columns, sa_channels);
   std::vector<Mat> transformed_mats;
@@ -174,16 +174,19 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
   for (int k = 0; k < input_kernel_channels / sa_channels + 1;
        k++, (channel_count > sa_channels ? channel_count -= sa_channels
                                          : channel_count)) {
-    for (int i = 0; i < input_kernel_size/sa_channel_columns +1; i++) {   // important fix
+    for (int i = 0; i < ((input_kernel_size % sa_channel_columns == 0)
+                             ? (input_kernel_size / sa_channel_columns)
+                             : (input_kernel_size / sa_channel_columns + 1));
+         i++) {
       for (int j = 0;
            j < (channel_count <= sa_channels ? channel_count : sa_channels);
            j++) {
         output_weights =
             load_kernel_tensors(input_kernel, (k * sa_channels + j), i * 8);
-		load_weights_tensor(SA_ptr.at(j), CT_ptr.at(j), output_weights);
-        temp_mat = slave(transformed_mats.at(k * sa_channels + j),
-                             SA_ptr.at(j), CT_ptr.at(j));
-		splitter(vec, temp_mat, (k * sa_channels + j), i * 8,
+        load_weights_tensor(SA_ptr.at(j), CT_ptr.at(j), output_weights);
+        temp_mat = slave(transformed_mats.at(k * sa_channels + j), SA_ptr.at(j),
+                         CT_ptr.at(j));
+        splitter(vec, temp_mat, (k * sa_channels + j), i * 8,
                  input_kernel_size);
       }
     }
@@ -191,8 +194,8 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
   output_mat = adder(vec);
   timer = clock() - timer;
 
-  std::cout << "Time taken by whole pgm in seconds : " << float(timer)/CLOCKS_PER_SEC<<std::endl;
-
+  std::cout << "Time taken by whole pgm in seconds : "
+            << float(timer) / CLOCKS_PER_SEC << std::endl;
 
   return output_mat;
 }
