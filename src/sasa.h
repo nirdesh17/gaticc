@@ -2,6 +2,8 @@
 #include "transformers.h"
 #include "utils.h"
 #include <iostream>
+#include <thread>
+#include <future>
 
 class SASA {
 private:
@@ -16,6 +18,9 @@ private:
   int input_tensor_rows;
   int input_tensor_cols;
   clock_t time_req;
+  bool create_thread;
+
+  std::vector<std::vector<std::thread*>> create_threads(int sa_channels, int sa_channel_rows, int sa_channel_columns);
   
   std::vector<SA *> create_sasa(int sa_channel_rows, int sa_channel_columns,
                                 int sa_channels);
@@ -28,6 +33,9 @@ private:
   std::vector<int>
   load_kernel_tensors(std::vector<std::vector<Mat>> &input_kernel,
                       int kernel_channel, int kernel_number); // NCHW
+  std::vector<int>
+  load_kernel_tensors_thread(std::vector<std::vector<Mat>> &input_kernel,
+                      int kernel_channel, int kernel_number); // NCHW
   void load_weights_tensor(SA *SA_ptr, ConvTransformer *CT_ptr,
                            std::vector<int> &input);
   Mat slave(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr);
@@ -36,7 +44,7 @@ private:
   Mat adder(std::vector<Mat> &input);
 
 public:
-  SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels);
+  SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels, bool create_thread = false);  // edit constructor for create thread
   // ~SASA();
   Mat master(std::vector<Mat> &input_tensor,
              std::vector<std::vector<Mat>> &input_kernel);

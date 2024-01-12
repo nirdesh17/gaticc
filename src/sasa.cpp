@@ -4,18 +4,25 @@
 #include "utils.h"
 #include <iostream>
 #include <time.h>
+#include <thread>
+#include <future>
 
-SASA::SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels)
+SASA::SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels, bool create_thread = false)
     : sa_channel_rows{sa_channel_rows}, sa_channel_columns{sa_channel_columns},
-      sa_channels{sa_channels} {}
+      sa_channels{sa_channels}, create_thread{create_thread} {}
 
 std::vector<SA *> SASA::create_sasa(int sa_channel_rows, int sa_channel_columns,
                                     int sa_channels) {
 
   std::vector<SA *> SA_ptr;
 
-  for (int i = 0; i < sa_channels; i++) {
+  for (int i = 0; i < ((create_thread==true) ? (sa_channel_columns*sa_channels) : (sa_channels)); i++) {
+    if( create_thread== true){
+      SA_ptr.push_back(new SA(sa_channel_rows, 1));
+    }
+    else{
     SA_ptr.push_back(new SA(sa_channel_rows, sa_channel_columns));
+    }
   }
 
   return SA_ptr;
@@ -31,6 +38,19 @@ SASA::create_ConvTransformer(int IW, int IH, int KW, int KH, int srows,
   }
   return CT_ptr;
 }
+
+std::vector<std::vector<std::thread*>> create_threads(int sa_channels, int sa_channel_rows, int sa_channel_columns){
+
+  std::vector<std::vector<std::thread*>> threads(sa_channels);
+
+  for(int i = 0 ; i < sa_channels ; i ++){
+    for (int j = 0 ; j < sa_channel_columns ; j ++){
+      threads.at(i).push_back(new std::thread);
+    }
+  }
+  return threads;
+}
+
 
 std::vector<Mat>
 SASA::input_tensor_transformer(std::vector<Mat> &input_tensor,
@@ -48,8 +68,33 @@ SASA::input_tensor_transformer(std::vector<Mat> &input_tensor,
 }
 
 std::vector<int>
+SASA::load_kernel_tensors_thread(std::vector<std::vector<Mat>> &input_kernel,
+                          int kernel_channel, int kernel_number) {
+                            
+
+  std::vector<int> kernel_tensor(sa_channel_rows );
+  std::vector<int> output_tensor;
+  std::vector<int> zero_vec(input_kernel_rows * input_kernel_cols, 0);
+
+  
+    if (kernel_number < input_kernel.size()) {
+      kernel_tensor = mat2v<int, int>(input_kernel.at(kernel_number).at(kernel_channel),
+                                      input_kernel_rows, input_kernel_cols);
+    } else {
+      kernel_tensor = zero_vec;
+    }
+
+    for (int j = 0; j < sa_channel_rows; j++) {
+      output_tensor.push_back(kernel_tensor[j]);
+    }
+  
+  return output_tensor;
+}
+
+std::vector<int>
 SASA::load_kernel_tensors(std::vector<std::vector<Mat>> &input_kernel,
                           int kernel_channel, int kernel_number) {
+                            
 
   std::vector<int> kernel_tensor(sa_channel_rows * sa_channel_columns);
   std::vector<int> output_tensor;
@@ -147,6 +192,8 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
   clock_t timer = clock();
   std::vector<SA *> SA_ptr =
       create_sasa(sa_channel_rows, sa_channel_columns, sa_channels);
+  // if( create_thread == true){    
+  std::vector<std::vector<std::future<Mat>>> threads(8,std::vector<std::future<Mat>>(8))/* =  create_threads(sa_channels,sa_channel_rows,sa_channel_columns)*/;
   std::vector<Mat> transformed_mats;
   std::vector<int> output_weights;
   std::vector<Mat> vec(
@@ -181,14 +228,42 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
       for (int j = 0;
            j < (channel_count <= sa_channels ? channel_count : sa_channels);
            j++) {
+
+            if(create_thread==true){
+              for(int m = 0 ; m < sa_channel_columns ; m ++){
+
+              
+               output_weights =
+            load_kernel_tensors_thread(input_kernel, (k * sa_channels + j), i * 8 +m);
+        load_weights_tensor(SA_ptr.at(j*m + m), CT_ptr.at(j), output_weights);
+        threads.at(j).emplace_back(std::async(std::launch::async,slave,transformed_mats,SA_ptr.at(j*m +m),CT_ptr.at(j)));
+        // threads.at(j).emplace_back(std::async(std::launch::async,slave,transformed_mats,SA_ptr.at(j*m +m),CT_ptr.at(j)));
+        // vec.at(k*sa_channels + j).push_back(threads.at(j).at(m).get());  // adding threads here
+        // splitter(vec, temp_mat, (k * sa_channels + j), i * 8,
+        //          input_kernel_size);}
+            }}
+            else {
         output_weights =
             load_kernel_tensors(input_kernel, (k * sa_channels + j), i * 8);
         load_weights_tensor(SA_ptr.at(j), CT_ptr.at(j), output_weights);
         temp_mat = slave(transformed_mats.at(k * sa_channels + j), SA_ptr.at(j),
-                         CT_ptr.at(j));
+                         CT_ptr.at(j));   // adding threads here
         splitter(vec, temp_mat, (k * sa_channels + j), i * 8,
                  input_kernel_size);
+                 }
       }
+      if (create_thread == true){
+        for(int n = 0 ; n < 8; i ++){
+          for(int o = 0 ; o < 8; o ++){
+          
+          vec.at(k*sa_channels + n).push_back(threads.at(n).at(o).get());
+          }
+          threads.at(n).clear();
+          threads.at(n).shrink_to_fit();
+        }
+        
+      }
+      
     }
   }
   output_mat = adder(vec);
@@ -199,3 +274,21 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
 
   return output_mat;
 }
+
+
+
+// making SASA 9x1x64
+// i dont think i need a spliiter, it should not cause any problem
+// there has to be a mutex before accessing vec , mutex
+
+
+/*
+
+std::vector<std::vector<std::thread>> threads(sa_channels);
+create_threads(){
+
+  thread.at(i).push_back(new std::thread);
+
+};
+
+*/
