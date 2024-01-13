@@ -119,7 +119,7 @@ void SASA::load_weights_tensor(SA *SA_ptr, ConvTransformer *CT_ptr,
                                std::vector<int> &input) {
   std::vector<int> temp_vec;
   temp_vec =
-      CT_ptr->transform_weights(input, sa_channel_rows, sa_channel_columns);
+      CT_ptr->transform_weights(input, sa_channel_rows, 1);
   SA_ptr->load_weights(temp_vec);
 }
 
@@ -137,7 +137,9 @@ Mat SASA::slave(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr) {
   output = SA_ptr->get_output();
   vec = CT_ptr->untransform(output);
   out_mat =
-      v2mat<int, int>(vec, sa_channel_columns, vec.size() / sa_channel_columns);
+    v2mat<int, int>(vec, 1, vec.size());   // changed here
+  
+      // v2mat<int, int>(vec, sa_channel_columns, vec.size() / sa_channel_columns);
 
   if (timer == 0) {
     time_req = clock() - time_req;
@@ -148,7 +150,9 @@ Mat SASA::slave(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr) {
 
   // here it is filling the vec (linear) with all the values upto kernel 7
   // (sa_column)
+  // std::cout << " inside slave output mat generated of size "<<out_mat.size()<<" "<<out_mat.at(0).size()<<std::endl; 
   return out_mat;
+
 }
 
 /* the input is in the form of : channel-> kernel -> elements  (e.g. C0 -> K0 -
@@ -189,11 +193,11 @@ void SASA::splitter(std::vector<Mat> &vec, Mat &temp_mat, int channel_number,
  */
 Mat SASA::master(std::vector<Mat> &input_tensor,
                  std::vector<std::vector<Mat>> &input_kernel) { // NCHW
-  clock_t timer = clock();
+  // clock_t timer = clock();
   std::vector<SA *> SA_ptr =
       create_sasa(sa_channel_rows, sa_channel_columns, sa_channels);
   // if( create_thread == true){    
-  std::vector<std::vector<std::future<Mat>>> threads(8,std::vector<std::future<Mat>>(8))/* =  create_threads(sa_channels,sa_channel_rows,sa_channel_columns)*/;
+  std::vector<std::vector<std::future<Mat>>> threads(8)/* =  create_threads(sa_channels,sa_channel_rows,sa_channel_columns)*/;
   std::vector<Mat> transformed_mats;
   std::vector<int> output_weights;
   std::vector<Mat> vec(
@@ -211,14 +215,14 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
 
   std::vector<ConvTransformer *> CT_ptr = create_ConvTransformer(
       input_tensor_rows, input_tensor_cols, input_kernel_rows,
-      input_kernel_cols, sa_channel_rows, sa_channel_columns,
+      input_kernel_cols, sa_channel_rows, 1, // changed here sa_channel_columns
       input_tensor_channels);
 
   transformed_mats = input_tensor_transformer(input_tensor, CT_ptr);
 
   int channel_count = input_kernel.at(0).size();
 
-  for (int k = 0; k < input_kernel_channels / sa_channels + 1;
+  for (int k = 0; k <((input_kernel_channels % sa_channels==0) ? (input_kernel_channels / sa_channels): input_kernel_channels / sa_channels + 1);
        k++, (channel_count > sa_channels ? channel_count -= sa_channels
                                          : channel_count)) {
     for (int i = 0; i < ((input_kernel_size % sa_channel_columns == 0)
@@ -232,11 +236,11 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
             if(create_thread==true){
               for(int m = 0 ; m < sa_channel_columns ; m ++){
 
-              
+              std::cout<< " k i j m "<<k<<" "<<i<<" "<<j<<" "<<m<<std::endl;
                output_weights =
             load_kernel_tensors_thread(input_kernel, (k * sa_channels + j), i * 8 +m);
-        load_weights_tensor(SA_ptr.at(j*m + m), CT_ptr.at(j), output_weights);
-        threads.at(j).emplace_back(std::async(std::launch::async,slave,transformed_mats,SA_ptr.at(j*m +m),CT_ptr.at(j)));
+        load_weights_tensor(SA_ptr.at(j*8 + m), CT_ptr.at(j), output_weights);
+        threads.at(j).emplace_back(std::async(std::launch::async,&SASA::slave,this,std::ref(transformed_mats.at(k*sa_channels + j)),SA_ptr.at(j*8 +m),CT_ptr.at(j)));
         // threads.at(j).emplace_back(std::async(std::launch::async,slave,transformed_mats,SA_ptr.at(j*m +m),CT_ptr.at(j)));
         // vec.at(k*sa_channels + j).push_back(threads.at(j).at(m).get());  // adding threads here
         // splitter(vec, temp_mat, (k * sa_channels + j), i * 8,
@@ -253,10 +257,14 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
                  }
       }
       if (create_thread == true){
-        for(int n = 0 ; n < 8; i ++){
+        for(int n = 0 ; n < input_kernel_channels; n ++){
           for(int o = 0 ; o < 8; o ++){
-          
-          vec.at(k*sa_channels + n).push_back(threads.at(n).at(o).get());
+            std::cout<< " k i n o "<<k<<" "<<i<<" "<<n<<" "<<o<<std::endl;
+            std::cout<< " thread vec size "<<threads.size()<<" "<<threads.at(n).size()<<std::endl;
+            // Mat thread_mat = threads.at(n).at(o).get();
+          // std::cout<< " sizeeeeee "<<thread_mat.size()<<" "<<thread_mat.at(0).size()<<std::endl;
+          vec.at(k*sa_channels + n).push_back(mat2v<int,int>(threads.at(n).at(o).get(),9,1));
+          // std::cout<< " vector se bahar aarahah hu kya"<<k<<" "<<i<<" "<<n<<" "<<o<<std::endl;
           }
           threads.at(n).clear();
           threads.at(n).shrink_to_fit();
@@ -267,10 +275,10 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
     }
   }
   output_mat = adder(vec);
-  timer = clock() - timer;
+  // timer = clock() - timer;
 
-  std::cout << "Time taken by whole pgm in seconds : "
-            << float(timer) / CLOCKS_PER_SEC << std::endl;
+  // std::cout << "Time taken by whole pgm in seconds : "
+  //           << float(timer) / CLOCKS_PER_SEC << std::endl;
 
   return output_mat;
 }
@@ -292,3 +300,9 @@ create_threads(){
 };
 
 */
+
+// error: no matching function for call to ‘async(std::launch, Mat (SASA::*)(Mat&, SA*,
+//  ConvTransformer*), SASA*, __gnu_cxx::__alloc_traits<std::allocator<std::vector<std::vector<int> > >, 
+// std::vector<std::vector<int> > >::value_type&, SA*&, ConvTransformer*&)’
+  // 239 |         threads.at(j).emplace_back(std::async(std::launch::async,&SASA::slave,this,
+  // transformed_mats.at(k*sa_channels + j),SA_ptr.at(j*m +m),CT_ptr.at(j)));
