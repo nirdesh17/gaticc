@@ -17,10 +17,9 @@ private:
   int input_tensor_channels;
   int input_tensor_rows;
   int input_tensor_cols;
-  clock_t time_req;
   bool create_thread;
 
-  std::vector<std::vector<std::thread*>> create_threads(int sa_channels, int sa_channel_rows, int sa_channel_columns);
+  // std::vector<std::vector<std::thread*>> create_threads(int sa_channels, int sa_channel_rows, int sa_channel_columns);
   
   std::vector<SA *> create_sasa(int sa_channel_rows, int sa_channel_columns,
                                 int sa_channels);
@@ -42,11 +41,13 @@ private:
   void splitter(std::vector<Mat> &vec, Mat &temp_mat, int channel_number,
                 int kernel_number, int input_kernel_size);
   Mat adder(std::vector<Mat> &input);
+    void slave_thread(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr);
+
 
 public:
   SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels, bool create_thread);  // edit constructor for create thread
   // ~SASA();
-    Mat slave(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr);
+  Mat slave(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr);
   Mat master(std::vector<Mat> &input_tensor,
              std::vector<std::vector<Mat>> &input_kernel);
 };
