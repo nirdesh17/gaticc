@@ -3,7 +3,10 @@
 #include <cstdio>
 #include <cstdarg>
 
-inline void log_fatal(const char *fmt, ...) {
+#define log_fatal(fmt, ...) (log_fatal_func(__FILE__, __LINE__, __func__, fmt ,##__VA_ARGS__))
+
+inline void log_fatal_func(const char *file, int line, const char *func, const char *fmt, ...) {
+  fprintf(stderr, "%s:%d: %s: ", file, line, func);
   va_list ap;
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);

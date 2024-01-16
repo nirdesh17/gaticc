@@ -44,3 +44,6 @@ test: ${LIBSIM_OBJ} test-compile
 
 clean:
 	rm -rf *.o
+
+run: a
+	./a 

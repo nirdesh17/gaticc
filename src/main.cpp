@@ -9,8 +9,7 @@
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
-    std::cout << "Too few arguments" << '\n';
-    return 1;
+    log_fatal("Too few arguments");
   }
 
 #if 0 
