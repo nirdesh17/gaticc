@@ -6,6 +6,74 @@
 #include <iostream>
 #include <thread>
 
+/*
+* SASA : systolic array of systolic arrays provides with the functionality
+* of convoluting input tensor having multiple channels with weighted kernel
+* tensor (NCHW) having variable dims.
+*
+* The fixed design has 8 of 9x8 systolic arrays 
+* 
+* The class SASA contains a public constructor of SASA and a 'master' function
+* which handles everything.
+* 
+* There is a basic switch(bool) in the constructor of SASA
+* to turn on/off Multi-Threading.
+*
+* Desrciption of all the private functions :
+*  1. create_sasa : creates a vector of SA pointers pointing to SA objects.
+*  each SA_ptr points to a SA of 9x8 and handles its feautres.
+*
+*  -> delete_sasa : frees the memory allocated to SA_ptr.
+* 
+*  2. create_ConvTransformer : creates a vector of CT_pointer, pointing
+*  to CT objects.
+* 
+*  3. input_tensor_transformer : takes the input tensor as the parameter(CxHxW)
+*  and a CT object which transformers the input tensors acc to SA dims and
+*  returns the transformed vectors of mats.
+* 
+*  4. load_kernel_tensor : takes the input kernel tensor and creates a linear
+*  vector of weights for a particular SA (9x8) and returns the vector.
+* 
+*  5. load_weights_tensor : takes the linear vector returned from 
+*  load_kernel_tensor and loads it into the SA of passed SA_ptr.
+* 
+*  6. slave() : it takes the transformed input tensor and a SA_ptr
+*  and calls propagate on it. the output is then untransformed and stored in 
+*  Mat of rows = index of kernels  &  columns = total number of elements
+*  meaning the output of C0K0 is in the row 0 
+*  and the output of C0K1 is in the row 1.
+*  the same sequence is followed upto K7. 
+*  
+*  7. splitter : splitter takes the output from the slave(i.e.Mat) and splits
+*  its each row into a seperate Mat of dims size x 1 and pushes it into 
+*  a vector of Mats whose index represents channel number and row = kernel num.
+*  it also removes the processed zero kernel (used to pad the kernel earlier
+*  to maintain boundary) outputs.
+* 
+*  MULTI-THREADING DOES NOT USE SPLITTER AT ALL.
+* 
+*  8. master : calls each of these function.
+*     
+*          the nested loops functions in this order:
+*         the inner loop(j) iterates over each SA (9x8).
+*         the 'i' loop than reloads the SA with the same channel higher
+*         kernel number.
+*         the 'k' loop reloads the SAs with the higher channels.
+* 
+*   MULTI-THREADING SASA:
+*
+*  Multi-threading takes complete control over each SA and treats the 9x8 SA
+*  as 8 of 9x1 SA, so to handle this there is another nested loop inside 'j'
+*  loop, the 'm' loop which initialises the threads. There are a total of 
+*  64 threads which are being created and joined during the runtime.
+*  The OS scheduler handles how the threads provided with their time slice. 
+*  
+*  before leaving the 'i' loop these threads are being joined in the required
+*  order to obtain the results in the desired order.
+* 
+*/
+
 SASA::SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels,
            bool create_thread = false)
     : sa_channel_rows{sa_channel_rows}, sa_channel_columns{sa_channel_columns},
