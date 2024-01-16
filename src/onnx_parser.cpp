@@ -7,6 +7,8 @@
 #include <map>
 #include <algorithm>
 #include <typeinfo>
+#include <cstring>
+#include <cerrno>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -496,10 +498,13 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   }
 }
 
-Op::Parser::Parser(std::string filename) {
-  std::fstream in(filename, std::ios::in | std::ios::binary);
+Op::Parser::Parser(std::string const &filename) {
+  loaded_model.open(filename, std::ios::in | std::ios::binary);
+  if (loaded_model.fail()) {
+    log_fatal("%s: %s", filename.c_str(), strerror(errno));
+  }
   onnx::ModelProto p;
-  p.ParseFromIstream(&in);
+  p.ParseFromIstream(&loaded_model);
   onnx::GraphProto graph = p.graph();
   auto graph_outputs = graph.output();
   for (auto i : graph_outputs) {
@@ -543,4 +548,8 @@ Op::Parser::Parser(std::string filename) {
 void Op::Parser::summary() const { m_model.bare_summary(); }
 void Op::Parser::time_estimate(int M, int N, int K) const {
   m_model.time_estimate(M, N, K);
+}
+
+Op::Parser::~Parser() {
+  loaded_model.close();
 }

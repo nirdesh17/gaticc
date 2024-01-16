@@ -2,6 +2,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <fstream>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -219,12 +220,13 @@ public:
 
 class Parser {
   Model m_model;
-
+  std::ifstream loaded_model;
 public:
   void add_operator(onnx::NodeProto &node);
-  Parser(std::string filename);
+  Parser(std::string const &filename);
   void summary(void) const;
   void time_estimate(int M, int N, int K) const;
+  ~Parser();
 };
 
 } // namespace Op
