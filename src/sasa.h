@@ -19,8 +19,9 @@ private:
   int input_tensor_cols;
   bool create_thread;
   
-  std::vector<SA *> create_sasa(int sa_channel_rows, int sa_channel_columns,
+  std::vector<SA *> create_sasa(std::vector<SA *>& SA_ptr,int sa_channel_rows, int sa_channel_columns,
                                 int sa_channels);
+  void destroy_sasa(std::vector<SA *>& SA_ptr);
   std::vector<ConvTransformer *>
   create_ConvTransformer(int IW, int IH, int KW, int KH, int srows, int scols,
                          int input_tensor_channels);
