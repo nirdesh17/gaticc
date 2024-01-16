@@ -8,8 +8,8 @@
 
 int main(){
 
-	std::vector<std::vector<std::vector<int>>> input_tensor(1, std::vector<std::vector<int>>(224,std::vector<int>(224,10)));
-	std::vector<std::vector<std::vector<std::vector<int>>>>  input_kernel(1,std::vector<std::vector<std::vector<int>>>(1,std::vector<std::vector<int>> (3,std::vector<int>(3,2))));
+	std::vector<std::vector<std::vector<int>>> input_tensor(64, std::vector<std::vector<int>>(224,std::vector<int>(224,10)));
+	std::vector<std::vector<std::vector<std::vector<int>>>>  input_kernel(32,std::vector<std::vector<std::vector<int>>>(64,std::vector<std::vector<int>> (3,std::vector<int>(3,2))));
 	Mat output;
 	// clock_t timer = clock();
 	auto start = std::chrono::high_resolution_clock::now();
