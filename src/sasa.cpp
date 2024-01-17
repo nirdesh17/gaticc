@@ -283,21 +283,28 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
    * channels which are not the multiples of our FIXED sa_columns and
    * sa_channels.
    */
-  for (int k = 0; k < ((input_kernel_channels % sa_channels == 0)
+
+  int sa_channel_reloader = ((input_kernel_channels % sa_channels == 0)
                            ? (input_kernel_channels / sa_channels)
                            : input_kernel_channels / sa_channels + 1);
-       k++, (channel_count > sa_channels ? channel_count -= sa_channels
-                                         : channel_count)) {
-    for (int i = 0; i < ((input_kernel_size % sa_channel_columns == 0)
+
+  int sa_kernel_reloader = ((input_kernel_size % sa_channel_columns == 0)
                              ? (input_kernel_size / sa_channel_columns)
                              : (input_kernel_size / sa_channel_columns + 1));
+                             
+  int sa_channel_iterator = (channel_count <= sa_channels ? channel_count : sa_channels);
+
+  for (int k = 0; k < sa_channel_reloader;
+       k++, (channel_count > sa_channels ? channel_count -= sa_channels
+                                         : channel_count)) {
+    for (int i = 0; i < sa_kernel_reloader;
          i++) {
 
       SA_ptr =
           create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
 
       for (int j = 0;
-           j < (channel_count <= sa_channels ? channel_count : sa_channels);
+           j < sa_channel_iterator;
            j++) {
 
         if (create_thread == true) {
@@ -329,7 +336,7 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
       }
       if (create_thread == true) {
         for (int n = 0;
-             n < (channel_count <= sa_channels ? channel_count : sa_channels);
+             n < sa_channel_iterator ;
              n++) {
           for (int o = 0; o < sa_channel_columns; o++) {
 
