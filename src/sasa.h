@@ -18,7 +18,7 @@ private:
   int input_tensor_cols;
   // ConvTransformer* CT_ptr;
 
-  std::vector<SA *> create_sasa(std::vector<SA *> &SA_ptr, int sa_channel_rows,
+  void create_sasa(std::vector<SA *> &SA_ptr, int sa_channel_rows,
                                 int sa_channel_columns, int sa_channels);
   void destroy_sasa(std::vector<SA *> &SA_ptr);
   std::vector<ConvTransformer *> create_ConvTransformer();

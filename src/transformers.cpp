@@ -145,27 +145,28 @@ std::vector<int> GemmTransformer::untransform(Mat &a) {
 * it will load the 1st kernel in the 1st column of the SA and the 2nd kernel in the 2nd column of the SA.
 */
 
-/* transform_weights() : takes elements one by one from the input vector in increasing order
+/* 
+* transform_weights() : takes elements one by one from the input vector in increasing order
 * and places them in the return vector in order i+ SA_row, so when load_weights is called on return vector
 * USED WHEN MULTI_CHANNEL KERNEL AND 2D SA is used.
-
-    kernel_1 2x2:             1   2
-                              3   4
-
-
-    kernel_2 2x2:             5   6
-                              7   8      
-
-
-
-    input_vector: 1,2,3,4,5,6,7,8  (concatenate kernel_1 & kernel_2)
-
-    transform weights(4,2) return vector : 1,5,2,6,3,7,4,8
-
-    load_weigths(return vector, 4,2) :      1   5
-                                            2   6
-                                            3   7
-                                            4   8   (4x2)
+*
+*    kernel_1 2x2:             1   2
+*                              3   4
+*
+*
+*    kernel_2 2x2:             5   6
+*                              7   8      
+*
+*
+*
+*    input_vector: 1,2,3,4,5,6,7,8  (concatenate kernel_1 & kernel_2)
+*
+*    transform weights(4,2) return vector : 1,5,2,6,3,7,4,8
+*
+*    load_weigths(return vector, 4,2) :      1   5
+*                                            2   6
+*                                            3   7
+*                                            4   8   (4x2)
 */
 std::vector<int> ConvTransformer::transform_weights(std::vector<int>& w, int out_row, int out_col) {
     assert(w.size() == out_row*out_col);

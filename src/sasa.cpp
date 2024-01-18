@@ -19,13 +19,13 @@ SASA::SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels)
                         sa_channel_rows, 1));*/
 }
 
-std::vector<SA *> SASA::create_sasa(std::vector<SA *> &SA_ptr,
+void SASA::create_sasa(std::vector<SA *> &SA_ptr,
                                     int sa_channel_rows, int sa_channel_columns,
                                     int sa_channels) {
   for (int i = 0; i < (sa_channel_columns * sa_channels); i++) {
     SA_ptr.push_back(new SA(sa_channel_rows, 1));
   }
-  return SA_ptr;
+  return ;
 }
 
 void SASA::destroy_sasa(std::vector<SA *> &SA_ptr) {
@@ -148,8 +148,7 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
        k++, decrement_channel_count(channel_count, sa_channels)) {
     for (int i = 0; i < sa_kernel_reloader; i++) {
 
-     SA_ptr =
-          create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
+     create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
 
       for (int j = 0; j < SA_CHANNEL_ITERATOR(channel_count, sa_channels);
            j++) {
