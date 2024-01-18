@@ -141,14 +141,14 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
   transformed_mats = input_tensor_transformer(input_tensor, CT_ptr);
 
   int channel_count = input_kernel.at(0).size();
-  int sa_channel_reloader = ceil((input_kernel_channels / sa_channels));
-  int sa_kernel_reloader = ceil((input_kernel_size / sa_channel_columns));
+  int sa_channel_reloader = ceil(((float)input_kernel_channels / sa_channels));
+  int sa_kernel_reloader = ceil(((float)input_kernel_size / sa_channel_columns));
 
   for (int k = 0; k < sa_channel_reloader;
        k++, decrement_channel_count(channel_count, sa_channels)) {
     for (int i = 0; i < sa_kernel_reloader; i++) {
 
-      SA_ptr =
+     SA_ptr =
           create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
 
       for (int j = 0; j < SA_CHANNEL_ITERATOR(channel_count, sa_channels);

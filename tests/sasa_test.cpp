@@ -4,6 +4,7 @@
 #include "../src/utils.h"
 #include <chrono>
 #include <numeric>
+#include <stdlib.h>
 
 int main() {
 
@@ -17,12 +18,16 @@ int main() {
   auto start = std::chrono::high_resolution_clock::now();
   SASA s1(9, 8, 8);
   output = s1.master(input_tensor, input_kernel);
-  std::cout << " output row size : " << output.size() << std::endl;
+  std::cout << "output row size : " << output.size() << std::endl;
   std::cout << "output col size : " << output.at(0).size() << std::endl;
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::seconds>(stop - start);
 
-  std::cout << duration.count() << std::endl;
+  std::cout <<"time taken by the whole pgm "<< duration.count() <<" sec"<< std::endl;
+  
+//   sleep(10000);
+
+
 }
