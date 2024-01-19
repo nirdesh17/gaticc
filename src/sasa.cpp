@@ -137,6 +137,7 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
   int kernel_number;
   int channel_number;
   std::vector<ConvTransformer *> CT_ptr = create_ConvTransformer();
+  create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
 
   transformed_mats = input_tensor_transformer(input_tensor, CT_ptr);
 
@@ -147,9 +148,6 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
   for (int k = 0; k < sa_channel_reloader;
        k++, decrement_channel_count(channel_count, sa_channels)) {
     for (int i = 0; i < sa_kernel_reloader; i++) {
-
-     create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
-
       for (int j = 0; j < SA_CHANNEL_ITERATOR(channel_count, sa_channels);
            j++) {
         for (int m = 0; m < sa_channel_columns; m++) {
@@ -180,12 +178,12 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
           temp_mat = SA_ptr.at(n * sa_channel_columns + o)->get_output();
           temp_vec = CT_ptr.at(n)->untransform(temp_mat);
           vec.at(k * sa_channels + n).push_back(temp_vec);
+          SA_ptr.at(n*sa_channel_columns + o)->clear_output();
         }
         threads.at(n).clear();
         threads.at(n).shrink_to_fit();
       }
     }
-    destroy_sasa(SA_ptr);
   }
   output_mat = adder(vec);
   return output_mat;

@@ -245,6 +245,14 @@ void SA::push_to_output_array(int h, reg_t t1) {
 
 Mat SA::get_output() { return output_array; }
 
+void SA::clear_output(){
+  for( int i = 0 ; i < columns ; i ++){
+   output_array.at(i).resize(0);
+  }
+  return;
+  
+}
+
 /* true if v is a bottom row PE (PEs responsible for outputs) */
 bool SA::is_output_vertex(PE_Graph::Vertex &v) {
   int index = get_index_from_vertex(v);

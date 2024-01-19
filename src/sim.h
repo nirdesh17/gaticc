@@ -197,6 +197,7 @@ public:
   SA(int r, int c, bool profile_enabled);
   void propagate(Mat &input_mat, Chain &chain);
   Mat get_output();
+  void clear_output();
   void load_weights(std::vector<int> &weights);
   void print_array();
   void generate_profile_report();
