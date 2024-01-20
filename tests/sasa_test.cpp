@@ -9,7 +9,7 @@
 int main() {
 
   std::vector<std::vector<std::vector<int>>> input_tensor(
-      64, std::vector<std::vector<int>>(224, std::vector<int>(224, 10)));
+      64, std::vector<std::vector<int>>(224, std::vector<int>(224)));
   std::vector<std::vector<std::vector<std::vector<int>>>> input_kernel(
       32, std::vector<std::vector<std::vector<int>>>(
               64, std::vector<std::vector<int>>(3, std::vector<int>(3, 2))));
@@ -17,11 +17,18 @@ int main() {
       64, std::vector<std::vector<std::vector<int>>>(
               32, std::vector<std::vector<int>>(3, std::vector<int>(3, 2))));
 
+  for (int i = 0; i < 224; i++) {
+    for (int j = 0; j < 224; j++) {
+
+      input_tensor[0][i][j] = i * 224 + j;
+    }
+  }
+
   std::vector<Mat> output;
   auto start = std::chrono::high_resolution_clock::now();
   SASA s1(9, 8, 8);
   output = s1.master(input_tensor, input_kernel);
-  output = s1.master(output,input_kernel_2);
+  output = s1.master(output, input_kernel_2);
   std::cout << "output kernel size : " << output.size() << std::endl;
   std::cout << "output row size : " << output.at(0).size() << std::endl;
   std::cout << "output col size : " << output.at(0).at(0).size() << std::endl;
@@ -30,8 +37,8 @@ int main() {
   auto duration =
       std::chrono::duration_cast<std::chrono::seconds>(stop - start);
 
-  std::cout <<"time taken by the whole pgm "<< duration.count() <<" sec"<< std::endl;
+  std::cout << "time taken by the whole pgm " << duration.count() << " sec"
+            << std::endl;
 
-  return 0 ;  
-
+  return 0;
 }

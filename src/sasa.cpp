@@ -127,8 +127,9 @@ std::vector<Mat> SASA::create_output(Mat &input) {
  * the kernels are done for the ongoing set of channels.... channels are updated
  * and then the process is repeated all over again.
  */
-std::vector<Mat> SASA::master(std::vector<Mat> &input_tensor,
-                 std::vector<std::vector<Mat>> &input_kernel) { // NCHW
+std::vector<Mat>
+SASA::master(std::vector<Mat> &input_tensor,
+             std::vector<std::vector<Mat>> &input_kernel) { // NCHW
   std::vector<SA *> SA_ptr;
   std::vector<std::vector<std::thread *>> threads(sa_channels);
   std::vector<Mat> transformed_mats;
@@ -147,6 +148,11 @@ std::vector<Mat> SASA::master(std::vector<Mat> &input_tensor,
   input_kernel_channels = input_kernel.at(0).size();
   input_kernel_rows = input_kernel.at(0).at(0).size();
   input_kernel_cols = input_kernel.at(0).at(0).at(0).size();
+
+  assert(input_tensor_channels == input_kernel_channels &&
+         "number of input tensor channels is not equal to the number of input "
+         "kernel channels");
+
   int kernel_number;
   int channel_number;
   std::vector<ConvTransformer *> CT_ptr = create_ConvTransformer();
@@ -199,7 +205,7 @@ std::vector<Mat> SASA::master(std::vector<Mat> &input_tensor,
       }
     }
   }
-  output_mat = adder(vec);  // think about using temp mat here
-  output = create_output(output_mat);
+  temp_mat = adder(vec); // think about using temp mat here
+  output = create_output(temp_mat);
   return output;
 }
