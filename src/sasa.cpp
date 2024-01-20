@@ -19,13 +19,12 @@ SASA::SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels)
                         sa_channel_rows, 1));*/
 }
 
-void SASA::create_sasa(std::vector<SA *> &SA_ptr,
-                                    int sa_channel_rows, int sa_channel_columns,
-                                    int sa_channels) {
+void SASA::create_sasa(std::vector<SA *> &SA_ptr, int sa_channel_rows,
+                       int sa_channel_columns, int sa_channels) {
   for (int i = 0; i < (sa_channel_columns * sa_channels); i++) {
     SA_ptr.push_back(new SA(sa_channel_rows, 1));
   }
-  return ;
+  return;
 }
 
 void SASA::destroy_sasa(std::vector<SA *> &SA_ptr) {
@@ -102,12 +101,25 @@ Mat SASA::adder(std::vector<Mat> &input) {
   for (int m = 0; m < input.at(0).size(); m++) {
     for (int n = 0; n < input.size() - 1; n++) {
       for (int p = 0; p < input.at(0).at(0).size(); p++) {
-        input.at(0).at(m).at(p) =
-            input.at(0).at(m).at(p) + input.at(n + 1).at(m).at(p);
+        input.at(0).at(m).at(p) += input.at(n + 1).at(m).at(p);
       }
     }
   }
   return input.at(0);
+}
+
+std::vector<Mat> SASA::create_output(Mat &input) {
+  std::vector<Mat> output;
+  for (int i = 0; i < input_kernel_size; i++) {
+
+    output.push_back(v2mat<int, int>(
+        input.at(i),
+        sa_output_dims(input_tensor_rows, 0 /*padding*/, 1 /*dilation*/,
+                       input_kernel_rows, 1 /*stride*/),
+        sa_output_dims(input_tensor_cols, 0 /*padding*/, 1 /*dilation*/,
+                       input_kernel_cols, 1 /*stride*/)));
+  }
+  return output;
 }
 
 /* master is filling the SAs kernel wise ... filling up to its capacity and then
@@ -115,7 +127,7 @@ Mat SASA::adder(std::vector<Mat> &input) {
  * the kernels are done for the ongoing set of channels.... channels are updated
  * and then the process is repeated all over again.
  */
-Mat SASA::master(std::vector<Mat> &input_tensor,
+std::vector<Mat> SASA::master(std::vector<Mat> &input_tensor,
                  std::vector<std::vector<Mat>> &input_kernel) { // NCHW
   std::vector<SA *> SA_ptr;
   std::vector<std::vector<std::thread *>> threads(sa_channels);
@@ -127,6 +139,7 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
   std::vector<int> temp_vec;
   Mat temp_mat;
   Mat output_mat;
+  std::vector<Mat> output;
   input_tensor_channels = input_tensor.size();
   input_tensor_rows = input_tensor.at(0).size();
   input_tensor_cols = input_tensor.at(0).at(0).size();
@@ -143,7 +156,8 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
 
   int channel_count = input_kernel.at(0).size();
   int sa_channel_reloader = ceil(((float)input_kernel_channels / sa_channels));
-  int sa_kernel_reloader = ceil(((float)input_kernel_size / sa_channel_columns));
+  int sa_kernel_reloader =
+      ceil(((float)input_kernel_size / sa_channel_columns));
 
   for (int k = 0; k < sa_channel_reloader;
        k++, decrement_channel_count(channel_count, sa_channels)) {
@@ -178,13 +192,14 @@ Mat SASA::master(std::vector<Mat> &input_tensor,
           temp_mat = SA_ptr.at(n * sa_channel_columns + o)->get_output();
           temp_vec = CT_ptr.at(n)->untransform(temp_mat);
           vec.at(k * sa_channels + n).push_back(temp_vec);
-          SA_ptr.at(n*sa_channel_columns + o)->clear_output();
+          SA_ptr.at(n * sa_channel_columns + o)->clear_output();
         }
         threads.at(n).clear();
         threads.at(n).shrink_to_fit();
       }
     }
   }
-  output_mat = adder(vec);
-  return output_mat;
+  output_mat = adder(vec);  // think about using temp mat here
+  output = create_output(output_mat);
+  return output;
 }

@@ -5,9 +5,10 @@ OBJ=${LIBSIM_OBJ} ${ROOT_DIR}/main.o ${ROOT_DIR}/ffi.o ${ROOT_DIR}/ops.o ${ROOT_
 FLAGS=-g -std=c++17 `pkg-config --cflags python3`
 TESTDIR=${ROOT_DIR}/tests
 LDFLAGS=-lpython3.11 -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread 
+LD_LIBRARY_PATH=/usr/local/lib
 
 a: ${OBJ}
-	g++ ${FLAGS} ${OBJ} -o a ${LDFLAGS}
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH} g++ ${FLAGS} ${OBJ} -o a ${LDFLAGS}
 
 main.o: ${SRC_DIR}/main.cpp ${SRC_DIR}/utils.h ${SRC_DIR}/sim.h ${SRC_DIR}/transformers.h
 	g++ ${FLAGS} -c $<
@@ -28,7 +29,7 @@ ops.o: ${SRC_DIR}/ops.cpp ${SRC_DIR}/ops.h ${SRC_DIR}/transformers.h
 	g++ ${FLAGS} -c $<
 
 onnx: ${ROOT_DIR}/onnx.proto
-	protoc --cpp_out=${SRC_DIR} $<
+	LD_LIBRARY_PATH=${LD_LIBRARY_PATH} protoc --cpp_out=${SRC_DIR} $<
 
 onnx.pb.o: ${SRC_DIR}/onnx.pb.cc ${SRC_DIR}/onnx.pb.h onnx
 	g++ ${FLAGS} -c $<

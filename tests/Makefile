@@ -58,7 +58,7 @@ gemm_transform.o: gemm_transform.cpp
 
 sasa_test.o: sasa_test.cpp
 	g++ -c $< -o $@
-	g++ $@ ${LIB_PATH} -o sasa_test -g
+	g++ $@ ${LIB_PATH} -o sasa_test -g -lpthread
 	@mv sasa_test ${EXE_DIR}/
 
 10x10-3x3-9x1.o: 10x10-3x3-9x1.cpp

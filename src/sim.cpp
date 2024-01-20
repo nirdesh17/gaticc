@@ -14,8 +14,6 @@
 #include "utils.h"
 
 #define DEBUG 1
-#define sa_output_dims(ip_rows,padding,dilation,kernel_rows,stride)        \
-  (((ip_rows + 2 * padding - dilation * (kernel_rows - 1) - 1) / stride) + 1)
 
 PE::PE(int id, weight_t w, reg_t r, reg_t input_buffer)
     : id{id}, weight{w}, reg{r}, input_buffer{input_buffer}, aux_buffer{0},

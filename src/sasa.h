@@ -26,12 +26,14 @@ private:
   void load_weights_tensor(std::vector<std::vector<Mat>> &input_kernel,
                            int kernel_channel, int kernel_number, SA *SA_ptr,
                            ConvTransformer *CT_ptr);
-  Mat adder(std::vector<Mat> &input);
   void slave_thread(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr);
+  Mat adder(std::vector<Mat> &input);
+  std::vector<Mat> create_output(Mat & input);
+
 
 public:
   SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels);
   // ~SASA();
-  Mat master(std::vector<Mat> &input_tensor,
+  std::vector<Mat> master(std::vector<Mat> &input_tensor,
              std::vector<std::vector<Mat>> &input_kernel);
 };
