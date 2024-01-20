@@ -7,7 +7,7 @@ TESTDIR=${ROOT_DIR}/tests
 LDFLAGS=-lpython3.11 -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread 
 LD_LIBRARY_PATH=/usr/local/lib
 
-a: ${OBJ}
+all: ${OBJ}
 	LD_LIBRARY_PATH=${LD_LIBRARY_PATH} g++ ${FLAGS} ${OBJ} -o a ${LDFLAGS}
 
 main.o: ${SRC_DIR}/main.cpp ${SRC_DIR}/utils.h ${SRC_DIR}/sim.h ${SRC_DIR}/transformers.h
@@ -22,16 +22,13 @@ sasa.o: ${SRC_DIR}/sasa.cpp ${SRC_DIR}/sasa.h ${SRC_DIR}/utils.h
 transformers.o: ${SRC_DIR}/transformers.cpp ${SRC_DIR}/transformers.h ${SRC_DIR}/sim.h
 	g++ ${FLAGS} -c $<
 
-ffi.o: ${SRC_DIR}/ffi.cpp ${SRC_DIR}/ffi.h 
+ffi.o: ${SRC_DIR}/ffi.cpp ${SRC_DIR}/ffi.h
 	g++ ${FLAGS} -c $<
 
 ops.o: ${SRC_DIR}/ops.cpp ${SRC_DIR}/ops.h ${SRC_DIR}/transformers.h
 	g++ ${FLAGS} -c $<
 
-onnx: ${ROOT_DIR}/onnx.proto
-	LD_LIBRARY_PATH=${LD_LIBRARY_PATH} protoc --cpp_out=${SRC_DIR} $<
-
-onnx.pb.o: ${SRC_DIR}/onnx.pb.cc ${SRC_DIR}/onnx.pb.h onnx
+onnx.pb.o: ${SRC_DIR}/onnx.pb.cc ${SRC_DIR}/onnx.pb.h
 	g++ ${FLAGS} -c $<
 
 onnx_parser.o: ${SRC_DIR}/onnx_parser.cpp ${SRC_DIR}/onnx_parser.h
