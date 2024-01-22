@@ -9,6 +9,7 @@
 #include <typeinfo>
 #include <cstring>
 #include <cerrno>
+#include <queue>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -281,12 +282,24 @@ size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
 void Op::Model::print_node(Op::Vertex v) const {
   LayerBase *node = g[v];
-  std::cout << "Type: " << node->op_type() << '\n';
-  std::cout << "Params: " << node->params() << '\n';
-  std::cout << "Name: " << node->name << '\n';
+  print_node(node);
   std::cout << "Out Degree: " << boost::out_degree(v, g) << '\n';
   std::cout << "In Degree: " << boost::in_degree(v, g) << '\n';
   std::cout << '\n';
+}
+
+void Op::Model::print_node(Op::AdjacencyIterator ai) const {
+  LayerBase *node = g[*ai];
+  print_node(node);
+  std::cout << "Out Degree: " << boost::out_degree(*ai, g) << '\n';
+  std::cout << "In Degree: " << boost::in_degree(*ai, g) << '\n';
+  std::cout << '\n';
+}
+
+void Op::print_node(const LayerBase *node) {
+  std::cout << "Type: " << node->op_type() << '\n';
+  std::cout << "Params: " << node->params() << '\n';
+  std::cout << "Name: " << node->name << '\n';
 }
 
 #define sa_odims(i, k, s, p) ((i - k + 2*p)/s)
@@ -349,12 +362,36 @@ void Op::Model::bare_summary(void) const {
   }
 }
 
-void Op::Model::summary(void) const {
-  Op::Vertex v = get_root_node();
-  auto n = get_neighbouring_vertices(v);
-  for (auto itr = n.first; itr != n.second; ++itr) {
-    print_node(*itr);
+std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
+  std::vector<Op::LayerBase *> order;
+  std::queue<Op::Vertex> S;
+  Op::Graph gcopy = g;
+
+  auto vitr = boost::vertices(gcopy);
+  Op::Vertex v = *(vitr.first);
+  S.push(v);
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::LayerBase *node = gcopy[n];
+    order.push_back(node);
+    S.pop();
+
+    Op::AdjacencyIterator ns, ne;
+    std::tie(ns, ne) = boost::adjacent_vertices(n, gcopy);
+    for (auto itr = ns; itr != ne; ++itr) {
+      boost::remove_edge(n, *itr, gcopy);
+      if (boost::in_degree(*itr, gcopy) == 0) {
+        Op::LayerBase *nn = gcopy[*itr];
+        Op::Vertex vv = *itr;
+        S.push(vv);
+      }
+    }
   }
+  return order;
+}
+
+void Op::Model::summary(void) const {
 }
 
 Op::Vertex& Op::Model::get_input_vertex(void) {
@@ -545,9 +582,17 @@ Op::Parser::Parser(std::string const &filename) {
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
 }
 
-void Op::Parser::summary() const { m_model.bare_summary(); }
+void Op::Parser::summary() const { m_model.summary(); }
 void Op::Parser::time_estimate(int M, int N, int K) const {
   m_model.time_estimate(M, N, K);
+}
+
+std::vector<Op::LayerBase*> Op::Parser::get_execution_order(void) const {
+  auto order = m_model.get_execution_order(); 
+  for (Op::LayerBase *i : order) {
+    Op::print_node(i);
+  }
+  return order;
 }
 
 Op::Parser::~Parser() {

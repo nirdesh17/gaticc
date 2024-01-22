@@ -33,6 +33,6 @@ int main(int argc, char *argv[]) {
   std::cout << m[1]->op_type() << '\n';
 #endif
   Op::Parser parser(argv[1]);
-  //parser.summary();
-  parser.time_estimate(9, 16, 8);
+  parser.get_execution_order();
+  //parser.time_estimate(9, 8, 8);
 }

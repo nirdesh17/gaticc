@@ -69,6 +69,8 @@ struct LayerBase {
   virtual void set_value_info_params(onnx::ValueInfoProto &t);
 };
 
+void print_node(const LayerBase *node);
+
 
 namespace Layer {
 
@@ -215,7 +217,10 @@ public:
   Op::Vertex get_root_node(void) const;
   Op::Neighbours get_neighbouring_vertices(Op::Vertex v) const;
 
+  std::vector<Op::LayerBase*> get_execution_order(void) const;
+
   void print_node(Op::Vertex v) const;
+  void print_node(Op::AdjacencyIterator ai) const;
 };
 
 class Parser {
@@ -226,6 +231,7 @@ public:
   Parser(std::string const &filename);
   void summary(void) const;
   void time_estimate(int M, int N, int K) const;
+  std::vector<LayerBase*> get_execution_order(void) const;
   ~Parser();
 };
 
