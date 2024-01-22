@@ -1,3 +1,4 @@
+#include "tensor.h"
 #include "sasa.h"
 #include "sim.h"
 #include "transformers.h"
@@ -11,10 +12,10 @@
 #define SA_CHANNEL_ITERATOR(channel_count, sa_channels)                        \
   (channel_count <= sa_channels ? channel_count : sa_channels)
 
-SASA::SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels)
+SASA::SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels, Op::Layer::Conv conv_1)
     : sa_channel_rows{sa_channel_rows}, sa_channel_columns{sa_channel_columns},
       sa_channels{
-          sa_channels} { /*CT_ptr = (new ConvTransformer(input_tensor_rows,
+          sa_channels}, conv_1{conv_1} { /*CT_ptr = (new ConvTransformer(input_tensor_rows,
                         input_tensor_cols, input_kernel_rows, input_kernel_cols,
                         sa_channel_rows, 1));*/
 }
@@ -39,7 +40,7 @@ std::vector<ConvTransformer *> SASA::create_ConvTransformer() {
 
   for (int i = 0; i < input_tensor_channels; i++) {
     CT_ptr.push_back(new ConvTransformer(input_tensor_rows, input_tensor_cols,
-                                         input_kernel_rows, input_kernel_cols,
+                                         conv_1.m_cp.k[0], conv_1.m_cp.k[1],
                                          sa_channel_rows, 1));
   }
   return CT_ptr;
@@ -47,37 +48,37 @@ std::vector<ConvTransformer *> SASA::create_ConvTransformer() {
 
 // possibility of multi-threading here for further optimization.
 std::vector<Mat>
-SASA::input_tensor_transformer(std::vector<Mat> &input_tensor,
+SASA::input_tensor_transformer(Tensor& input_tensor,
                                std::vector<ConvTransformer *> CT_ptr) {
   std::vector<int> temp_vec;
   Mat temp_mat;
   std::vector<Mat> transformed_mats;
+  std::vector<int> temp_dims{0,0,0};
 
-  for (int i = 0; i < input_tensor_channels; i++) {
-
-    temp_vec = mat2v<int, int>(input_tensor.at(i), input_tensor_rows,
-                               input_tensor_cols);
-    temp_mat = CT_ptr.at(i)->transform(temp_vec);
+  for(int k = 0 ; k < input_tensor.dims_at(0); k++){
+    for(int i = 0 ; i < input_tensor.dims_at(1) ; i ++)   {     // hardcoded here
+      for(int j = 0 ; j < input_tensor.dims_at(2); j ++){
+        temp_vec.at(i*input_tensor.dims_at(2) + j) = input_tensor.at(temp_dims);
+        temp_dims[2] = temp_dims[2] +1 ;
+      }
+      temp_dims[2] = 0;
+      temp_dims[1] = temp_dims[1] +1 ;
+    }
+    temp_dims[1] = 0;
+    temp_mat = CT_ptr.at(k)->transform(temp_vec);
     transformed_mats.push_back(temp_mat);
+    temp_dims[0] = temp_dims[0] +1 ;
   }
   return transformed_mats;
 }
 
-void SASA::load_weights_tensor(std::vector<std::vector<Mat>> &input_kernel,
-                               int kernel_channel, int kernel_number,
+void SASA::load_weights_tensor(int kernel_channel, int kernel_number,
                                SA *SA_ptr, ConvTransformer *CT_ptr) {
-  std::vector<int> kernel_tensor(sa_channel_rows);
-  std::vector<int> output_tensor;
+  const onnx::TensorProto* temp_ptr = conv_1.weights;
 
-  kernel_tensor =
-      mat2v<int, int>(input_kernel.at(kernel_number).at(kernel_channel),
-                      input_kernel_rows, input_kernel_cols);
-
-  for (int i = 0; i < sa_channel_rows; i++) {
-    output_tensor.push_back(kernel_tensor[i]);
-  }
-  output_tensor = CT_ptr->transform_weights(output_tensor, sa_channel_rows, 1);
-  SA_ptr->load_weights(output_tensor);
+  TensorExtant T1(temp_ptr);
+  std::vector<int> temp_dims{kernel_number,kernel_channel,0,0};
+  SA_ptr->load_weights(T1,temp_dims);
 }
 
 void SASA::slave_thread(Mat &transformed_mats, SA *SA_ptr,
@@ -96,7 +97,7 @@ void SASA::slave_thread(Mat &transformed_mats, SA *SA_ptr,
    channel(0) having the total number of kernels ... that channel will have no
    significance of its index .
 */
-Mat SASA::adder(std::vector<Mat> &input) {
+Mat& SASA::adder(std::vector<Mat> &input) {
 
   for (int m = 0; m < input.at(0).size(); m++) {
     for (int n = 0; n < input.size() - 1; n++) {
@@ -110,14 +111,14 @@ Mat SASA::adder(std::vector<Mat> &input) {
 
 std::vector<Mat> SASA::create_output(Mat &input) {
   std::vector<Mat> output;
-  for (int i = 0; i < input_kernel_size; i++) {
+  for (int i = 0; i < conv_1.m_cp.kn; i++) {
 
     output.push_back(v2mat<int, int>(
         input.at(i),
-        sa_output_dims(input_tensor_rows, 0 /*padding*/, 1 /*dilation*/,
-                       input_kernel_rows, 1 /*stride*/),
-        sa_output_dims(input_tensor_cols, 0 /*padding*/, 1 /*dilation*/,
-                       input_kernel_cols, 1 /*stride*/)));
+        sa_output_dims(input_tensor_rows, conv_1.m_cp.pad[0] /*padding*/, 1 /*dilation*/,
+                       conv_1.m_cp.k[0], conv_1.m_cp.stride[0] /*stride*/),
+        sa_output_dims(input_tensor_cols, conv_1.m_cp.pad[0] /*padding*/, 1 /*dilation*/,
+                       conv_1.m_cp.k[1], conv_1.m_cp.stride[1] /*stride*/)));
   }
   return output;
 }
@@ -128,28 +129,23 @@ std::vector<Mat> SASA::create_output(Mat &input) {
  * and then the process is repeated all over again.
  */
 std::vector<Mat>
-SASA::master(std::vector<Mat> &input_tensor,
-             std::vector<std::vector<Mat>> &input_kernel) { // NCHW
+SASA::master(Tensor& input_tensor) { // NCHW
   std::vector<SA *> SA_ptr;
   std::vector<std::vector<std::thread *>> threads(sa_channels);
   std::vector<Mat> transformed_mats;
   std::vector<int> output_weights;
   std::vector<Mat> vec(
-      input_kernel.at(0).size()); // channel pointers -> kernel pointers (0-7)
+      conv_1.m_cp.ic); // channel pointers -> kernel pointers (0-7)
                                   // -> linear upto c0k7
   std::vector<int> temp_vec;
   Mat temp_mat;
   Mat output_mat;
   std::vector<Mat> output;
-  input_tensor_channels = input_tensor.size();
-  input_tensor_rows = input_tensor.at(0).size();
-  input_tensor_cols = input_tensor.at(0).at(0).size();
-  input_kernel_size = input_kernel.size();
-  input_kernel_channels = input_kernel.at(0).size();
-  input_kernel_rows = input_kernel.at(0).at(0).size();
-  input_kernel_cols = input_kernel.at(0).at(0).at(0).size();
+  input_tensor_channels = input_tensor.dims_at(0);   // doing this makes it exculsive for only CONV of 3D input
+  input_tensor_rows = input_tensor.dims_at(1);
+  input_tensor_cols = input_tensor.dims_at(2);
 
-  assert(input_tensor_channels == input_kernel_channels &&
+  assert(input_tensor_channels == conv_1.m_cp.ic &&
          "number of input tensor channels is not equal to the number of input "
          "kernel channels");
 
@@ -160,10 +156,10 @@ SASA::master(std::vector<Mat> &input_tensor,
 
   transformed_mats = input_tensor_transformer(input_tensor, CT_ptr);
 
-  int channel_count = input_kernel.at(0).size();
-  int sa_channel_reloader = ceil(((float)input_kernel_channels / sa_channels));
+  int channel_count = conv_1.m_cp.ic;
+  int sa_channel_reloader = ceil(((float)conv_1.m_cp.ic / sa_channels));
   int sa_kernel_reloader =
-      ceil(((float)input_kernel_size / sa_channel_columns));
+      ceil(((float)conv_1.m_cp.kn / sa_channel_columns));
 
   for (int k = 0; k < sa_channel_reloader;
        k++, decrement_channel_count(channel_count, sa_channels)) {
@@ -172,12 +168,12 @@ SASA::master(std::vector<Mat> &input_tensor,
            j++) {
         for (int m = 0; m < sa_channel_columns; m++) {
 
-          if (i * sa_channel_columns + m >= input_kernel_size) {
+          if (i * sa_channel_columns + m >= conv_1.m_cp.kn) {
             break;
           }
           kernel_number = i * sa_channel_columns + m;
           channel_number = k * sa_channels + j;
-          load_weights_tensor(input_kernel, channel_number, kernel_number,
+          load_weights_tensor(channel_number, kernel_number,
                               SA_ptr.at(j * sa_channel_columns + m),
                               CT_ptr.at(j));
 
@@ -191,7 +187,7 @@ SASA::master(std::vector<Mat> &input_tensor,
            n++) {
         for (int o = 0; o < sa_channel_columns; o++) {
 
-          if (i * sa_channel_columns + o >= input_kernel_size) {
+          if (i * sa_channel_columns + o >= conv_1.m_cp.kn) {
             break;
           }
           threads.at(n).at(o)->join();
@@ -205,7 +201,7 @@ SASA::master(std::vector<Mat> &input_tensor,
       }
     }
   }
-  temp_mat = adder(vec); // think about using temp mat here
-  output = create_output(temp_mat);
+  Mat& temp_mat2 = adder(vec); // think about using temp mat here
+  output = create_output(temp_mat2);
   return output;
 }

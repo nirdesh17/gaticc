@@ -9,7 +9,7 @@
 #include <queue>
 #include <utility>
 #include <vector>
-
+#include "tensor.h"
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
 
@@ -203,6 +203,7 @@ public:
   Mat get_output();
   void clear_output();
   void load_weights(std::vector<int> &weights);
+  void load_weights(TensorExtant& weights,std::vector<int>& temp_dims);
   void print_array();
   void generate_profile_report();
   int total_vertices();
