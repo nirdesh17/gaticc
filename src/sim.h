@@ -24,6 +24,10 @@ using fMat = std::vector<std::vector<float>>;
 using action =
     std::function<float(std::vector<int> &, int, int, int, int, int, int, int)>;
 
+#define sa_output_dims(ip_rows,padding,dilation,kernel_rows,stride)        \
+  (((ip_rows + 2 * padding - dilation * (kernel_rows - 1) - 1) / stride) + 1)
+
+
 class PE {
 private:
   int id;
@@ -197,6 +201,7 @@ public:
   SA(int r, int c, bool profile_enabled);
   void propagate(Mat &input_mat, Chain &chain);
   Mat get_output();
+  void clear_output();
   void load_weights(std::vector<int> &weights);
   void print_array();
   void generate_profile_report();

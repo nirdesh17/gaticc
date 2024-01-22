@@ -1,6 +1,6 @@
 TEST_TARGETS=3x3-3x3.o 5x3-3x3.o 1x1-1x1.o 5x7-7x7.o 10x10-10x10.o \
-			 conv_transform.o max_pooler.o average_pooler.o global_average_pooler.o gemm_transform.o 10x10-3x3-9x1.o  \
-			 6x6-3x3-9x3.o
+			 conv_transform.o max_pooler.o average_pooler.o global_average_pooler.o gemm_transform.o  \
+			 6x6-3x3-9x3.o 10x10-3x3-9x1.o sasa_test.o
 LIB_PATH=../libsim.a
 EXE_DIR=exe
 
@@ -55,6 +55,11 @@ gemm_transform.o: gemm_transform.cpp
 	g++ -c $< -o $@
 	g++ $@ ${LIB_PATH} -o gemm_transform
 	@mv gemm_transform ${EXE_DIR}/
+
+sasa_test.o: sasa_test.cpp
+	g++ -c $< -o $@
+	g++ $@ ${LIB_PATH} -o sasa_test -g -lpthread
+	@mv sasa_test ${EXE_DIR}/
 
 10x10-3x3-9x1.o: 10x10-3x3-9x1.cpp
 	g++ -c $< -o $@

@@ -14,8 +14,6 @@
 #include "utils.h"
 
 #define DEBUG 1
-#define sa_output_dims(ip_rows,padding,dilation,kernel_rows,stride)        \
-  (((ip_rows + 2 * padding - dilation * (kernel_rows - 1) - 1) / stride) + 1)
 
 PE::PE(int id, weight_t w, reg_t r, reg_t input_buffer)
     : id{id}, weight{w}, reg{r}, input_buffer{input_buffer}, aux_buffer{0},
@@ -244,6 +242,14 @@ void SA::push_to_output_array(int h, reg_t t1) {
 }
 
 Mat SA::get_output() { return output_array; }
+
+void SA::clear_output(){
+  for( int i = 0 ; i < columns ; i ++){
+   output_array.at(i).resize(0);
+  }
+  return;
+  
+}
 
 /* true if v is a bottom row PE (PEs responsible for outputs) */
 bool SA::is_output_vertex(PE_Graph::Vertex &v) {

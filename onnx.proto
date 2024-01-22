@@ -833,4 +833,3 @@ message FunctionProto {
 
 // For using protobuf-lite
 option optimize_for = LITE_RUNTIME;
-

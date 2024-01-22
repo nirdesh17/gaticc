@@ -90,7 +90,7 @@ void GemmTransformer::zero_pad(Mat& out, std::vector<int>& frequency, int column
 }
 
 
-Mat GemmTransformer::transform(std::vector<int> &a) {
+Mat GemmTransformer::transform(std::vector<int> &a) {   // retun val should be changed to float?
     if (arows < acolumns) {
         /* TODO: implement this in to_systolic_order() */
         printf("[ERR]: Input rows less than input columns prohibited. This is an "
@@ -138,7 +138,36 @@ std::vector<int> GemmTransformer::untransform(Mat &a) {
     }
     return out;
 }
+/* For multi-channel kernels , in order to load them in a 2-D SA
+* we need to pack the channels into one single vector. Concatenate channels
+* in a single vector and call 'transform_weights(vec v,SA_row,SA_column)' on it.
+* It reorders them in a specific order so that when the 'load_weights()' is called.
+* it will load the 1st kernel in the 1st column of the SA and the 2nd kernel in the 2nd column of the SA.
+*/
 
+/* 
+* transform_weights() : takes elements one by one from the input vector in increasing order
+* and places them in the return vector in order i+ SA_row, so when load_weights is called on return vector
+* USED WHEN MULTI_CHANNEL KERNEL AND 2D SA is used.
+*
+*    kernel_1 2x2:             1   2
+*                              3   4
+*
+*
+*    kernel_2 2x2:             5   6
+*                              7   8      
+*
+*
+*
+*    input_vector: 1,2,3,4,5,6,7,8  (concatenate kernel_1 & kernel_2)
+*
+*    transform weights(4,2) return vector : 1,5,2,6,3,7,4,8
+*
+*    load_weigths(return vector, 4,2) :      1   5
+*                                            2   6
+*                                            3   7
+*                                            4   8   (4x2)
+*/
 std::vector<int> ConvTransformer::transform_weights(std::vector<int>& w, int out_row, int out_col) {
     assert(w.size() == out_row*out_col);
     std::vector<int> out(out_row*out_col, 0);
