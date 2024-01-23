@@ -407,8 +407,31 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return order;
 }
 
+/* TODO: make this algorithm (used by summary() and get_execution_order()
+ * common) with callbacks
+ */
 void Op::Model::summary(void) const {
-  bare_summary();
+  std::queue<Op::Vertex> S;
+  Op::Graph gcopy = g;
+
+  auto vitr = boost::vertices(gcopy);
+  Op::Vertex v = *(vitr.first);
+  S.push(v);
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::Model::print_node(n);
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, gcopy);
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
+      boost::remove_edge(*itr, gcopy);
+      if (boost::in_degree(dest_vertex, gcopy) == 0) {
+        S.push(dest_vertex);
+      }
+    }
+  }
 }
 
 Op::Vertex& Op::Model::get_input_vertex(void) {
@@ -599,19 +622,14 @@ Op::Parser::Parser(std::string const &filename) {
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
 }
 
-void Op::Parser::summary() const { m_model.bare_summary(); }
+void Op::Parser::summary() const { m_model.summary(); }
+void Op::Parser::bare_summary() const { m_model.bare_summary(); }
 void Op::Parser::time_estimate(int M, int N, int K) const {
   m_model.time_estimate(M, N, K);
 }
 
 std::vector<Op::LayerBase*> Op::Parser::get_execution_order(void) const {
   auto order = m_model.get_execution_order(); 
-#if 1
-  for (Op::LayerBase *i : order) {
-    Op::print_node(i);
-    std::cout << '\n';
-  }
-#endif
   return order;
 }
 

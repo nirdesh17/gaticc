@@ -206,7 +206,11 @@ public:
   Op::Vertex &get_input_vertex(void);
   Op::LayerBase *get_layer_base(Op::Vertex &v);
   Op::LayerBase *get_layer_base(Op::AdjacencyIterator &itr);
+  /* Print a summary of the network (traversed only through the 
+   * boost::vertices() of g) */
   void bare_summary(void) const;
+  /* Print a summary of the network (traversed like a graph in topological
+   * order) */
   void summary(void) const;
   void time_estimate(int M, int N, int K) const;
   size_t size(void);
@@ -234,6 +238,7 @@ public:
   void add_operator(onnx::NodeProto &node);
   Parser(std::string const &filename);
   void summary(void) const;
+  void bare_summary(void) const;
   void time_estimate(int M, int N, int K) const;
   std::vector<LayerBase*> get_execution_order(void) const;
   ~Parser();
