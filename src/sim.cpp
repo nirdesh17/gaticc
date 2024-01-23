@@ -136,7 +136,7 @@ void SA::load_weights(std::vector<int> &weights) {
   }
 }
 
-void SA::load_weights(TensorExtant& T1, std::vector<int>& temp_dims) {
+void SA::load_weights(TensorExtant<int>& T1, std::vector<int>& temp_dims) {
   // TensorExtant T1(weights);
   for (int i = 0; i < rows ; ++i) {
     for(int j = 0 ; j < columns ; j++){

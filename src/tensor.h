@@ -4,26 +4,29 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+
+template<typename T1>
 class Tensor {
 public:
   Tensor(){};
 
-  virtual int at(std::vector<int> &at) { return -1;}
+  virtual T1 at(std::vector<int> &at) { return -1;}
 
   virtual int dims_size() {return 0;}
   
   virtual int dims_at(int index) {return index;}
 
-  virtual void push_back(int data) {return;}
+  virtual void push_back(T1 data) {return;}
 
-  virtual void insert(std::vector<int> &at, int data) {return;}
+  virtual void insert(std::vector<int> &at, T1 data) {return;}
 
   virtual int dims_iterator(int index) {return index;}
 
   virtual void clear(){return;}
 };
 
-class TensorExtant : public Tensor{
+template<typename T1>
+class TensorExtant : public Tensor<T1>{
 private : 
   std::vector<int> dims;
   const onnx::TensorProto * ptr;
@@ -36,7 +39,7 @@ public:
     this->ptr = ptr; 
   } 
 
-  int at(std::vector<int> &at) override {
+  T1 at(std::vector<int> &at) override {
     assert(at.size() == dims.size());
 
     int sum = 0;
@@ -68,7 +71,8 @@ public:
   // this should belong to parent only?
 };
 
-class TensorCreate : public Tensor { 
+template<typename T1>
+class TensorCreate : public Tensor<T1> { 
   private:
     std::vector<int> dims;
     std::vector<int> vec;
@@ -78,7 +82,7 @@ class TensorCreate : public Tensor {
       vec = std::vector<int>(dims_iterator(-1));
     }
 
-    int at(std::vector<int> &at) override {
+    T1 at(std::vector<int> &at) override {
       assert(at.size() == dims.size());
 
       int sum = 0;
@@ -99,7 +103,7 @@ class TensorCreate : public Tensor {
       return dims[index];
     }
 
-    void push_back(int data) override {
+    void push_back(T1 data) override {
       static int i = 0;
       if (i == 0) {
       vec.clear();
@@ -113,7 +117,7 @@ class TensorCreate : public Tensor {
     // std::cout<< "vec value "<< vec[index]<<std::cout;
     }
 
-    void insert(std::vector<int> &at, int data) override {
+    void insert(std::vector<int> &at, T1 data) override {
     assert(at.size() <= dims.size());
     int sum = 0;
     for (int i = 0; i < at.size(); i++) {

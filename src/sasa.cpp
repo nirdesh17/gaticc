@@ -47,8 +47,9 @@ std::vector<ConvTransformer *> SASA::create_ConvTransformer() {
 }
 
 // possibility of multi-threading here for further optimization.
+template<typename T1>
 std::vector<Mat>
-SASA::input_tensor_transformer(Tensor& input_tensor,
+SASA::input_tensor_transformer(Tensor<T1>& input_tensor,
                                std::vector<ConvTransformer *> CT_ptr) {
   std::vector<int> temp_vec;
   Mat temp_mat;
@@ -71,14 +72,14 @@ SASA::input_tensor_transformer(Tensor& input_tensor,
   }
   return transformed_mats;
 }
-
+template<typename T1>
 void SASA::load_weights_tensor(int kernel_channel, int kernel_number,
                                SA *SA_ptr, ConvTransformer *CT_ptr) {
   const onnx::TensorProto* temp_ptr = conv_1.weights;
 
-  TensorExtant T1(temp_ptr);
+  TensorExtant<T1> TE1(temp_ptr);
   std::vector<int> temp_dims{kernel_number,kernel_channel,0,0};
-  SA_ptr->load_weights(T1,temp_dims);
+  SA_ptr->load_weights(TE1,temp_dims);
 }
 
 void SASA::slave_thread(Mat &transformed_mats, SA *SA_ptr,
@@ -128,8 +129,9 @@ std::vector<Mat> SASA::create_output(Mat &input) {
  * the kernels are done for the ongoing set of channels.... channels are updated
  * and then the process is repeated all over again.
  */
+template<typename T1>
 std::vector<Mat>
-SASA::master(Tensor& input_tensor) { // NCHW
+SASA::master(Tensor<T1>& input_tensor) { // NCHW
   std::vector<SA *> SA_ptr;
   std::vector<std::vector<std::thread *>> threads(sa_channels);
   std::vector<Mat> transformed_mats;
@@ -154,7 +156,7 @@ SASA::master(Tensor& input_tensor) { // NCHW
   std::vector<ConvTransformer *> CT_ptr = create_ConvTransformer();
   create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
 
-  transformed_mats = input_tensor_transformer(input_tensor, CT_ptr);
+  transformed_mats = input_tensor_transformer<T1>(input_tensor, CT_ptr);
 
   int channel_count = conv_1.m_cp.ic;
   int sa_channel_reloader = ceil(((float)conv_1.m_cp.ic / sa_channels));
@@ -173,7 +175,7 @@ SASA::master(Tensor& input_tensor) { // NCHW
           }
           kernel_number = i * sa_channel_columns + m;
           channel_number = k * sa_channels + j;
-          load_weights_tensor(channel_number, kernel_number,
+          load_weights_tensor<T1>(channel_number, kernel_number,
                               SA_ptr.at(j * sa_channel_columns + m),
                               CT_ptr.at(j));
 
