@@ -282,7 +282,7 @@ size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
 void Op::Model::print_node(Op::Vertex v) const {
   LayerBase *node = g[v];
-  print_node(node);
+  Op::print_node(node);
   std::cout << "Out Degree: " << boost::out_degree(v, g) << '\n';
   std::cout << "In Degree: " << boost::in_degree(v, g) << '\n';
   std::cout << '\n';
@@ -290,7 +290,7 @@ void Op::Model::print_node(Op::Vertex v) const {
 
 void Op::Model::print_node(Op::AdjacencyIterator ai) const {
   LayerBase *node = g[*ai];
-  print_node(node);
+  Op::print_node(node);
   std::cout << "Out Degree: " << boost::out_degree(*ai, g) << '\n';
   std::cout << "In Degree: " << boost::in_degree(*ai, g) << '\n';
   std::cout << '\n';
@@ -358,7 +358,7 @@ void Op::Model::bare_summary(void) const {
   Op::VertexIterator vb, ve;
   std::tie(vb, ve) = boost::vertices(g);
   for (auto itr = vb; itr != ve; ++itr) {
-    print_node(*itr);
+    Op::Model::print_node(*itr);
   }
 }
 
