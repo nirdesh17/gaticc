@@ -181,6 +181,7 @@ using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 class Model {
   Op::Graph g;
   /* maps an output from a node its corresponding vertex in 'g' */
+  std::map<std::string, Op::Vertex> name_vertex_map;
   std::map<std::string, Op::Vertex> output_map;
   std::map<std::string, onnx::TensorProto &> initializer_map;
   std::map<std::string, onnx::ValueInfoProto &> value_info_map;

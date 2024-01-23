@@ -194,6 +194,8 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
     layer->name = node.name();
   }
 
+  name_vertex_map.insert({node.name(), v});
+
   for (auto i: node.input()) {
     if (!is_initializer(i)) {
       // this is a non-weighted input (i.e. its values
@@ -210,6 +212,9 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
     if (itr3 != initializer_map.end()) {
       layer->set_initializer_params(itr3->second);
     }
+  }
+  for (auto i: node.output()) {
+      output_map.insert({i, v});
   }
 }
 
@@ -230,27 +235,27 @@ bool Op::Model::is_graph_output(const std::string &s) const {
 }
 
 void Op::Model::connect(onnx::NodeProto &node) {
+  if (node.name() == "resnetv24_stage1_conv0_fwd") {
+    int stop_here = 1;
+  }
   /* find the Op::Vertex for `node` */
   Op::Vertex current_node;
-  for (auto i : node.input()) {
-    if (!is_initializer(i)) {
-      auto itr2 = output_map.find(i);
-      if (itr2 != output_map.end()) {
-        // found vertex for current node
-        current_node = itr2->second;
-      } else {
-        log_fatal("Coudn't find node %s in output_map", i.c_str());
-      }
-    }
+  auto itr = name_vertex_map.find(node.name());
+  if (itr != name_vertex_map.end()) {
+    // found vertex for current node
+    current_node = itr->second;
+  } else {
+    log_fatal("Coudn't find node %s in name_vertex_map", node.name().c_str());
   }
 
-  /* find and connect all output nodes of `node` */
-  for (auto i : node.output()) {
-    if (!is_graph_output(i)) {
+  for (auto i: node.input()) {
+    // for inputs that are not initializers, connect them to the current
+    // node
+    if (!is_initializer(i)) {
       auto itr = output_map.find(i);
       if (itr != output_map.end()) {
         /* connect */
-        boost::add_edge(current_node, itr->second, g);
+        boost::add_edge(itr->second, current_node, g);
       } else {
         log_fatal("Coudn't find node %s in output_map", i.c_str());
       }
@@ -283,8 +288,21 @@ size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 void Op::Model::print_node(Op::Vertex v) const {
   LayerBase *node = g[v];
   Op::print_node(node);
-  std::cout << "Out Degree: " << boost::out_degree(v, g) << '\n';
-  std::cout << "In Degree: " << boost::in_degree(v, g) << '\n';
+  std::cout << "Out Degree: " << boost::out_degree(v, g) << " (";
+  auto out_edges = boost::out_edges(v, g);
+  for (auto ei = out_edges.first; ei != out_edges.second; ++ei) {
+    Op::Vertex dest_vertex = boost::target(*ei, g);
+    std::cout << g[dest_vertex]->name << ", ";
+  }
+  std::cout << ")\n";
+
+  std::cout << "In Degree: " << boost::in_degree(v, g) << " (";
+  auto in_edges = boost::in_edges(v, g);
+  for (auto ei = in_edges.first; ei != in_edges.second; ++ei) {
+    Op::Vertex source_vertex = boost::source(*ei, g);
+    std::cout << g[source_vertex]->name << ", ";
+  }
+  std::cout << ")\n";
   std::cout << '\n';
 }
 
@@ -392,6 +410,8 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
 }
 
 void Op::Model::summary(void) const {
+  auto itr = output_map.find("resnetv24_stage1_activation0");
+  std::cout << "summary: " << g[itr->second]->name << ' ' << '\n';
 }
 
 Op::Vertex& Op::Model::get_input_vertex(void) {
@@ -582,7 +602,7 @@ Op::Parser::Parser(std::string const &filename) {
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
 }
 
-void Op::Parser::summary() const { m_model.summary(); }
+void Op::Parser::summary() const { m_model.bare_summary(); }
 void Op::Parser::time_estimate(int M, int N, int K) const {
   m_model.time_estimate(M, N, K);
 }
