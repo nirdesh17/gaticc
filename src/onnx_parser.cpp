@@ -395,14 +395,12 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
     order.push_back(node);
     S.pop();
 
-    Op::AdjacencyIterator ns, ne;
-    std::tie(ns, ne) = boost::adjacent_vertices(n, gcopy);
-    for (auto itr = ns; itr != ne; ++itr) {
-      boost::remove_edge(n, *itr, gcopy);
-      if (boost::in_degree(*itr, gcopy) == 0) {
-        Op::LayerBase *nn = gcopy[*itr];
-        Op::Vertex vv = *itr;
-        S.push(vv);
+    auto out_edges = boost::out_edges(n, gcopy);
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
+      boost::remove_edge(*itr, gcopy);
+      if (boost::in_degree(dest_vertex, gcopy) == 0) {
+        S.push(dest_vertex);
       }
     }
   }
@@ -410,8 +408,7 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
 }
 
 void Op::Model::summary(void) const {
-  auto itr = output_map.find("resnetv24_stage1_activation0");
-  std::cout << "summary: " << g[itr->second]->name << ' ' << '\n';
+  bare_summary();
 }
 
 Op::Vertex& Op::Model::get_input_vertex(void) {
@@ -609,9 +606,12 @@ void Op::Parser::time_estimate(int M, int N, int K) const {
 
 std::vector<Op::LayerBase*> Op::Parser::get_execution_order(void) const {
   auto order = m_model.get_execution_order(); 
+#if 1
   for (Op::LayerBase *i : order) {
     Op::print_node(i);
+    std::cout << '\n';
   }
+#endif
   return order;
 }
 

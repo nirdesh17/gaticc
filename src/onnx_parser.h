@@ -218,6 +218,9 @@ public:
   Op::Vertex get_root_node(void) const;
   Op::Neighbours get_neighbouring_vertices(Op::Vertex v) const;
 
+  /* return the topologically sorted graph (g) 
+   * used by LayerExecutors to execute layers 
+   */
   std::vector<Op::LayerBase*> get_execution_order(void) const;
 
   void print_node(Op::Vertex v) const;
