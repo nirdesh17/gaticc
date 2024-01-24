@@ -46,17 +46,27 @@ public:
     for (int i = 0; i < at.size(); i++) {
       sum = sum + at[i] * dims_iterator(dims.size() - 1 - i);
     }
-    if (typeid(int) == typeid(float))
+    if (typeid(T1) == typeid(float))
       return (ptr->float_data(sum));
-    else if (typeid(int) == typeid(int32_t))
+    else if (typeid(T1) == typeid(int32_t))
       return (ptr->int32_data(sum));
-    else if (typeid(int) == typeid(int64_t))
+    else if (typeid(T1) == typeid(int64_t))
       return (ptr->int64_data(sum));
+    else if (typeid(T1) == typeid(int8_t))
+      return ((int8_t)ptr->raw_data().at(sum));
 		else
 		return -1;
 
     // have functionality for raw data too
   }
+  int dims_size() override { 
+      return dims.size();
+    }
+  
+  int dims_at(int index) override {
+      assert(index < dims.size());
+      return dims[index];
+    }
 
   int dims_iterator(int index) override {
     // std::cout << " value of index " << index << dims.size()<<std::endl;
