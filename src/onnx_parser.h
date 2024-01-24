@@ -191,32 +191,9 @@ class Model {
   /* All 'Constants' in the onnx model are looked up using this table */
   std::map<std::string, onnx::NodeProto &> constant_pool;
 
-public:
-  void add(LayerBase *layer, onnx::NodeProto &node);
-  void add_to_constant_pool(onnx::NodeProto &node);
-  void save_initializers(onnx::TensorProto &t);
-  void save_graph_outputs(onnx::ValueInfoProto &t);
-  void save_value_info(onnx::ValueInfoProto &t);
-  void connect(onnx::NodeProto &node);
-  void save_first_layer_input_dims(onnx::ValueInfoProto &t);
-  void connect_first_last_layer(onnx::GraphProto &graph);
-
-  void extract_dropout_constant(onnx::NodeProto &node, DropoutParams &params);
-  void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
-  void extract_maxpool_attr(onnx::NodeProto &node, MaxpoolParams &params);
-  void extract_clip_params(onnx::NodeProto &node, ClipParams &params);
   Op::Vertex &get_input_vertex(void);
   Op::LayerBase *get_layer_base(Op::Vertex &v);
   Op::LayerBase *get_layer_base(Op::AdjacencyIterator &itr);
-  /* Print a summary of the network (traversed only through the 
-   * boost::vertices() of g) */
-  void bare_summary(void) const;
-  /* Print a summary of the network (traversed like a graph in topological
-   * order) */
-  void summary(void) const;
-  void time_estimate(int M, int N, int K) const;
-  size_t size(void);
-  size_t size(void) const;
 
   bool is_graph_output(const std::string &s) const;
   bool is_initializer(const std::string &s) const;
@@ -224,13 +201,39 @@ public:
   Op::Vertex get_root_node(void) const;
   Op::Neighbours get_neighbouring_vertices(Op::Vertex v) const;
 
+  void print_node(Op::Vertex v) const;
+  void print_node(Op::AdjacencyIterator ai) const;
+public:
+  void save_graph_outputs(onnx::ValueInfoProto &t);
+  void save_value_info(onnx::ValueInfoProto &t);
+  void save_initializers(onnx::TensorProto &t);
+
+  void add(LayerBase *layer, onnx::NodeProto &node);
+  void add_to_constant_pool(onnx::NodeProto &node);
+  void connect(onnx::NodeProto &node);
+  void save_first_layer_input_dims(onnx::ValueInfoProto &t);
+  void connect_first_last_layer(onnx::GraphProto &graph);
+
   /* return the topologically sorted graph (g) 
    * used by LayerExecutors to execute layers 
    */
   std::vector<Op::LayerBase*> get_execution_order(void) const;
 
-  void print_node(Op::Vertex v) const;
-  void print_node(Op::AdjacencyIterator ai) const;
+  /* Print a summary of the network (traversed only through the 
+   * boost::vertices() of g) */
+  void bare_summary(void) const;
+  /* Print a summary of the network (traversed like a graph in topological
+   * order) */
+  void summary(void) const;
+  void time_estimate(int M, int N, int K) const;
+
+  size_t size(void);
+  size_t size(void) const;
+
+  void extract_dropout_constant(onnx::NodeProto &node, DropoutParams &params);
+  void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
+  void extract_maxpool_attr(onnx::NodeProto &node, MaxpoolParams &params);
+  void extract_clip_params(onnx::NodeProto &node, ClipParams &params);
 };
 
 class Parser {
