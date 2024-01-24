@@ -210,7 +210,10 @@ class Model {
 
   void print_node(Op::Vertex v) const;
   void print_node(Op::AdjacencyIterator ai) const;
+
 public:
+  void create_execution_order(void);
+
   void save_graph_outputs(onnx::ValueInfoProto &t);
   void save_value_info(onnx::ValueInfoProto &t);
   void save_initializers(onnx::TensorProto &t);

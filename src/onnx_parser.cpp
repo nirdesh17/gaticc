@@ -380,8 +380,7 @@ void Op::Model::bare_summary(void) const {
   }
 }
 
-std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
-  std::vector<Op::LayerBase *> order;
+void Op::Model::create_execution_order(void) {
   std::queue<Op::Vertex> S;
   Op::Graph gcopy = g;
 
@@ -394,7 +393,7 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   while (!S.empty()) {
     Op::Vertex n = S.front();
     Op::LayerBase *node = gcopy[n];
-    order.push_back(node);
+    execution_order.push_back(node);
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
@@ -406,7 +405,10 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
       }
     }
   }
-  return order;
+}
+
+std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
+  return execution_order;
 }
 
 /* TODO: make this algorithm (used by summary() and get_execution_order()
@@ -622,6 +624,7 @@ Op::Parser::Parser(std::string const &filename) {
   auto graph_inputs = graph.input();
   //assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
+  m_model.create_execution_order();
 }
 
 void Op::Parser::summary() const { m_model.summary(); }
@@ -631,8 +634,7 @@ void Op::Parser::time_estimate(int M, int N, int K) const {
 }
 
 std::vector<Op::LayerBase*> Op::Parser::get_execution_order(void) const {
-  auto order = m_model.get_execution_order(); 
-  return order;
+  return m_model.get_execution_order(); 
 }
 
 Op::Parser::~Parser() {
