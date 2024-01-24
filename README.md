@@ -16,6 +16,17 @@ sudo pacman -S boost boost-libs python3 protobuf
 sudo dnf install boost-devel python3-devel protobuf-compiler 
 ```
 
+### Ubuntu/Debian
+
+```
+sudo apt install libprotobuf{available_version} libprotobuf-dev \
+    protobuf-compiler libboost{available_version}-all-dev \
+    python{available_version}-dev python{available_version}
+```
+
+`{available_version}` here is a version number of the packages available in
+the apt repos.
+
 ## Compile
 
 ```
