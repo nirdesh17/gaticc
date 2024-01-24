@@ -385,6 +385,8 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   std::queue<Op::Vertex> S;
   Op::Graph gcopy = g;
 
+  RegisterAllocator ral;
+
   auto vitr = boost::vertices(gcopy);
   Op::Vertex v = *(vitr.first);
   S.push(v);
@@ -635,4 +637,30 @@ std::vector<Op::LayerBase*> Op::Parser::get_execution_order(void) const {
 
 Op::Parser::~Parser() {
   loaded_model.close();
+}
+
+
+Op::RegisterAllocator::RegisterAllocator(): 
+  RegisterAllocator::RegisterAllocator(512) {
+}
+
+Op::RegisterAllocator::RegisterAllocator(long default_size) {
+  register_set.reserve(default_size);
+  std::fill(register_set.begin(), register_set.end(), AVAILABLE);
+}
+
+Op::VirtualAddress Op::RegisterAllocator::acquire(void) {
+  // find the first available register
+  auto itr = std::find(register_set.begin(), register_set.end(), AVAILABLE);
+  if (itr != register_set.end()) {
+    *itr = OCCUPIED;
+    return itr - register_set.begin();
+  }
+  else {
+    log_fatal("Out of registers!");
+  }
+}
+
+void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
+  register_set.at(a) = AVAILABLE;
 }

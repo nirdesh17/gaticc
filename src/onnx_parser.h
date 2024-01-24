@@ -45,6 +45,8 @@ struct DropoutParams {
   float drop;
 };
 
+using VirtualAddress = int;
+
 struct LayerBase {
   std::string name;
   virtual const char *op_type() const;
@@ -69,6 +71,9 @@ struct LayerBase {
    * See Op::Layer::Conv for eg.
    */
   virtual void set_value_info_params(onnx::ValueInfoProto &t);
+
+  std::vector<VirtualAddress> inputs;
+  std::vector<VirtualAddress> outputs;
 };
 
 void print_node(const LayerBase *node);
@@ -191,6 +196,8 @@ class Model {
   /* All 'Constants' in the onnx model are looked up using this table */
   std::map<std::string, onnx::NodeProto &> constant_pool;
 
+  std::vector<LayerBase*> execution_order;
+
   Op::Vertex &get_input_vertex(void);
   Op::LayerBase *get_layer_base(Op::Vertex &v);
   Op::LayerBase *get_layer_base(Op::AdjacencyIterator &itr);
@@ -247,6 +254,17 @@ public:
   void time_estimate(int M, int N, int K) const;
   std::vector<LayerBase*> get_execution_order(void) const;
   ~Parser();
+};
+
+class RegisterAllocator {
+  const bool AVAILABLE = 1;
+  const bool OCCUPIED = 0;
+  std::vector<bool> register_set; 
+  public:
+    RegisterAllocator();
+    RegisterAllocator(long default_size);
+    VirtualAddress acquire(void);
+    void relinquish(VirtualAddress a);
 };
 
 } // namespace Op
