@@ -1,6 +1,7 @@
 #include "../src/sim.h"
 #include "../src/transformers.h"
 #include "../src/utils.h"
+#include "../src/onnx_parser.h"
 #include <numeric>
 
 int main(int argc, char *argv[]) {
@@ -20,9 +21,20 @@ int main(int argc, char *argv[]) {
   int array_rows = 9;
   int array_cols = 1;
 
+  Op::ConvParams cp {
+    .imap {input_rows, input_columns},
+    .k {kernel_rows, kernel_cols},
+    .pad {0,0,0,0},
+    .stride {1,1}
+  };
+
+  SaDims sa_dims {
+    .rows {array_rows},
+    .cols {array_cols}
+  };
+
   SA a1(array_rows, array_cols, true);
-  ConvTransformer t(input_rows, input_columns, kernel_rows, kernel_cols,
-                    array_rows, array_cols);
+  ConvTransformer t(cp, sa_dims);
 
   std::vector<int> v(input_rows * input_columns);
   std::iota(v.begin(), v.end(), 1);

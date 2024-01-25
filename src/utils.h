@@ -1,5 +1,6 @@
 #pragma once
 
+#include "onnx_parser.h"
 #include <cstdio>
 #include <cstdarg>
 
@@ -67,3 +68,12 @@ bool generate_report(const char *test_name, std::vector<expectedT>& expected, st
 }
 
 //void print_vec_point(const char *s, std::vector<Point> const &v);
+
+inline int sa_odims_row(Op::ConvParams const &cp) {
+  // o = ((iw - kw + 2p) / s) + 1
+  return ((cp.imap[0] - cp.k[0] + cp.pad[0] + cp.pad[2])/cp.stride[0]) + 1;
+}
+
+inline int sa_odims_cols(Op::ConvParams const &cp) {
+  return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3])/cp.stride[1]) + 1;
+}

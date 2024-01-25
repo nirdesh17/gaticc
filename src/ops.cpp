@@ -23,6 +23,7 @@ Conv2d::Conv2d(Imgdims id, Kerneldims kd):
 
 std::vector<int> Conv2d::operator()(std::vector<int> &input, std::vector<int> &weights, 
         SA &a1) {
+#if 0
     assert(weights.size() == (a1.get_rows() * a1.get_cols()));
     a1.load_weights(weights);
     ConvTransformer tr(id.w, id.h, kd.w, kd.h, a1.get_rows(), a1.get_cols());
@@ -44,4 +45,5 @@ std::vector<int> Conv2d::operator()(std::vector<int> &input, std::vector<int> &w
         std::cout << untr.size() << '\n';
     }
     return ret;
+#endif
 }
