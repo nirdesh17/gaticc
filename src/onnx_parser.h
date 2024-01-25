@@ -189,6 +189,7 @@ using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 bool is_root_node(Op::Vertex v, Op::Graph *g);
 bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, Op::Graph *g);
 void print_node(const LayerBase *node);
+void print_node(Op::Vertex v, const Op::Graph *g);
 
 class Model {
   Op::Graph g;
@@ -212,9 +213,6 @@ class Model {
 
   Op::Vertex get_root_node(void) const;
   Op::Neighbours get_neighbouring_vertices(Op::Vertex v) const;
-
-  void print_node(Op::Vertex v) const;
-  void print_node(Op::AdjacencyIterator ai) const;
 
 public:
   void create_execution_order(void);

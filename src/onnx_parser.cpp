@@ -299,32 +299,24 @@ void Op::Model::save_first_layer_input_dims(onnx::ValueInfoProto &t) {
 size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
-void Op::Model::print_node(Op::Vertex v) const {
-  LayerBase *node = g[v];
+void Op::print_node(Op::Vertex v, const Op::Graph *g) {
+  LayerBase *node = (*g)[v];
   Op::print_node(node);
-  std::cout << "Out Degree: " << boost::out_degree(v, g) << " (";
-  auto out_edges = boost::out_edges(v, g);
+  std::cout << "Out Degree: " << boost::out_degree(v, (*g)) << " (";
+  auto out_edges = boost::out_edges(v, (*g));
   for (auto ei = out_edges.first; ei != out_edges.second; ++ei) {
-    Op::Vertex dest_vertex = boost::target(*ei, g);
-    std::cout << g[dest_vertex]->name << ", ";
+    Op::Vertex dest_vertex = boost::target(*ei, (*g));
+    std::cout << (*g)[dest_vertex]->name << ", ";
   }
   std::cout << ")\n";
 
-  std::cout << "In Degree: " << boost::in_degree(v, g) << " (";
-  auto in_edges = boost::in_edges(v, g);
+  std::cout << "In Degree: " << boost::in_degree(v, (*g)) << " (";
+  auto in_edges = boost::in_edges(v, (*g));
   for (auto ei = in_edges.first; ei != in_edges.second; ++ei) {
-    Op::Vertex source_vertex = boost::source(*ei, g);
-    std::cout << g[source_vertex]->name << ", ";
+    Op::Vertex source_vertex = boost::source(*ei, (*g));
+    std::cout << (*g)[source_vertex]->name << ", ";
   }
   std::cout << ")\n";
-  std::cout << '\n';
-}
-
-void Op::Model::print_node(Op::AdjacencyIterator ai) const {
-  LayerBase *node = g[*ai];
-  Op::print_node(node);
-  std::cout << "Out Degree: " << boost::out_degree(*ai, g) << '\n';
-  std::cout << "In Degree: " << boost::in_degree(*ai, g) << '\n';
   std::cout << '\n';
 }
 
@@ -381,15 +373,15 @@ void Op::Model::time_estimate(int M, int N, int K) const {
       int t = ((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) * input_columns;
       cycles += t;
       std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-      print_node(*itr);
+      Op::print_node(*itr, &g);
     } else if (node->op_type() == "Gemm") {
-      Op::Layer::Gemm *g = (Op::Layer::Gemm *)node;
-      assert(g->m_cp.wc == g->m_cp.is);
+      Op::Layer::Gemm *gemm_node = (Op::Layer::Gemm *)node;
+      assert(gemm_node->m_cp.wc == gemm_node->m_cp.is);
       int available_pe_columns = (N*K > 32) ? 32 : N*K;
-      int t = (g->m_cp.wr / available_pe_columns) * g->m_cp.is;
+      int t = (gemm_node->m_cp.wr / available_pe_columns) * gemm_node->m_cp.is;
       cycles += t;
       std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-      print_node(*itr);
+      Op::print_node(*itr, &g);
     }
   }
   std::cout << "Total Estimated time for convolutions: " << (float)cycles / 1e5
@@ -400,7 +392,7 @@ void Op::Model::bare_summary(void) const {
   Op::VertexIterator vb, ve;
   std::tie(vb, ve) = boost::vertices(g);
   for (auto itr = vb; itr != ve; ++itr) {
-    Op::Model::print_node(*itr);
+    Op::print_node(*itr, &g);
   }
 }
 
@@ -452,7 +444,7 @@ void Op::Model::summary(void) const {
 
   while (!S.empty()) {
     Op::Vertex n = S.front();
-    Op::Model::print_node(n);
+    Op::print_node(n, &gcopy);
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
