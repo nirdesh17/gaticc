@@ -43,18 +43,17 @@ make test -j $(nproc --all)
 
 - existing code clean : adding comments (tree, already marked explain further)
 - representation/execution of a neural network(graph) onnx*
-- hybrid SA of SA (SASA)
 - type strictness (reg_t)
 - memory leaks (valgrind) 
-- const correctness
-- static analysis (coverity)
-- fuzzy testing 
-- LIT integreation 
-- Mat template for floats
+- full const correctness
+- generic Tensor class
+- syms argv[x]
 - im2col
     - multi size kernels
     - strided convo
     - DW/PW convo
     - dilated convo
     - padded convo
+- onnx parser test scripts
+- onnx optimizer + shape inference
 - compiler gati-cc
