@@ -187,6 +187,25 @@ const char *Op::Layer::Reshape::op_type() const {
   return m_optype;
 }
 
+/* Auxillary Graph Functions */
+
+bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
+  auto verts = boost::vertices(*g);
+  bool ret = ((*g)[v]->name == (*g)[*verts.first]->name);
+  return ret;
+}
+
+bool Op::are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g) {
+  return ((*g)[v1]->name == (*g)[v2]->name);
+}
+
+Op::Vertex Op::get_root_node(const Op::Graph *g) {
+  auto verts = boost::vertices(*g);
+  return *(verts.first);
+}
+
+/* Op::Model */
+
 void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   Op::Vertex v = boost::add_vertex(layer, g);
 
@@ -285,32 +304,24 @@ void Op::Model::save_first_layer_input_dims(onnx::ValueInfoProto &t) {
 size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
-void Op::Model::print_node(Op::Vertex v) const {
-  LayerBase *node = g[v];
+void Op::print_node(Op::Vertex v, const Op::Graph *g) {
+  LayerBase *node = (*g)[v];
   Op::print_node(node);
-  std::cout << "Out Degree: " << boost::out_degree(v, g) << " (";
-  auto out_edges = boost::out_edges(v, g);
+  std::cout << "Out Degree: " << boost::out_degree(v, (*g)) << " (";
+  auto out_edges = boost::out_edges(v, (*g));
   for (auto ei = out_edges.first; ei != out_edges.second; ++ei) {
-    Op::Vertex dest_vertex = boost::target(*ei, g);
-    std::cout << g[dest_vertex]->name << ", ";
+    Op::Vertex dest_vertex = boost::target(*ei, (*g));
+    std::cout << (*g)[dest_vertex]->name << ", ";
   }
   std::cout << ")\n";
 
-  std::cout << "In Degree: " << boost::in_degree(v, g) << " (";
-  auto in_edges = boost::in_edges(v, g);
+  std::cout << "In Degree: " << boost::in_degree(v, (*g)) << " (";
+  auto in_edges = boost::in_edges(v, (*g));
   for (auto ei = in_edges.first; ei != in_edges.second; ++ei) {
-    Op::Vertex source_vertex = boost::source(*ei, g);
-    std::cout << g[source_vertex]->name << ", ";
+    Op::Vertex source_vertex = boost::source(*ei, (*g));
+    std::cout << (*g)[source_vertex]->name << ", ";
   }
   std::cout << ")\n";
-  std::cout << '\n';
-}
-
-void Op::Model::print_node(Op::AdjacencyIterator ai) const {
-  LayerBase *node = g[*ai];
-  Op::print_node(node);
-  std::cout << "Out Degree: " << boost::out_degree(*ai, g) << '\n';
-  std::cout << "In Degree: " << boost::in_degree(*ai, g) << '\n';
   std::cout << '\n';
 }
 
@@ -318,6 +329,16 @@ void Op::print_node(const LayerBase *node) {
   std::cout << "Type: " << node->op_type() << '\n';
   std::cout << "Params: " << node->params() << '\n';
   std::cout << "Name: " << node->name << '\n';
+  std::cout << "Input Registers: ";
+  for (auto i : node->inputs) {
+    std::cout << i << ' ';
+  }
+  std::cout << '\n';
+  std::cout << "Output Registers: ";
+  for (auto i : node->outputs) {
+    std::cout << i << ' ';
+  }
+  std::cout << '\n';
 }
 
 #define sa_odims(i, k, s, p) ((i - k + 2*p)/s)
@@ -357,15 +378,15 @@ void Op::Model::time_estimate(int M, int N, int K) const {
       int t = ((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) * input_columns;
       cycles += t;
       std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-      print_node(*itr);
+      Op::print_node(*itr, &g);
     } else if (node->op_type() == "Gemm") {
-      Op::Layer::Gemm *g = (Op::Layer::Gemm *)node;
-      assert(g->m_cp.wc == g->m_cp.is);
+      Op::Layer::Gemm *gemm_node = (Op::Layer::Gemm *)node;
+      assert(gemm_node->m_cp.wc == gemm_node->m_cp.is);
       int available_pe_columns = (N*K > 32) ? 32 : N*K;
-      int t = (g->m_cp.wr / available_pe_columns) * g->m_cp.is;
+      int t = (gemm_node->m_cp.wr / available_pe_columns) * gemm_node->m_cp.is;
       cycles += t;
       std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-      print_node(*itr);
+      Op::print_node(*itr, &g);
     }
   }
   std::cout << "Total Estimated time for convolutions: " << (float)cycles / 1e5
@@ -376,35 +397,39 @@ void Op::Model::bare_summary(void) const {
   Op::VertexIterator vb, ve;
   std::tie(vb, ve) = boost::vertices(g);
   for (auto itr = vb; itr != ve; ++itr) {
-    Op::Model::print_node(*itr);
+    Op::print_node(*itr, &g);
   }
 }
 
-std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
-  std::vector<Op::LayerBase *> order;
+void Op::Model::create_execution_order(void) {
   std::queue<Op::Vertex> S;
   Op::Graph gcopy = g;
-
-  auto vitr = boost::vertices(gcopy);
-  Op::Vertex v = *(vitr.first);
-  S.push(v);
+  S.push(Op::get_root_node(&gcopy));
 
   while (!S.empty()) {
     Op::Vertex n = S.front();
-    Op::LayerBase *node = gcopy[n];
-    order.push_back(node);
+    execution_order.push_back(gcopy[n]);
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
       Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      boost::remove_edge(*itr, gcopy);
-      if (boost::in_degree(dest_vertex, gcopy) == 0) {
-        S.push(dest_vertex);
+      if (!Op::are_equal_nodes(n, dest_vertex, &gcopy)) {
+        boost::remove_edge(*itr, gcopy);
+        if (boost::in_degree(dest_vertex, gcopy) == 0) {
+          S.push(dest_vertex);
+        }
       }
     }
   }
-  return order;
+}
+
+void Op::Model::update_registers(void) {
+  RegisterAllocator ral(g);
+}
+
+std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
+  return execution_order;
 }
 
 /* TODO: make this algorithm (used by summary() and get_execution_order()
@@ -420,7 +445,7 @@ void Op::Model::summary(void) const {
 
   while (!S.empty()) {
     Op::Vertex n = S.front();
-    Op::Model::print_node(n);
+    Op::print_node(n, &gcopy);
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
@@ -432,18 +457,6 @@ void Op::Model::summary(void) const {
       }
     }
   }
-}
-
-Op::Vertex& Op::Model::get_input_vertex(void) {
-  Op::VertexIterator vb, ve;
-  std::tie(vb, ve) = boost::vertices(g);
-  return *vb;
-}
-
-Op::LayerBase *Op::Model::get_layer_base(Op::Vertex &v) { return g[v]; }
-
-Op::LayerBase *Op::Model::get_layer_base(Op::AdjacencyIterator &itr) {
-  return g[*itr];
 }
 
 Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
@@ -520,12 +533,6 @@ void Op::Model::extract_dropout_constant(onnx::NodeProto &node, Op::DropoutParam
       params.drop = t.float_data()[0];
     }
   }
-}
-
-Op::Vertex Op::Model::get_root_node(void) const {
-  Op::VertexIterator vb, ve;
-  std::tie(vb, ve) = boost::vertices(g);
-  return *vb;
 }
 
 void Op::Model::add_to_constant_pool(onnx::NodeProto &node) {
@@ -620,6 +627,8 @@ Op::Parser::Parser(std::string const &filename) {
   auto graph_inputs = graph.input();
   //assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
+  m_model.create_execution_order();
+  m_model.update_registers();
 }
 
 void Op::Parser::summary() const { m_model.summary(); }
@@ -629,10 +638,67 @@ void Op::Parser::time_estimate(int M, int N, int K) const {
 }
 
 std::vector<Op::LayerBase*> Op::Parser::get_execution_order(void) const {
-  auto order = m_model.get_execution_order(); 
-  return order;
+  return m_model.get_execution_order(); 
 }
 
 Op::Parser::~Parser() {
   loaded_model.close();
+}
+
+
+Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
+  register_set.resize(default_size, AVAILABLE);
+
+  std::queue<Op::Vertex> S;
+  S.push(get_root_node(&g));
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::LayerBase *node = g[n];
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, g);
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      Op::Vertex dest_vertex = boost::target(*itr, g);
+      if (!Op::are_equal_nodes(n, dest_vertex, &g)) {
+        traverse(&g, n, dest_vertex);
+        boost::remove_edge(*itr, g);
+        if (boost::in_degree(dest_vertex, g) == 0) {
+          S.push(dest_vertex);
+        }
+      }
+    }
+  }
+}
+
+Op::VirtualAddress Op::RegisterAllocator::acquire(void) {
+  // find the first available register
+  auto itr = std::find(register_set.begin(), register_set.end(), AVAILABLE);
+  if (itr != register_set.end()) {
+    *itr = OCCUPIED;
+    return itr - register_set.begin();
+  }
+  else {
+    log_fatal("Out of registers!");
+    return -1; // will never reach here
+  }
+}
+
+void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
+  register_set.at(a) = AVAILABLE;
+}
+
+void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target) {
+  Op::LayerBase *src_node = (*g)[source];
+  Op::LayerBase *dst_node = (*g)[target];
+
+  if (Op::is_root_node(source, g)) {
+    src_node->inputs.push_back(acquire());
+    src_node->outputs.push_back(acquire());
+  }
+  dst_node->inputs.push_back(src_node->outputs.at(0));
+  if (boost::out_degree(source, *g) == 1) {
+    relinquish(src_node->inputs.at(0));
+  }
+  dst_node->outputs.push_back(acquire());
 }

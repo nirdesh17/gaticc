@@ -45,6 +45,8 @@ struct DropoutParams {
   float drop;
 };
 
+using VirtualAddress = int;
+
 struct LayerBase {
   std::string name;
   virtual const char *op_type() const;
@@ -69,9 +71,11 @@ struct LayerBase {
    * See Op::Layer::Conv for eg.
    */
   virtual void set_value_info_params(onnx::ValueInfoProto &t);
+
+  std::vector<VirtualAddress> inputs;
+  std::vector<VirtualAddress> outputs;
 };
 
-void print_node(const LayerBase *node);
 
 
 namespace Layer {
@@ -180,6 +184,14 @@ using VertexIterator = Graph::vertex_iterator;
 using AdjacencyIterator = Graph::adjacency_iterator;
 using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 
+/* Auxillary Graph functions (no where else to put them...) */
+
+bool is_root_node(Op::Vertex v, const Op::Graph *g);
+bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g);
+void print_node(const LayerBase *node);
+void print_node(Op::Vertex v, const Op::Graph *g);
+Vertex get_root_node(const Op::Graph *g);
+
 class Model {
   Op::Graph g;
   /* maps an output from a node its corresponding vertex in 'g' */
@@ -191,19 +203,17 @@ class Model {
   /* All 'Constants' in the onnx model are looked up using this table */
   std::map<std::string, onnx::NodeProto &> constant_pool;
 
-  Op::Vertex &get_input_vertex(void);
-  Op::LayerBase *get_layer_base(Op::Vertex &v);
-  Op::LayerBase *get_layer_base(Op::AdjacencyIterator &itr);
+  std::vector<LayerBase*> execution_order;
 
   bool is_graph_output(const std::string &s) const;
   bool is_initializer(const std::string &s) const;
 
-  Op::Vertex get_root_node(void) const;
   Op::Neighbours get_neighbouring_vertices(Op::Vertex v) const;
 
-  void print_node(Op::Vertex v) const;
-  void print_node(Op::AdjacencyIterator ai) const;
 public:
+  void create_execution_order(void);
+  void update_registers(void);
+
   void save_graph_outputs(onnx::ValueInfoProto &t);
   void save_value_info(onnx::ValueInfoProto &t);
   void save_initializers(onnx::TensorProto &t);
@@ -247,6 +257,20 @@ public:
   void time_estimate(int M, int N, int K) const;
   std::vector<LayerBase*> get_execution_order(void) const;
   ~Parser();
+};
+
+class RegisterAllocator {
+  const bool AVAILABLE = 1;
+  const bool OCCUPIED = 0;
+  /* default size of the register set */
+  const int default_size = 512;
+  std::vector<bool> register_set;
+
+  void traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target);
+  VirtualAddress acquire(void);
+  void relinquish(VirtualAddress a);
+  public:
+    RegisterAllocator(Op::Graph g);
 };
 
 } // namespace Op

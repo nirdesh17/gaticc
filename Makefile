@@ -1,50 +1,42 @@
-ROOT_DIR=.
-SRC_DIR=${ROOT_DIR}/src
-LIBSIM_OBJ=${ROOT_DIR}/sim.o ${ROOT_DIR}/transformers.o ${ROOT_DIR}/sasa.o
-OBJ=${LIBSIM_OBJ} ${ROOT_DIR}/main.o ${ROOT_DIR}/ffi.o ${ROOT_DIR}/ops.o ${ROOT_DIR}/onnx_parser.o ${ROOT_DIR}/onnx.pb.o
-FLAGS=-g -std=c++17 `pkg-config --cflags python3`
-TESTDIR=${ROOT_DIR}/tests
-LDFLAGS=-lpython3.11 -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread 
-LD_LIBRARY_PATH=/usr/local/lib
+ROOT_DIR = .
+SRC_DIR = $(ROOT_DIR)/src
+OBJ_DIR = $(ROOT_DIR)/obj
+TEST_DIR = $(ROOT_DIR)/tests
 
-all: ${OBJ}
-	LD_LIBRARY_PATH=${LD_LIBRARY_PATH} g++ ${FLAGS} ${OBJ} -o a ${LDFLAGS}
+SRC_FILES = main.cpp sim.cpp sasa.cpp transformers.cpp ffi.cpp ops.cpp onnx_parser.cpp
+OBJ_FILES = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES)) $(OBJ_DIR)/onnx.pb.o
+LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 
-main.o: ${SRC_DIR}/main.cpp ${SRC_DIR}/utils.h ${SRC_DIR}/sim.h ${SRC_DIR}/transformers.h
-	g++ ${FLAGS} -c $<
+CXX = g++
+CXXFLAGS = -g -std=c++17 `pkg-config --cflags python3`
+LDFLAGS = -lpython3.11 -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread
+LD_LIBRARY_PATH = /usr/local/lib
 
-sim.o: ${SRC_DIR}/sim.cpp ${SRC_DIR}/sim.h ${SRC_DIR}/utils.h
-	g++ ${FLAGS} -c $<
+all: a
 
-sasa.o: ${SRC_DIR}/sasa.cpp ${SRC_DIR}/sasa.h ${SRC_DIR}/utils.h
-	g++ ${FLAGS} -c $<
+a: $(OBJ_FILES)
+	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) $(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
-transformers.o: ${SRC_DIR}/transformers.cpp ${SRC_DIR}/transformers.h ${SRC_DIR}/sim.h
-	g++ ${FLAGS} -c $<
+# main does not contain a main.h file (handled separately)
+$(OBJ_DIR)/main.o: ${SRC_DIR}/main.cpp ${SRC_DIR}/utils.h ${SRC_DIR}/sim.h ${SRC_DIR}/transformers.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-ffi.o: ${SRC_DIR}/ffi.cpp ${SRC_DIR}/ffi.h
-	g++ ${FLAGS} -c $<
+# protoc generated files have .cc extension (handle separately)
+$(OBJ_DIR)/onnx.pb.o: ${SRC_DIR}/onnx.pb.cc ${SRC_DIR}/onnx.pb.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-ops.o: ${SRC_DIR}/ops.cpp ${SRC_DIR}/ops.h ${SRC_DIR}/transformers.h
-	g++ ${FLAGS} -c $<
+# all other files with a *.{cpp,h} pair fall in this
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(SRC_DIR)/%.h $(SRC_DIR)/utils.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-onnx.pb.o: ${SRC_DIR}/onnx.pb.cc ${SRC_DIR}/onnx.pb.h
-	g++ ${FLAGS} -c $<
+libsim: $(LIBSIM_OBJ_FILES)
+	ar rcs $(ROOT_DIR)/libsim.a $^
 
-onnx_parser.o: ${SRC_DIR}/onnx_parser.cpp ${SRC_DIR}/onnx_parser.h
-	g++ ${FLAGS} -c $<
-
-test-compile: libsim
-	make -C ${TESTDIR}
-
-libsim: ${SRC_DIR}/sim.cpp
-	ar rcs ${ROOT_DIR}/libsim.a ${LIBSIM_OBJ}
-
-test: ${LIBSIM_OBJ} test-compile
-	${TESTDIR}/execute_tests.sh
+test: libsim
+	make -C $(TEST_DIR)
 
 clean:
-	rm -rf *.o
+	rm -rf $(OBJ_DIR)/*.o a
 
-run: a
-	./a 
+run-tests: 
+	$(TEST_DIR)/execute_tests.sh
