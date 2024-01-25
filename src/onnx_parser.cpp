@@ -404,15 +404,11 @@ void Op::Model::bare_summary(void) const {
 void Op::Model::create_execution_order(void) {
   std::queue<Op::Vertex> S;
   Op::Graph gcopy = g;
-
-  auto vitr = boost::vertices(gcopy);
-  Op::Vertex v = *(vitr.first);
-  S.push(v);
+  S.push(Op::get_root_node(&gcopy));
 
   while (!S.empty()) {
     Op::Vertex n = S.front();
-    Op::LayerBase *node = gcopy[n];
-    execution_order.push_back(node);
+    execution_order.push_back(gcopy[n]);
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
@@ -654,9 +650,7 @@ Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
   register_set.resize(default_size, AVAILABLE);
 
   std::queue<Op::Vertex> S;
-  auto vitr = boost::vertices(g);
-  Op::Vertex v = *(vitr.first);
-  S.push(v);
+  S.push(get_root_node(&g));
 
   while (!S.empty()) {
     Op::Vertex n = S.front();
