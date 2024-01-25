@@ -189,14 +189,19 @@ const char *Op::Layer::Reshape::op_type() const {
 
 /* Auxillary Graph Functions */
 
-bool Op::is_root_node(Op::Vertex v, Op::Graph *g) {
+bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
   auto verts = boost::vertices(*g);
   bool ret = ((*g)[v]->name == (*g)[*verts.first]->name);
   return ret;
 }
 
-bool Op::are_equal_nodes(Op::Vertex v1, Op::Vertex v2, Op::Graph *g) {
+bool Op::are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g) {
   return ((*g)[v1]->name == (*g)[v2]->name);
+}
+
+Op::Vertex Op::get_root_node(const Op::Graph *g) {
+  auto verts = boost::vertices(*g);
+  return *(verts.first);
 }
 
 /* Op::Model */
@@ -458,18 +463,6 @@ void Op::Model::summary(void) const {
   }
 }
 
-Op::Vertex& Op::Model::get_input_vertex(void) {
-  Op::VertexIterator vb, ve;
-  std::tie(vb, ve) = boost::vertices(g);
-  return *vb;
-}
-
-Op::LayerBase *Op::Model::get_layer_base(Op::Vertex &v) { return g[v]; }
-
-Op::LayerBase *Op::Model::get_layer_base(Op::AdjacencyIterator &itr) {
-  return g[*itr];
-}
-
 Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
   return boost::adjacent_vertices(v, g);
 }
@@ -544,12 +537,6 @@ void Op::Model::extract_dropout_constant(onnx::NodeProto &node, Op::DropoutParam
       params.drop = t.float_data()[0];
     }
   }
-}
-
-Op::Vertex Op::Model::get_root_node(void) const {
-  Op::VertexIterator vb, ve;
-  std::tie(vb, ve) = boost::vertices(g);
-  return *vb;
 }
 
 void Op::Model::add_to_constant_pool(onnx::NodeProto &node) {
