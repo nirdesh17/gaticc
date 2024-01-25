@@ -76,7 +76,6 @@ struct LayerBase {
   std::vector<VirtualAddress> outputs;
 };
 
-void print_node(const LayerBase *node);
 
 
 namespace Layer {
@@ -185,6 +184,12 @@ using VertexIterator = Graph::vertex_iterator;
 using AdjacencyIterator = Graph::adjacency_iterator;
 using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 
+/* Auxillary Graph functions (no where else to put them...) */
+
+bool is_root_node(Op::Vertex v, Op::Graph *g);
+bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, Op::Graph *g);
+void print_node(const LayerBase *node);
+
 class Model {
   Op::Graph g;
   /* maps an output from a node its corresponding vertex in 'g' */
@@ -213,6 +218,7 @@ class Model {
 
 public:
   void create_execution_order(void);
+  void update_registers(void);
 
   void save_graph_outputs(onnx::ValueInfoProto &t);
   void save_value_info(onnx::ValueInfoProto &t);
@@ -262,12 +268,15 @@ public:
 class RegisterAllocator {
   const bool AVAILABLE = 1;
   const bool OCCUPIED = 0;
-  std::vector<bool> register_set; 
+  /* default size of the register set */
+  const int default_size = 512;
+  std::vector<bool> register_set;
+
+  void traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target);
+  VirtualAddress acquire(void);
+  void relinquish(VirtualAddress a);
   public:
-    RegisterAllocator();
-    RegisterAllocator(long default_size);
-    VirtualAddress acquire(void);
-    void relinquish(VirtualAddress a);
+    RegisterAllocator(Op::Graph g);
 };
 
 } // namespace Op

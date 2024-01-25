@@ -187,6 +187,20 @@ const char *Op::Layer::Reshape::op_type() const {
   return m_optype;
 }
 
+/* Auxillary Graph Functions */
+
+bool Op::is_root_node(Op::Vertex v, Op::Graph *g) {
+  auto verts = boost::vertices(*g);
+  bool ret = ((*g)[v]->name == (*g)[*verts.first]->name);
+  return ret;
+}
+
+bool Op::are_equal_nodes(Op::Vertex v1, Op::Vertex v2, Op::Graph *g) {
+  return ((*g)[v1]->name == (*g)[v2]->name);
+}
+
+/* Op::Model */
+
 void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   Op::Vertex v = boost::add_vertex(layer, g);
 
@@ -318,6 +332,16 @@ void Op::print_node(const LayerBase *node) {
   std::cout << "Type: " << node->op_type() << '\n';
   std::cout << "Params: " << node->params() << '\n';
   std::cout << "Name: " << node->name << '\n';
+  std::cout << "Input Registers: ";
+  for (auto i : node->inputs) {
+    std::cout << i << ' ';
+  }
+  std::cout << '\n';
+  std::cout << "Output Registers: ";
+  for (auto i : node->outputs) {
+    std::cout << i << ' ';
+  }
+  std::cout << '\n';
 }
 
 #define sa_odims(i, k, s, p) ((i - k + 2*p)/s)
@@ -384,8 +408,6 @@ void Op::Model::create_execution_order(void) {
   std::queue<Op::Vertex> S;
   Op::Graph gcopy = g;
 
-  RegisterAllocator ral;
-
   auto vitr = boost::vertices(gcopy);
   Op::Vertex v = *(vitr.first);
   S.push(v);
@@ -399,12 +421,18 @@ void Op::Model::create_execution_order(void) {
     auto out_edges = boost::out_edges(n, gcopy);
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
       Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      boost::remove_edge(*itr, gcopy);
-      if (boost::in_degree(dest_vertex, gcopy) == 0) {
-        S.push(dest_vertex);
+      if (!Op::are_equal_nodes(n, dest_vertex, &gcopy)) {
+        boost::remove_edge(*itr, gcopy);
+        if (boost::in_degree(dest_vertex, gcopy) == 0) {
+          S.push(dest_vertex);
+        }
       }
     }
   }
+}
+
+void Op::Model::update_registers(void) {
+  RegisterAllocator ral(g);
 }
 
 std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
@@ -625,6 +653,7 @@ Op::Parser::Parser(std::string const &filename) {
   //assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
   m_model.create_execution_order();
+  m_model.update_registers();
 }
 
 void Op::Parser::summary() const { m_model.summary(); }
@@ -642,13 +671,31 @@ Op::Parser::~Parser() {
 }
 
 
-Op::RegisterAllocator::RegisterAllocator(): 
-  RegisterAllocator::RegisterAllocator(512) {
-}
+Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
+  register_set.resize(default_size, AVAILABLE);
 
-Op::RegisterAllocator::RegisterAllocator(long default_size) {
-  register_set.reserve(default_size);
-  std::fill(register_set.begin(), register_set.end(), AVAILABLE);
+  std::queue<Op::Vertex> S;
+  auto vitr = boost::vertices(g);
+  Op::Vertex v = *(vitr.first);
+  S.push(v);
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::LayerBase *node = g[n];
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, g);
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      Op::Vertex dest_vertex = boost::target(*itr, g);
+      if (!Op::are_equal_nodes(n, dest_vertex, &g)) {
+        traverse(&g, n, dest_vertex);
+        boost::remove_edge(*itr, g);
+        if (boost::in_degree(dest_vertex, g) == 0) {
+          S.push(dest_vertex);
+        }
+      }
+    }
+  }
 }
 
 Op::VirtualAddress Op::RegisterAllocator::acquire(void) {
@@ -660,9 +707,25 @@ Op::VirtualAddress Op::RegisterAllocator::acquire(void) {
   }
   else {
     log_fatal("Out of registers!");
+    return -1; // will never reach here
   }
 }
 
 void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
   register_set.at(a) = AVAILABLE;
+}
+
+void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target) {
+  Op::LayerBase *src_node = (*g)[source];
+  Op::LayerBase *dst_node = (*g)[target];
+
+  if (Op::is_root_node(source, g)) {
+    src_node->inputs.push_back(acquire());
+    src_node->outputs.push_back(acquire());
+  }
+  dst_node->inputs.push_back(src_node->outputs.at(0));
+  if (boost::out_degree(source, *g) == 1) {
+    relinquish(src_node->inputs.at(0));
+  }
+  dst_node->outputs.push_back(acquire());
 }
