@@ -34,6 +34,8 @@ int main() {
   CP1.imap[0]= 224;
   CP1.imap[1]= 224;
   Op::Layer::Conv conv1(CP1);
+  
+  
 
   std::vector<Mat> output;
   auto start = std::chrono::high_resolution_clock::now();
@@ -46,9 +48,19 @@ int main() {
     GP1 = MP1.mutable_graph();
     // AP1 = GP1->mutable_node(0)->mutable_attribute(0);
     // const google::protobuf::RepeatedField<float> & float_ref = GP1->initializer(0).float_data();
-    onnx::TensorProto* TP1= GP1->mutable_initializer(1);
+    conv1.weights= GP1->mutable_initializer(2);
+    std::cout<<"size of dims newwwwwww "<<conv1.weights->dims_size()<<'\n';
+    TensorExtant<int> TE1(conv1.weights);
+  Tensor<int>* tensor1 = &TE1;
+  std::vector<int> temp_dims{0,0,0,0};
+  std::cout<<"size of dims "<<TE1.dims_size()<< " dims " << conv1.weights->dims(1)<<'\n';
+  for(int i = 0 ; i < conv1.weights->ByteSize() ; i ++){
+  printf(" raw data in ints at i %d value  %d \n",i,conv1.weights->raw_data().at(i));
+  }
+  // for(int i = 0 ; i < conv1.weights->ByteSize)
+
   SASA s1(9, 8, 8, conv1);
-  output = s1.master(input_tensor,TP1);
+  // output = s1.master(input_tensor,TP1);
   // output = s1.master(output, input_kernel_2); 
   // output = s1.master(input_tensor, input_kernel);
   // output = s1.master(output, input_kernel_2);
