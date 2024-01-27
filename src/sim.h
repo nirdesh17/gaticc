@@ -203,7 +203,7 @@ public:
   Mat get_output();
   void clear_output();
   void load_weights(std::vector<int> &weights);
-  void load_weights(TensorExtant<int>& weights,std::vector<int>& temp_dims);
+  void load_weights(TensorExtant<int8_t>& weights,std::vector<int>& temp_dims);
   void print_array();
   void generate_profile_report();
   int total_vertices();

@@ -85,11 +85,11 @@ template<typename T1>
 class TensorCreate : public Tensor<T1> { 
   private:
     std::vector<int> dims;
-    std::vector<int> vec;
+    std::vector<T1> vec;
   public:
     TensorCreate(std::vector<int> &dim) {
       dims = dim;
-      vec = std::vector<int>(dims_iterator(-1));
+      vec = std::vector<T1>(dims_iterator(-1));
     }
 
     T1 at(std::vector<int> &at) override {
@@ -101,7 +101,11 @@ class TensorCreate : public Tensor<T1> {
       sum = sum + at[i] * dims_iterator(i);
       // printf(" \nat i %d,%d,%d\n", i,at[i],sum);
       }
-      return vec[sum];
+      return vec.at(sum);
+    }
+
+    T1 at(int index){
+      return (T1)vec.at(index);
     }
 
     int dims_size() override { 
@@ -120,7 +124,7 @@ class TensorCreate : public Tensor<T1> {
       // vec.shrink_to_fit();
       i++;
       }
-      printf(" vec size %d and dims_iterator %d \n",vec.size(),dims_iterator(-1));
+      // printf(" vec size %d and dims_iterator %d \n",vec.size(),dims_iterator(-1));
       assert(vec.size() <= dims_iterator(-1));
       vec.push_back(data);
     // printf(" vec value %d\n", vec[index]);

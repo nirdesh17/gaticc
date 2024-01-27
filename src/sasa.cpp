@@ -59,7 +59,7 @@ SASA::input_tensor_transformer(Tensor<T1>& input_tensor,
   for(int k = 0 ; k < input_tensor.dims_at(0); k++){
     for(int i = 0 ; i < input_tensor.dims_at(1) ; i ++)   {     // hardcoded here
       for(int j = 0 ; j < input_tensor.dims_at(2); j ++){
-        temp_vec.at(i*input_tensor.dims_at(2) + j) = input_tensor.at(temp_dims);
+        temp_vec.at(i*input_tensor.dims_at(2) + j) = (int)input_tensor.at(temp_dims);  // casting here
         temp_dims[2] = temp_dims[2] +1 ;
       }
       temp_dims[2] = 0;
@@ -132,6 +132,7 @@ std::vector<Mat> SASA::create_output(Mat &input) {
 template<typename T1>
 std::vector<Mat>
 SASA::master(Tensor<T1>& input_tensor) { // NCHW
+  std::cout<<"entering master " <<std::endl;
   std::vector<SA *> SA_ptr;
   std::vector<std::vector<std::thread *>> threads(sa_channels);
   std::vector<Mat> transformed_mats;
