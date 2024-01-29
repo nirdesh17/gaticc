@@ -73,8 +73,14 @@ void Op::Layer::Conv::set_value_info_params(onnx::ValueInfoProto &t) {
                "Value info expected conv dimensions to be 4");
         if (shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS) {
           auto dims = shape.dim();
-          std::for_each(dims.begin(), dims.end(),
-                        [](auto &val) { assert(val.has_dim_value()); });
+          if (!dims.at(0).has_dim_value()) {
+            log_info("ValueInfoProto has params for Batch dimensions (not value):"
+                " and the param is: %s", dims.at(0).dim_param().c_str());
+          }
+          std::for_each(dims.begin()+1, dims.end(),
+                        [](auto &val) { assert(val.has_dim_value() && 
+                          "Model could be missing shape information, consider running "
+                          "it through shape inference"); });
           m_cp.ic = dims.at(1).dim_value();
           m_cp.imap[0] = dims.at(2).dim_value();
           m_cp.imap[1] = dims.at(3).dim_value();
@@ -127,7 +133,11 @@ void Op::Layer::Gemm::set_value_info_params(onnx::ValueInfoProto &t) {
                "Value info expected conv dimensions to be 4");
         if (shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS) {
           auto dims = shape.dim();
-          std::for_each(dims.begin(), dims.end(),
+          if (!dims.at(0).has_dim_value()) {
+            log_info("ValueInfoProto has params for Batch dimensions (not value):"
+                " and the param is: %s", dims.at(0).dim_param().c_str());
+          }
+          std::for_each(dims.begin()+1, dims.end(),
                         [](auto &val) { assert(val.has_dim_value()); });
           m_cp.is = dims.at(1).dim_value();
         }
