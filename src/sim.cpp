@@ -136,18 +136,6 @@ void SA::load_weights(std::vector<int> &weights) {
   }
 }
 
-void SA::load_weights(TensorExtant<int8_t>& T1, std::vector<int>& temp_dims) {
-  // TensorExtant T1(weights);
-  for (int i = 0; i < rows ; ++i) {
-    for(int j = 0 ; j < columns ; j++){
-    get_pe_from_vertex(vertarray[i]).set_weight(T1.at(temp_dims));
-    temp_dims.at(temp_dims.size()-1)= temp_dims.at(temp_dims.size()-1) +1;
-    }
-    temp_dims.at(temp_dims.size()-1)=0;
-    temp_dims.at(temp_dims.size()-2)=temp_dims.at(temp_dims.size()-2) +1;
-  }
-}
-
 bool SA::should_pass_input(PE_Graph::Vertex &vi) {
   /* TODO: come up with a general case for this function
    * see linus-torvals linked list good taste argument */

@@ -203,7 +203,17 @@ public:
   Mat get_output();
   void clear_output();
   void load_weights(std::vector<int> &weights);
-  void load_weights(TensorExtant<int8_t>& weights,std::vector<int>& temp_dims);
+  template<typename T1>
+  void load_weights(TensorExtant<T1>& TE1, std::vector<int>& temp_dims) {
+  for (int i = 0; i < rows ; ++i) {
+    for(int j = 0 ; j < columns ; j++){
+    get_pe_from_vertex(vertarray[i]).set_weight(TE1.at(temp_dims));
+    temp_dims.at(temp_dims.size()-1)= temp_dims.at(temp_dims.size()-1) +1;
+    }
+    temp_dims.at(temp_dims.size()-1)=0;
+    temp_dims.at(temp_dims.size()-2)=temp_dims.at(temp_dims.size()-2) +1;
+  }
+}
   void print_array();
   void generate_profile_report();
   int total_vertices();
