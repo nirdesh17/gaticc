@@ -235,7 +235,8 @@ public:
   /* Print a summary of the network (traversed like a graph in topological
    * order) */
   void summary(void) const;
-  void time_estimate(int M, int N, int K) const;
+  /* Return the total cycles equired by the entire model */
+  long time_estimate(int M, int N, int K) const;
 
   size_t size(void);
   size_t size(void) const;
@@ -254,7 +255,7 @@ public:
   Parser(std::string const &filename);
   void summary(void) const;
   void bare_summary(void) const;
-  void time_estimate(int M, int N, int K) const;
+  long time_estimate(int M, int N, int K) const;
   std::vector<LayerBase*> get_execution_order(void) const;
   ~Parser();
 };
