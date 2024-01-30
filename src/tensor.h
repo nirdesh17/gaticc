@@ -103,12 +103,16 @@ public:
     return dims[index];
   }
 
+  /*
+  * suggested not to you push_back() unless it is necessary,
+  * clears the member vec and pushbacks elements in vec linearly.
+  */
   void push_back(T1 data) override {
-    static int i = 0;
-    if (i == 0) {
+    static int push_back_i = 0;
+    if (push_back_i == 0) {
       vec.clear();
-      // vec.shrink_to_fit();
-      i++;
+      vec.shrink_to_fit();
+      push_back_i++;
     }
     assert(vec.size() <= dims_iterator(-1));
     vec.push_back(data);

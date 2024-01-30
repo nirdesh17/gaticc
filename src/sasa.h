@@ -43,7 +43,6 @@ private:
         for (int j = 0; j < input_tensor.dims_at(2); j++) {
           temp_vec.at(i * input_tensor.dims_at(2) + j) =
               (int)input_tensor.at(temp_dims); // casting here
-          // std::cout<< " reaching here new yooo"<<std::endl;
           temp_dims[2] = temp_dims[2] + 1;
         }
         temp_dims[2] = 0;
@@ -83,7 +82,6 @@ public:
    */
   template <typename T1>
   std::vector<Mat> master(Tensor<T1> &input_tensor) { // NCHW
-    std::cout << "entering master " << std::endl;
     std::vector<SA *> SA_ptr;
     std::vector<std::vector<std::thread *>> threads(sa_channels);
     std::vector<Mat> transformed_mats;
@@ -111,7 +109,6 @@ public:
     create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
 
     transformed_mats = input_tensor_transformer<T1>(input_tensor, CT_ptr);
-    std::cout << " reaching here new3" << std::endl;
 
     int channel_count = conv_1.m_cp.ic;
     int sa_channel_reloader = ceil(((float)conv_1.m_cp.ic / sa_channels));
@@ -157,7 +154,7 @@ public:
         }
       }
     }
-    Mat &temp_mat2 = adder(vec); // think about using temp mat here
+    Mat &temp_mat2 = adder(vec);
     output = create_output(temp_mat2);
     return output;
   }
