@@ -64,13 +64,14 @@ int main() {
   }
   Tensor<int8_t>& tensor2 = TC1;
   SASA s1(9, 8, 8, conv1);
-  s1.master<int8_t>(tensor2);
+  output = s1.master<int8_t>(tensor2);
   // output = s1.master(output, input_kernel_2); 
   // output = s1.master(input_tensor, input_kernel);
   // output = s1.master(output, input_kernel_2);
-  // std::cout << "output kernel size : " << output.size() << std::endl;
-  // std::cout << "output row size : " << output.at(0).size() << std::endl;
-  // std::cout << "output col size : " << output.at(0).at(0).size() << std::endl;
+  print_vec_vec(" output is ",output.at(0));
+  std::cout << "output kernel size : " << output.size() << std::endl;
+  std::cout << "output row size : " << output.at(0).size() << std::endl;
+  std::cout << "output col size : " << output.at(0).at(0).size() << std::endl;
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
