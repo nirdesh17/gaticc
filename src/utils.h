@@ -2,6 +2,10 @@
 
 #include <cstdio>
 #include <cstdarg>
+/* from https://github.com/vietjtnguyen/argagg 
+ * for options parsing. See class Argparse for more info
+ */
+#include "argagg.h"
 
 #define log_fatal(fmt, ...) (log_fatal_func(__FILE__, __LINE__, __func__, fmt ,##__VA_ARGS__))
 #define log_info(fmt, ...) (log_info_func(__FILE__, __LINE__, __func__, fmt ,##__VA_ARGS__))
@@ -77,3 +81,54 @@ bool generate_report(const char *test_name, std::vector<expectedT>& expected, st
 }
 
 //void print_vec_point(const char *s, std::vector<Point> const &v);
+
+/* Wrapper over argagg library */
+class Argparse {
+  const char *usage = "Usage: sysim [OPTIONS]\n";
+  argagg::parser_results args;
+  /* To extend, add a new definition here */
+  argagg::parser argparser{
+      /* name      invokation         description              expected
+       *                                                       args */
+      {{"help", {"-h", "--help"}, "get this help message nigga",  0},
+       {"verbose", {"-v", "--v"}, "verbose", 0},
+       {"onnx", {"--onnx"}, "load onnx file", 1}}};
+
+public:
+  void parse(int argc, char *argv[]) {
+    if (argc < 2) {
+      std::cerr << usage << argparser;
+      log_fatal("Too few arguments");
+    }
+    try {
+      args = argparser.parse(argc, argv);
+    } catch (const std::exception &e) {
+      std::cerr << usage << argparser;
+      log_fatal("%s", e.what());
+    }
+  }
+
+  argagg::option_results &operator[](const std::string &name) {
+    return args[name];
+  }
+
+  bool has_option(const std::string &name) const {
+    return args.has_option(name);
+  }
+
+  void print_usage() const {
+    std::cerr << usage << argparser;
+  }
+};
+
+/* This is globally available for all functions. Alternatively,
+ * an Argparse object could have been passed to each and every 
+ * contructor but this is the way I've decided to do it
+ *
+ * The Argparse::parse method is called on this object by main()
+ * which in turn calls the underlying argagg functions.
+ *
+ * Functions looking to use args can simply call the subscript 
+ * operator[]. 
+ */
+extern Argparse gbl_args;
