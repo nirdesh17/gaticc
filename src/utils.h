@@ -2,6 +2,8 @@
 
 #include <cstdio>
 #include <cstdarg>
+#include <iostream>
+#include <list>
 /* from https://github.com/vietjtnguyen/argagg 
  * for options parsing. See class Argparse for more info
  */
@@ -129,6 +131,6 @@ public:
  * which in turn calls the underlying argagg functions.
  *
  * Functions looking to use args can simply call the subscript 
- * operator[]. 
+ * operator[] on gbl_args.
  */
 extern Argparse gbl_args;
