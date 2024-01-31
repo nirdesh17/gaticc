@@ -202,16 +202,10 @@ public:
   void propagate(Mat &input_mat, Chain &chain);
   Mat get_output();
   void clear_output();
-  void load_weights(std::vector<int> &weights);
   template<typename T1>
-  void load_weights(TensorExtant<T1>& TE1, std::vector<int>& temp_dims) {
-  for (int i = 0; i < rows ; ++i) {
-    for(int j = 0 ; j < columns ; j++){
-    get_pe_from_vertex(vertarray[i]).set_weight(TE1.at(temp_dims));
-    temp_dims.at(temp_dims.size()-1)= temp_dims.at(temp_dims.size()-1) +1;
-    }
-    temp_dims.at(temp_dims.size()-1)=0;
-    temp_dims.at(temp_dims.size()-2)=temp_dims.at(temp_dims.size()-2) +1;
+  void load_weights(std::vector<T1> &weights) {
+  for (int i = 0; i < rows * columns; ++i) {
+    get_pe_from_vertex(vertarray[i]).set_weight((int)weights[i]);  // temporary cast here
   }
 }
   void print_array();
