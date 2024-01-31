@@ -41,8 +41,7 @@ make test -j $(nproc --all)
 
 # Todo
 
-- existing code clean : adding comments (tree, already marked explain further)
-- representation/execution of a neural network(graph) onnx*
+- preprocess.py integration
 - type strictness (reg_t)
 - memory leaks (valgrind) 
 - full const correctness
