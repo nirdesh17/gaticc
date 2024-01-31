@@ -19,9 +19,16 @@ public:
 
   virtual void insert(std::vector<int> &at, T1 data) { return; }
 
+  virtual void set_dims(std::vector<int> temp_dims, int start_index) { return; }
+
   virtual int dims_iterator(int index) { return index; }
 
   virtual void clear() { return; }
+
+  virtual void shrink_to_fit() { return; }
+
+  virtual int size() { return 0; }
+
 };
 
 template <typename T1> class TensorExtant : public Tensor<T1> {
@@ -78,6 +85,7 @@ private:
   std::vector<T1> vec;
 
 public:
+  TensorCreate(){};
   TensorCreate(std::vector<int> &dim) {
     dims = dim;
     vec = std::vector<T1>(dims_iterator(-1));
@@ -102,19 +110,7 @@ public:
     assert(index < dims.size());
     return dims[index];
   }
-
-  /*
-  * suggested not to you push_back() unless it is necessary,
-  * clears the member vec and pushbacks elements in vec linearly.
-  */
   void push_back(T1 data) override {
-    static int push_back_i = 0;
-    if (push_back_i == 0) {
-      vec.clear();
-      vec.shrink_to_fit();
-      push_back_i++;
-    }
-    assert(vec.size() <= dims_iterator(-1));
     vec.push_back(data);
   }
 
@@ -128,6 +124,15 @@ public:
     vec[sum] = data;
   }
 
+  void set_dims(std::vector<int> temp_dims, int start_index) override {
+    if(dims.size()==temp_dims.size()){
+      return;
+    }
+    dims.push_back(temp_dims.at(start_index));
+    start_index++;
+    set_dims(temp_dims,start_index);
+  }
+
   int dims_iterator(int index) override {
     int a = 1;
     for (int i = 1; i < dims.size() - index; i++) {
@@ -137,4 +142,8 @@ public:
   }
 
   void clear() override { vec.clear(); }
+
+  void shrink_to_fit() override { vec.shrink_to_fit(); }
+
+  int size() override { return vec.size(); }
 };
