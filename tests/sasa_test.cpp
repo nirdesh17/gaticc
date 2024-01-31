@@ -3,11 +3,25 @@
 #include "../src/tensor.h"
 #include "../src/transformers.h"
 #include "../src/utils.h"
+#include "Python.h"
+#include "../src/ffi.h"
 #include <chrono>
 #include <numeric>
 #include <stdlib.h>
 
-int main() {
+Argparse gbl_args;
+
+int main(int argc, char *argv[]) {
+  gbl_args.parse(argc, argv);
+  std::filesystem::path p = std::filesystem::absolute("../src/");
+  PyEngine engine("ml-inference", p);
+  std::string img_path = std::filesystem::absolute("/home/mir_aatif_rafiq/Pictures/Wallpapers/cat-a.jpeg").string();
+  PyObject *ifm = py_preprocess(engine, img_path);
+  std::string model_path = std::filesystem::absolute("/home/mir_aatif_rafiq/Downloads/vgg16-12-int8.onnx");
+  PyObject *ret = py_infer_layer_torch(engine, model_path, ifm, 0);
+  std::vector<int> expected = engine.il2iv(ret);
+
+
   Op::ConvParams CP1;
   CP1.ic = 3;
   CP1.k[0]=3;
@@ -15,8 +29,8 @@ int main() {
   CP1.kn = 64;
   CP1.stride[0]=1;
   CP1.stride[1]=1;
-  CP1.imap[0]= 300;
-  CP1.imap[1]= 300;
+  CP1.imap[0]= 224;
+  CP1.imap[1]= 224;
   Op::Layer::Conv conv1(CP1);
   
   
@@ -51,11 +65,6 @@ int main() {
   Tensor<int8_t>& output_tensor = tensor_output;
   s1.master<int8_t>(tensor2,output_tensor);
   printf("output tensor size %d \n",output_tensor.size());
-  // std::cout<<"output tensor size "<<output_tensor.size()<<std::endl;
-  // print_vec_vec(" output is ",output.at(0));
-  // std::cout << "output kernel size : " << output.size() << std::endl;
-  // std::cout << "output row size : " << output.at(0).size() << std::endl;
-  // std::cout << "output col size : " << output.at(0).at(0).size() << std::endl;
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
@@ -64,7 +73,17 @@ int main() {
   std::cout << "time taken by the whole pgm " << duration.count() << " sec"
             << std::endl;
 
-  return 0;
+  // return 0;
+// }
+  std::vector<int> calculated;
+  for(int i = 0 ; i < 64*222*222 ; i ++){
+  
+  calculated.push_back(output_tensor.get(i));
+  }
+  Py_XDECREF(ifm);
+  Py_XDECREF(ret);
+  bool status = generate_report<int, int>(argv[0], expected, calculated);
+  return status;
 }
 
 

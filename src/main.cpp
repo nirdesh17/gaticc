@@ -2,6 +2,7 @@
 #include <numeric>
 
 #include "ffi.h"
+#include "Python.h"
 #include "onnx_parser.h"
 #include "ops.h"
 #include "sim.h"
@@ -19,8 +20,8 @@ int main(int argc, char *argv[]) {
     std::exit(EXIT_SUCCESS);
   }
 
-  PyEngine engine("src.preprocess");
-  std::vector<int> img = py_read_img(engine, std::string("images/mug.jpg"));
+  // PyEngine engine("src.preprocess");
+  // std::vector<int> img = py_read_img(engine, std::string("images/mug.jpg"));
   //print_vec<int>("img", img);
 
   if (gbl_args.has_option("onnx")) {

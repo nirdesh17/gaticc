@@ -29,6 +29,12 @@ public:
 
   virtual int size() { return 0; }
 
+  virtual std::vector<T1> get() { 
+    std::vector<T1> temp_vec;
+    return temp_vec;}
+  
+  virtual T1 get(int index) { return 0 ;}
+
 };
 
 template <typename T1> class TensorExtant : public Tensor<T1> {
@@ -146,4 +152,8 @@ public:
   void shrink_to_fit() override { vec.shrink_to_fit(); }
 
   int size() override { return vec.size(); }
+
+  std::vector<T1> get() override { return vec;}
+  
+  T1 get(int index) override { return vec.at(index);}
 };
