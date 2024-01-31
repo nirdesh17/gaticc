@@ -57,18 +57,46 @@ private:
   }
 
   template <typename T1>
-  void load_weights_tensor(int kernel_channel, int kernel_number, SA *SA_ptr,
+  void load_weights_tensor(Tensor<T1> &weight_tensor, int kernel_channel,
+                           int kernel_number, SA *SA_ptr,
                            ConvTransformer *CT_ptr) {
-    const onnx::TensorProto *temp_ptr = conv_1.weights;
 
-    TensorExtant<T1> TE1(temp_ptr);
+    std::vector<T1> weights;
     std::vector<int> temp_dims{kernel_number, kernel_channel, 0, 0};
-    SA_ptr->load_weights<T1>(TE1, temp_dims);
+
+    for (int i = 0; i < weight_tensor.dims_at(2); ++i) {
+      for (int j = 0; j < weight_tensor.dims_at(3); j++) {
+        weights.push_back(weight_tensor.at(temp_dims));
+        temp_dims.at(temp_dims.size() - 1) += 1;
+      }
+      temp_dims.at(temp_dims.size() - 1) = 0;
+      temp_dims.at(temp_dims.size() - 2) += 1;
+    }
+    SA_ptr->load_weights<T1>(weights);
   }
 
   void slave_thread(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr);
-  Mat &adder(std::vector<Mat> &input);
-  std::vector<Mat> create_output(Mat &input);
+
+  /*the input is in the form of : channel-> kernel -> elements  (e.g. C0 -> K0 -
+   * >C0K0[elements]) the output will have the output stored in only one
+   *channel(0) having the total number of kernels ... that channel will have no
+   *significance of its index .
+   */
+  template <typename T1>
+  void adder(std::vector<Mat> &input, Tensor<T1> &output_tensor) {
+    output_tensor.clear();
+
+    for (int m = 0; m < input.at(0).size(); m++) {
+      for (int n = 0; n < input.size() - 1; n++) {
+        for (int p = 0; p < input.at(0).at(0).size(); p++) {
+          input.at(0).at(m).at(p) += input.at(n + 1).at(m).at(p);
+          if (n == input.size() - 2) {
+            output_tensor.push_back(input.at(0).at(m).at(p));
+          }
+        }
+      }
+    }
+  }
 
 public:
   SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels,
@@ -81,7 +109,7 @@ public:
    * are updated and then the process is repeated all over again.
    */
   template <typename T1>
-  std::vector<Mat> master(Tensor<T1> &input_tensor) { // NCHW
+  void master(Tensor<T1> &input_tensor, Tensor<T1> &output_tensor) { // NCHW
     std::vector<SA *> SA_ptr;
     std::vector<std::vector<std::thread *>> threads(sa_channels);
     std::vector<Mat> transformed_mats;
@@ -108,6 +136,9 @@ public:
     std::vector<ConvTransformer *> CT_ptr = create_ConvTransformer();
     create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
 
+    TensorExtant<int8_t> TE1(conv_1.weights);
+    Tensor<int8_t>&  weights_tensor=TE1;
+
     transformed_mats = input_tensor_transformer<T1>(input_tensor, CT_ptr);
 
     int channel_count = conv_1.m_cp.ic;
@@ -126,7 +157,7 @@ public:
             }
             kernel_number = i * sa_channel_columns + m;
             channel_number = k * sa_channels + j;
-            load_weights_tensor<T1>(channel_number, kernel_number,
+            load_weights_tensor<T1>(weights_tensor, channel_number, kernel_number,
                                     SA_ptr.at(j * sa_channel_columns + m),
                                     CT_ptr.at(j));
 
@@ -154,8 +185,6 @@ public:
         }
       }
     }
-    Mat &temp_mat2 = adder(vec);
-    output = create_output(temp_mat2);
-    return output;
+  adder(vec, output_tensor);
   }
 };
