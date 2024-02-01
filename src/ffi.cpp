@@ -46,27 +46,6 @@ void py_list_print(PyObject *list) {
   printf("\n");
 }
 
-#define log_err(err) fprintf(stderr, "%s: %d: %s\n", __FILE__, __LINE__, err);
-
-#define py_fatal_err_check(var, func_name)                                     \
-  do {                                                                         \
-    if (var == NULL) {                                                         \
-      PyErr_Print();                                                           \
-      fprintf(stderr, "%s: %d: %s\n", __FILE__, __LINE__, func_name);          \
-      exit(EXIT_FAILURE);                                                      \
-    }                                                                          \
-  } while (0)
-
-/* return value check */
-#define py_fatal_rv_check(var, comment)                                        \
-  do {                                                                         \
-    if (!var) {                                                                \
-      PyErr_Print();                                                           \
-      fprintf(stderr, "%s: %d: %s", __FILE__, __LINE__, comment);              \
-      exit(EXIT_FAILURE);                                                      \
-    }                                                                          \
-  } while (0)
-
 PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) {
   /* No-op when called for the second-time */
   Py_Initialize();
@@ -102,28 +81,6 @@ PyObject *PyEngine::call_func(std::string const &func_name, PyObject *args) {
   Py_XDECREF(sum_fn);
   return ret;
 }
-
-/* python integer list to std::vector<int>
- * list is a borrowed reference
- */
-#if 0
-std::vector<int> PyEngine::il2iv(PyObject *list) {
-  std::vector<int> vec;
-  for (Py_ssize_t i = 0; i < PyList_Size(list); ++i) {
-    PyObject *item = PyList_GetItem(list, i);
-    py_fatal_err_check(item, "PyList_GetItem");
-    if (!PyLong_Check(item)) {
-      continue;
-    }
-    long value = PyLong_AsLong(item);
-    if (value == -1 && PyErr_Occurred()) {
-      log_err("PyLong_AsLong");
-    }
-    vec.push_back(value);
-  }
-  return vec;
-}
-#endif
 
 std::vector<int> py_read_img(PyEngine &engine, std::string const &filepath) {
   PyObject *args = Py_BuildValue("(s)", filepath.c_str());
@@ -167,16 +124,6 @@ PyObject *py_infer_layer_torch(PyEngine &engine, std::string const &model, PyObj
    * should be DECREF by the caller too
    * */
   Py_XDECREF(ifm);
-  Py_XDECREF(args);
-  return result;
-}
-
-PyObject *py_np2l(PyEngine &engine, PyObject *nparr) {
-  PyObject *args = Py_BuildValue("(O)", nparr);
-  py_fatal_err_check(args, "Py_BuildValue");
-  PyObject *result = engine.call_func("np2l", args);
-  py_fatal_rv_check(PyList_Check(result),
-                    "infer_layer_torch return value not a list");
   Py_XDECREF(args);
   return result;
 }

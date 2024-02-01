@@ -7,7 +7,7 @@ LIB_PATH=../libsim.a
 EXE_DIR=exe
 
 CXX = g++
-CXXFLAGS = -g -std=c++17 `pkg-config --cflags python3`
+CXXFLAGS = -g -std=c++17 `pkg-config --cflags python3` -I /usr/lib/python3.11/site-packages/numpy/core/include/
 LDFLAGS = -lpython3.11 -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread
 
 all: $(addsuffix .o,$(TEST_TARGETS))
