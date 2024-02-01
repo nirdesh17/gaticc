@@ -90,6 +90,26 @@ public:
     return v;
   }
 
+  template <typename T>
+  PyObject *iv2np(std::vector<T> const &v, std::vector<int> const& dims) {
+    /* TODO:
+     * Ideally, one would use PyArray_* functions directly
+     * instead of going this circuitous route of converting
+     * a std::vector to python list and converting it 
+     * to ndarray with a python function. numpy capi
+     * hasn't been working for me (import errors i think)
+     */
+    PyObject *v_l = iv2il<T>(v);
+    PyObject *dims_l = iv2il<int>(dims);
+
+    PyObject *args = Py_BuildValue("(OO)", v_l, dims_l);
+    PyObject *ret = call_func("l2nparr", args);
+
+    Py_XDECREF(v_l);
+    Py_XDECREF(dims_l);
+    Py_XDECREF(args);
+    return ret;
+  }
 };
 
 std::vector<int> py_read_img(PyEngine &engine, std::string const &filepath);

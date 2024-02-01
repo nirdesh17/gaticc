@@ -90,6 +90,9 @@ def infer_layer_torch(model, ifm, layer):
     kernels = torch.Tensor(np.copy(get_kernel(model, layer))) 
     return np.array(torch.nn.functional.conv2d(input, kernels))
 
+def l2nparr(l,dims):
+    a = np.array(l).reshape((dims))
+    return a
 #if __main__ == __name__:
 #    ifm = preprocess("images/mug.jpg")
 #    model_name = "onnx/vgg/vgg16-12-int8.onnx"
