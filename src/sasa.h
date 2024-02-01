@@ -108,8 +108,8 @@ public:
    * after all the kernels are done for the ongoing set of channels.... channels
    * are updated and then the process is repeated all over again.
    */
-  template <typename T1>
-  void master(Tensor<T1> &input_tensor, Tensor<T1> &output_tensor) { // NCHW
+  template <typename T1, typename T2>
+  void master(Tensor<T1> &input_tensor, Tensor<T2> &output_tensor) { // NCHW
     std::vector<SA *> SA_ptr;
     std::vector<std::vector<std::thread *>> threads(sa_channels);
     std::vector<Mat> transformed_mats;
@@ -185,6 +185,6 @@ public:
         }
       }
     }
-  adder(vec, output_tensor);
+  adder<T2>(vec, output_tensor);
   }
 };

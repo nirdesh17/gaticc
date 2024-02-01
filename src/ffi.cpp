@@ -106,6 +106,7 @@ PyObject *PyEngine::call_func(std::string const &func_name, PyObject *args) {
 /* python integer list to std::vector<int>
  * list is a borrowed reference
  */
+#if 0
 std::vector<int> PyEngine::il2iv(PyObject *list) {
   std::vector<int> vec;
   for (Py_ssize_t i = 0; i < PyList_Size(list); ++i) {
@@ -122,6 +123,7 @@ std::vector<int> PyEngine::il2iv(PyObject *list) {
   }
   return vec;
 }
+#endif
 
 std::vector<int> py_read_img(PyEngine &engine, std::string const &filepath) {
   PyObject *args = Py_BuildValue("(s)", filepath.c_str());
@@ -129,7 +131,7 @@ std::vector<int> py_read_img(PyEngine &engine, std::string const &filepath) {
   PyObject *img_array = engine.call_func("read_img", args);
   py_fatal_rv_check(PyList_Check(img_array),
                     "read_img return value not a list");
-  std::vector<int> img_vec = engine.il2iv(img_array);
+  std::vector<int> img_vec = engine.il2iv<int>(img_array);
   Py_XDECREF(args);
   Py_XDECREF(img_array);
   return img_vec;
@@ -141,7 +143,7 @@ std::vector<int> py_fetch_kernel(PyEngine &engine, int layer, int n, int c) {
   PyObject *kernel_array = engine.call_func("fetch_kernel", args);
   py_fatal_rv_check(PyList_Check(kernel_array),
                     "fetch_kernel return value not a list");
-  std::vector<int> kernel_vec = engine.il2iv(kernel_array);
+  std::vector<int> kernel_vec = engine.il2iv<int>(kernel_array);
   Py_XDECREF(args);
   Py_XDECREF(kernel_array);
   return kernel_vec;
@@ -165,6 +167,16 @@ PyObject *py_infer_layer_torch(PyEngine &engine, std::string const &model, PyObj
    * should be DECREF by the caller too
    * */
   Py_XDECREF(ifm);
+  Py_XDECREF(args);
+  return result;
+}
+
+PyObject *py_np2l(PyEngine &engine, PyObject *nparr) {
+  PyObject *args = Py_BuildValue("(O)", nparr);
+  py_fatal_err_check(args, "Py_BuildValue");
+  PyObject *result = engine.call_func("np2l", args);
+  py_fatal_rv_check(PyList_Check(result),
+                    "infer_layer_torch return value not a list");
   Py_XDECREF(args);
   return result;
 }

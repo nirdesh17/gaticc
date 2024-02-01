@@ -15,12 +15,15 @@ int main(int argc, char *argv[]) {
   gbl_args.parse(argc, argv);
   std::filesystem::path p = std::filesystem::absolute("../src/");
   PyEngine engine("ml-inference", p);
-  std::string img_path = std::filesystem::absolute("/home/mir_aatif_rafiq/Pictures/Wallpapers/cat-a.jpeg").string();
+  std::string img_path = std::filesystem::absolute("../images/mug.jpg").string();
   PyObject *ifm = py_preprocess(engine, img_path);
-  std::string model_path = std::filesystem::absolute("/home/mir_aatif_rafiq/Downloads/vgg16-12-int8.onnx");
+  PyObject *ifm2 = py_np2l(engine, ifm);
+  std::string model_path = std::filesystem::absolute("../onnx/vgg/vgg16-12-int8.onnx").string();
   PyObject *ret = py_infer_layer_torch(engine, model_path, ifm, 0);
-  std::vector<int> expected = engine.il2iv(ret);
 
+  std::vector<int> expected = engine.il2iv<int>(ret);
+
+  std::vector<int8_t> ifmv = engine.il2iv<int8_t>(ifm2);
 
   Op::ConvParams CP1;
   CP1.ic = 3;
@@ -32,26 +35,25 @@ int main(int argc, char *argv[]) {
   CP1.imap[0]= 224;
   CP1.imap[1]= 224;
   Op::Layer::Conv conv1(CP1);
-  
-  
 
   std::vector<Mat> output;
   auto start = std::chrono::high_resolution_clock::now();
   onnx::ModelProto MP1;
   onnx::GraphProto* GP1;
   onnx::AttributeProto* AP1;
-  std::fstream input("/home/mir_aatif_rafiq/Downloads/vgg16-12-int8.onnx",std::ios::in);
+  std::fstream input("../onnx/vgg/vgg16-12-int8.onnx",std::ios::in);
     MP1.ParseFromIstream(&input);
     GP1 = MP1.mutable_graph();
     conv1.weights= GP1->mutable_initializer(2);
   std::vector<int> temp_dims{0,0,0,0};
   TensorCreate<int8_t> TC1;
-  for(int i = 0 ; i < 3*300*300; i ++){
-    TC1.push_back(i%127);
-  }
-  std::vector<int> create_dim{3,300,300};
-  TC1.set_dims(create_dim,0);
   Tensor<int8_t>& tensor2 = TC1;
+  for (auto i : ifmv) {
+    tensor2.push_back(i);
+  }
+  std::vector<int> dims {3,224,224};
+  tensor2.set_dims(dims, 0);
+
   SASA s1(9, 8, 8, conv1);
   std::vector<int> output_dims{conv1.m_cp.kn,(sa_output_dims(conv1.m_cp.imap[0], conv1.m_cp.pad[0] /*padding*/,
                        1 /*dilation*/, conv1.m_cp.k[0],
@@ -61,9 +63,9 @@ int main(int argc, char *argv[]) {
                        conv1.m_cp.stride[1] /*stride*/)};
 
 
-  TensorCreate<int8_t> tensor_output(output_dims);
-  Tensor<int8_t>& output_tensor = tensor_output;
-  s1.master<int8_t>(tensor2,output_tensor);
+  TensorCreate<int> tensor_output(output_dims);
+  Tensor<int>& output_tensor = tensor_output;
+  s1.master<int8_t,int>(tensor2,output_tensor);
   printf("output tensor size %d \n",output_tensor.size());
 
   auto stop = std::chrono::high_resolution_clock::now();
