@@ -130,12 +130,6 @@ int SA::get_rows() { return rows; }
 
 int SA::get_cols() { return columns; }
 
-void SA::load_weights(std::vector<int> &weights) {
-  for (int i = 0; i < rows * columns; ++i) {
-    get_pe_from_vertex(vertarray[i]).set_weight(weights[i]);
-  }
-}
-
 bool SA::should_pass_input(PE_Graph::Vertex &vi) {
   /* TODO: come up with a general case for this function
    * see linus-torvals linked list good taste argument */
@@ -246,6 +240,8 @@ Mat SA::get_output() { return output_array; }
 void SA::clear_output(){
   for( int i = 0 ; i < columns ; i ++){
    output_array.at(i).resize(0);
+   output_array.at(i).shrink_to_fit();
+   output_array_counts.at(i) = 0 ;
   }
   return;
   

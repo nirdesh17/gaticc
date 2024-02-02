@@ -8,6 +8,7 @@ OBJ_FILES = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES)) $(OBJ_DIR)/onnx.pb.o
 LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 
 CXX = g++
+# TODO: figure out how to specify lib paths for numpy
 CXXFLAGS = -g -std=c++17 `pkg-config --cflags python3`
 LDFLAGS = -lpython3.11 -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread
 LD_LIBRARY_PATH = /usr/local/lib

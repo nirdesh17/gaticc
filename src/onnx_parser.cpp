@@ -1,15 +1,14 @@
 #include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "utils.h"
+#include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <algorithm>
-#include <typeinfo>
-#include <cstring>
-#include <cerrno>
 #include <queue>
+#include <typeinfo>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -73,8 +72,17 @@ void Op::Layer::Conv::set_value_info_params(onnx::ValueInfoProto &t) {
                "Value info expected conv dimensions to be 4");
         if (shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS) {
           auto dims = shape.dim();
-          std::for_each(dims.begin(), dims.end(),
-                        [](auto &val) { assert(val.has_dim_value()); });
+          if (!dims.at(0).has_dim_value()) {
+            log_info(
+                "ValueInfoProto has params for Batch dimensions (not value):"
+                " and the param is: %s",
+                dims.at(0).dim_param().c_str());
+          }
+          std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
+            assert(val.has_dim_value() &&
+                   "Model could be missing shape information, consider running "
+                   "it through shape inference");
+          });
           m_cp.ic = dims.at(1).dim_value();
           m_cp.imap[0] = dims.at(2).dim_value();
           m_cp.imap[1] = dims.at(3).dim_value();
@@ -127,7 +135,13 @@ void Op::Layer::Gemm::set_value_info_params(onnx::ValueInfoProto &t) {
                "Value info expected conv dimensions to be 4");
         if (shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS) {
           auto dims = shape.dim();
-          std::for_each(dims.begin(), dims.end(),
+          if (!dims.at(0).has_dim_value()) {
+            log_info(
+                "ValueInfoProto has params for Batch dimensions (not value):"
+                " and the param is: %s",
+                dims.at(0).dim_param().c_str());
+          }
+          std::for_each(dims.begin() + 1, dims.end(),
                         [](auto &val) { assert(val.has_dim_value()); });
           m_cp.is = dims.at(1).dim_value();
         }
@@ -150,42 +164,28 @@ const char *Op::Layer::Maxpool::params() const {
   return ret;
 }
 
-const char *Op::Layer::Flatten::op_type() const {
-  return m_optype;
-}
+const char *Op::Layer::Flatten::op_type() const { return m_optype; }
 
 Op::Layer::Dropout::Dropout(DropoutParams &cp) {
   std::memcpy(&m_cp, &cp, sizeof(DropoutParams));
 }
 
-const char *Op::Layer::Dropout::op_type() const {
-  return m_optype;
-}
+const char *Op::Layer::Dropout::op_type() const { return m_optype; }
 const char *Op::Layer::Dropout::params() const {
   static char ret[64];
   sprintf(ret, "Drop: %f", m_cp.drop);
   return ret;
 }
 
-const char *Op::Layer::Add::op_type() const {
-  return m_optype;
-}
+const char *Op::Layer::Add::op_type() const { return m_optype; }
 
-const char *Op::Layer::GlobalAveragePool::op_type() const {
-  return m_optype;
-}
+const char *Op::Layer::GlobalAveragePool::op_type() const { return m_optype; }
 
-const char *Op::Layer::BatchNorm::op_type() const {
-  return m_optype;
-}
+const char *Op::Layer::BatchNorm::op_type() const { return m_optype; }
 
-const char *Op::Layer::ReorderOutput::op_type() const {
-  return m_optype;
-}
+const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }
 
-const char *Op::Layer::Reshape::op_type() const {
-  return m_optype;
-}
+const char *Op::Layer::Reshape::op_type() const { return m_optype; }
 
 /* Auxillary Graph Functions */
 
@@ -215,7 +215,7 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
 
   name_vertex_map.insert({node.name(), v});
 
-  for (auto i: node.input()) {
+  for (auto i : node.input()) {
     if (!is_initializer(i)) {
       // this is a non-weighted input (i.e. its values
       // are not pre-computed
@@ -232,8 +232,8 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
       layer->set_initializer_params(itr3->second);
     }
   }
-  for (auto i: node.output()) {
-      output_map.insert({i, v});
+  for (auto i : node.output()) {
+    output_map.insert({i, v});
   }
 }
 
@@ -267,7 +267,7 @@ void Op::Model::connect(onnx::NodeProto &node) {
     log_fatal("Coudn't find node %s in name_vertex_map", node.name().c_str());
   }
 
-  for (auto i: node.input()) {
+  for (auto i : node.input()) {
     // for inputs that are not initializers, connect them to the current
     // node
     if (!is_initializer(i)) {
@@ -305,45 +305,49 @@ size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
 void Op::print_node(Op::Vertex v, const Op::Graph *g) {
-  LayerBase *node = (*g)[v];
-  Op::print_node(node);
-  std::cout << "Out Degree: " << boost::out_degree(v, (*g)) << " (";
-  auto out_edges = boost::out_edges(v, (*g));
-  for (auto ei = out_edges.first; ei != out_edges.second; ++ei) {
-    Op::Vertex dest_vertex = boost::target(*ei, (*g));
-    std::cout << (*g)[dest_vertex]->name << ", ";
-  }
-  std::cout << ")\n";
+  if (gbl_args["verbose"]) {
+    LayerBase *node = (*g)[v];
+    Op::print_node(node);
+    std::cout << "Out Degree: " << boost::out_degree(v, (*g)) << " (";
+    auto out_edges = boost::out_edges(v, (*g));
+    for (auto ei = out_edges.first; ei != out_edges.second; ++ei) {
+      Op::Vertex dest_vertex = boost::target(*ei, (*g));
+      std::cout << (*g)[dest_vertex]->name << ", ";
+    }
+    std::cout << ")\n";
 
-  std::cout << "In Degree: " << boost::in_degree(v, (*g)) << " (";
-  auto in_edges = boost::in_edges(v, (*g));
-  for (auto ei = in_edges.first; ei != in_edges.second; ++ei) {
-    Op::Vertex source_vertex = boost::source(*ei, (*g));
-    std::cout << (*g)[source_vertex]->name << ", ";
+    std::cout << "In Degree: " << boost::in_degree(v, (*g)) << " (";
+    auto in_edges = boost::in_edges(v, (*g));
+    for (auto ei = in_edges.first; ei != in_edges.second; ++ei) {
+      Op::Vertex source_vertex = boost::source(*ei, (*g));
+      std::cout << (*g)[source_vertex]->name << ", ";
+    }
+    std::cout << ")\n";
+    std::cout << '\n';
   }
-  std::cout << ")\n";
-  std::cout << '\n';
 }
 
 void Op::print_node(const LayerBase *node) {
-  std::cout << "Type: " << node->op_type() << '\n';
-  std::cout << "Params: " << node->params() << '\n';
-  std::cout << "Name: " << node->name << '\n';
-  std::cout << "Input Registers: ";
-  for (auto i : node->inputs) {
-    std::cout << i << ' ';
+  if (gbl_args["verbose"]) {
+    std::cout << "Type: " << node->op_type() << '\n';
+    std::cout << "Params: " << node->params() << '\n';
+    std::cout << "Name: " << node->name << '\n';
+    std::cout << "Input Registers: ";
+    for (auto i : node->inputs) {
+      std::cout << i << ' ';
+    }
+    std::cout << '\n';
+    std::cout << "Output Registers: ";
+    for (auto i : node->outputs) {
+      std::cout << i << ' ';
+    }
+    std::cout << '\n';
   }
-  std::cout << '\n';
-  std::cout << "Output Registers: ";
-  for (auto i : node->outputs) {
-    std::cout << i << ' ';
-  }
-  std::cout << '\n';
 }
 
-#define sa_odims(i, k, s, p) ((i - k + 2*p)/s)
+#define sa_odims(i, k, s, p) ((i - k + 2 * p) / s)
 
-void Op::Model::time_estimate(int M, int N, int K) const {
+long Op::Model::time_estimate(int M, int N, int K) const {
   Op::VertexIterator vb, ve;
   std::tie(vb, ve) = boost::vertices(g);
   long cycles = 0;
@@ -352,45 +356,53 @@ void Op::Model::time_estimate(int M, int N, int K) const {
     if (node->op_type() == "Conv") {
       Op::Layer::Conv *c = (Op::Layer::Conv *)node;
       int available_pe_columns = 0;
-      int input_columns = 
-        sa_odims(c->m_cp.imap[0], c->m_cp.k[0], c->m_cp.stride[0], c->m_cp.pad[0])
-        * sa_odims(c->m_cp.imap[1], c->m_cp.k[1], c->m_cp.stride[0], c->m_cp.pad[0]);
+      int input_columns = sa_odims(c->m_cp.imap[0], c->m_cp.k[0],
+                                   c->m_cp.stride[0], c->m_cp.pad[0]) *
+                          sa_odims(c->m_cp.imap[1], c->m_cp.k[1],
+                                   c->m_cp.stride[0], c->m_cp.pad[0]);
 
       if (c->m_cp.ic == 1) {
         // depth wise default
         available_pe_columns = K;
-      } 
+      }
 #if 0
       else if (c->m_cp.k[0] == 1 && c->m_cp.k[1] == 1) {
         // point wise optimization
         available_pe_columns = (1 * 32 * 18);
-      } 
+      }
 #endif
       else if (c->m_cp.k[0] > 3 && c->m_cp.k[1] > 3) {
-        // kernels greater than 3x3 
+        // kernels greater than 3x3
         available_pe_columns = K;
-      }
-      else {
+      } else {
         // all other types of convolutions
         available_pe_columns = N * K;
       }
 
-      int t = ((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) * input_columns;
+      int t =
+          ((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) * input_columns;
       cycles += t;
-      std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-      Op::print_node(*itr, &g);
+      if (gbl_args["verbose"]) {
+        std::cout << "Time: " << (float)t / 1e5 << "ms\n";
+        Op::print_node(*itr, &g);
+      }
     } else if (node->op_type() == "Gemm") {
       Op::Layer::Gemm *gemm_node = (Op::Layer::Gemm *)node;
       assert(gemm_node->m_cp.wc == gemm_node->m_cp.is);
-      int available_pe_columns = (N*K > 32) ? 32 : N*K;
+      int available_pe_columns = (N * K > 32) ? 32 : N * K;
       int t = (gemm_node->m_cp.wr / available_pe_columns) * gemm_node->m_cp.is;
       cycles += t;
-      std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-      Op::print_node(*itr, &g);
+      if (gbl_args["verbose"]) {
+        std::cout << "Time: " << (float)t / 1e5 << "ms\n";
+        Op::print_node(*itr, &g);
+      }
     }
   }
-  std::cout << "Total Estimated time for convolutions: " << (float)cycles / 1e5
-            << "ms\n";
+  if (gbl_args["verbose"]) {
+    std::cout << "Total Estimated time for convolutions: "
+              << (float)cycles / 1e5 << "ms\n";
+  }
+  return (float) cycles;
 }
 
 void Op::Model::bare_summary(void) const {
@@ -424,9 +436,7 @@ void Op::Model::create_execution_order(void) {
   }
 }
 
-void Op::Model::update_registers(void) {
-  RegisterAllocator ral(g);
-}
+void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
 
 std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return execution_order;
@@ -474,7 +484,8 @@ void parse_onnx_ints(onnx::AttributeProto &attr, int *attr_array) {
 
 /* TODO: REFACTOR: this and extract_maxpool_attr are essentially the same
  * function */
-void Op::Model::extract_conv_attr(onnx::NodeProto &node, Op::ConvParams &params) {
+void Op::Model::extract_conv_attr(onnx::NodeProto &node,
+                                  Op::ConvParams &params) {
   auto attribute = node.attribute();
   for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
     if (itr->name() == "kernel_shape") {
@@ -499,13 +510,13 @@ void Op::Model::extract_clip_params(onnx::NodeProto &node, ClipParams &params) {
       // extract attributes
       /* TODO: complete this function */
     } else {
-      //log_fatal("Could'nt find constants for clip params");
+      // log_fatal("Could'nt find constants for clip params");
     }
   }
 }
 
 void Op::Model::extract_maxpool_attr(onnx::NodeProto &node,
-                              Op::MaxpoolParams &params) {
+                                     Op::MaxpoolParams &params) {
   auto attribute = node.attribute();
   for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
     if (itr->name() == "kernel_shape") {
@@ -523,13 +534,15 @@ void Op::Model::extract_maxpool_attr(onnx::NodeProto &node,
   }
 }
 
-void Op::Model::extract_dropout_constant(onnx::NodeProto &node, Op::DropoutParams &params) {
+void Op::Model::extract_dropout_constant(onnx::NodeProto &node,
+                                         Op::DropoutParams &params) {
   auto inputs = node.input();
-  for (auto i: inputs) {
+  for (auto i : inputs) {
     auto itr = initializer_map.find(i);
     if (itr != initializer_map.end()) {
       onnx::TensorProto &t = itr->second;
-      assert(t.data_type() == 1 && "Expect dropout constant to be a float value");
+      assert(t.data_type() == 1 &&
+             "Expect dropout constant to be a float value");
       params.drop = t.float_data()[0];
     }
   }
@@ -538,7 +551,6 @@ void Op::Model::extract_dropout_constant(onnx::NodeProto &node, Op::DropoutParam
 void Op::Model::add_to_constant_pool(onnx::NodeProto &node) {
   constant_pool.insert({node.name(), node});
 }
-
 
 void Op::Parser::add_operator(onnx::NodeProto &node) {
   auto opt = node.op_type();
@@ -625,7 +637,7 @@ Op::Parser::Parser(std::string const &filename) {
    * and needs special treatment
    */
   auto graph_inputs = graph.input();
-  //assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
+  // assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
   m_model.create_execution_order();
   m_model.update_registers();
@@ -633,18 +645,15 @@ Op::Parser::Parser(std::string const &filename) {
 
 void Op::Parser::summary() const { m_model.summary(); }
 void Op::Parser::bare_summary() const { m_model.bare_summary(); }
-void Op::Parser::time_estimate(int M, int N, int K) const {
-  m_model.time_estimate(M, N, K);
+long Op::Parser::time_estimate(int M, int N, int K) const {
+  return m_model.time_estimate(M, N, K);
 }
 
-std::vector<Op::LayerBase*> Op::Parser::get_execution_order(void) const {
-  return m_model.get_execution_order(); 
+std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const {
+  return m_model.get_execution_order();
 }
 
-Op::Parser::~Parser() {
-  loaded_model.close();
-}
-
+Op::Parser::~Parser() { loaded_model.close(); }
 
 Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
   register_set.resize(default_size, AVAILABLE);
@@ -677,8 +686,7 @@ Op::VirtualAddress Op::RegisterAllocator::acquire(void) {
   if (itr != register_set.end()) {
     *itr = OCCUPIED;
     return itr - register_set.begin();
-  }
-  else {
+  } else {
     log_fatal("Out of registers!");
     return -1; // will never reach here
   }
@@ -688,7 +696,8 @@ void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
   register_set.at(a) = AVAILABLE;
 }
 
-void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target) {
+void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
+                                     Op::Vertex target) {
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
 

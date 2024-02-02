@@ -1,39 +1,192 @@
+#pragma once
+#include "onnx.pb.h"
+#include "onnx_parser.h"
 #include "sim.h"
+#include "tensor.h"
 #include "transformers.h"
 #include "utils.h"
 #include <iostream>
 #include <thread>
 
+#define decrement_channel_count(channel_count, sa_channels)                    \
+  ((channel_count > sa_channels) ? (channel_count -= sa_channels)              \
+                                 : (channel_count))
+#define SA_CHANNEL_ITERATOR(channel_count, sa_channels)                        \
+  (channel_count <= sa_channels ? channel_count : sa_channels)
 class SASA {
 private:
   int sa_channels;
   int sa_channel_rows;
   int sa_channel_columns;
-  int input_kernel_size;
-  int input_kernel_channels;
-  int input_kernel_rows;
-  int input_kernel_cols;
   int input_tensor_channels;
   int input_tensor_rows;
   int input_tensor_cols;
-  // ConvTransformer* CT_ptr;
+  Op::Layer::Conv conv_1;
 
   void create_sasa(std::vector<SA *> &SA_ptr, int sa_channel_rows,
-                                int sa_channel_columns, int sa_channels);
+                   int sa_channel_columns, int sa_channels);
   void destroy_sasa(std::vector<SA *> &SA_ptr);
   std::vector<ConvTransformer *> create_ConvTransformer();
-  std::vector<Mat> input_tensor_transformer(std::vector<Mat> &input_tensor,std::vector<ConvTransformer *> CT_ptr);
-  void load_weights_tensor(std::vector<std::vector<Mat>> &input_kernel,
-                           int kernel_channel, int kernel_number, SA *SA_ptr,
-                           ConvTransformer *CT_ptr);
-  void slave_thread(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr);
-  Mat adder(std::vector<Mat> &input);
-  std::vector<Mat> create_output(Mat & input);
 
+  // possibility of multi-threading here for further optimization.
+  template <typename T1>
+  std::vector<Mat>
+  input_tensor_transformer(Tensor<T1> &input_tensor,
+                           std::vector<ConvTransformer *> CT_ptr) {
+    std::vector<int> temp_vec;
+    Mat temp_mat;
+    std::vector<Mat> transformed_mats;
+    std::vector<int> temp_dims{0, 0, 0};
+
+    for (int k = 0; k < input_tensor.dims_at(0); k++) {
+      for (int i = 0; i < input_tensor.dims_at(1); i++) { // hardcoded here
+        for (int j = 0; j < input_tensor.dims_at(2); j++) {
+
+          temp_vec.push_back((int)input_tensor.at(temp_dims)); // casting here
+          temp_dims[2] = temp_dims[2] + 1;
+        }
+        temp_dims[2] = 0;
+        temp_dims[1] = temp_dims[1] + 1;
+      }
+      temp_dims[1] = 0;
+      temp_mat = CT_ptr.at(k)->transform(temp_vec);
+      transformed_mats.push_back(temp_mat);
+      temp_dims[0] = temp_dims[0] + 1;
+      temp_vec.clear();
+      temp_vec.shrink_to_fit();
+    }
+    return transformed_mats;
+  }
+
+  template <typename T1>
+  void load_weights_tensor(Tensor<T1> &weight_tensor, int kernel_channel,
+                           int kernel_number, SA *SA_ptr,
+                           ConvTransformer *CT_ptr) {
+
+    std::vector<T1> weights;
+    std::vector<int> temp_dims{kernel_number, kernel_channel, 0, 0};
+
+    for (int i = 0; i < weight_tensor.dims_at(2); ++i) {   // hardcoded for only 3d input
+      for (int j = 0; j < weight_tensor.dims_at(3); j++) {
+        weights.push_back(weight_tensor.at(temp_dims));
+        temp_dims.at(temp_dims.size() - 1) += 1;
+      }
+      temp_dims.at(temp_dims.size() - 1) = 0;
+      temp_dims.at(temp_dims.size() - 2) += 1;
+    }
+    SA_ptr->load_weights<T1>(weights);
+  }
+
+  void slave_thread(Mat &transformed_mats, SA *SA_ptr, ConvTransformer *CT_ptr);
+
+  /*the input is in the form of : channel-> kernel -> elements  (e.g. C0 -> K0 -
+   * >C0K0[elements]) the output will have the output stored in only one
+   *channel(0) having the total number of kernels ... that channel will have no
+   *significance of its index .
+   */
+  template <typename T1>
+  void adder(std::vector<Mat> &input, Tensor<T1> &output_tensor) {
+    output_tensor.clear();
+
+    for (int m = 0; m < input.at(0).size(); m++) {
+      for (int n = 0; n < input.size() - 1; n++) {
+        for (int p = 0; p < input.at(0).at(0).size(); p++) {
+          input.at(0).at(m).at(p) += input.at(n + 1).at(m).at(p);
+          if (n == input.size() - 2) {
+            output_tensor.push_back(input.at(0).at(m).at(p));
+          }
+        }
+      }
+    }
+  }
 
 public:
-  SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels);
+  SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels,
+       Op::Layer::Conv conv_1);
   // ~SASA();
-  std::vector<Mat> master(std::vector<Mat> &input_tensor,
-             std::vector<std::vector<Mat>> &input_kernel);
+
+  /* master is filling the SAs kernel wise ... filling up to its capacity and
+   * then reloading the SAs with same channels but different kernel and then
+   * after all the kernels are done for the ongoing set of channels.... channels
+   * are updated and then the process is repeated all over again.
+   */
+  template <typename T1, typename T2>
+  void master(Tensor<T1> &input_tensor, Tensor<T2> &output_tensor) { // NCHW
+    std::vector<SA *> SA_ptr;
+    std::vector<std::vector<std::thread *>> threads(sa_channels);
+    std::vector<Mat> transformed_mats;
+    std::vector<int> output_weights;
+    std::vector<Mat> vec(
+        conv_1.m_cp.ic); // channel pointers -> kernel pointers (0-7)
+                         // -> linear upto c0k7
+    std::vector<int> temp_vec;
+    Mat temp_mat;
+    Mat output_mat;
+    std::vector<Mat> output;
+    input_tensor_channels = input_tensor.dims_at(
+        0); // doing this makes it exculsive for only CONV of 3D input
+    input_tensor_rows = input_tensor.dims_at(1);
+    input_tensor_cols = input_tensor.dims_at(2);
+
+    assert(
+        input_tensor_channels == conv_1.m_cp.ic &&
+        "number of input tensor channels is not equal to the number of input "
+        "kernel channels");
+
+    int kernel_number;
+    int channel_number;
+    std::vector<ConvTransformer *> CT_ptr = create_ConvTransformer();
+    create_sasa(SA_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
+
+    TensorExtant<int8_t> TE1(conv_1.weights);
+    Tensor<int8_t>&  weights_tensor=TE1;
+
+    transformed_mats = input_tensor_transformer<T1>(input_tensor, CT_ptr);
+
+    int channel_count = conv_1.m_cp.ic;
+    int sa_channel_reloader = ceil(((float)conv_1.m_cp.ic / sa_channels));
+    int sa_kernel_reloader = ceil(((float)conv_1.m_cp.kn / sa_channel_columns));
+
+    for (int k = 0; k < sa_channel_reloader;
+         k++, decrement_channel_count(channel_count, sa_channels)) {
+      for (int i = 0; i < sa_kernel_reloader; i++) {
+        for (int j = 0; j < SA_CHANNEL_ITERATOR(channel_count, sa_channels);
+             j++) {
+          for (int m = 0; m < sa_channel_columns; m++) {
+
+            if (i * sa_channel_columns + m >= conv_1.m_cp.kn) {
+              break;
+            }
+            kernel_number = i * sa_channel_columns + m;
+            channel_number = k * sa_channels + j;
+            load_weights_tensor<int8_t>(weights_tensor, channel_number, kernel_number,   // hardcoded
+                                    SA_ptr.at(j * sa_channel_columns + m),
+                                    CT_ptr.at(j));
+
+            threads.at(j).emplace_back(new std::thread(
+                &SASA::slave_thread, this,
+                std::ref(transformed_mats.at(channel_number)),
+                SA_ptr.at(j * sa_channel_columns + m), CT_ptr.at(j)));
+          }
+        }
+        for (int n = 0; n < SA_CHANNEL_ITERATOR(channel_count, sa_channels);
+             n++) {
+          for (int o = 0; o < sa_channel_columns; o++) {
+
+            if (i * sa_channel_columns + o >= conv_1.m_cp.kn) {
+              break;
+            }
+            threads.at(n).at(o)->join();
+            temp_mat = SA_ptr.at(n * sa_channel_columns + o)->get_output();
+            temp_vec = CT_ptr.at(n)->untransform(temp_mat);  // not needed for SA having column size == 1
+            vec.at(k * sa_channels + n).push_back(temp_vec);
+            SA_ptr.at(n * sa_channel_columns + o)->clear_output();
+          }
+          threads.at(n).clear();
+          threads.at(n).shrink_to_fit();
+        }
+      }
+    }
+  adder<T2>(vec, output_tensor);
+  }
 };

@@ -9,7 +9,7 @@
 #include <queue>
 #include <utility>
 #include <vector>
-
+#include "tensor.h"
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
 
@@ -202,7 +202,12 @@ public:
   void propagate(Mat &input_mat, Chain &chain);
   Mat get_output();
   void clear_output();
-  void load_weights(std::vector<int> &weights);
+  template<typename T1>
+  void load_weights(std::vector<T1> &weights) {
+  for (int i = 0; i < rows * columns; ++i) {
+    get_pe_from_vertex(vertarray[i]).set_weight((int)weights[i]);  // temporary cast here
+  }
+}
   void print_array();
   void generate_profile_report();
   int total_vertices();
