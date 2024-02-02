@@ -47,9 +47,10 @@ template<typename T>
 void print_vec(const char *s, std::vector<T> const &v) {
     printf("%s: ", s);
     for (auto const &a: v) {
-        std::cout << a << ' ';
+        //std::cout << a << ' ';
+        printf("%d ", a);
     }
-    std::cout << '\n';
+    printf("\n");
 }
 
 template<typename T>
@@ -77,13 +78,8 @@ bool generate_report(const char *test_name, std::vector<expectedT>& expected, st
     printf("Test Name: %s\n", test_name);
     bool status = (expected == computed);
     printf("Status: %s\n", (status) ? "Pass" : "Fail");
-    for (auto i = 0 ; i < expected.size(); ++i) {
-      std::cout << expected.at(i) << ' ' << computed.at(i) << '\n';
-    }
-#if 0
     print_vec("Expected: ", expected);
     print_vec("Computed: ", computed);
-#endif
     return status;
 }
 
