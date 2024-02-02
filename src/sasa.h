@@ -33,7 +33,7 @@ private:
   std::vector<Mat>
   input_tensor_transformer(Tensor<T1> &input_tensor,
                            std::vector<ConvTransformer *> CT_ptr) {
-    std::vector<int> temp_vec(input_tensor.dims_iterator(-1));
+    std::vector<int> temp_vec;
     Mat temp_mat;
     std::vector<Mat> transformed_mats;
     std::vector<int> temp_dims{0, 0, 0};
@@ -41,8 +41,8 @@ private:
     for (int k = 0; k < input_tensor.dims_at(0); k++) {
       for (int i = 0; i < input_tensor.dims_at(1); i++) { // hardcoded here
         for (int j = 0; j < input_tensor.dims_at(2); j++) {
-          temp_vec.at(i * input_tensor.dims_at(2) + j) =
-              (int)input_tensor.at(temp_dims); // casting here
+
+          temp_vec.push_back((int)input_tensor.at(temp_dims)); // casting here
           temp_dims[2] = temp_dims[2] + 1;
         }
         temp_dims[2] = 0;
@@ -52,6 +52,8 @@ private:
       temp_mat = CT_ptr.at(k)->transform(temp_vec);
       transformed_mats.push_back(temp_mat);
       temp_dims[0] = temp_dims[0] + 1;
+      temp_vec.clear();
+      temp_vec.shrink_to_fit();
     }
     return transformed_mats;
   }
@@ -64,7 +66,7 @@ private:
     std::vector<T1> weights;
     std::vector<int> temp_dims{kernel_number, kernel_channel, 0, 0};
 
-    for (int i = 0; i < weight_tensor.dims_at(2); ++i) {
+    for (int i = 0; i < weight_tensor.dims_at(2); ++i) {   // hardcoded for only 3d input
       for (int j = 0; j < weight_tensor.dims_at(3); j++) {
         weights.push_back(weight_tensor.at(temp_dims));
         temp_dims.at(temp_dims.size() - 1) += 1;
@@ -157,7 +159,7 @@ public:
             }
             kernel_number = i * sa_channel_columns + m;
             channel_number = k * sa_channels + j;
-            load_weights_tensor<T1>(weights_tensor, channel_number, kernel_number,
+            load_weights_tensor<int8_t>(weights_tensor, channel_number, kernel_number,   // hardcoded
                                     SA_ptr.at(j * sa_channel_columns + m),
                                     CT_ptr.at(j));
 
@@ -176,7 +178,7 @@ public:
             }
             threads.at(n).at(o)->join();
             temp_mat = SA_ptr.at(n * sa_channel_columns + o)->get_output();
-            temp_vec = CT_ptr.at(n)->untransform(temp_mat);
+            temp_vec = CT_ptr.at(n)->untransform(temp_mat);  // not needed for SA having column size == 1
             vec.at(k * sa_channels + n).push_back(temp_vec);
             SA_ptr.at(n * sa_channel_columns + o)->clear_output();
           }

@@ -6,12 +6,6 @@
 #include <iostream>
 #include <thread>
 
-#define decrement_channel_count(channel_count, sa_channels)                    \
-  ((channel_count > sa_channels) ? (channel_count -= sa_channels)              \
-                                 : (channel_count))
-#define SA_CHANNEL_ITERATOR(channel_count, sa_channels)                        \
-  (channel_count <= sa_channels ? channel_count : sa_channels)
-
 SASA::SASA(int sa_channel_rows, int sa_channel_columns, int sa_channels,
            Op::Layer::Conv conv_1)
     : sa_channel_rows{sa_channel_rows}, sa_channel_columns{sa_channel_columns},
