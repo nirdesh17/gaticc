@@ -6,6 +6,7 @@
 #include "sim.h"
 #include "transformers.h"
 #include "utils.h"
+#include "onnx_parser.h"
 
 /* remove n elements from the start of vector and return them */
 std::vector<int> GemmTransformer::pick(std::vector<int>& v, int n) {
@@ -181,11 +182,11 @@ std::vector<int> ConvTransformer::transform_weights(std::vector<int>& w, int out
 
 std::vector<int> ConvTransformer::untransform(Mat &a) {
     std::vector<int> out;
-    int hout = (IW-KW) + 1;
-    int wout = (IH-KH) + 1;
-    for (int i = 0; i < scols; i++) {
+    int hout = sa_odims_row(m_cp);
+    int wout = sa_odims_cols(m_cp);
+    for (int i = 0; i < sa_dims.cols; i++) {
         for (int j = 0; j < hout*wout; ++j) {
-            out.push_back(a.at(i).at(j));
+            out.push_back(Mat_at(a, i, j));
         }
     }
     return out;
@@ -202,23 +203,23 @@ TransformerType ConvTransformer::get_type() {
 /* true if index is last slide first element */
 bool ConvTransformer::is_lsfe(Point const &index) {
     int y = index.second; 
-    return (y == (IW-KW)) ? true : false;
+    return (y == (m_cp.imap[0] - m_cp.k[0])) ? true : false;
 }
 /* true if index is last slide middle element */
 bool ConvTransformer::is_lsme(Point const &index) {
     int y = index.second; 
-    return ((y > (IW-KW)) && (y < IW-1)) ? true : false;
+    return ((y > (m_cp.imap[1] - m_cp.k[1])) && (y < m_cp.imap[0] - 1)) ? true : false;
 }
 /* true if index is last slide last element */
 bool ConvTransformer::is_lsle(Point const &index) {
     int y = index.second; 
-    return (y == IW-1);
+    return (y == m_cp.imap[0]-1);
 }
 
 /* true if index is at the last position in the current slide */
 bool ConvTransformer::is_kern_edge(Point const &index) {
     int y = index.second;
-    return (y == KW-1);
+    return (y == m_cp.k[0]-1);
 }
 
 /* x = x' ; y = y' */
@@ -247,7 +248,7 @@ void ConvTransformer::xp1ym1(Point &current, Point const &above) {
 
 bool ConvTransformer::has_occured(Point const &p, std::vector<bool> const &occurence) {
     int y = p.second;
-    int lsfe = (IW-KW);
+    int lsfe = (m_cp.imap[0] - m_cp.k[0]);
     return occurence.at(y % lsfe);
 }
 
@@ -257,12 +258,12 @@ bool ConvTransformer::is_zero(Point const &p) {
 
 /* true if p is the first element of kernel at last sliding position */
 bool ConvTransformer::is_last_kernel(Point const &p) {
-    return ((p.first == (IW-KW)) && (p.second == (IH-KH)));
+    return ((p.first == (m_cp.imap[0] - m_cp.k[0])) && (p.second == (m_cp.imap[1] - m_cp.k[1])));
 }
 
 void ConvTransformer::mark_occured(Point const &p, std::vector<bool> &occurence) {
     int y = p.second;
-    int lsfe = (IW-KW);
+    int lsfe = (m_cp.imap[0]-m_cp.k[0]);
     occurence.at(y % lsfe) = 1;
 }
 
@@ -270,23 +271,23 @@ void ConvTransformer::mark_occured(Point const &p, std::vector<bool> &occurence)
  * from offset till n
  */
 void ConvTransformer::fill_index(Mat &out, Mat const &input, std::vector<Point> const &ibuf, int n, int offset) {
-    assert(ibuf.size() == (KW*KH));
-    assert(n <= (KW*KH));
-    std::vector<int> buf(KW*KH, 0);
+    assert(ibuf.size() == (m_cp.k[0]*m_cp.k[1]));
+    assert(n <= (m_cp.k[0]*m_cp.k[1]));
+    std::vector<int> buf(m_cp.k[0]*m_cp.k[1], 0);
     for (int i = offset; i < n; ++i) {
         auto p = ibuf.at(i);
         buf.at(i) = Mat_at(input, p.first, p.second);
     }
-    assert(buf.size() <= (KW*KH));
+    assert(buf.size() <= (m_cp.k[0]*m_cp.k[1]));
     out.push_back(buf);
 }
 
 /* generate n indices based on previous indices (stored in ibuf2) and store them in ibuf */
 void ConvTransformer::generate_index(std::vector<Point> const &ibuf2, std::vector<Point> &ibuf, int n) {
-    assert(ibuf.size() == (KW*KH));
-    assert(ibuf2.size() == (KW*KH));
-    assert(n <= (KW*KH));
-    std::vector<bool> occurence(KW, 0);
+    assert(ibuf.size() == (m_cp.k[0]*m_cp.k[1]));
+    assert(ibuf2.size() == (m_cp.k[0]*m_cp.k[1]));
+    assert(n <= (m_cp.k[0]*m_cp.k[1]));
+    std::vector<bool> occurence(m_cp.k[0], 0);
     for (int i = 0; i < n; ++i) {
         if (is_lsfe(ibuf2.at(i)) && !has_occured(ibuf2.at(i), occurence)) {
             xp1y0(ibuf.at(i), ibuf2.at(i));
@@ -401,13 +402,13 @@ void ConvTransformer::generate_index(std::vector<Point> const &ibuf2, std::vecto
  */
 
 Mat ConvTransformer::transform(std::vector<int> &a) {
-    Mat input = v2mat<int,int>(a, IW, IH);
+    Mat input = v2mat<int,int>(a, m_cp.imap[0], m_cp.imap[1]);
     Mat out;
-    std::vector<Point> ibuf(KW*KH, std::make_pair(0,0));
-    std::vector<Point> ibuf2(KW*KH, std::make_pair(0,0));
+    std::vector<Point> ibuf(m_cp.k[0]*m_cp.k[1], std::make_pair(0,0));
+    std::vector<Point> ibuf2(m_cp.k[0]*m_cp.k[1], std::make_pair(0,0));
     ibuf2.at(0).second = -1;
     /* prologue */
-    for (int i = 1; i < (KW*KH); ++i) {
+    for (int i = 1; i < (m_cp.k[0]*m_cp.k[1]); ++i) {
         generate_index(ibuf2, ibuf, i);
         //print_vec_point("vec", ibuf);
         std::copy(ibuf.begin(), ibuf.end(), ibuf2.begin());
@@ -418,27 +419,28 @@ Mat ConvTransformer::transform(std::vector<int> &a) {
     }
     /* core */
     while (!is_last_kernel(ibuf.at(0))) {
-        generate_index(ibuf2, ibuf, KW*KH);
+        generate_index(ibuf2, ibuf, m_cp.k[0]*m_cp.k[1]);
         //print_vec_point("vec", ibuf);
         std::copy(ibuf.begin(), ibuf.end(), ibuf2.begin());
-        fill_index(out, input, ibuf, KW*KH, 0);
+        fill_index(out, input, ibuf, m_cp.k[0]*m_cp.k[1], 0);
     }
     /* epilogue */
-    for (int i = 1; i < (KW*KH); ++i) {
-        generate_index(ibuf2, ibuf, KW*KH);
+    for (int i = 1; i < (m_cp.k[0]*m_cp.k[1]); ++i) {
+        generate_index(ibuf2, ibuf, m_cp.k[0]*m_cp.k[1]);
         //print_vec_point("vec", ibuf);
         std::copy(ibuf.begin(), ibuf.end(), ibuf2.begin());
-        fill_index(out, input, ibuf, KW*KH, i);
+        fill_index(out, input, ibuf, m_cp.k[0]*m_cp.k[1], i);
     }
-    for (int i = 0; i < (scols-2); ++i) {
-        std::vector<int> tmp(KW*KH, 0);
+    for (int i = 0; i < (sa_dims.cols-2); ++i) {
+        std::vector<int> tmp(m_cp.k[0]*m_cp.k[1], 0);
         out.push_back(tmp);
     }
     return out;
 }
 
-ConvTransformer::ConvTransformer(int IW, int IH, int KW, int KH, int srows, int scols): 
-    IW {IW}, IH {IH}, KW {KW}, KH {KH}, srows{srows}, scols{scols} {
+ConvTransformer::ConvTransformer(Op::ConvParams const &cp, SaDims const &sa_dims) {
+  std::memcpy(&m_cp, &cp, sizeof(Op::ConvParams));
+  std::memcpy(&(this->sa_dims), &sa_dims, sizeof(SaDims));
 }
 
 void print_vec_point(const char *s, std::vector<Point>const &v) {

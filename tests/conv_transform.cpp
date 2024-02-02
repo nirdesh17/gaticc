@@ -22,7 +22,16 @@ int main(int argc, char *argv[]) {
   int input_columns = 6;
   /* 0 for srows/scols works here as srows/scols are only required by
    * the untransform function and its not used here  */
-  ConvTransformer t(input_rows, input_columns, 3, 3, 0, 0);
+  Op::ConvParams cp {
+    .imap {input_rows, input_columns},
+    .k {3,3},
+  };
+
+  SaDims sa_dims {
+    .rows {0},
+    .cols {0}
+  };
+  ConvTransformer t(cp, sa_dims);
   std::vector<int> v(input_rows * input_columns);
   std::iota(v.begin(), v.end(), 1);
   auto tmp = t.transform(v);
