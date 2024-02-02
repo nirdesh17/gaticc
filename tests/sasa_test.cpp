@@ -42,12 +42,12 @@ int main(int argc, char *argv[]) {
   onnx::GraphProto* GP1;
   onnx::AttributeProto* AP1;
   std::fstream input("../onnx/vgg/vgg16-12-int8.onnx",std::ios::in);
-    MP1.ParseFromIstream(&input);
-    GP1 = MP1.mutable_graph();
-    conv1.weights= GP1->mutable_initializer(2);
+  MP1.ParseFromIstream(&input);
+  GP1 = MP1.mutable_graph();
+  conv1.weights= GP1->mutable_initializer(2);
   std::vector<int> temp_dims{0,0,0,0};
-  TensorCreate<int8_t> TC1;
-  Tensor<int8_t>& tensor2 = TC1;
+  TensorCreate<int> TC1;
+  Tensor<int>& tensor2 = TC1;
   for (auto i : ifmv) {
     tensor2.push_back(i);
   }
@@ -65,8 +65,8 @@ int main(int argc, char *argv[]) {
 
   TensorCreate<int> tensor_output(output_dims);
   Tensor<int>& output_tensor = tensor_output;
-  s1.master<int8_t,int>(tensor2,output_tensor);
-  printf("output tensor size %d \n",output_tensor.size());
+  s1.master<int,int>(tensor2,output_tensor);
+  output_tensor.set_dims(output_dims,0);
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
@@ -75,11 +75,10 @@ int main(int argc, char *argv[]) {
   std::cout << "time taken by the whole pgm " << duration.count() << " sec"
             << std::endl;
 
-  // return 0;
-// }
   std::vector<int> calculated;
-  for(int i = 0 ; i < 64*222*222 ; i ++){
-  
+  int l = output_tensor.dims_iterator(-1);
+
+  for(int i = 0 ; i < l ; i ++){
   calculated.push_back(output_tensor.get(i));
   }
   Py_XDECREF(ifm);

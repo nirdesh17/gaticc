@@ -78,8 +78,8 @@ bool generate_report(const char *test_name, std::vector<expectedT>& expected, st
     printf("Test Name: %s\n", test_name);
     bool status = (expected == computed);
     printf("Status: %s\n", (status) ? "Pass" : "Fail");
-    print_vec("Expected: ", expected);
-    print_vec("Computed: ", computed);
+    // print_vec("Expected: ", expected);
+    // print_vec("Computed: ", computed);
     return status;
 }
 
