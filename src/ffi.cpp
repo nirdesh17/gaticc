@@ -127,3 +127,8 @@ PyObject *py_infer_layer_torch(PyEngine &engine, std::string const &model, PyObj
   Py_XDECREF(args);
   return result;
 }
+
+void PyEngine::print_object(PyObject *obj) {
+  PyObject_Print(obj, stdout, 0);
+  std::cout << '\n';
+}

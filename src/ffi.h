@@ -1,8 +1,9 @@
 #pragma once
 
+/* From libpython */
 #include "Python.h"
-#include "numpy/ndarraytypes.h"
-#include "numpy/ndarrayobject.h"
+#include "tupleobject.h"
+
 #include "utils.h"
 #include <string>
 #include <vector>
@@ -45,6 +46,7 @@ public:
   PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir);
   ~PyEngine();
   PyObject *call_func(std::string const &func_name, PyObject *args);
+  void print_object(PyObject *obj);
   /* Integer List (in python) to Integer Vector (in cpp) */
 
   template <typename T> 
@@ -79,18 +81,6 @@ public:
   }
 
   template <typename T>
-  std::vector<T> np2iv(PyArrayObject *np) {
-    std::vector<T> v;
-    PyObject *flattend = PyArray_Flatten(np, NPY_ANYORDER);
-    for (int i = 0; i < PyArray_Size(flattend); ++i) {
-      T* value = (T*) PyArray_GETPTR1(flattend, i);
-      v.push_back(*value);
-    }
-    Py_XDECREF(flattend);
-    return v;
-  }
-
-  template <typename T>
   PyObject *iv2np(std::vector<T> const &v, std::vector<int> const& dims) {
     /* TODO:
      * Ideally, one would use PyArray_* functions directly
@@ -108,6 +98,26 @@ public:
     Py_XDECREF(v_l);
     Py_XDECREF(dims_l);
     Py_XDECREF(args);
+    return ret;
+  }
+
+  template<typename T>
+  std::vector<T> np2iv(PyObject *nparr, std::vector<int>& dims) {
+    PyObject *args = Py_BuildValue("(O)", nparr);
+    PyObject *flattened_list = call_func("nparr2l", args);
+    py_fatal_rv_check(flattened_list,  "nparr2l");
+    PyObject *dims_tuple = call_func("npgetdims", args);
+    if (!PyTuple_Check(dims_tuple)) {
+      log_fatal("npgetdims return value not a tuple");
+    }
+    for (auto i = 0; i < PyTuple_Size(dims_tuple); ++i) {
+      dims.push_back(PyLong_AsLong(PyTuple_GetItem(dims_tuple, i)));
+    }
+    std::vector<T> ret = il2iv<T>(flattened_list);
+
+    Py_XDECREF(args);
+    Py_XDECREF(flattened_list);
+    Py_XDECREF(dims_tuple);
     return ret;
   }
 };
