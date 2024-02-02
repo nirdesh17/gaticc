@@ -56,7 +56,7 @@ public:
 
     int sum = 0;
     for (int i = 0; i < at.size(); i++) {
-      sum = sum + at[i] * dims_iterator(dims.size() - 1 - i);
+      sum = sum + at[i] * dims_iterator(i);
     }
     if (typeid(T1) == typeid(float))
       return (ptr->float_data(sum));
