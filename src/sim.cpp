@@ -240,6 +240,8 @@ Mat SA::get_output() { return output_array; }
 void SA::clear_output(){
   for( int i = 0 ; i < columns ; i ++){
    output_array.at(i).resize(0);
+   output_array.at(i).shrink_to_fit();
+   output_array_counts.at(i) = 0 ;
   }
   return;
   
