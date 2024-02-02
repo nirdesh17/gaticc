@@ -37,10 +37,21 @@ void SASA::destroy_sasa(std::vector<SA *> &SA_ptr) {
 std::vector<ConvTransformer *> SASA::create_ConvTransformer() {
   std::vector<ConvTransformer *> CT_ptr;
 
+  /* TODO: fill all the parameters here */
+  Op::ConvParams cp {
+    .imap {input_tensor_rows, input_tensor_cols},
+    .k {input_kernel_rows, input_kernel_cols},
+    .pad {0,0,0,0},
+    .stride {1,1}
+  };
+
+  SaDims sa_dims {
+    .rows {sa_channel_rows},
+    .cols {1}
+  };
+
   for (int i = 0; i < input_tensor_channels; i++) {
-    CT_ptr.push_back(new ConvTransformer(input_tensor_rows, input_tensor_cols,
-                                         input_kernel_rows, input_kernel_cols,
-                                         sa_channel_rows, 1));
+    CT_ptr.push_back(new ConvTransformer(cp, sa_dims));
   }
   return CT_ptr;
 }

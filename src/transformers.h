@@ -1,8 +1,9 @@
 #pragma once
 
-#include <vector>
-#include <algorithm>
+#include "onnx_parser.h"
 #include "sim.h"
+#include <algorithm>
+#include <vector>
 
 /* The transformer interface allows new transformations to be added in a
  * convenient manner. The interface is thus:
@@ -20,49 +21,44 @@
  */
 
 using TransformerType = enum TransformerType {
-    GEMM_TF,
-    CONV_TF,
+  GEMM_TF,
+  CONV_TF,
 };
 
 /* Abstract base class for all transformers */
 class Transformer {
-    public:
-        virtual TransformerType get_type() = 0;
-        virtual Mat transform(std::vector<int> &a) = 0;
-        virtual std::vector<int> untransform(Mat &a) = 0;
+public:
+  virtual TransformerType get_type() = 0;
+  virtual Mat transform(std::vector<int> &a) = 0;
+  virtual std::vector<int> untransform(Mat &a) = 0;
 };
 
-class GemmTransformer: public Transformer {
-    private: 
-        int arows;
-        int acolumns;;
-        int brows;
-        int bcolumns;
-        std::vector<int> to_sys_major(std::vector<int> &v, int rows, int columns);
-        std::vector<int> get_access_frequency(int rows, int cols);
-        void zero_pad_before(std::vector<int> &v, int n);
-        void zero_pad_after(std::vector<int> &v, int n);
-        void zero_pad(Mat& out, std::vector<int>& frequency, int columns);
-        std::vector<int> pick(std::vector<int>& v, int n);
-    public:
-        GemmTransformer() = delete;
-        GemmTransformer(int r, int c, int ir, int ic);
-        TransformerType get_type() override; 
-        Mat transform(std::vector<int> &a) override;
-        std::vector<int> untransform(Mat &a) override;
+class GemmTransformer : public Transformer {
+private:
+  int arows;
+  int acolumns;
+  ;
+  int brows;
+  int bcolumns;
+  std::vector<int> to_sys_major(std::vector<int> &v, int rows, int columns);
+  std::vector<int> get_access_frequency(int rows, int cols);
+  void zero_pad_before(std::vector<int> &v, int n);
+  void zero_pad_after(std::vector<int> &v, int n);
+  void zero_pad(Mat &out, std::vector<int> &frequency, int columns);
+  std::vector<int> pick(std::vector<int> &v, int n);
+
+public:
+  GemmTransformer() = delete;
+  GemmTransformer(int r, int c, int ir, int ic);
+  TransformerType get_type() override;
+  Mat transform(std::vector<int> &a) override;
+  std::vector<int> untransform(Mat &a) override;
 };
 
 class ConvTransformer: public Transformer {
     private: 
-        /* input width and height */
-        int IW; 
-        int IH; 
-        /* kernel width and height */
-        int KW; 
-        int KH;
-        /* systolic array rows and cols */
-        int srows;
-        int scols;
+        Op::ConvParams m_cp;
+        SaDims sa_dims;
         void fill_index(Mat &out, Mat const &input, std::vector<Point> const &ibuf, int n, int offset);
         void generate_index(std::vector<Point> const &ibuf2, std::vector<Point> &ibuf, int n);
         bool is_lsle(Point const &index);
@@ -79,7 +75,7 @@ class ConvTransformer: public Transformer {
         bool is_kern_edge(Point const &i);
     public:
         ConvTransformer() = delete;
-        ConvTransformer(int IW, int IH, int KW, int KH, int srows, int scols);
+        ConvTransformer(Op::ConvParams const &cp, SaDims const &sa_dims);
         TransformerType get_type() override; 
         Mat transform(std::vector<int> &a) override;
         std::vector<int> transform_weights(std::vector<int>& w, int out_rows, int out_cols);

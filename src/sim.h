@@ -168,6 +168,13 @@ using Neighbours =
     std::pair<PE_Graph::Adjacency_iterator, PE_Graph::Adjacency_iterator>;
 } // namespace PE_Graph
 
+
+struct SaDims {
+  int rows;
+  int cols;
+  int num;
+};
+
 class SA {
 private:
   PE_Graph::Graph g;
