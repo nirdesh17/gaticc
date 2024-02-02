@@ -101,7 +101,7 @@ def infer_layer(model, ifm, layer):
 def infer_layer_torch(model, ifm, layer):
     input = torch.Tensor(ifm)
     kernels = torch.Tensor(np.copy(get_kernel(model, layer))) 
-    return np.array(torch.nn.functional.conv2d(input, kernels))
+    return np.array(torch.nn.functional.conv2d(input, kernels)).flatten().astype(np.int32).tolist()
 
 
 #if __main__ == __name__:

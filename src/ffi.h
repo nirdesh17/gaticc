@@ -51,6 +51,9 @@ public:
 
   template <typename T> 
   std::vector<T> il2iv(PyObject *list) {
+    if (!PyList_Check(list)) {
+      log_fatal("Input not a list");
+    }
     std::vector<T> vec;
     for (Py_ssize_t i = 0; i < PyList_Size(list); ++i) {
       PyObject *item = PyList_GetItem(list, i);
