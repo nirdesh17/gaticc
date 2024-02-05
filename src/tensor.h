@@ -19,7 +19,7 @@ public:
 
   virtual void insert(std::vector<int> &at, T1 data) { return; }
 
-  virtual void set_dims(std::vector<int> temp_dims, int start_index) { return; }
+  virtual void set_dims(std::vector<int> const& temp_dims) { return; }
 
   virtual int dims_iterator(int index) { return index; }
 
@@ -130,13 +130,9 @@ public:
     vec[sum] = data;
   }
 
-  void set_dims(std::vector<int> temp_dims, int start_index) override {
-    if(dims.size()==temp_dims.size()){
-      return;
-    }
-    dims.push_back(temp_dims.at(start_index));
-    start_index++;
-    set_dims(temp_dims,start_index);
+  void set_dims(std::vector<int> const& temp_dims) override {
+    dims = temp_dims;
+    return;
   }
 
   int dims_iterator(int index) override {

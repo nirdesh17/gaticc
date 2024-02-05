@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
     tensor2.push_back(i);
   }
   std::vector<int> dim{3, 224, 224};
-  tensor2.set_dims(dim, 0);
+  tensor2.set_dims(dim);
 
   PyObject *ret = py_infer_layer_torch(engine, model_path, ifm, 0);
   std::vector<int> expected = engine.il2iv<int>(ret);
@@ -44,6 +44,10 @@ int main(int argc, char *argv[]) {
   CP1.stride[1] = 1;
   CP1.imap[0] = 224;
   CP1.imap[1] = 224;
+  CP1.pad[0] = 0;
+  CP1.pad[1] = 0;
+  CP1.pad[2] = 0;
+  CP1.pad[3] = 0;
   Op::Layer::Conv conv1(CP1);
 
   std::vector<Mat> output;
@@ -69,7 +73,7 @@ int main(int argc, char *argv[]) {
   TensorCreate<int> tensor_output(output_dims);
   Tensor<int> &output_tensor = tensor_output;
   s1.master<int, int>(tensor2, output_tensor);
-  output_tensor.set_dims(output_dims, 0);
+  output_tensor.set_dims(output_dims);
 
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
@@ -77,6 +81,8 @@ int main(int argc, char *argv[]) {
 
   std::cout << "time taken by the whole pgm " << duration.count() << " sec"
             << std::endl;
+
+  //std::cout << "size : " <<output_tensor.size() << '\n';
 
   std::vector<int> calculated;
   int l = output_tensor.dims_iterator(-1);
