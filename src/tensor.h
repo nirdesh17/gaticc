@@ -61,7 +61,8 @@ public:
     if (typeid(T1) == typeid(float))
       return (ptr->float_data(sum));
     else if (typeid(T1) == typeid(int32_t))
-      return (ptr->int32_data(sum));
+      return ((int8_t)ptr->raw_data().at(sum));
+      //return (ptr->int32_data(sum));
     else if (typeid(T1) == typeid(int64_t))
       return (ptr->int64_data(sum));
     else if (typeid(T1) == typeid(int8_t))

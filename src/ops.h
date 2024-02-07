@@ -14,6 +14,7 @@ using Kerneldims = struct Imgdims;
 
 std::vector<int> extract_channel(std::vector<int>& img, Imgdims &dims, int n);
 
+#if 0
 class Conv2d {
     Imgdims id;
     Kerneldims kd;
@@ -24,5 +25,6 @@ class Conv2d {
         std::vector<int> operator()(std::vector<int> &input, std::vector<int> &weights, 
                 SA &a1);
 };
+#endif
 
 #endif

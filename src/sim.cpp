@@ -15,6 +15,7 @@
 
 #define DEBUG 1
 
+#if 0
 PE::PE(int id, weight_t w, reg_t r, reg_t input_buffer)
     : id{id}, weight{w}, reg{r}, input_buffer{input_buffer}, aux_buffer{0},
       ps_buffer{0} {};
@@ -40,6 +41,7 @@ void PE::print_pe() {
   printf("Id: %d\tWeight: %d\tReg: %d\tInput: %d\tAux: %d\tPs: %d\n", id,
          weight, reg, input_buffer, aux_buffer, ps_buffer);
 }
+#endif
 
 /* auxillary functions */
 Point get_cartesian_cord(int index, int r, int c) {
@@ -48,6 +50,7 @@ Point get_cartesian_cord(int index, int r, int c) {
   return Point(row_n, col_n);
 }
 
+#if 0
 SA::SA(int r, int c) : SA(r, c, false) {}
 
 SA::SA(int r, int c, bool profile_enabled)
@@ -88,7 +91,9 @@ SA::SA(int r, int c, bool profile_enabled)
     }
   }
 }
+#endif
 
+#if 0
 int SA::get_index_from_vertex(PE_Graph::Vertex &v) {
   int index;
   for (index = 0; index < vertarray.size(); ++index) {
@@ -173,7 +178,9 @@ PE_Graph::Neighbours SA::assign_vertices(const PE_Graph::Neighbours &neighbours,
   }
   return PE_Graph::Neighbours(right, down);
 }
+#endif 
 
+#if 0
 /* carry out mac on one PE pointed by Vertex v, and pass inputs/partial sums
  * to the neighbouring PEs
  */
@@ -234,9 +241,13 @@ void SA::push_to_output_array(int h, reg_t t1) {
   }
   output_array_counts.at(h) += 1;
 }
+#endif 
 
+#if 0
 Mat SA::get_output() { return output_array; }
+#endif
 
+#if 0
 void SA::clear_output(){
   for( int i = 0 ; i < columns ; i ++){
    output_array.at(i).resize(0);
@@ -284,16 +295,20 @@ void SA::print_array() {
   }
   printf("\n");
 }
+#endif
 
+#if 0
 /* load inputs at first n PEs where n = 0 3 6 9 ... for a Mx3 systolic array  */
-void SA::load_inputs(std::vector<int> &inputs) {
+void SA::load_inputs(std::vector<int> const& inputs) {
   for (int i = 0, vi = 0; i < rows; ++i) {
     get_pe_from_vertex(vertarray[vi]).set_input_buffer(inputs.at(i));
     get_pe_from_vertex(vertarray[vi]).set_aux_buffer(inputs.at(i));
     vi += columns;
   }
 }
+#endif
 
+#if 0
 template <typename T>
 void exchange_queues(std::queue<T> &dest, std::queue<T> &src) {
   assert(dest.empty() == true);
@@ -306,7 +321,9 @@ void exchange_queues(std::queue<T> &dest, std::queue<T> &src) {
     dest.push(i);
   }
 }
+#endif
 
+#if 0
 void SA::prepare_queue(std::queue<PE_Graph::Vertex> &exec_queue) {
   std::vector<int> order(rows * columns);
   std::iota(order.begin(), order.end(), 0);
@@ -318,7 +335,6 @@ void SA::prepare_queue(std::queue<PE_Graph::Vertex> &exec_queue) {
   }
 }
 
-// iterate over all PEs in systolic manner and call _propagate on them
 void SA::propagate(Mat &input_mat, Chain &chain) {
   std::queue<PE_Graph::Vertex> exec_queue;
   std::queue<PE_Graph::Vertex> alt_queue;
@@ -338,15 +354,16 @@ void SA::propagate(Mat &input_mat, Chain &chain) {
     }
   }
 }
+#endif
 
-void Tree::generate_btree(Mat const &v, std::pair<int, int> xy) {
+void Tree::generate_btree(Mat<int> const &v, std::pair<int, int> xy) {
   int x = xy.first;
   int y = xy.second;
   if (x >= rows || y >= columns) {
     return;
   }
   if (vertex_map.find(xy) == vertex_map.end()) {
-    Int_Graph::Vertex vertex = boost::add_vertex(Mat_at<int>(v, x, y), g);
+    Int_Graph::Vertex vertex = boost::add_vertex(v.at(x, y), g);
     vertex_map.insert({xy, vertex});
   }
   Tree::generate_btree(v, std::pair<int, int>(x + 1, y));
@@ -398,7 +415,7 @@ void Tree::connect_btree(std::pair<int, int> xy) {
   return;
 }
 
-Tree::Tree(Mat const &v, int rows, int columns) : rows{rows}, columns{columns} {
+Tree::Tree(Mat<int> const &v, int rows, int columns) : rows{rows}, columns{columns} {
   Tree::generate_btree(v, std::pair<int, int>(0, 0));
   Tree::connect_btree(std::pair<int, int>(0, 0));
 }
@@ -529,6 +546,7 @@ int Bias::exec(int x) {
 * action : performs the told mathematical operation ( max, average etc.) 
 * on the selected elements of the kernel window
 */
+#if 0
 fMat Pooler::movement(Mat &input, int ip_rows, int ip_columns, int stride,
                       int padding, int dilation, int kernel_rows,
                       int kernel_cols, action func) {
@@ -624,21 +642,4 @@ fMat Pooler ::global_average_pooler(Mat &input, int ip_rows, int ip_columns,
 
   return out_matrix;
 }
-
-Mat Padder(Mat& input, int padding) {
-  Mat new_mat;
-  std::vector<int> store;
-  for (int i = 0; i < input.size() + 2 * padding; i++) {
-    for (int j = 0; j < input.at(0).size() + 2 * padding; j++) {
-      if (((i < padding) || (i >= input.size() + padding)) ||
-          ((j < padding) || (j >= input.at(0).size() + padding))) {
-        store.push_back(0);
-      } else {
-        store.push_back(Mat_at<int>(input, i - padding, j - padding));
-      }
-    }
-  }
-  new_mat = v2mat<int, int>(store, input.size() + 2 * padding,
-                            input.at(0).size() + 2 * padding);
-  return new_mat;
-}
+#endif

@@ -8,6 +8,7 @@
 #include "utils.h"
 #include "onnx_parser.h"
 
+#if 0
 /* remove n elements from the start of vector and return them */
 std::vector<int> GemmTransformer::pick(std::vector<int>& v, int n) {
     assert(n <= v.size());
@@ -89,8 +90,10 @@ void GemmTransformer::zero_pad(Mat& out, std::vector<int>& frequency, int column
         itr++;
     }
 }
+#endif
 
 
+#if 0
 Mat GemmTransformer::transform(std::vector<int> &a) {   // retun val should be changed to float?
     if (arows < acolumns) {
         /* TODO: implement this in to_systolic_order() */
@@ -139,6 +142,8 @@ std::vector<int> GemmTransformer::untransform(Mat &a) {
     }
     return out;
 }
+
+
 /* For multi-channel kernels , in order to load them in a 2-D SA
 * we need to pack the channels into one single vector. Concatenate channels
 * in a single vector and call 'transform_weights(vec v,SA_row,SA_column)' on it.
@@ -195,6 +200,9 @@ std::vector<int> ConvTransformer::untransform(Mat &a) {
 TransformerType GemmTransformer::get_type() {
     return GEMM_TF;
 }
+#endif
+
+#if 0
 
 TransformerType ConvTransformer::get_type() {
     return CONV_TF;
@@ -310,7 +318,10 @@ void ConvTransformer::generate_index(std::vector<Point> const &ibuf2, std::vecto
     }
 }
 
+#endif
 
+
+#if 0
 /* This transform required to carry out convolution on the systolic array
  * is called 'im2col' [1] in the literature. The output of this function is
  * equal to that of ordinary im2col, but the method of achieving is completely
@@ -442,6 +453,8 @@ ConvTransformer::ConvTransformer(Op::ConvParams const &cp, SaDims const &sa_dims
   std::memcpy(&m_cp, &cp, sizeof(Op::ConvParams));
   std::memcpy(&(this->sa_dims), &sa_dims, sizeof(SaDims));
 }
+
+#endif
 
 void print_vec_point(const char *s, std::vector<Point>const &v) {
     printf("%s: ", s);

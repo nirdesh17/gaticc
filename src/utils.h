@@ -63,6 +63,8 @@ void print_vec(const char *s, std::list<T> const &v) {
     std::cout << '\n';
 }
 
+namespace Utils {
+
 template<typename T>
 std::vector<T> flatten(std::vector<std::vector<T>> const &vec)
 {
@@ -71,6 +73,8 @@ std::vector<T> flatten(std::vector<std::vector<T>> const &vec)
         flattened.insert(flattened.end(), v.begin(), v.end());
     }
     return flattened;
+}
+
 }
 
 template<typename expectedT,typename computedT>
