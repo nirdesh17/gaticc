@@ -4,7 +4,6 @@
 #include "ffi.h"
 #include "Python.h"
 #include "onnx_parser.h"
-#include "ops.h"
 #include "sim.h"
 #include "transformers.h"
 #include "utils.h"
