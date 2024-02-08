@@ -16,13 +16,16 @@ int main(int argc, char *argv[]) {
   std::filesystem::path p = std::filesystem::absolute("../src/");
   PyEngine engine("ml_inference", p);
   std::string img_path =
-      std::filesystem::absolute("../images/mug.jpg").string();
+      std::filesystem::absolute("../images/dog.jpg").string();
   std::string model_path =
       std::filesystem::absolute("../onnx/vgg/vgg16-12-int8.onnx").string();
 
   std::vector<int> dims;
   PyObject *ifm = py_preprocess(engine, img_path);
   std::vector<int> ifmv = engine.np2iv<int>(ifm, dims);
+
+  using inputT = int8_t;
+  using outputT = int;
 
   TensorCreate<int> TC1;
   Tensor<int> &tensor2 = TC1;
@@ -50,7 +53,7 @@ int main(int argc, char *argv[]) {
   CP1.pad[3] = 0;
   Op::Layer::Conv conv1(CP1);
 
-  std::vector<Mat> output;
+  std::vector<Mat<int>> output;
   auto start = std::chrono::high_resolution_clock::now();
   onnx::ModelProto MP1;
   onnx::GraphProto *GP1;
@@ -60,7 +63,7 @@ int main(int argc, char *argv[]) {
   GP1 = MP1.mutable_graph();
   conv1.weights = GP1->mutable_initializer(2);
 
-  SASA s1(9, 8, 8, conv1);
+  SASA<int, int> s1(9, 8, 8, conv1);
   std::vector<int> output_dims{
       conv1.m_cp.kn,
       (sa_output_dims(conv1.m_cp.imap[0], conv1.m_cp.pad[0] /*padding*/,
@@ -72,7 +75,7 @@ int main(int argc, char *argv[]) {
 
   TensorCreate<int> tensor_output(output_dims);
   Tensor<int> &output_tensor = tensor_output;
-  s1.master<int, int>(tensor2, output_tensor);
+  s1.master(tensor2, output_tensor);
   output_tensor.set_dims(output_dims);
 
   auto stop = std::chrono::high_resolution_clock::now();
