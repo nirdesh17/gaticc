@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
 
     int input_rows = 6;
     int input_columns = 6;
-    GemmTransformer<int> t(input_rows, input_columns, 0, 0);
+    GemmTransformer<int, int> t(input_rows, input_columns, 0, 0);
     std::vector<int> v(input_rows*input_columns);
     std::iota(v.begin(), v.end(), 1);
     auto tmp = t.transform(v);

@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
   };
 
   SA<int, int> a1(array_rows, array_cols, true);
-  ConvTransformer<int> t(cp, sa_dims);
+  ConvTransformer<int, int> t(cp, sa_dims);
 
   std::vector<int> v(input_rows * input_columns);
   std::iota(v.begin(), v.end(), 1);

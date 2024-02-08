@@ -20,12 +20,12 @@ int main(int argc, char *argv[]) {
     std::iota(w.begin(), w.end(), 0);
     std::iota(v.begin(), v.end(), 0);
 
-    SA a1(array_rows,array_columns);
+    SA<int, int> a1(array_rows,array_columns);
     a1.load_weights(w);
 
     Chain c1;
     c1.push(new Chainblock());
-    GemmTransformer t(input_rows, input_columns, array_rows, array_columns);
+    GemmTransformer<int, int> t(input_rows, input_columns, array_rows, array_columns);
     auto out = t.transform(v);
     a1.propagate(out, c1);
     auto t1 = a1.get_output();
