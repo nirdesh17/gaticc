@@ -8,13 +8,29 @@ EXE_DIR=exe
 
 CXX = g++
 CXXFLAGS = -g -std=c++17 `pkg-config --cflags python3`
-LDFLAGS = -lpython3.11 -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread
+PYTHONLIB = -lpython3.11
+PROTOLIB = -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread
 
 all: $(addsuffix .o,$(TEST_TARGETS))
 
+sasa_test.o: sasa_test.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $@ ${LIB_PATH} -o $* ${PYTHONLIB} ${PROTOLIB}
+	mv $* ${EXE_DIR}/
+
+ml_inference.o: ml_inference.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $@ ${LIB_PATH} -o $* ${PYTHONLIB}
+	mv $* ${EXE_DIR}/
+
+ffi_test.o: ffi_test.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $@ ${LIB_PATH} -o $* ${PYTHONLIB}
+	mv $* ${EXE_DIR}/
+
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
-	$(CXX) $(CXXFLAGS) $@ ${LIB_PATH} -o $* $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $@ ${LIB_PATH} -o $* 
 	mv $* ${EXE_DIR}/
 
 clean:
