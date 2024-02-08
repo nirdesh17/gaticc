@@ -12,6 +12,37 @@
 
 using Point = std::pair<int, int>;
 
+template <typename T> class Mat {
+  std::vector<std::vector<T>> data;
+
+public:
+  std::vector<T> &at(int index) { return data.at(index); }
+  const std::vector<T> &at(int index) const { return data.at(index); }
+  T &at(int i, int j) { return data.at(i).at(j); }
+  const T &at(int i, int j) const { return data.at(i).at(j); }
+  void push_back(std::vector<T> &v) { data.push_back(v); }
+  void push_back(std::vector<T> &&v) { data.push_back(v); }
+
+  int size(int index) { return data.at(index).size(); };
+  int size() const { return data.size(); };
+
+  Mat(int size, const std::vector<T> &value) { data.resize(size, value); }
+  Mat(int size) { data.resize(size); }
+  Mat() {}
+
+  std::vector<T> flatten() {
+    std::vector<T> flattened;
+    for (auto const &v : data) {
+      flattened.insert(flattened.end(), v.begin(), v.end());
+    }
+    return flattened;
+  }
+
+  typename std::vector<std::vector<T>>::iterator begin() {
+    return data.begin();
+  }
+};
+
 #define log_fatal(fmt, ...)                                                    \
   (log_fatal_func(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
 #define log_info(fmt, ...)                                                     \
@@ -74,19 +105,6 @@ inline void print_vec_point(const char *s, std::vector<Point> const &v) {
   }
   std::cout << '\n';
 }
-
-namespace Utils {
-
-template <typename T>
-std::vector<T> flatten(std::vector<std::vector<T>> const &vec) {
-  std::vector<T> flattened;
-  for (auto const &v : vec) {
-    flattened.insert(flattened.end(), v.begin(), v.end());
-  }
-  return flattened;
-}
-
-} // namespace Utils
 
 template <typename expectedT, typename computedT>
 bool generate_report(const char *test_name, std::vector<expectedT> &expected,

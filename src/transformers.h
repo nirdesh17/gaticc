@@ -1,7 +1,6 @@
 #pragma once
 
 #include "onnx_parser.h"
-#include "sim.h"
 #include "utils.h"
 #include <algorithm>
 #include <vector>

@@ -15,35 +15,6 @@
 #include <utility>
 #include <vector>
 
-using Point = std::pair<int, int>;
-
-template <typename T> class Mat {
-  std::vector<std::vector<T>> data;
-
-public:
-  std::vector<T> &at(int index) { return data.at(index); }
-  const std::vector<T> &at(int index) const { return data.at(index); }
-  T &at(int i, int j) { return data.at(i).at(j); }
-  const T &at(int i, int j) const { return data.at(i).at(j); }
-  void push_back(std::vector<T> &v) { data.push_back(v); }
-  void push_back(std::vector<T> &&v) { data.push_back(v); }
-
-  int size(int index) { return data.at(index).size(); };
-  int size() const { return data.size(); };
-
-  Mat(int size, const std::vector<T> &value) { data.resize(size, value); }
-  Mat(int size) { data.resize(size); }
-  Mat() {}
-
-  std::vector<T> flatten() {
-    return Utils::flatten<T>(data);
-  }
-
-  typename std::vector<std::vector<T>>::iterator begin() {
-    return data.begin();
-  }
-};
-
 namespace Int_Graph {
 using Graph =
     boost::adjacency_list<boost::vecS, boost::listS, boost::directedS, int>;
@@ -837,13 +808,3 @@ void SA<inputT, outputT>::print_array() {
   }
   printf("\n");
 }
-
-#if 0
-/* return element at (x,y) in v */
-template <typename T1>
-T1 Mat_at(std::vector<std::vector<T1>> const &v, int x, int y) {
-  assert(x < v.size());
-  assert(y < v[0].size());
-  return v.at(x).at(y);
-}
-#endif
