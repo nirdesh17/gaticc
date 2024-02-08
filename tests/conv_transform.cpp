@@ -31,11 +31,11 @@ int main(int argc, char *argv[]) {
     .rows {0},
     .cols {0}
   };
-  ConvTransformer t(cp, sa_dims);
+  ConvTransformer<int> t(cp, sa_dims);
   std::vector<int> v(input_rows * input_columns);
   std::iota(v.begin(), v.end(), 1);
   auto tmp = t.transform(v);
-  auto computed = flatten<int>(tmp);
+  auto computed = tmp.flatten();
   bool status = generate_report<int, int>(argv[0], expected, computed);
   return status;
 }
