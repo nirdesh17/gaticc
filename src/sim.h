@@ -15,15 +15,7 @@
 #include <utility>
 #include <vector>
 
-// using input_t = std::int8_t;
-// using weight_t = std::int8_t;
-///* for partial sums */
-// using reg_t = std::int32_t;
-
 using Point = std::pair<int, int>;
-
-// using Mat = std::vector<std::vector<int>>;
-// using fMat = std::vector<std::vector<float>>;
 
 template <typename T> class Mat {
   std::vector<std::vector<T>> data;
@@ -34,6 +26,7 @@ public:
   T &at(int i, int j) { return data.at(i).at(j); }
   const T &at(int i, int j) const { return data.at(i).at(j); }
   void push_back(std::vector<T> &v) { data.push_back(v); }
+  void push_back(std::vector<T> &&v) { data.push_back(v); }
 
   int size(int index) { return data.at(index).size(); };
   int size() const { return data.size(); };
@@ -44,6 +37,10 @@ public:
 
   std::vector<T> flatten() {
     return Utils::flatten<T>(data);
+  }
+
+  typename std::vector<std::vector<T>>::iterator begin() {
+    return data.begin();
   }
 };
 
