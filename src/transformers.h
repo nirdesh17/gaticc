@@ -19,8 +19,6 @@
  * device that do the intelligent work of re-shaping data so that feeding it to
  * the systolic array results in an algorithm's execution.
  *
- * Transformers always operate on the same type, hence `template <typename T>`
- * as opposed to `template <typename inputT, typename outputT>`
  */
 
 using TransformerType = enum TransformerType {
@@ -29,40 +27,39 @@ using TransformerType = enum TransformerType {
 };
 
 /* Abstract base class for all transformers */
-template <typename T> class Transformer {
+template <typename inputT, typename outputT> class Transformer {
 public:
   virtual TransformerType get_type() = 0;
-  virtual Mat<T> transform(std::vector<T> &a) = 0;
-  virtual std::vector<T> untransform(Mat<T> &a) = 0;
+  virtual Mat<inputT> transform(std::vector<inputT> &a) = 0;
+  virtual std::vector<outputT> untransform(Mat<outputT> &a) = 0;
 };
 
-template <typename T> class GemmTransformer : public Transformer<T> {
+template <typename inputT, typename outputT> class GemmTransformer : public Transformer<inputT, outputT> {
 private:
   int arows;
   int acolumns;
   int brows;
   int bcolumns;
-  std::vector<T> to_sys_major(std::vector<T> &v, int rows, int columns);
+  std::vector<inputT> to_sys_major(std::vector<inputT> &v, int rows, int columns);
   std::vector<int> get_access_frequency(int rows, int cols);
-  void zero_pad_before(std::vector<T> &v, int n);
-  void zero_pad_after(std::vector<T> &v, int n);
-  void zero_pad(Mat<T> &out, std::vector<int> &frequency, int columns);
-  std::vector<T> pick(std::vector<T> &v, int n);
+  void zero_pad_before(std::vector<inputT> &v, int n);
+  void zero_pad_after(std::vector<inputT> &v, int n);
+  void zero_pad(Mat<inputT> &out, std::vector<int> &frequency, int columns);
+  std::vector<inputT> pick(std::vector<inputT> &v, int n);
 
 public:
   GemmTransformer() = delete;
   GemmTransformer(int r, int c, int ir, int ic);
   TransformerType get_type() override;
-  Mat<T> transform(std::vector<T> &a) override;
-  /* TODO: untransform needs two types */
-  std::vector<T> untransform(Mat<T> &a) override;
+  Mat<inputT> transform(std::vector<inputT> &a) override;
+  std::vector<outputT> untransform(Mat<outputT> &a) override;
 };
 
-template <typename T> class ConvTransformer : public Transformer<T> {
+template <typename inputT, typename outputT> class ConvTransformer : public Transformer<inputT, outputT> {
 private:
   Op::ConvParams m_cp;
   SaDims sa_dims;
-  void fill_index(Mat<T> &out, Mat<T> const &input,
+  void fill_index(Mat<inputT> &out, Mat<inputT> const &input,
                   std::vector<Point> const &ibuf, int n, int offset);
   void generate_index(std::vector<Point> const &ibuf2, std::vector<Point> &ibuf,
                       int n);
@@ -83,34 +80,34 @@ public:
   ConvTransformer() = delete;
   ConvTransformer(Op::ConvParams const &cp, SaDims const &sa_dims);
   TransformerType get_type() override;
-  Mat<T> transform(std::vector<T> &a) override;
-  std::vector<T> transform_weights(std::vector<T> &w, int out_rows,
+  Mat<inputT> transform(std::vector<inputT> &a) override;
+  std::vector<inputT> transform_weights(std::vector<inputT> &w, int out_rows,
                                    int out_cols);
-  std::vector<T> untransform(Mat<T> &a) override;
+  std::vector<outputT> untransform(Mat<outputT> &a) override;
 };
 
 /* remove n elements from the start of vector and return them */
-template <typename T>
-std::vector<T> GemmTransformer<T>::pick(std::vector<T> &v, int n) {
+template <typename inputT, typename outputT>
+std::vector<inputT> GemmTransformer<inputT, outputT>::pick(std::vector<inputT> &v, int n) {
   assert(n <= v.size());
   assert(v.empty() != true);
-  std::vector<T> removed(v.begin(), v.begin() + n);
-  v.erase(std::remove_if(v.begin(), v.begin() + n, [](T i) { return true; }),
+  std::vector<inputT> removed(v.begin(), v.begin() + n);
+  v.erase(std::remove_if(v.begin(), v.begin() + n, [](inputT i) { return true; }),
           v.begin() + n);
   return removed;
 }
 
 /* pad n zeros after v */
-template <typename T>
-void GemmTransformer<T>::zero_pad_after(std::vector<T> &v, int n) {
+template <typename inputT, typename outputT>
+void GemmTransformer<inputT, outputT>::zero_pad_after(std::vector<inputT> &v, int n) {
   for (int i = 0; i < n; ++i) {
     v.push_back(0);
   }
 }
 
 /* pad n zeros before v */
-template <typename T>
-void GemmTransformer<T>::zero_pad_before(std::vector<T> &v, int n) {
+template <typename inputT, typename outputT>
+void GemmTransformer<inputT, outputT>::zero_pad_before(std::vector<inputT> &v, int n) {
   for (int i = 0; i < n; ++i) {
     v.insert(v.begin(), 0);
   }
@@ -124,8 +121,8 @@ void GemmTransformer<T>::zero_pad_before(std::vector<T> &v, int n) {
  * third, fourth, fifth cycles, 3 (== columns) (max) elements are consumed
  * in the latter cycles, the order is reversed, i.e. 2,1.
  */
-template <typename T>
-std::vector<int> GemmTransformer<T>::get_access_frequency(int rows, int cols) {
+template <typename inputT, typename outputT>
+std::vector<int> GemmTransformer<inputT, outputT>::get_access_frequency(int rows, int cols) {
   std::vector<int> frequency;
   int total = 0, i = 1, i_sum = 0;
   while (i < cols) {
@@ -152,19 +149,19 @@ std::vector<int> GemmTransformer<T>::get_access_frequency(int rows, int cols) {
  *      7 8 9
  *  transpose converts v into 1 4 2 7 5 3 8 6 9
  */
-template <typename T>
-std::vector<T> GemmTransformer<T>::to_sys_major(std::vector<T> &v, int rows,
+template <typename inputT, typename outputT>
+std::vector<inputT> GemmTransformer<inputT, outputT>::to_sys_major(std::vector<inputT> &v, int rows,
                                                 int columns) {
-  Mat<T> m = v2mat<T>(v, rows, columns);
+  Mat<inputT> m = v2mat<inputT>(v, rows, columns);
   // TODO: templated tree
   Tree t = Tree(m, rows, columns);
-  std::vector<T> s = t.breadth_first_order();
+  std::vector<inputT> s = t.breadth_first_order();
   return s;
 }
 
 /* pad zeros for prologue and epilogue */
-template <typename T>
-void GemmTransformer<T>::zero_pad(Mat<T> &out, std::vector<int> &frequency,
+template <typename inputT, typename outputT>
+void GemmTransformer<inputT, outputT>::zero_pad(Mat<inputT> &out, std::vector<int> &frequency,
                                   int columns) {
   auto itr = out.begin();
   int count = std::count(frequency.begin(), frequency.end(), columns);
@@ -181,21 +178,21 @@ void GemmTransformer<T>::zero_pad(Mat<T> &out, std::vector<int> &frequency,
   }
 }
 
-template <typename T>
-Mat<T> GemmTransformer<T>::transform(
-    std::vector<T> &a) { // retun val should be changed to float?
+template <typename inputT, typename outputT>
+Mat<inputT> GemmTransformer<inputT, outputT>::transform(
+    std::vector<inputT> &a) { // retun val should be changed to float?
   if (arows < acolumns) {
     /* TODO: implement this in to_systolic_order() */
     printf("[ERR]: Input rows less than input columns prohibited. This is an "
            "un-implemented feature\n");
     std::exit(1);
   }
-  std::vector<T> sys_major = to_sys_major(a, arows, acolumns);
+  std::vector<inputT> sys_major = to_sys_major(a, arows, acolumns);
   std::vector<int> frequency = get_access_frequency(arows, acolumns);
   int frequency_sum = std::accumulate(frequency.begin(), frequency.end(), 0);
   assert(frequency_sum == (arows * acolumns));
 
-  Mat<T> out;
+  Mat<inputT> out;
   std::for_each(
       frequency.begin(), frequency.end(),
       [&out, &sys_major, this](int n) { out.push_back(pick(sys_major, n)); });
@@ -209,8 +206,8 @@ Mat<T> GemmTransformer<T>::transform(
   return out;
 }
 
-template <typename T>
-GemmTransformer<T>::GemmTransformer(int arows, int acolumns, int brows,
+template <typename inputT, typename outputT>
+GemmTransformer<inputT, outputT>::GemmTransformer(int arows, int acolumns, int brows,
                                     int bcolumns)
     : arows{arows}, acolumns{acolumns}, brows{brows}, bcolumns{bcolumns} {}
 
@@ -223,9 +220,9 @@ void shift_columns_up(Mat& m, int n, int stride) {
 }
 #endif
 
-template <typename T>
-std::vector<T> GemmTransformer<T>::untransform(Mat<T> &a) {
-  std::vector<T> out;
+template <typename inputT, typename outputT>
+std::vector<outputT> GemmTransformer<inputT, outputT>::untransform(Mat<outputT> &a) {
+  std::vector<outputT> out;
   int out_rows = bcolumns;
   int out_cols = arows;
   for (int i = 0; i < out_cols; i++) {
@@ -236,86 +233,86 @@ std::vector<T> GemmTransformer<T>::untransform(Mat<T> &a) {
   return out;
 }
 
-template <typename T> TransformerType GemmTransformer<T>::get_type() {
+template <typename inputT, typename outputT> TransformerType GemmTransformer<inputT, outputT>::get_type() {
   return GEMM_TF;
 }
 
-template <typename T> TransformerType ConvTransformer<T>::get_type() {
+template <typename inputT, typename outputT> TransformerType ConvTransformer<inputT, outputT>::get_type() {
   return CONV_TF;
 }
 
 /* true if index is last slide first element */
-template <typename T> bool ConvTransformer<T>::is_lsfe(Point const &index) {
+template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_lsfe(Point const &index) {
   int y = index.second;
   return (y == (m_cp.imap[0] - m_cp.k[0])) ? true : false;
 }
 /* true if index is last slide middle element */
-template <typename T> bool ConvTransformer<T>::is_lsme(Point const &index) {
+template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_lsme(Point const &index) {
   int y = index.second;
   return ((y > (m_cp.imap[1] - m_cp.k[1])) && (y < m_cp.imap[0] - 1)) ? true
                                                                       : false;
 }
 /* true if index is last slide last element */
-template <typename T> bool ConvTransformer<T>::is_lsle(Point const &index) {
+template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_lsle(Point const &index) {
   int y = index.second;
   return (y == m_cp.imap[0] - 1);
 }
 
 /* true if index is at the last position in the current slide */
-template <typename T>
-bool ConvTransformer<T>::is_kern_edge(Point const &index) {
+template <typename inputT, typename outputT>
+bool ConvTransformer<inputT, outputT>::is_kern_edge(Point const &index) {
   int y = index.second;
   return (y == m_cp.k[0] - 1);
 }
 
 /* x = x' ; y = y' */
-template <typename T>
-void ConvTransformer<T>::xxyy(Point &current, Point const &left) {
+template <typename inputT, typename outputT>
+void ConvTransformer<inputT, outputT>::xxyy(Point &current, Point const &left) {
   current.first = left.first;
   current.second = left.second;
 }
 
 /* x = x' + 1 ; y = 0 */
-template <typename T>
-void ConvTransformer<T>::xp1y0(Point &current, Point const &above) {
+template <typename inputT, typename outputT>
+void ConvTransformer<inputT, outputT>::xp1y0(Point &current, Point const &above) {
   current.first = above.first + 1;
   current.second = 0;
 }
 
 /* x = x' ; y = y' + 1 */
-template <typename T>
-void ConvTransformer<T>::xyp1(Point &current, Point const &above) {
+template <typename inputT, typename outputT>
+void ConvTransformer<inputT, outputT>::xyp1(Point &current, Point const &above) {
   current.first = above.first;
   current.second = above.second + 1;
 }
 
 /* x = x' + 1 ; y = y' - 1 */
-template <typename T>
-void ConvTransformer<T>::xp1ym1(Point &current, Point const &above) {
+template <typename inputT, typename outputT>
+void ConvTransformer<inputT, outputT>::xp1ym1(Point &current, Point const &above) {
   current.first = above.first + 1;
   current.second = -1;
 }
 
-template <typename T>
-bool ConvTransformer<T>::has_occured(Point const &p,
+template <typename inputT, typename outputT>
+bool ConvTransformer<inputT, outputT>::has_occured(Point const &p,
                                      std::vector<bool> const &occurence) {
   int y = p.second;
   int lsfe = (m_cp.imap[0] - m_cp.k[0]);
   return occurence.at(y % lsfe);
 }
 
-template <typename T> bool ConvTransformer<T>::is_zero(Point const &p) {
+template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_zero(Point const &p) {
   return (p.first == 0 && p.second == 0) ? true : false;
 }
 
 /* true if p is the first element of kernel at last sliding position */
-template <typename T> bool ConvTransformer<T>::is_last_kernel(Point const &p) {
+template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_last_kernel(Point const &p) {
   return ((p.first == (m_cp.imap[0] - m_cp.k[0])) &&
           (p.second == (m_cp.imap[1] - m_cp.k[1])));
 }
 
-template <typename T>
-void ConvTransformer<T>::mark_occured(Point const &p,
+template <typename inputT, typename outputT>
+void ConvTransformer<inputT, outputT>::mark_occured(Point const &p,
                                       std::vector<bool> &occurence) {
   int y = p.second;
   int lsfe = (m_cp.imap[0] - m_cp.k[0]);
@@ -325,13 +322,13 @@ void ConvTransformer<T>::mark_occured(Point const &p,
 /* fill 'out' matrix with values from 'input' at co-ordinates present in ibuf
  * starting from offset till n
  */
-template <typename T>
-void ConvTransformer<T>::fill_index(Mat<T> &out, Mat<T> const &input,
+template <typename inputT, typename outputT>
+void ConvTransformer<inputT, outputT>::fill_index(Mat<inputT> &out, Mat<inputT> const &input,
                                     std::vector<Point> const &ibuf, int n,
                                     int offset) {
   assert(ibuf.size() == (m_cp.k[0] * m_cp.k[1]));
   assert(n <= (m_cp.k[0] * m_cp.k[1]));
-  std::vector<T> buf(m_cp.k[0] * m_cp.k[1], 0);
+  std::vector<inputT> buf(m_cp.k[0] * m_cp.k[1], 0);
   for (int i = offset; i < n; ++i) {
     auto p = ibuf.at(i);
     buf.at(i) = input.at(p.first, p.second);
@@ -342,8 +339,8 @@ void ConvTransformer<T>::fill_index(Mat<T> &out, Mat<T> const &input,
 
 /* generate n indices based on previous indices (stored in ibuf2) and store them
  * in ibuf */
-template <typename T>
-void ConvTransformer<T>::generate_index(std::vector<Point> const &ibuf2,
+template <typename inputT, typename outputT>
+void ConvTransformer<inputT, outputT>::generate_index(std::vector<Point> const &ibuf2,
                                         std::vector<Point> &ibuf, int n) {
   assert(ibuf.size() == (m_cp.k[0] * m_cp.k[1]));
   assert(ibuf2.size() == (m_cp.k[0] * m_cp.k[1]));
@@ -446,9 +443,9 @@ void ConvTransformer<T>::generate_index(std::vector<Point> const &ibuf2,
  *       0,0 0,0 0,0 3,3
  */
 
-template <typename T> Mat<T> ConvTransformer<T>::transform(std::vector<T> &a) {
-  Mat<T> input = v2mat<T>(a, m_cp.imap[0], m_cp.imap[1]);
-  Mat<T> out;
+template <typename inputT, typename outputT> Mat<inputT> ConvTransformer<inputT, outputT>::transform(std::vector<inputT> &a) {
+  Mat<inputT> input = v2mat<inputT>(a, m_cp.imap[0], m_cp.imap[1]);
+  Mat<inputT> out;
   std::vector<Point> ibuf(m_cp.k[0] * m_cp.k[1], std::make_pair(0, 0));
   std::vector<Point> ibuf2(m_cp.k[0] * m_cp.k[1], std::make_pair(0, 0));
   ibuf2.at(0).second = -1;
@@ -509,11 +506,11 @@ template <typename T> Mat<T> ConvTransformer<T>::transform(std::vector<T> &a) {
  *                                            3   7
  *                                            4   8   (4x2)
  */
-template <typename T>
-std::vector<T> ConvTransformer<T>::transform_weights(std::vector<T> &w,
+template <typename inputT, typename outputT>
+std::vector<inputT> ConvTransformer<inputT, outputT>::transform_weights(std::vector<inputT> &w,
                                                      int out_row, int out_col) {
   assert(w.size() == out_row * out_col);
-  std::vector<T> out(out_row * out_col, 0);
+  std::vector<inputT> out(out_row * out_col, 0);
   for (int i = 0; i < out_col; ++i) {
     for (int j = 0; j < out_row; ++j) {
       out.at(i + j * out_col) = w.at(i * out_row + j);
@@ -522,9 +519,9 @@ std::vector<T> ConvTransformer<T>::transform_weights(std::vector<T> &w,
   return out;
 }
 
-template <typename T>
-std::vector<T> ConvTransformer<T>::untransform(Mat<T> &a) {
-  std::vector<int> out;
+template <typename inputT, typename outputT>
+std::vector<outputT> ConvTransformer<inputT, outputT>::untransform(Mat<outputT> &a) {
+  std::vector<outputT> out;
   int hout = sa_odims_row(m_cp);
   int wout = sa_odims_cols(m_cp);
   for (int i = 0; i < sa_dims.cols; i++) {
@@ -535,8 +532,8 @@ std::vector<T> ConvTransformer<T>::untransform(Mat<T> &a) {
   return out;
 }
 
-template <typename T>
-ConvTransformer<T>::ConvTransformer(Op::ConvParams const &cp,
+template <typename inputT, typename outputT>
+ConvTransformer<inputT, outputT>::ConvTransformer(Op::ConvParams const &cp,
                                     SaDims const &sa_dims) {
   std::memcpy(&m_cp, &cp, sizeof(Op::ConvParams));
   std::memcpy(&(this->sa_dims), &sa_dims, sizeof(SaDims));

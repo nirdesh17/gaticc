@@ -27,12 +27,12 @@ template <typename inputT, typename outputT> class SASA {
   void create_sasa(std::vector<SA<inputT, outputT> *> &SA_ptr, int sa_channel_rows,
                    int sa_channel_columns, int sa_channels);
   void destroy_sasa(std::vector<SA<inputT, outputT> *> &SA_ptr);
-  std::vector<ConvTransformer<inputT> *> create_ConvTransformer();
+  std::vector<ConvTransformer<inputT, outputT> *> create_ConvTransformer();
   void load_weights_tensor(Tensor<inputT> &weight_tensor, int kernel_channel,
                            int kernel_number, SA<inputT, outputT> *sa_ptr,
-                           ConvTransformer<inputT> *ct_ptr);
+                           ConvTransformer<inputT, outputT> *ct_ptr);
 
-  void slave_thread(Mat<inputT> &transformed_mats, SA<inputT, outputT> *SA_ptr, ConvTransformer<inputT> *CT_ptr);
+  void slave_thread(Mat<inputT> &transformed_mats, SA<inputT, outputT> *SA_ptr, ConvTransformer<inputT, outputT> *CT_ptr);
   void adder(std::vector<Mat<outputT>> &input, Tensor<outputT> &output_tensor);
 
 public:
@@ -40,13 +40,13 @@ public:
        Op::Layer::Conv conv_1);
   std::vector<Mat<inputT>>
   input_tensor_transformer(Tensor<inputT> &input_tensor,
-                           std::vector<ConvTransformer<inputT> *> ct_ptr);
+                           std::vector<ConvTransformer<inputT, outputT> *> ct_ptr);
   void master(Tensor<inputT> &input_tensor, Tensor<outputT> &output_tensor);
 };
 
 template <typename inputT, typename outputT>
 std::vector<Mat<inputT>> SASA<inputT, outputT>::input_tensor_transformer(Tensor<inputT> &input_tensor,
-                         std::vector<ConvTransformer<inputT> *> ct_ptr) {
+                         std::vector<ConvTransformer<inputT, outputT> *> ct_ptr) {
   std::vector<inputT> temp_vec;
   Mat<inputT> temp_mat;
   std::vector<Mat<inputT>> transformed_mats;
@@ -116,7 +116,7 @@ void SASA<inputT, outputT>::master(Tensor<inputT> &input_tensor,
   int channel_number;
 
   // TODO: make create_conv_transformer and create_sasa alike
-  std::vector<ConvTransformer<inputT> *> ct_ptr = create_ConvTransformer();
+  std::vector<ConvTransformer<inputT, outputT> *> ct_ptr = create_ConvTransformer();
 
   std::vector<SA<inputT, outputT> *> sa_ptr;
   create_sasa(sa_ptr, sa_channel_rows, sa_channel_columns, sa_channels);
@@ -185,7 +185,7 @@ template <typename inputT, typename outputT>
 void SASA<inputT, outputT>::load_weights_tensor(Tensor<inputT> &weight_tensor, int kernel_channel,
                          int kernel_number, SA<inputT, outputT> *sa_ptr,
                          /* TODO: unused parameter */
-                         ConvTransformer<inputT> *ct_ptr) {
+                         ConvTransformer<inputT, outputT> *ct_ptr) {
 
   std::vector<inputT> weights;
   std::vector<int> temp_dims{kernel_number, kernel_channel, 0, 0};
@@ -205,7 +205,7 @@ void SASA<inputT, outputT>::load_weights_tensor(Tensor<inputT> &weight_tensor, i
 template <typename inputT, typename outputT>
 void SASA<inputT, outputT>::slave_thread(Mat<inputT> &transformed_mats,
                                          SA<inputT, outputT> *sa_ptr,
-                                         ConvTransformer<inputT> *ct_ptr) {
+                                         ConvTransformer<inputT, outputT> *ct_ptr) {
   Chain c1;
   c1.push(new Chainblock());
   sa_ptr->propagate(transformed_mats, c1);
@@ -213,16 +213,16 @@ void SASA<inputT, outputT>::slave_thread(Mat<inputT> &transformed_mats,
 }
 
 template <typename inputT, typename outputT>
-std::vector<ConvTransformer<inputT> *>
+std::vector<ConvTransformer<inputT, outputT> *>
 SASA<inputT, outputT>::create_ConvTransformer() {
   /* TODO: fill all the parameters here */
   Op::ConvParams cp = conv_1.m_cp;
 
   SaDims sa_dims{.rows{sa_channel_rows}, .cols{1}};
 
-  std::vector<ConvTransformer<inputT> *> ct_ptr;
+  std::vector<ConvTransformer<inputT, outputT> *> ct_ptr;
   for (int i = 0; i < input_tensor_channels; i++) {
-    ct_ptr.push_back(new ConvTransformer<inputT>(cp, sa_dims));
+    ct_ptr.push_back(new ConvTransformer<inputT, outputT>(cp, sa_dims));
   }
   return ct_ptr;
 }
