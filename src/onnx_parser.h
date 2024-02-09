@@ -34,10 +34,16 @@ struct GemmParams {
   int is; /* input size */
 };
 
+/* TODO: PoolParams, a better name? 
+ * used by AveragePool too 
+ */
 struct MaxpoolParams {
-  int k[2];
-  int pad[4];
-  int stride[2];
+  /* TODO: imap in extract_maxpool_attr */
+  int imap[2];   /* input feature map */
+  int k[2];      /* kernel width/height */
+  int pad[4];    /* padding across all four sides */
+  int stride[2]; /* stride horizontally/vertically */
+  int dilation[2];
 };
 
 struct DropoutParams {

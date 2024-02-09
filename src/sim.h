@@ -1,5 +1,6 @@
 #pragma once
 
+#include "onnx_parser.h"
 #include "tensor.h"
 #include "utils.h"
 #include <algorithm>
@@ -48,9 +49,6 @@ public:
   void print_btree();
   std::vector<int> breadth_first_order();
 };
-
-using action =
-    std::function<float(std::vector<int> &, int, int, int, int, int, int, int)>;
 
 #define sa_output_dims(ip_rows, padding, dilation, kernel_rows, stride)        \
   (((ip_rows + 2 * padding - dilation * (kernel_rows - 1) - 1) / stride) + 1)
@@ -189,7 +187,7 @@ std::vector<T> mat2v(Mat<T> const &m, int rows, int columns) {
 
 template <typename T> Mat<T> Padder(Mat<T> &input, int padding) {
   Mat<T> new_mat;
-  std::vector<int> store;
+  std::vector<T> store;
   for (int i = 0; i < input.size() + 2 * padding; i++) {
     for (int j = 0; j < input.at(0).size() + 2 * padding; j++) {
       if (((i < padding) || (i >= input.size() + padding)) ||
@@ -200,8 +198,8 @@ template <typename T> Mat<T> Padder(Mat<T> &input, int padding) {
       }
     }
   }
-  new_mat = v2mat<int, int>(store, input.size() + 2 * padding,
-                            input.at(0).size() + 2 * padding);
+  new_mat = v2mat<T>(store, input.size() + 2 * padding,
+                     input.at(0).size() + 2 * padding);
   return new_mat;
 }
 
@@ -292,102 +290,87 @@ public:
 * Movement : moves the kernel window over the input matrix and call a
 * generic action on it which will be decided by the caller.
 
-* action : performs the told mathematical operation ( max, average etc.)
+* Action : performs the told mathematical operation ( max, average etc.)
 * on the selected elements of the kernel window
 */
+
+template <typename T> using Action = std::function<T(std::vector<T> &)>;
+
 template <typename T> class Pooler {
-  static Mat<T> movement(Mat<T> &input, int ip_rows, int ip_columns, int stride,
-                         int padding, int dilation, int kernel_rows,
-                         int kernel_cols, action) {
-    std::vector<T> ret;
-    std::vector<T> temp_matrix;
-    Mat<T> output_matrix;
-    // relation bw stride and dilation stride +dilation < columns
-    for (int i = 0; i + (dilation * (kernel_rows - 1)) < ip_rows + 2 * padding;
-         i += stride) {
-      for (int j = 0;
-           j + (dilation * (kernel_cols - 1)) < ip_columns + 2 * padding;
-           j += stride) {
-        ret.clear();
-        //    output_matrix.clear();
-        for (int k = 0; k < (kernel_rows); k++) {
-          for (int l = 0; l < kernel_cols; l++) {
-            ret.push_back(input.at(i + (k * dilation), j + (l * dilation)));
-          }
-        }
-
-        temp_matrix.push_back(func(ret, ip_rows, ip_columns, stride, padding,
-                                   dilation, kernel_rows, kernel_cols));
-      }
-    }
-    output_matrix = v2mat<T, T>(
-        temp_matrix,
-        sa_output_dims(ip_rows, padding, dilation, kernel_rows, stride),
-        sa_output_dims(ip_rows, padding, dilation, kernel_rows, stride));
-    return output_matrix;
-  }
-
-  static T max_pooler_action(std::vector<T> &input, int ip_rows, int ip_columns,
-                             int stride, int padding, int dilation,
-                             int kernel_rows, int kernel_cols) {
+  static T max_pooler_action(std::vector<T> &input) {
     auto max = std::max_element(input.begin(), input.end());
     return *max;
   }
-
-  static T average_pooler_action(std::vector<T> &input, int ip_rows,
-                                 int ip_columns, int stride, int padding,
-                                 int dilation, int kernel_rows,
-                                 int kernel_cols) {
+  static T average_pooler_action(std::vector<T> &input) {
     T avg = (T)(std::accumulate(input.begin(), input.end(), 0) /
-                ((float)(kernel_rows * kernel_cols)));
+                (std::distance(input.begin(), input.end())));
     return avg;
   }
 
+  Mat<T> movement(Mat<T> &input, Op::MaxpoolParams const &mp, Action<T> action);
+
 public:
-  static Mat<T> max_pooler(Mat<T> &input, int ip_rows, int ip_columns,
-                           int stride, int padding, int dilation,
-                           int kernel_rows, int kernel_cols) {
-    Mat<T> out;
-    if (padding != 0) {
-      input = Padder(input, padding);
-    }
-    out = movement(input, ip_rows, ip_columns, stride, padding, dilation,
-                   kernel_rows, kernel_cols, max_pooler_action);
-    return out;
-  }
-
-  static Mat<T> average_pooler(Mat<T> &input, int ip_rows, int ip_columns,
-                               int stride, int padding, int dilation,
-                               int kernel_rows, int kernel_cols) {
-    Mat<T> out;
-    if (padding != 0) {
-      input = Padder<T>(input, padding);
-    }
-    out = movement(input, ip_rows, ip_columns, stride, padding, dilation,
-                   kernel_rows, kernel_cols, average_pooler_action);
-    return out;
-  }
-
-  static Mat<T> global_average_pooler(Mat<T> &input, int ip_rows,
-                                      int ip_columns, int stride, int padding,
-                                      int dilation, int kernel_rows,
-                                      int kernel_cols) {
-    Mat<T> out;
-    if (padding != 0) {
-      input = Padder<T>(input, padding);
-    }
-    int temp_stride = stride + ip_rows + 2 * padding;
-    int temp_kernel_rows = ip_rows + 2 * padding;
-    int temp_kernel_cols = ip_columns + 2 * padding;
-    Mat<T> out_matrix;
-
-    out_matrix =
-        movement(input, ip_rows, ip_columns, temp_stride, padding, dilation,
-                 temp_kernel_rows, temp_kernel_cols, average_pooler_action);
-
-    return out_matrix;
-  }
+  Mat<T> max_pooler(Mat<T> &input, Op::MaxpoolParams const &mp);
+  Mat<T> average_pooler(Mat<T> &input, Op::MaxpoolParams const &mp);
+  Mat<T> global_average_pooler(Mat<T> &input, Op::MaxpoolParams const &mp);
 };
+
+template <typename T>
+Mat<T> Pooler<T>::movement(Mat<T> &input, Op::MaxpoolParams const &mp,
+                           Action<T> action) {
+  std::vector<T> ret;
+  std::vector<T> temp_matrix;
+  // relation bw stride and dilation: stride + dilation < columns
+  for (int i = 0;
+       i + (mp.dilation[0] * (mp.k[0] - 1)) < mp.imap[0] + 2 * mp.pad[0];
+       i += mp.stride[0]) {
+    for (int j = 0;
+         j + (mp.dilation[0] * (mp.k[1] - 1)) < mp.imap[1] + 2 * mp.pad[0];
+         j += mp.stride[0]) {
+      ret.clear();
+      for (int k = 0; k < mp.k[0]; k++) {
+        for (int l = 0; l < mp.k[1]; l++) {
+          ret.push_back(
+              input.at(i + (k * mp.dilation[0]), j + (l * mp.dilation[0])));
+        }
+      }
+      temp_matrix.push_back(action(ret));
+    }
+  }
+  int hout = sa_output_dims(mp.imap[0], mp.pad[0], mp.dilation[0], mp.k[0],
+                            mp.stride[0]);
+  return v2mat<T>(temp_matrix, hout, hout);
+}
+
+template <typename T>
+Mat<T> Pooler<T>::max_pooler(Mat<T> &input, Op::MaxpoolParams const &mp) {
+  if (mp.pad[0] != 0) {
+    input = Padder(input, mp.pad[0]);
+  }
+  return movement(input, mp, max_pooler_action);
+}
+
+template <typename T>
+Mat<T> Pooler<T>::average_pooler(Mat<T> &input, Op::MaxpoolParams const &mp) {
+  if (mp.pad[0] != 0) {
+    input = Padder<T>(input, mp.pad[0]);
+  }
+  return movement(input, mp, average_pooler_action);
+}
+
+template <typename T>
+Mat<T> Pooler<T>::global_average_pooler(Mat<T> &input,
+                                        Op::MaxpoolParams const &mp) {
+  if (mp.pad[0] != 0) {
+    input = Padder<T>(input, mp.pad[0]);
+  }
+  Op::MaxpoolParams mp_copy = mp;
+  mp_copy.stride[0] = mp.stride[0] + mp.imap[0] + 2 * mp.pad[0];
+  mp_copy.stride[1] = mp.stride[1] + mp.imap[1] + 2 * mp.pad[3];
+  mp_copy.k[0] = mp.imap[0] + 2 * mp.pad[0];
+  mp_copy.k[1] = mp.imap[1] + 2 * mp.pad[1];
+  return movement(input, mp_copy, average_pooler_action);
+}
 
 namespace PE_Graph {
 

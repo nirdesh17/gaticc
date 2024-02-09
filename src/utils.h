@@ -41,6 +41,21 @@ public:
   typename std::vector<std::vector<T>>::iterator begin() {
     return data.begin();
   }
+
+  typename std::vector<std::vector<T>>::iterator end() {
+    return data.end();
+  }
+  
+  void print() {
+    for (auto i : data) {
+      for (auto j : i) {
+        std::cout << j << '\t';
+      }
+      std::cout << '\n';
+    }
+    std::cout << '\n';
+  }
+
 };
 
 #define log_fatal(fmt, ...)                                                    \
@@ -113,8 +128,8 @@ bool generate_report(const char *test_name, std::vector<expectedT> &expected,
   printf("Test Name: %s\n", test_name);
   bool status = (expected == computed);
   printf("Status: %s\n", (status) ? "Pass" : "Fail");
-  // print_vec("Expected: ", expected);
-  // print_vec("Computed: ", computed);
+   print_vec("Expected: ", expected);
+   print_vec("Computed: ", computed);
   return status;
 }
 
