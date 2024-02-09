@@ -1,12 +1,13 @@
 #include "../src/sim.h"
 #include "../src/transformers.h"
 #include "../src/utils.h"
+#include "../src/onnx_parser.h"
 #include <numeric>
 #include <stdio.h>
 
 int main(int argc, char *argv[]) {
 
-  std::vector<float> expected{
+  std::vector<int> expected{
       70,   70,   70,   56,   42,   28,   14,   0,    546,  581,  616,
       651,  686,  721,  721,  721,  1036, 1120, 1204, 1288, 1372, 1456,
       1456, 1456, 1526, 1659, 1792, 1925, 2058, 2191, 2191, 2191, 2016,
@@ -25,25 +26,29 @@ int main(int argc, char *argv[]) {
   std::iota(weight.begin(), weight.end(), -12);
   std::iota(input_matrix.begin(), input_matrix.end(), -12);
 
-  SA SA1(SA_rows, SA_columns);
+  SA<int, int> SA1(SA_rows, SA_columns);
   SA1.load_weights(weight);
 
   Chain c1;
   c1.push(new Chainblock());
-  Mat temp_mat;
 
-  GemmTransformer GT1(input_rows, input_columns, SA_rows, SA_columns);
+  GemmTransformer<int, int> GT1(input_rows, input_columns, SA_rows, SA_columns);
   auto out = GT1.transform(input_matrix);
 
   SA1.propagate(out, c1);
-  SA1.print_array();
   auto t1 = SA1.get_output();
   auto computed = GT1.untransform(t1);
-  Pooler p1;
-  temp_mat = v2mat<int, int>(computed, 7, 7);
-  fMat pooler_output = p1.max_pooler(temp_mat, 7, 7, 1, 2, 1, 4, 4);
-  std::vector<float> output = mat2v<float, float>(pooler_output, 7, 7);
-  bool status = generate_report<float, float>(argv[0], expected, output);
 
+  Op::MaxpoolParams mp{.imap{input_rows, input_columns},
+                   .k{4, 4},
+                   .pad{2, 2, 2, 2},
+                   .stride{1, 1},
+                   .dilation{1, 1}};
+
+  Pooler<int> p1;
+  auto temp_mat = v2mat<int>(computed, 7, 7);
+  Mat<int> pooler_output = p1.max_pooler(temp_mat, mp);
+  std::vector<int> output = mat2v<int>(pooler_output, 7, 7);
+  bool status = generate_report<int, int>(argv[0], expected, output);
   return status;
 }
