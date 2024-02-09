@@ -4,7 +4,9 @@
 #include <numeric>
 #include <stdio.h>
 
+Argparse gbl_args;
 int main(int argc, char *argv[]) {
+  gbl_args.parse(argc, argv);
 
 #if 0
   std::vector<float> expected{-42.4375, -104.125, -142.625, -128.625,

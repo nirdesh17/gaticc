@@ -3,7 +3,10 @@
 #include "../src/utils.h"
 #include <numeric>
 
+Argparse gbl_args;
+
 int main(int argc, char *argv[]) {
+  gbl_args.parse(argc, argv);
   std::vector<int> expected{
       1,  0,  0,  0,  0,  0,  0,  0,  0,  2,  2,  0,  0,  0,  0,  0,  0,  0,
       3,  3,  3,  0,  0,  0,  0,  0,  0,  4,  4,  4,  7,  0,  0,  0,  0,  0,
@@ -22,15 +25,12 @@ int main(int argc, char *argv[]) {
   int input_columns = 6;
   /* 0 for srows/scols works here as srows/scols are only required by
    * the untransform function and its not used here  */
-  Op::ConvParams cp {
-    .imap {input_rows, input_columns},
-    .k {3,3},
+  Op::ConvParams cp{
+      .imap{input_rows, input_columns},
+      .k{3, 3},
   };
 
-  SaDims sa_dims {
-    .rows {0},
-    .cols {0}
-  };
+  SaDims sa_dims{.rows{0}, .cols{0}};
   ConvTransformer<int, int> t(cp, sa_dims);
   std::vector<int> v(input_rows * input_columns);
   std::iota(v.begin(), v.end(), 1);

@@ -17,7 +17,9 @@
  *  in ffi.h
  */
 
+Argparse gbl_args;
 int main(int argc, char *argv[]) {
+  gbl_args.parse(argc, argv);
   std::filesystem::path p = std::filesystem::absolute("../src/");
   PyEngine engine("ml_inference", p);
   using expected_t = int8_t;

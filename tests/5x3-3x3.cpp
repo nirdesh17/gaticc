@@ -3,7 +3,9 @@
 #include "../src/utils.h"
 #include <numeric>
 
+Argparse gbl_args;
 int main(int argc, char *argv[]) {
+  gbl_args.parse(argc, argv);
   std::vector<int> expected = {15,  18, 21,  42,  54,  66,  69, 90,
                                111, 96, 126, 156, 123, 162, 201};
 
@@ -24,7 +26,8 @@ int main(int argc, char *argv[]) {
 
   Chain c1;
   c1.push(new Chainblock());
-  GemmTransformer<int, int> t(input_rows, input_columns, array_rows, array_columns);
+  GemmTransformer<int, int> t(input_rows, input_columns, array_rows,
+                              array_columns);
   auto out = t.transform(v);
   a1.propagate(out, c1);
   auto t1 = a1.get_output();

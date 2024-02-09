@@ -4,7 +4,9 @@
 #include <numeric>
 #include <stdio.h>
 
+Argparse gbl_args;
 int main(int argc, char *argv[]) {
+  gbl_args.parse(argc, argv);
 
   //std::vector<int> expected{487.57025146};
   std::vector<int> expected{487};

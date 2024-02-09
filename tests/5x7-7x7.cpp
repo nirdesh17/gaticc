@@ -3,7 +3,10 @@
 #include "../src/utils.h"
 #include <numeric>
 
+Argparse gbl_args;
+
 int main(int argc, char *argv[]) {
+  gbl_args.parse(argc, argv);
   std::vector<int> expected = {
       637,  658,  679,  700,  721,  742,  763,  1666, 1736, 1806, 1876, 1946,
       2016, 2086, 2695, 2814, 2933, 3052, 3171, 3290, 3409, 3724, 3892, 4060,

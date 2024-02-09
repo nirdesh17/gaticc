@@ -4,7 +4,10 @@
 #include "../src/onnx_parser.h"
 #include <numeric>
 
+Argparse gbl_args;
+
 int main(int argc, char *argv[]) {
+  gbl_args.parse(argc, argv);
   std::vector<int> expected{
       726,  771,  816,  861,  906,  951,  996,  1041, 1176, 1221, 1266,
       1311, 1356, 1401, 1446, 1491, 1626, 1671, 1716, 1761, 1806, 1851,

@@ -5,8 +5,9 @@
 #include <numeric>
 #include <stdio.h>
 
+Argparse gbl_args;
 int main(int argc, char *argv[]) {
-
+  gbl_args.parse(argc, argv);
   std::vector<int> expected{
       70,   70,   70,   56,   42,   28,   14,   0,    546,  581,  616,
       651,  686,  721,  721,  721,  1036, 1120, 1204, 1288, 1372, 1456,
