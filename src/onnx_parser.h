@@ -86,7 +86,7 @@ struct LayerBase {
 namespace Layer {
 
 struct Conv : public LayerBase {
-  const onnx::TensorProto *weights;
+  const onnx::TensorProto* weights;
   onnx::TensorProto *bias;
   const char *m_optype = "Conv";
   ConvParams m_cp;

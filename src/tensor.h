@@ -5,39 +5,26 @@
 #include <thread>
 #include <vector>
 
-template <typename T1> class Tensor {
+template <typename T> class Tensor {
 public:
   Tensor(){};
-
-  virtual T1 at(std::vector<int> &at) { return -1; }
-
+  virtual T at(std::vector<int> &at) { return -1; }
   virtual int dims_size() { return 0; }
-
   virtual int dims_at(int index) { return index; }
-
-  virtual void push_back(T1 data) { return; }
-
-  virtual void insert(std::vector<int> &at, T1 data) { return; }
-
-  virtual void set_dims(std::vector<int> const& temp_dims) { return; }
-
+  virtual void push_back(T data) { return; }
+  virtual void insert(std::vector<int> &at, T data) { return; }
+  virtual void set_dims(std::vector<int> const &temp_dims) { return; }
   virtual int dims_iterator(int index) { return index; }
-
   virtual void clear() { return; }
-
   virtual void shrink_to_fit() { return; }
-
   virtual int size() { return 0; }
-
-  virtual std::vector<T1> get() { 
-    std::vector<T1> temp_vec;
-    return temp_vec;}
-  
-  virtual T1 get(int index) { return 0 ;}
-
+  virtual std::vector<T> get() {
+    return std::vector<T>();
+  }
+  virtual T get(int index) { return 0; }
 };
 
-template <typename T1> class TensorExtant : public Tensor<T1> {
+template <typename T> class TensorExtant : public Tensor<T> {
 private:
   std::vector<int> dims;
   const onnx::TensorProto *ptr;
@@ -51,21 +38,21 @@ public:
     this->ptr = ptr;
   }
 
-  T1 at(std::vector<int> &at) override {
+  T at(std::vector<int> &at) override {
     assert(at.size() == dims.size());
 
     int sum = 0;
     for (int i = 0; i < at.size(); i++) {
       sum = sum + at[i] * dims_iterator(i);
     }
-    if (typeid(T1) == typeid(float))
+    if (typeid(T) == typeid(float))
       return (ptr->float_data(sum));
-    else if (typeid(T1) == typeid(int32_t))
+    else if (typeid(T) == typeid(int32_t))
       return ((int8_t)ptr->raw_data().at(sum));
-      //return (ptr->int32_data(sum));
-    else if (typeid(T1) == typeid(int64_t))
+    // return (ptr->int32_data(sum));
+    else if (typeid(T) == typeid(int64_t))
       return (ptr->int64_data(sum));
-    else if (typeid(T1) == typeid(int8_t))
+    else if (typeid(T) == typeid(int8_t))
       return ((int8_t)ptr->raw_data().at(sum));
     else
       return -1;
@@ -86,19 +73,23 @@ public:
   }
 };
 
-template <typename T1> class TensorCreate : public Tensor<T1> {
-private:
+template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
-  std::vector<T1> vec;
-
+  std::vector<T> vec;
 public:
-  TensorCreate(){};
-  TensorCreate(std::vector<int> &dim) {
+  TensorCreate() = delete;
+
+  TensorCreate(std::vector<T> const&v, std::vector<int> const& dim) {
     dims = dim;
-    vec = std::vector<T1>(dims_iterator(-1));
+    vec = v;
   }
 
-  T1 at(std::vector<int> &at) override {
+  TensorCreate(std::vector<int> const& dim) {
+    dims = dim;
+    vec.resize(dims_iterator(-1), 0);
+  }
+
+  T at(std::vector<int> &at) override {
     assert(at.size() == dims.size());
 
     int sum = 0;
@@ -109,19 +100,16 @@ public:
     return vec.at(sum);
   }
 
-  T1 at(int index) { return (T1)vec.at(index); }
+  T at(int index) { return vec.at(index); }
 
   int dims_size() override { return dims.size(); }
 
   int dims_at(int index) override {
-    assert(index < dims.size());
-    return dims[index];
+    return dims.at(index);
   }
-  void push_back(T1 data) override {
-    vec.push_back(data);
-  }
+  void push_back(T data) override { vec.push_back(data); }
 
-  void insert(std::vector<int> &at, T1 data) override {
+  void insert(std::vector<int> &at, T data) override {
     assert(at.size() <= dims.size());
     int sum = 0;
     for (int i = 0; i < at.size(); i++) {
@@ -131,7 +119,7 @@ public:
     vec[sum] = data;
   }
 
-  void set_dims(std::vector<int> const& temp_dims) override {
+  void set_dims(std::vector<int> const &temp_dims) override {
     dims = temp_dims;
     return;
   }
@@ -150,7 +138,7 @@ public:
 
   int size() override { return vec.size(); }
 
-  std::vector<T1> get() override { return vec;}
-  
-  T1 get(int index) override { return vec.at(index);}
+  std::vector<T> get() override { return vec; }
+
+  T get(int index) override { return vec.at(index); }
 };

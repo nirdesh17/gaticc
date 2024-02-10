@@ -50,7 +50,7 @@ std::vector<Mat<inputT>> SASA<inputT, outputT>::input_tensor_transformer(Tensor<
   std::vector<inputT> temp_vec;
   Mat<inputT> temp_mat;
   std::vector<Mat<inputT>> transformed_mats;
-  std::vector<inputT> temp_dims{0, 0, 0};
+  std::vector<int> temp_dims{0, 0, 0};
 
   // TODO: assumes input_tensor is always 3 dimensional. Fix it.
   assert(input_tensor.dims_size() == 3);

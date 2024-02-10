@@ -200,7 +200,7 @@ Mat<inputT> GemmTransformer<inputT, outputT>::transform(
   zero_pad(out, frequency, acolumns);
   /* add zero vectors */
   for (int i = 0; i < (acolumns - 2); ++i) {
-    std::vector<int> tmp(acolumns);
+    std::vector<inputT> tmp(acolumns);
     out.push_back(tmp);
   }
   return out;
@@ -473,7 +473,7 @@ template <typename inputT, typename outputT> Mat<inputT> ConvTransformer<inputT,
     fill_index(out, input, ibuf, m_cp.k[0] * m_cp.k[1], i);
   }
   for (int i = 0; i < (sa_dims.cols - 2); ++i) {
-    std::vector<int> tmp(m_cp.k[0] * m_cp.k[1], 0);
+    std::vector<inputT> tmp(m_cp.k[0] * m_cp.k[1], 0);
     out.push_back(tmp);
   }
   return out;

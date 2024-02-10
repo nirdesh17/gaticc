@@ -24,6 +24,7 @@ def nparr2l(arr):
 
 # NEEDED BY SYSIM FFI
 def npgetdims(arr):
+    arr = np.squeeze(arr)
     return arr.shape
 
 # ifmap 2d, kernel 2d -> out 2d 
@@ -65,15 +66,28 @@ class ctx:
         self.Hout = ceil((self.IW - self.KW)/stride) + 1
         self.Wout = ceil((self.IH - self.KH)/stride) + 1
 
+# image: path to image
+# Imagenet preprocessing function
 def preprocess(image):
     if not os.path.exists(image):
         raise OSError("File not found: {}".format(image))
-    image = Image.open(image)
-    image = image.resize((224,224))
-    image = np.array(image).reshape((1,3,224,224))
-    # missing this 
-    #image = preprocess_input(image)
-    return image
+    img = Image.open(image)
+    # resize to (256,256)
+    img = img.resize((256,256))
+    img = np.array(img.convert('RGB'))
+    # scale b/w 0 and 1
+    img = img / 255.
+    # take a (224,224) center crop of the image
+    h, w = img.shape[0], img.shape[1]
+    y0 = (h - 224) // 2
+    x0 = (w - 224) // 2
+    img = img[y0 : y0+224, x0 : x0+224, :]
+    # Normalize (values obtained from millions of imagenet images)
+    img = (img - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+    img = np.transpose(img, axes=[2, 0, 1])
+    img = img.astype(np.float32)
+    img = np.expand_dims(img, axis=0)
+    return img
 
 def get_initializers(model):
     model = onnx.load(model)
@@ -103,6 +117,14 @@ def infer_layer_torch(model, ifm, layer):
     kernels = torch.Tensor(np.copy(get_kernel(model, layer))) 
     return np.array(torch.nn.functional.conv2d(input, kernels)).flatten().astype(np.int32).tolist()
 
+def quantize_fp32i8(tensor, scale, zero_point):
+    tten = np.clip(np.round((tensor / scale) + zero_point), -128, 127)
+    return tten.astype(np.int8)
+
+def preprocess_quantize(image):
+    arr = preprocess(image)
+    arr = quantize_fp32i8(arr, 0.01865844801068306, 114)
+    return arr
 
 #if __main__ == __name__:
 #    ifm = preprocess("images/mug.jpg")

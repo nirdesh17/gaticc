@@ -118,9 +118,6 @@ PyObject *py_infer_layer_torch(PyEngine &engine, std::string const &model, PyObj
   PyObject *args = Py_BuildValue("(sOi)", model.c_str(), ifm, layer);
   py_fatal_err_check(args, "Py_BuildValue");
   PyObject *result = engine.call_func("infer_layer_torch", args);
-  /* Py_BuildValue increments ref for ifm so decrease here 
-   * should be DECREF by the caller too
-   * */
   Py_XDECREF(args);
   return result;
 }

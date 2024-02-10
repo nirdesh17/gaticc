@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <iostream>
 #include <list>
+#include <typeinfo>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
  */
@@ -197,4 +198,39 @@ inline int sa_odims_row(Op::ConvParams const &cp) {
 
 inline int sa_odims_cols(Op::ConvParams const &cp) {
   return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
+}
+
+class Timer {
+  using Tp = std::chrono::time_point<std::chrono::high_resolution_clock>;
+  Tp m_start;
+  Tp m_stop;
+public:
+  void start() { m_start = std::chrono::high_resolution_clock::now(); }
+  void stop() { m_stop = std::chrono::high_resolution_clock::now(); }
+
+  std::chrono::seconds difference() {
+    return std::chrono::duration_cast<std::chrono::seconds>(m_stop - m_start);
+  }
+  void report(std::string msg) {
+    std::cout << msg << difference().count() << '\n';
+  }
+  // TODO: reset function 
+};
+
+
+/* Check if v belongs to the signed int family */
+template <typename T> inline bool is_int_like(T v) {
+  return typeid(v) == typeid(int) || typeid(v) == typeid(int8_t) ||
+         typeid(v) == typeid(int16_t) || typeid(v) == typeid(int64_t) ||
+         typeid(v) == typeid(long) || typeid(v) == typeid(long long);
+}
+
+template <typename T> inline bool is_signed_int_like(T v) {
+  return typeid(v) == typeid(uint32_t) || typeid(v) == typeid(uint8_t) ||
+         typeid(v) == typeid(uint16_t) || typeid(v) == typeid(uint64_t) ||
+         typeid(v) == typeid(unsigned long) || typeid(v) == typeid(unsigned long long);
+}
+
+template <typename T> inline bool is_float_like(T v) {
+  return typeid(v) == typeid(float) || typeid(v) == typeid(double);
 }
