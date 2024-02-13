@@ -34,7 +34,7 @@
 
 const char *Op::LayerBase::op_type() const { return "(null)"; }
 const char *Op::LayerBase::params() const { return "(null)"; }
-void Op::LayerBase::set_initializer_params(onnx::TensorProto &t) {}
+void Op::LayerBase::set_initializer_params(const onnx::TensorProto &t) {}
 void Op::LayerBase::set_value_info_params(onnx::ValueInfoProto &t) {}
 
 Op::Layer::Conv::Conv(ConvParams &cp) {
@@ -49,7 +49,7 @@ const char *Op::Layer::Conv::params() const {
           m_cp.stride[0], m_cp.pad[0]);
   return ret;
 }
-void Op::Layer::Conv::set_initializer_params(onnx::TensorProto &t) {
+void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
   if (t.dims_size() == CONV_WEIGHT_TENSOR_DIMS) {
     m_cp.kn = t.dims()[0];
     m_cp.ic = t.dims()[1];
@@ -112,7 +112,7 @@ const char *Op::Layer::Gemm::params() const {
   return ret;
 }
 
-void Op::Layer::Gemm::set_initializer_params(onnx::TensorProto &t) {
+void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
     m_cp.wc = t.dims()[1];
@@ -227,7 +227,7 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
       layer->set_value_info_params(itr2->second);
     }
     /* find initializer for `i` */
-    auto itr3 = initializer_map.find(i);
+    const auto& itr3 = initializer_map.find(i);
     if (itr3 != initializer_map.end()) {
       layer->set_initializer_params(itr3->second);
     }
@@ -282,7 +282,7 @@ void Op::Model::connect(onnx::NodeProto &node) {
   }
 }
 
-void Op::Model::save_initializers(onnx::TensorProto &t) {
+void Op::Model::save_initializers(const onnx::TensorProto &t) {
   initializer_map.insert({t.name(), t});
 }
 
@@ -540,7 +540,7 @@ void Op::Model::extract_dropout_constant(onnx::NodeProto &node,
   for (auto i : inputs) {
     auto itr = initializer_map.find(i);
     if (itr != initializer_map.end()) {
-      onnx::TensorProto &t = itr->second;
+      const onnx::TensorProto &t = itr->second;
       assert(t.data_type() == 1 &&
              "Expect dropout constant to be a float value");
       params.drop = t.float_data()[0];
@@ -599,25 +599,25 @@ Op::Parser::Parser(std::string const &filename) {
   if (loaded_model.fail()) {
     log_fatal("%s: %s", filename.c_str(), strerror(errno));
   }
-  onnx::ModelProto p;
-  p.ParseFromIstream(&loaded_model);
-  onnx::GraphProto graph = p.graph();
-  auto graph_outputs = graph.output();
+  model_proto = google::protobuf::Arena::CreateMessage<onnx::ModelProto>(&arena);
+  model_proto->ParseFromIstream(&loaded_model);
+  const onnx::GraphProto& m_graph = model_proto->graph();
+  auto graph_outputs = m_graph.output();
   for (auto i : graph_outputs) {
     m_model.save_graph_outputs(i);
   }
   /* value info */
-  auto value_infos = graph.value_info();
+  auto value_infos = m_graph.value_info();
   for (int i = 0; i < value_infos.size(); ++i) {
     m_model.save_value_info(value_infos.at(i));
   }
   /* initializers */
-  auto initializers = graph.initializer();
+  const google::protobuf::RepeatedPtrField<onnx::TensorProto> &initializers = m_graph.initializer();
   for (int i = 0; i < initializers.size(); ++i) {
     m_model.save_initializers(initializers.at(i));
   }
   /* nodes */
-  auto nodes = graph.node();
+  auto nodes = m_graph.node();
   // add constants
   for (auto i : nodes) {
     if (i.op_type() == "Constant") {
@@ -636,7 +636,7 @@ Op::Parser::Parser(std::string const &filename) {
   /* input dimensions to the first layer are stored in graph.input
    * and needs special treatment
    */
-  auto graph_inputs = graph.input();
+  auto graph_inputs = m_graph.input();
   // assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
   m_model.create_execution_order();

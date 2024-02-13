@@ -9,6 +9,8 @@
 #include <boost/graph/graph_traits.hpp>
 #include <utility>
 
+#include <google/protobuf/arena.h>
+
 #include "onnx.pb.h"
 
 /* Onnx Parser external interface */
@@ -67,7 +69,7 @@ struct LayerBase {
    * Not all layers have a TensorProto.
    * See Op::Layer::Conv for eg.
    */
-  virtual void set_initializer_params(onnx::TensorProto &t);
+  virtual void set_initializer_params(const onnx::TensorProto &t);
   /* ValueInfos are onnx::ValueInfoProto objects that contain
    * shape/dimension information among other things of a node.
    * Classes that override this function should be layers that
@@ -87,13 +89,13 @@ namespace Layer {
 
 struct Conv : public LayerBase {
   const onnx::TensorProto* weights;
-  onnx::TensorProto *bias;
+  const onnx::TensorProto *bias;
   const char *m_optype = "Conv";
   ConvParams m_cp;
   Conv(ConvParams &cp);
   const char *op_type() const override;
   const char *params() const override;
-  void set_initializer_params(onnx::TensorProto &t) override;
+  void set_initializer_params(const onnx::TensorProto &t) override;
   void set_value_info_params(onnx::ValueInfoProto &t) override;
 };
 
@@ -112,14 +114,14 @@ struct Clip : public LayerBase {
 };
 
 struct Gemm : public LayerBase {
-  onnx::TensorProto *weights;
-  onnx::TensorProto *bias;
+  const onnx::TensorProto *weights;
+  const onnx::TensorProto *bias;
   const char *m_optype = "Gemm";
   GemmParams m_cp;
   Gemm(GemmParams &cp);
   const char *op_type() const override;
   const char *params() const override;
-  void set_initializer_params(onnx::TensorProto &t) override;
+  void set_initializer_params(const onnx::TensorProto &t) override;
   void set_value_info_params(onnx::ValueInfoProto &t) override;
 };
 
@@ -161,10 +163,10 @@ struct BatchNorm : public LayerBase {
    * These are not used during inference, hence the omission of
    * params() override.
    */
-  onnx::TensorProto *scale;
-  onnx::TensorProto *B;
-  onnx::TensorProto *mean;
-  onnx::TensorProto *var;
+  const onnx::TensorProto *scale;
+  const onnx::TensorProto *B;
+  const onnx::TensorProto *mean;
+  const onnx::TensorProto *var;
   /* TODO: get  TensorProtos above */
 };
 
@@ -202,7 +204,7 @@ class Model {
   /* maps an output from a node its corresponding vertex in 'g' */
   std::map<std::string, Op::Vertex> name_vertex_map;
   std::map<std::string, Op::Vertex> output_map;
-  std::map<std::string, onnx::TensorProto &> initializer_map;
+  std::map<std::string, const onnx::TensorProto &> initializer_map;
   std::map<std::string, onnx::ValueInfoProto &> value_info_map;
   std::map<std::string, onnx::ValueInfoProto &> graph_output_map;
   /* All 'Constants' in the onnx model are looked up using this table */
@@ -221,7 +223,7 @@ public:
 
   void save_graph_outputs(onnx::ValueInfoProto &t);
   void save_value_info(onnx::ValueInfoProto &t);
-  void save_initializers(onnx::TensorProto &t);
+  void save_initializers(const onnx::TensorProto &t);
 
   void add(LayerBase *layer, onnx::NodeProto &node);
   void add_to_constant_pool(onnx::NodeProto &node);
@@ -255,13 +257,16 @@ public:
 class Parser {
   Model m_model;
   std::ifstream loaded_model;
+  google::protobuf::Arena arena;
+  onnx::ModelProto *model_proto;
+
 public:
   void add_operator(onnx::NodeProto &node);
   Parser(std::string const &filename);
   void summary(void) const;
   void bare_summary(void) const;
   long time_estimate(int M, int N, int K) const;
-  std::vector<LayerBase*> get_execution_order(void) const;
+  std::vector<LayerBase *> get_execution_order(void) const;
   ~Parser();
 };
 
