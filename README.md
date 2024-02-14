@@ -41,12 +41,11 @@ make test -j $(nproc --all)
 
 # Todo
 
-- preprocess.py integration
-- type strictness (reg_t)
+- float_sasa_test, same as sasa_test
+- float incremental tests
+- executor
 - memory leaks (valgrind) 
 - full const correctness
-- generic Tensor class
-- syms argv[x]
 - im2col
     - multi size kernels
     - strided convo
