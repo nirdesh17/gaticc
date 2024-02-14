@@ -6,6 +6,9 @@
 #include <iostream>
 #include <list>
 #include <typeinfo>
+#include <fstream>
+#include <unistd.h>
+#include <cmath>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
  */
@@ -151,11 +154,10 @@ void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
 
 template <typename T> void print_vec(const char *s, std::vector<T> const &v) {
   printf("%s: ", s);
-  for (auto const &a : v) {
-    // std::cout << a << ' ';
-    printf("%d ", a);
+  for (auto a : v) {
+    std::cout << a << ' ';
   }
-  printf("\n");
+  std::cout << '\n';
 }
 
 template <typename T> void print_vec(const char *s, std::list<T> const &v) {
@@ -174,17 +176,58 @@ inline void print_vec_point(const char *s, std::vector<Point> const &v) {
   std::cout << '\n';
 }
 
+/* Check if v belongs to the signed int family */
+template <typename T> inline bool is_int_like(T v) {
+  return typeid(v) == typeid(int) || typeid(v) == typeid(int8_t) ||
+         typeid(v) == typeid(int16_t) || typeid(v) == typeid(int64_t) ||
+         typeid(v) == typeid(long) || typeid(v) == typeid(long long);
+}
+
+template <typename T> inline bool is_unsigned_int_like(T v) {
+  return typeid(v) == typeid(uint32_t) || typeid(v) == typeid(uint8_t) ||
+         typeid(v) == typeid(uint16_t) || typeid(v) == typeid(uint64_t) ||
+         typeid(v) == typeid(unsigned long) || typeid(v) == typeid(unsigned long long);
+}
+
+template <typename T> inline bool is_float_like(T v) {
+  return typeid(v) == typeid(float) || typeid(v) == typeid(double);
+}
+
+/* custom compare function to handle floats separately */
+template <typename T>
+bool xcmp(T a, T b) {
+  if (is_float_like(a)) {
+    /* epsilon value suggests inquality of two floats is
+     * fine uptill 3 digits precision */
+    return (std::fabs(a - b) < 0.0005f);
+  }
+  else {
+    return a == b;
+  }
+}
+
+/* TODO: two types do not make sense */
 template <typename expectedT, typename computedT>
 bool generate_report(const char *test_name, std::vector<expectedT> &expected,
                      std::vector<computedT> &computed) {
+#if 1
+  for (int i = 0; i < expected.size(); ++i) {
+      std::cout << i << ' ' << expected.at(i) << ' ' << computed.at(i) << '\n';
+  }
+#endif
   printf("---------------------------------\n");
   printf("Test Name: %s\n", test_name);
-  bool status = (expected == computed);
-  printf("Status: %s\n", (status) ? "Pass" : "Fail");
-  if (gbl_args["verbose"]) {
-   print_vec("Expected: ", expected);
-   print_vec("Computed: ", computed);
+  bool status = false;
+  assert(expected.size() == computed.size() && "expected - computed unequal");
+#if 0
+  for (int i = 0; i < 1000; ++i) {
+    status = xcmp<expectedT>(expected.at(i), computed.at(i));
+    if (status == false) {
+      std::cout << expected.at(i) << ' ' << computed.at(i) << '\n';
+    }
   }
+#endif
+  printf("Status: %s\n", (status) ? "Pass" : "Fail");
   return status;
 }
 
@@ -218,19 +261,47 @@ public:
 };
 
 
-/* Check if v belongs to the signed int family */
-template <typename T> inline bool is_int_like(T v) {
-  return typeid(v) == typeid(int) || typeid(v) == typeid(int8_t) ||
-         typeid(v) == typeid(int16_t) || typeid(v) == typeid(int64_t) ||
-         typeid(v) == typeid(long) || typeid(v) == typeid(long long);
-}
 
-template <typename T> inline bool is_signed_int_like(T v) {
-  return typeid(v) == typeid(uint32_t) || typeid(v) == typeid(uint8_t) ||
-         typeid(v) == typeid(uint16_t) || typeid(v) == typeid(uint64_t) ||
-         typeid(v) == typeid(unsigned long) || typeid(v) == typeid(unsigned long long);
-}
+class MemProf {
+  double m_start;
+  double m_stop;
+  double m_vm;
 
-template <typename T> inline bool is_float_like(T v) {
-  return typeid(v) == typeid(float) || typeid(v) == typeid(double);
-}
+public:
+  void process_mem_usage(double &vm_usage, double &resident_set) {
+    vm_usage = 0.0;
+    resident_set = 0.0;
+
+    // the two fields we want
+    unsigned long vsize;
+    long rss;
+    {
+      std::string ignore;
+      std::ifstream ifs("/proc/self/stat", std::ios_base::in);
+      ifs >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
+          ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
+          ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
+          ignore >> ignore >> vsize >> rss;
+    }
+
+    long page_size_kb = sysconf(_SC_PAGE_SIZE) /
+                        1024; // in case x86-64 is configured to use 2MB pages
+    vm_usage = vsize / 1024.0;
+    resident_set = rss * page_size_kb;
+  }
+
+  void start() {
+    this->process_mem_usage(m_vm, m_start);
+  }
+
+  void stop() {
+    this->process_mem_usage(m_vm, m_stop);
+  }
+
+  /* Difference in KB */
+  long difference() { return m_stop - m_start; }
+
+  void report() {
+    std::cout << "RSS: " << this->difference() << " KB, VM: " << m_vm << " KB\n";
+  }
+};
