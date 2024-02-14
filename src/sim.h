@@ -444,7 +444,7 @@ template <typename inputT, typename outputT>
 void SA<inputT, outputT>::load_weights(std::vector<inputT> &weights) {
   for (int i = 0; i < rows * columns; ++i) {
     get_pe_from_vertex(vertarray[i])
-        .set_weight((int)weights[i]); // temporary cast here
+        .set_weight(weights[i]); // temporary cast here
   }
 }
 
@@ -482,6 +482,7 @@ void SA<inputT, outputT>::propagate(Mat<inputT> const &input_mat,
       exec_queue.pop();
       _propagate(v, chain);
     }
+    //print_array();
     exchange_queues<PE_Graph::Vertex<inputT, outputT>>(exec_queue, alt_queue);
     if (profile_enabled) {
       profiler.incr_cycles(1);
@@ -572,7 +573,7 @@ void SA<inputT, outputT>::push_to_output_array(int h, outputT t1) {
   } else if (output_array_counts.at(h) >= (rows - 2 + h)
              //&& output_array_counts.at(h) < (rows+rows-2+h)
   ) {
-    output_array.at(h).push_back(t1);
+      output_array.at(h).push_back(t1);
   }
   output_array_counts.at(h) += 1;
 }
@@ -775,9 +776,7 @@ template <typename inputT, typename outputT>
 void SA<inputT, outputT>::print_array() {
   for (int i = 0; i < rows; ++i) {
     for (int j = 0; j < columns; ++j) {
-      // TODO: printf won't work for different types use cout
-      printf("%d\t",
-             get_pe_from_vertex(vertarray[i * columns + j]).get_weight());
+      std::cout << get_pe_from_vertex(vertarray[i * columns + j]).get_weight() << '\t';
 #if 0
             printf("%d\t%d\t|\t", get_pe_from_vertex(vertarray[i*columns+j]).get_reg(),
                     get_pe_from_vertex(vertarray[i*columns+j]).get_ps_buffer());
@@ -787,7 +786,7 @@ void SA<inputT, outputT>::print_array() {
                     get_pe_from_vertex(vertarray[i*columns+j]).get_reg());
 #endif
     }
-    printf("\n");
+    std::cout << '\n';
   }
-  printf("\n");
+  std::cout << '\n';
 }
