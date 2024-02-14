@@ -114,14 +114,6 @@ PyObject *py_preprocess(PyEngine &engine, std::string const &image_path) {
   return img_array;
 }
 
-PyObject *py_infer_layer_torch(PyEngine &engine, std::string const &model, PyObject *ifm, int layer) {
-  PyObject *args = Py_BuildValue("(sOi)", model.c_str(), ifm, layer);
-  py_fatal_err_check(args, "Py_BuildValue");
-  PyObject *result = engine.call_func("infer_layer_torch", args);
-  Py_XDECREF(args);
-  return result;
-}
-
 void PyEngine::print_object(PyObject *obj) {
   PyObject_Print(obj, stdout, 0);
   std::cout << '\n';

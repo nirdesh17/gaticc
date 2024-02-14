@@ -80,7 +80,7 @@ template <typename T> std::vector<T> il2iv(PyObject *list) {
          */
         continue;
       }
-      value = PyFloat_AsDouble(item);
+      value = (T) PyFloat_AsDouble(item);
       if (value == -1.0 && PyErr_Occurred()) {
         log_fatal("Unable to extract float from obj");
       }
@@ -151,5 +151,3 @@ std::vector<int> py_read_img(PyEngine &engine, std::string const &filepath);
 std::vector<int> py_fetch_kernel(PyEngine &engine, int layer, int n, int c);
 
 PyObject *py_preprocess(PyEngine &engine, std::string const &image_path);
-PyObject *py_infer_layer_torch(PyEngine &engine, std::string const &model,
-                               PyObject *ifm, int layer);
