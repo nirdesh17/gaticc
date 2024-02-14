@@ -88,20 +88,8 @@ def preprocess(image):
     img = img.astype(np.float32)
     img = np.expand_dims(img, axis=0)
     return img
-
-def get_initializers(model):
-    model = onnx.load(model)
-    return model.graph.initializer
     
-def get_kernel(model_name, layer_num):    
-    initializers = get_initializers(model_name)
-    p = re.compile('vgg0_conv{}_weight_quantized'.format(layer_num))
-    for i in initializers:
-        if p.match(i.name):
-            print(i.name)
-            array = np.frombuffer(i.raw_data, dtype=np.int8).reshape(i.dims)
-            return array
-
+# Uses custom conv2d
 def infer_layer(model, ifm, layer):
     kernels = get_kernel(model, layer)
     ctxo = ctx(ifm, kernels, stride=1, padding=0)
@@ -112,10 +100,50 @@ def infer_layer(model, ifm, layer):
         out.append(conv2d(ctxo, ifm, kernel))
     return np.array(out)
 
-def infer_layer_torch(model, ifm, layer):
-    input = torch.Tensor(ifm)
-    kernels = torch.Tensor(np.copy(get_kernel(model, layer))) 
-    return np.array(torch.nn.functional.conv2d(input, kernels)).flatten().astype(np.int32).tolist()
+def get_initializers(model):
+    model = onnx.load(model)
+    return model.graph.initializer
+
+def vgg_int_get_kernel(model_path, layernum):
+    initializers = get_initializers(model_path)
+    format_string = 'vgg0_conv{}_weight_quantized'.format(layernum)
+    for i in initializers:
+        if i.name == format_string:
+            array = np.frombuffer(i.raw_data, dtype=np.int8).reshape(i.dims)
+            return array
+    raise ValueError(f'Could not find layer {format_string} in model {model_path}') 
+
+def vgg_float_get_kernel(model_path, layernum):
+    initializers = get_initializers(model_path)
+    format_string = 'vgg0_conv{}_weight'.format(layernum)
+    for i in initializers:
+        if i.name == format_string:
+            print(i.name)
+            array = np.array(i.float_data).reshape(i.dims)
+            return array
+    raise ValueError(f'Could not find layer {format_string} in model {model_path}')
+
+
+def post_infer_layer(ofmap):
+    return np.array(ofmap).flatten().tolist()
+
+def vgg_int_infer_layer(model_path, ifmap, layernum):
+    ifmap = torch.Tensor(ifmap)
+    k = np.copy(vgg_int_get_kernel(model_path, layernum))
+    kernels = torch.Tensor(k)
+    ofmap = torch.nn.functional.conv2d(ifmap, kernels)
+    ofmap = np.array(ofmap)
+    ofmap = post_infer_layer(ofmap.astype(np.int32))
+    return ofmap
+
+def vgg_float_infer_layer(model_path, ifmap, layernum):
+    ifmap = torch.Tensor(ifmap)
+    k = np.copy(vgg_float_get_kernel(model_path, layernum))
+    kernels = torch.Tensor(k)
+    ofmap = torch.nn.functional.conv2d(ifmap, kernels)
+    ofmap = np.array(ofmap)
+    ofmap = post_infer_layer(ofmap.astype(np.float32))
+    return ofmap
 
 def quantize_fp32i8(tensor, scale, zero_point):
     tten = np.clip(np.round((tensor / scale) + zero_point), -128, 127)
