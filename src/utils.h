@@ -1,14 +1,14 @@
 #pragma once
 
 #include "onnx_parser.h"
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <fstream>
 #include <iostream>
 #include <list>
 #include <typeinfo>
-#include <fstream>
 #include <unistd.h>
-#include <cmath>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
  */
@@ -50,7 +50,13 @@ class Argparse {
        *                                                       args */
       {{"help", {"-h", "--help"}, "get this help message nigga", 0},
        {"verbose", {"-v", "--v"}, "verbose", 0},
-       {"onnx", {"--onnx"}, "load onnx file", 1}}};
+       {"onnx", {"--onnx"}, "load onnx file", 1},
+       {"timeest",
+        {"--timeest"},
+        "print estimated time that a model would take based on FLOP counts "
+        "(this does not account for latencies such as that of DRAM)",
+        1},
+       {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
 public:
   void parse(int argc, char *argv[]) {
@@ -77,6 +83,7 @@ public:
   }
 
   void print_usage() const { std::cerr << usage << argparser; }
+
 };
 
 /* This is globally available for all functions. Alternatively,
@@ -123,10 +130,8 @@ public:
     return data.begin();
   }
 
-  typename std::vector<std::vector<T>>::iterator end() {
-    return data.end();
-  }
-  
+  typename std::vector<std::vector<T>>::iterator end() { return data.end(); }
+
   void print() {
     for (auto i : data) {
       for (auto j : i) {
@@ -136,9 +141,7 @@ public:
     }
     std::cout << '\n';
   }
-
 };
-
 
 template <typename T>
 void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
@@ -186,7 +189,8 @@ template <typename T> inline bool is_int_like(T v) {
 template <typename T> inline bool is_unsigned_int_like(T v) {
   return typeid(v) == typeid(uint32_t) || typeid(v) == typeid(uint8_t) ||
          typeid(v) == typeid(uint16_t) || typeid(v) == typeid(uint64_t) ||
-         typeid(v) == typeid(unsigned long) || typeid(v) == typeid(unsigned long long);
+         typeid(v) == typeid(unsigned long) ||
+         typeid(v) == typeid(unsigned long long);
 }
 
 template <typename T> inline bool is_float_like(T v) {
@@ -194,14 +198,12 @@ template <typename T> inline bool is_float_like(T v) {
 }
 
 /* custom compare function to handle floats separately */
-template <typename T>
-bool xcmp(T a, T b) {
+template <typename T> bool xcmp(T a, T b) {
   if (is_float_like(a)) {
     /* epsilon value suggests inquality of two floats is
      * fine uptill 3 digits precision */
     return (std::fabs(a - b) < 0.0005f);
-  }
-  else {
+  } else {
     return a == b;
   }
 }
@@ -223,7 +225,8 @@ bool generate_report(const char *test_name, std::vector<expectedT> &expected,
   for (int i = 0; i < expected.size(); ++i) {
     status = xcmp<expectedT>(expected.at(i), computed.at(i));
     if (!status) {
-      std::cout << "Failing at " << i << " for " <<  expected.at(i) << ' ' << computed.at(i) << '\n';
+      std::cout << "Failing at " << i << " for " << expected.at(i) << ' '
+                << computed.at(i) << '\n';
     }
   }
 #endif
@@ -232,7 +235,6 @@ bool generate_report(const char *test_name, std::vector<expectedT> &expected,
 }
 
 // void print_vec_point(const char *s, std::vector<Point> const &v);
-
 
 inline int sa_odims_row(Op::ConvParams const &cp) {
   // o = ((iw - kw + 2p) / s) + 1
@@ -247,6 +249,7 @@ class Timer {
   using Tp = std::chrono::time_point<std::chrono::high_resolution_clock>;
   Tp m_start;
   Tp m_stop;
+
 public:
   void start() { m_start = std::chrono::high_resolution_clock::now(); }
   void stop() { m_stop = std::chrono::high_resolution_clock::now(); }
@@ -257,10 +260,8 @@ public:
   void report(std::string msg) {
     std::cout << msg << difference().count() << '\n';
   }
-  // TODO: reset function 
+  // TODO: reset function
 };
-
-
 
 class MemProf {
   double m_start;
@@ -290,18 +291,29 @@ public:
     resident_set = rss * page_size_kb;
   }
 
-  void start() {
-    this->process_mem_usage(m_vm, m_start);
-  }
+  void start() { this->process_mem_usage(m_vm, m_start); }
 
-  void stop() {
-    this->process_mem_usage(m_vm, m_stop);
-  }
+  void stop() { this->process_mem_usage(m_vm, m_stop); }
 
   /* Difference in KB */
   long difference() { return m_stop - m_start; }
 
   void report() {
-    std::cout << "RSS: " << this->difference() << " KB, VM: " << m_vm << " KB\n";
+    std::cout << "RSS: " << this->difference() << " KB, VM: " << m_vm
+              << " KB\n";
   }
 };
+
+/* Parse a csv string made of integers of the form:
+ * "9, 8, 8" and return a vector 
+ */
+inline std::vector<int> parse_csv_string(std::string &s) {
+  std::vector<int> result;
+  std::stringstream ss(s);
+  std::string token;
+  while (std::getline(ss, token, ',')) {
+    // Convert token to integer and add to result vector
+    result.push_back(std::stoi(token));
+  }
+  return result;
+}

@@ -19,14 +19,20 @@ int main(int argc, char *argv[]) {
     std::exit(EXIT_SUCCESS);
   }
 
-  // PyEngine engine("src.preprocess");
-  // std::vector<int> img = py_read_img(engine, std::string("images/mug.jpg"));
-  //print_vec<int>("img", img);
-
   if (gbl_args.has_option("onnx")) {
     std::string s = gbl_args["onnx"].as<std::string>();
     Op::Parser parser(s);
-    parser.get_execution_order();
-    parser.time_estimate(9, 8, 8);
+    if (gbl_args.has_option("timeest")) {
+      std::string arch_list = gbl_args["timeest"].as<std::string>();
+      std::vector<int> mnk = parse_csv_string(arch_list);
+      assert(mnk.size() != 0 && "Ill formatted dimension string to --timeest, expects string like 9,8,8");
+      assert(mnk.size() == 3 && "Systolic Array shape should be 3 dimensional M, N, K");
+      parser.time_estimate(mnk.at(0), mnk.at(1), mnk.at(2));
+    } else if (gbl_args.has_option("summary")) {
+      parser.summary();
+    } else {
+      gbl_args.print_usage();
+      log_fatal("Do not know what to do with onnx, specify atleast one operation");
+    }
   }
 }
