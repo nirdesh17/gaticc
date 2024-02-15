@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
       parser.summary();
     } else {
       gbl_args.print_usage();
-      log_fatal("Do not know what to do with onnx, specify atleast one operation");
+      log_fatal("Do not know what to do with --onnx, specify atleast one operation like --summary or --timeest");
     }
   }
 }

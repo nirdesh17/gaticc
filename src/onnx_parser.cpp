@@ -227,7 +227,7 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
       layer->set_value_info_params(itr2->second);
     }
     /* find initializer for `i` */
-    const auto& itr3 = initializer_map.find(i);
+    const auto &itr3 = initializer_map.find(i);
     if (itr3 != initializer_map.end()) {
       layer->set_initializer_params(itr3->second);
     }
@@ -305,44 +305,40 @@ size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
 void Op::print_node(Op::Vertex v, const Op::Graph *g) {
-  if (gbl_args["verbose"]) {
-    LayerBase *node = (*g)[v];
-    Op::print_node(node);
-    std::cout << "Out Degree: " << boost::out_degree(v, (*g)) << " (";
-    auto out_edges = boost::out_edges(v, (*g));
-    for (auto ei = out_edges.first; ei != out_edges.second; ++ei) {
-      Op::Vertex dest_vertex = boost::target(*ei, (*g));
-      std::cout << (*g)[dest_vertex]->name << ", ";
-    }
-    std::cout << ")\n";
-
-    std::cout << "In Degree: " << boost::in_degree(v, (*g)) << " (";
-    auto in_edges = boost::in_edges(v, (*g));
-    for (auto ei = in_edges.first; ei != in_edges.second; ++ei) {
-      Op::Vertex source_vertex = boost::source(*ei, (*g));
-      std::cout << (*g)[source_vertex]->name << ", ";
-    }
-    std::cout << ")\n";
-    std::cout << '\n';
+  LayerBase *node = (*g)[v];
+  Op::print_node(node);
+  std::cout << "Out Degree: " << boost::out_degree(v, (*g)) << " (";
+  auto out_edges = boost::out_edges(v, (*g));
+  for (auto ei = out_edges.first; ei != out_edges.second; ++ei) {
+    Op::Vertex dest_vertex = boost::target(*ei, (*g));
+    std::cout << (*g)[dest_vertex]->name << ", ";
   }
+  std::cout << ")\n";
+
+  std::cout << "In Degree: " << boost::in_degree(v, (*g)) << " (";
+  auto in_edges = boost::in_edges(v, (*g));
+  for (auto ei = in_edges.first; ei != in_edges.second; ++ei) {
+    Op::Vertex source_vertex = boost::source(*ei, (*g));
+    std::cout << (*g)[source_vertex]->name << ", ";
+  }
+  std::cout << ")\n";
+  std::cout << '\n';
 }
 
 void Op::print_node(const LayerBase *node) {
-  if (gbl_args["verbose"]) {
-    std::cout << "Type: " << node->op_type() << '\n';
-    std::cout << "Params: " << node->params() << '\n';
-    std::cout << "Name: " << node->name << '\n';
-    std::cout << "Input Registers: ";
-    for (auto i : node->inputs) {
-      std::cout << i << ' ';
-    }
-    std::cout << '\n';
-    std::cout << "Output Registers: ";
-    for (auto i : node->outputs) {
-      std::cout << i << ' ';
-    }
-    std::cout << '\n';
+  std::cout << "Type: " << node->op_type() << '\n';
+  std::cout << "Params: " << node->params() << '\n';
+  std::cout << "Name: " << node->name << '\n';
+  std::cout << "Input Registers: ";
+  for (auto i : node->inputs) {
+    std::cout << i << ' ';
   }
+  std::cout << '\n';
+  std::cout << "Output Registers: ";
+  for (auto i : node->outputs) {
+    std::cout << i << ' ';
+  }
+  std::cout << '\n';
 }
 
 #define sa_odims(i, k, s, p) ((i - k + 2 * p) / s)
@@ -382,27 +378,21 @@ long Op::Model::time_estimate(int M, int N, int K) const {
       int t =
           ((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) * input_columns;
       cycles += t;
-      if (gbl_args["verbose"]) {
-        std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-        Op::print_node(*itr, &g);
-      }
+      std::cout << "Time: " << (float)t / 1e5 << "ms\n";
+      Op::print_node(*itr, &g);
     } else if (node->op_type() == "Gemm") {
       Op::Layer::Gemm *gemm_node = (Op::Layer::Gemm *)node;
       assert(gemm_node->m_cp.wc == gemm_node->m_cp.is);
       int available_pe_columns = (N * K > 32) ? 32 : N * K;
       int t = (gemm_node->m_cp.wr / available_pe_columns) * gemm_node->m_cp.is;
       cycles += t;
-      if (gbl_args["verbose"]) {
-        std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-        Op::print_node(*itr, &g);
-      }
+      std::cout << "Time: " << (float)t / 1e5 << "ms\n";
+      Op::print_node(*itr, &g);
     }
   }
-  if (gbl_args["verbose"]) {
-    std::cout << "Total Estimated time for convolutions: "
-              << (float)cycles / 1e5 << "ms\n";
-  }
-  return (float) cycles;
+  std::cout << "Total Estimated time for convolutions: " << (float)cycles / 1e5
+            << "ms\n";
+  return (float)cycles;
 }
 
 void Op::Model::bare_summary(void) const {
@@ -599,9 +589,10 @@ Op::Parser::Parser(std::string const &filename) {
   if (loaded_model.fail()) {
     log_fatal("%s: %s", filename.c_str(), strerror(errno));
   }
-  model_proto = google::protobuf::Arena::CreateMessage<onnx::ModelProto>(&arena);
+  model_proto =
+      google::protobuf::Arena::CreateMessage<onnx::ModelProto>(&arena);
   model_proto->ParseFromIstream(&loaded_model);
-  const onnx::GraphProto& m_graph = model_proto->graph();
+  const onnx::GraphProto &m_graph = model_proto->graph();
   auto graph_outputs = m_graph.output();
   for (auto i : graph_outputs) {
     m_model.save_graph_outputs(i);
@@ -612,7 +603,8 @@ Op::Parser::Parser(std::string const &filename) {
     m_model.save_value_info(value_infos.at(i));
   }
   /* initializers */
-  const google::protobuf::RepeatedPtrField<onnx::TensorProto> &initializers = m_graph.initializer();
+  const google::protobuf::RepeatedPtrField<onnx::TensorProto> &initializers =
+      m_graph.initializer();
   for (int i = 0; i < initializers.size(); ++i) {
     m_model.save_initializers(initializers.at(i));
   }
