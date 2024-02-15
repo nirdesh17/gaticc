@@ -12,12 +12,12 @@
 Argparse gbl_args;
 const char *image_loc = "../images/dog.jpg";
 /* tests only the first layer of this model */
-const char *model_loc = "../onnx/vgg/vgg16-12-int8.onnx";
+const char *model_loc = "../onnx/vgg/vgg16-12.onnx";
 using std::filesystem::absolute;
 using std::filesystem::path;
 
-using inputT = int8_t;
-using outputT = int;
+using inputT = float;
+using outputT = float;
 
 int main(int argc, char *argv[]) {
   gbl_args.parse(argc, argv);
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
   PyEngine engine("ml_inference", p);
 
   PyObject *py_args = Py_BuildValue("(s)", img_path.c_str());
-  PyObject *py_ifmap = engine.call_func("preprocess_quantize", py_args);
+  PyObject *py_ifmap = engine.call_func("preprocess", py_args);
 
   std::vector<int> ifmap_dims;
   std::vector<inputT> ifmap_v = engine.np2iv<inputT>(py_ifmap, ifmap_dims);
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
   Tensor<inputT> *ifmap_tensor = new TensorCreate<inputT>(ifmap_v, ifmap_dims);
 
   PyObject *infer_args = Py_BuildValue("(sOi)", model_path.c_str(), py_ifmap, 0);
-  PyObject *py_expected = engine.call_func("vgg_int_infer_layer", infer_args);
+  PyObject *py_expected = engine.call_func("vgg_float_infer_layer", infer_args);
   std::vector<outputT> expected = engine.il2iv<outputT>(py_expected);
 
   Op::ConvParams cp{.imap = {224, 224},
@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
   std::fstream input(model_path, std::ios::in);
   onnx::ModelProto mp;
   mp.ParseFromIstream(&input);
-  conv1.weights = mp.mutable_graph()->mutable_initializer(2);
+  conv1.weights = mp.mutable_graph()->mutable_initializer(0);
 
   SASA<inputT, outputT> sasa(9, 8, 8, conv1);
   std::vector<int> ofmap_dims {conv1.m_cp.kn, sa_odims_row(cp), sa_odims_cols(cp)};

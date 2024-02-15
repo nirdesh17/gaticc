@@ -28,6 +28,11 @@ ffi_test.o: ffi_test.cpp
 	$(CXX) $(CXXFLAGS) $@ ${LIB_PATH} -o $* ${PYTHONLIB}
 	mv $* ${EXE_DIR}/
 
+float_sasa_test.o: float_sasa_test.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $@ ${LIB_PATH} -o $* ${PYTHONLIB} ${PROTOLIB}
+	mv $* ${EXE_DIR}/
+
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 	$(CXX) $(CXXFLAGS) $@ ${LIB_PATH} -o $* 
