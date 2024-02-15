@@ -77,7 +77,7 @@ struct LayerBase {
    * Not all layers have a ValueInfoProto.
    * See Op::Layer::Conv for eg.
    */
-  virtual void set_value_info_params(onnx::ValueInfoProto &t);
+  virtual void set_value_info_params(const onnx::ValueInfoProto &t);
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -96,7 +96,7 @@ struct Conv : public LayerBase {
   const char *op_type() const override;
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
-  void set_value_info_params(onnx::ValueInfoProto &t) override;
+  void set_value_info_params(const onnx::ValueInfoProto &t) override;
 };
 
 struct Relu : public LayerBase {
@@ -122,7 +122,7 @@ struct Gemm : public LayerBase {
   const char *op_type() const override;
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
-  void set_value_info_params(onnx::ValueInfoProto &t) override;
+  void set_value_info_params(const onnx::ValueInfoProto &t) override;
 };
 
 struct Maxpool : public LayerBase {
@@ -207,11 +207,13 @@ class Model {
   std::map<std::string, const onnx::TensorProto &> initializer_map;
   std::map<std::string, onnx::ValueInfoProto &> value_info_map;
   std::map<std::string, onnx::ValueInfoProto &> graph_output_map;
+  std::map<std::string, const onnx::ValueInfoProto &> graph_input_map;
   /* All 'Constants' in the onnx model are looked up using this table */
   std::map<std::string, onnx::NodeProto &> constant_pool;
 
   std::vector<LayerBase*> execution_order;
 
+  bool is_graph_input(const std::string &s) const;
   bool is_graph_output(const std::string &s) const;
   bool is_initializer(const std::string &s) const;
 
@@ -221,6 +223,7 @@ public:
   void create_execution_order(void);
   void update_registers(void);
 
+  void save_graph_inputs(const onnx::ValueInfoProto &t);
   void save_graph_outputs(onnx::ValueInfoProto &t);
   void save_value_info(onnx::ValueInfoProto &t);
   void save_initializers(const onnx::TensorProto &t);
@@ -228,7 +231,7 @@ public:
   void add(LayerBase *layer, onnx::NodeProto &node);
   void add_to_constant_pool(onnx::NodeProto &node);
   void connect(onnx::NodeProto &node);
-  void save_first_layer_input_dims(onnx::ValueInfoProto &t);
+  void save_first_layer_input_dims(const  onnx::ValueInfoProto &t);
   void connect_first_last_layer(onnx::GraphProto &graph);
 
   /* return the topologically sorted graph (g) 

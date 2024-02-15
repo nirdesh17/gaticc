@@ -35,7 +35,7 @@
 const char *Op::LayerBase::op_type() const { return "(null)"; }
 const char *Op::LayerBase::params() const { return "(null)"; }
 void Op::LayerBase::set_initializer_params(const onnx::TensorProto &t) {}
-void Op::LayerBase::set_value_info_params(onnx::ValueInfoProto &t) {}
+void Op::LayerBase::set_value_info_params(const onnx::ValueInfoProto &t) {}
 
 Op::Layer::Conv::Conv(ConvParams &cp) {
   std::memcpy(&m_cp, &cp, sizeof(ConvParams));
@@ -61,7 +61,7 @@ void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
   }
 }
 
-void Op::Layer::Conv::set_value_info_params(onnx::ValueInfoProto &t) {
+void Op::Layer::Conv::set_value_info_params(const onnx::ValueInfoProto &t) {
   if (t.has_type()) {
     onnx::TypeProto type = t.type();
     if (type.has_tensor_type()) {
@@ -122,7 +122,7 @@ void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
   }
 }
 
-void Op::Layer::Gemm::set_value_info_params(onnx::ValueInfoProto &t) {
+void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
   /* TODO: REFACTOR: this can be cleaned up and turned into a generic function
    */
   if (t.has_type()) {
@@ -237,6 +237,14 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   }
 }
 
+bool Op::Model::is_graph_input(const std::string &s) const {
+  auto itr = graph_input_map.find(s);
+  if (itr != graph_input_map.end()) {
+    return true;
+  }
+  return false;
+}
+
 bool Op::Model::is_initializer(const std::string &s) const {
   auto itr = initializer_map.find(s);
   if (itr != initializer_map.end()) {
@@ -268,12 +276,14 @@ void Op::Model::connect(onnx::NodeProto &node) {
   }
 
   for (auto i : node.input()) {
-    // for inputs that are not initializers, connect them to the current
-    // node
-    if (!is_initializer(i)) {
+    /* for inputs that are not initializers or inputs to the
+     * graph, connect them to the current node
+     */
+    if (!is_initializer(i) && !is_graph_input(i)) {
       auto itr = output_map.find(i);
       if (itr != output_map.end()) {
         /* connect */
+        std::cout << "Connecting " << i << " and " << node.name() << '\n';
         boost::add_edge(itr->second, current_node, g);
       } else {
         log_fatal("Coudn't find node %s in output_map", i.c_str());
@@ -290,11 +300,15 @@ void Op::Model::save_graph_outputs(onnx::ValueInfoProto &t) {
   graph_output_map.insert({t.name(), t});
 }
 
+void Op::Model::save_graph_inputs(const onnx::ValueInfoProto &t) {
+  graph_input_map.insert({t.name(), t});
+}
+
 void Op::Model::save_value_info(onnx::ValueInfoProto &t) {
   value_info_map.insert({t.name(), t});
 }
 
-void Op::Model::save_first_layer_input_dims(onnx::ValueInfoProto &t) {
+void Op::Model::save_first_layer_input_dims(const onnx::ValueInfoProto &t) {
   auto vertices = boost::vertices(g);
   auto first_node = vertices.first;
   LayerBase *layer = g[*first_node];
@@ -597,6 +611,11 @@ Op::Parser::Parser(std::string const &filename) {
   for (auto i : graph_outputs) {
     m_model.save_graph_outputs(i);
   }
+
+  const auto &graph_inputs = m_graph.input();
+  for (const auto &i : graph_inputs) {
+    m_model.save_graph_inputs(i);
+  }
   /* value info */
   auto value_infos = m_graph.value_info();
   for (int i = 0; i < value_infos.size(); ++i) {
@@ -616,21 +635,26 @@ Op::Parser::Parser(std::string const &filename) {
       m_model.add_to_constant_pool(i);
     }
   }
+
   for (auto i : nodes) {
     add_operator(i);
   }
+
   for (int i = 0; i < nodes.size(); ++i) {
     if (nodes.at(i).op_type() == "Constant") {
+      /* Skip Constants, deal with them by adding in the
+       * "constant_pool"
+       */
       continue;
     }
     m_model.connect(nodes.at(i));
   }
+  // assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   /* input dimensions to the first layer are stored in graph.input
    * and needs special treatment
    */
-  auto graph_inputs = m_graph.input();
-  // assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
+  
   m_model.create_execution_order();
   m_model.update_registers();
 }
