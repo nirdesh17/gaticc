@@ -220,7 +220,7 @@ bool generate_report(const char *test_name, std::vector<expectedT> &expected,
   bool status = false;
   assert(expected.size() == computed.size() && "expected - computed unequal");
 #if 1
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i < expected.size(); ++i) {
     status = xcmp<expectedT>(expected.at(i), computed.at(i));
     if (!status) {
       std::cout << "Failing at " << i << " for " <<  expected.at(i) << ' ' << computed.at(i) << '\n';
