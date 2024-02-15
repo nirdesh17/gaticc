@@ -41,8 +41,11 @@ make test -j $(nproc --all)
 
 # Todo
 
-- float_sasa_test, same as sasa_test
-- float incremental tests
+- Float shift bug
+    - python interpreter, main program loading the same program
+    - load a custom compiled protobuf
+
+- change the ffi make wrap around torch.nn only
 - executor
 - memory leaks (valgrind) 
 - full const correctness
