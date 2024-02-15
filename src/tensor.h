@@ -12,16 +12,17 @@ public:
   virtual int dims_size() { return 0; }
   virtual int dims_at(int index) { return index; }
   virtual void push_back(T data) { return; }
+  /* insert one element at a time */
   virtual void insert(std::vector<int> &at, T data) { return; }
   virtual void set_dims(std::vector<int> const &temp_dims) { return; }
   virtual int dims_iterator(int index) { return index; }
   virtual void clear() { return; }
   virtual void shrink_to_fit() { return; }
   virtual int size() { return 0; }
-  virtual std::vector<T> get() {
-    return std::vector<T>();
-  }
+  virtual std::vector<T> get() { return std::vector<T>(); }
   virtual T get(int index) { return 0; }
+
+  virtual void print() { return; }
 };
 
 template <typename T> class TensorExtant : public Tensor<T> {
@@ -71,20 +72,34 @@ public:
     }
     return a;
   }
+
+  void print() override {
+    /* TODO: needs refactoring */
+    for (int i = 0; i < dims_iterator(-1); ++i) {
+      if (typeid(T) == typeid(float)) {
+        std::cout << ptr->float_data(i) << '\n';
+      } else if (typeid(T) == typeid(int8_t)) {
+        std::cout << (int8_t)ptr->raw_data().at(i) << '\n';
+      } else {
+        std::cout << -1 << '\n';
+      }
+    }
+  }
 };
 
 template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
   std::vector<T> vec;
+
 public:
   TensorCreate() = delete;
 
-  TensorCreate(std::vector<T> const&v, std::vector<int> const& dim) {
+  TensorCreate(std::vector<T> const &v, std::vector<int> const &dim) {
     dims = dim;
     vec = v;
   }
 
-  TensorCreate(std::vector<int> const& dim) {
+  TensorCreate(std::vector<int> const &dim) {
     dims = dim;
     vec.resize(dims_iterator(-1), 0);
   }
@@ -104,9 +119,7 @@ public:
 
   int dims_size() override { return dims.size(); }
 
-  int dims_at(int index) override {
-    return dims.at(index);
-  }
+  int dims_at(int index) override { return dims.at(index); }
   void push_back(T data) override { vec.push_back(data); }
 
   void insert(std::vector<int> &at, T data) override {
