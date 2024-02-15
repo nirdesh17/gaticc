@@ -210,7 +210,7 @@ bool xcmp(T a, T b) {
 template <typename expectedT, typename computedT>
 bool generate_report(const char *test_name, std::vector<expectedT> &expected,
                      std::vector<computedT> &computed) {
-#if 1
+#if 0
   for (int i = 0; i < expected.size(); ++i) {
       std::cout << i << ' ' << expected.at(i) << ' ' << computed.at(i) << '\n';
   }
@@ -219,11 +219,11 @@ bool generate_report(const char *test_name, std::vector<expectedT> &expected,
   printf("Test Name: %s\n", test_name);
   bool status = false;
   assert(expected.size() == computed.size() && "expected - computed unequal");
-#if 0
+#if 1
   for (int i = 0; i < 1000; ++i) {
     status = xcmp<expectedT>(expected.at(i), computed.at(i));
-    if (status == false) {
-      std::cout << expected.at(i) << ' ' << computed.at(i) << '\n';
+    if (!status) {
+      std::cout << "Failing at " << i << " for " <<  expected.at(i) << ' ' << computed.at(i) << '\n';
     }
   }
 #endif
