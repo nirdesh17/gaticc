@@ -187,6 +187,28 @@ const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }
 
 const char *Op::Layer::Reshape::op_type() const { return m_optype; }
 
+
+const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
+
+const char *Op::Layer::QuantizeLinear::params() const { 
+  static char ret[64];
+  sprintf(ret, "Scale: %f, Zero Point: %d", scale, zero_point);
+  return ret;
+}
+
+void Op::Layer::QuantizeLinear::set_initializer_params(const onnx::TensorProto &t) {
+  if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
+    /* its a scale value */
+    scale = t.float_data(0);
+    std::cout << "setting scale to " << scale << '\n';
+  } else if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+    zero_point = t.int32_data(0);
+    std::cout << "setting zero point to " << zero_point << '\n';
+  } else {
+    log_fatal("Could not find an initializer of expected types");
+  }
+}
+
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
@@ -283,7 +305,6 @@ void Op::Model::connect(onnx::NodeProto &node) {
       auto itr = output_map.find(i);
       if (itr != output_map.end()) {
         /* connect */
-        std::cout << "Connecting " << i << " and " << node.name() << '\n';
         boost::add_edge(itr->second, current_node, g);
       } else {
         log_fatal("Coudn't find node %s in output_map", i.c_str());
@@ -593,6 +614,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::ReorderOutput(), node);
   } else if (opt == "Reshape") {
     m_model.add(new Op::Layer::Reshape(), node);
+  } else if (opt == "QuantizeLinear") {
+    m_model.add(new Op::Layer::QuantizeLinear(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }

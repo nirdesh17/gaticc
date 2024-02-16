@@ -182,6 +182,15 @@ struct Reshape : public LayerBase {
   /* TODO: add params to this layer */
 };
 
+struct QuantizeLinear : public LayerBase {
+  const char *m_optype = "ReorderOutput";
+  const char *op_type() const override;
+  const char *params() const override;
+  float scale;
+  int zero_point;
+  void set_initializer_params(const onnx::TensorProto &t) override;
+};
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS, boost::bidirectionalS,
