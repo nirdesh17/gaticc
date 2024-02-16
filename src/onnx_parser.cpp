@@ -200,10 +200,10 @@ void Op::Layer::QuantizeLinear::set_initializer_params(const onnx::TensorProto &
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
     scale = t.float_data(0);
-    std::cout << "setting scale to " << scale << '\n';
+    std::cout << __func__ << "setting scale to " << scale << '\n';
   } else if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
     zero_point = t.int32_data(0);
-    std::cout << "setting zero point to " << zero_point << '\n';
+    std::cout << __func__ << "setting zero point to " << zero_point << '\n';
   } else {
     log_fatal("Could not find an initializer of expected types");
   }
@@ -616,6 +616,12 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Reshape(), node);
   } else if (opt == "QuantizeLinear") {
     m_model.add(new Op::Layer::QuantizeLinear(), node);
+  } else if (opt == "QLinearConv") {
+    /* TODO: get scale values and add QunatizeLinear nodes
+     * there */
+    ConvParams params;
+    m_model.extract_conv_attr(node, params);
+    m_model.add(new Op::Layer::Conv(params), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }
