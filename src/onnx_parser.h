@@ -183,11 +183,37 @@ struct Reshape : public LayerBase {
 };
 
 struct QuantizeLinear : public LayerBase {
-  const char *m_optype = "ReorderOutput";
+  const char *m_optype = "QuantizeLinear";
   const char *op_type() const override;
   const char *params() const override;
   float scale;
   int zero_point;
+  void set_initializer_params(const onnx::TensorProto &t) override;
+};
+
+struct DequantizeLinear : public LayerBase {
+  const char *m_optype = "DequantizeLinear";
+  const char *op_type() const override;
+  const char *params() const override;
+  float scale;
+  int zero_point;
+  void set_initializer_params(const onnx::TensorProto &t) override;
+};
+
+struct QLinearMatMul : public LayerBase {
+  const onnx::TensorProto *weights;
+  const char *m_optype = "QLinearMatMul";
+  GemmParams m_cp;
+  QLinearMatMul(GemmParams &cp);
+  const char *op_type() const override;
+  const char *params() const override;
+  void set_initializer_params(const onnx::TensorProto &t) override;
+};
+
+struct QLinearAdd : public LayerBase {
+  const onnx::TensorProto *addend;
+  const char *m_optype = "QLinearAdd";
+  const char *op_type() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
 };
 

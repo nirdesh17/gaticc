@@ -188,6 +188,25 @@ const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }
 const char *Op::Layer::Reshape::op_type() const { return m_optype; }
 
 
+const char *Op::Layer::DequantizeLinear::op_type() const { return m_optype; }
+
+const char *Op::Layer::DequantizeLinear::params() const { 
+  static char ret[64];
+  sprintf(ret, "Scale: %f, Zero Point: %d", scale, zero_point);
+  return ret;
+}
+
+void Op::Layer::DequantizeLinear::set_initializer_params(const onnx::TensorProto &t) {
+  if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
+    /* its a scale value */
+    scale = t.float_data(0);
+  } else if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+    zero_point = t.int32_data(0);
+  } else {
+    log_fatal("Could not find an initializer of expected types");
+  }
+}
+
 const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
 
 const char *Op::Layer::QuantizeLinear::params() const { 
@@ -200,12 +219,34 @@ void Op::Layer::QuantizeLinear::set_initializer_params(const onnx::TensorProto &
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
     scale = t.float_data(0);
-    std::cout << __func__ << "setting scale to " << scale << '\n';
   } else if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
     zero_point = t.int32_data(0);
-    std::cout << __func__ << "setting zero point to " << zero_point << '\n';
   } else {
     log_fatal("Could not find an initializer of expected types");
+  }
+}
+
+Op::Layer::QLinearMatMul::QLinearMatMul(GemmParams &cp) { std::memcpy(&m_cp, &cp, sizeof(cp)); }
+const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
+const char *Op::Layer::QLinearMatMul::params() const {
+  static char ret[64];
+  sprintf(ret, "WR,WC,IS: %d,%d,%d", m_cp.wr, m_cp.wc, m_cp.is);
+  return ret;
+}
+
+void Op::Layer::QLinearMatMul::set_initializer_params(const onnx::TensorProto &t) {
+  if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
+    m_cp.wr = t.dims()[0];
+    m_cp.wc = t.dims()[1];
+    weights = &t;
+  } 
+}
+
+const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
+
+void Op::Layer::QLinearAdd::set_initializer_params(const onnx::TensorProto &t) {
+  if (t.dims_size() == BIAS_TENSOR_DIMS) {
+    addend = &t;
   }
 }
 
@@ -586,6 +627,9 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "Relu") {
     m_model.add(new Op::Layer::Relu(), node);
   } else if (opt == "Gemm") {
+    /* TODO: gemm does not have attributes, no need to
+     * pre deploy i think
+     */
     GemmParams params;
     m_model.add(new Op::Layer::Gemm(params), node);
   } else if (opt == "MaxPool") {
@@ -622,6 +666,13 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     ConvParams params;
     m_model.extract_conv_attr(node, params);
     m_model.add(new Op::Layer::Conv(params), node);
+  } else if (opt == "DequantizeLinear") {
+    m_model.add(new Op::Layer::DequantizeLinear(), node);
+  } else if (opt == "QLinearMatMul") {
+    GemmParams params;
+    m_model.add(new Op::Layer::QLinearMatMul(params), node);
+  } else if (opt == "QLinearAdd") {
+    m_model.add(new Op::Layer::QLinearAdd(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }
