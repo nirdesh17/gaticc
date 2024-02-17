@@ -466,13 +466,30 @@ void exchange_queues(std::queue<T> &dest, std::queue<T> &src) {
   }
 }
 
-// iterate over all PEs in systolic manner and call _propagate on them
+/* iterate over all PEs in systolic manner and call _propagate on them */
 template <typename inputT, typename outputT>
 void SA<inputT, outputT>::propagate(Mat<inputT> const &input_mat,
                                     Chain &chain) {
+  /* Special handling for SA of size (m, 1) 
+   * The general case, following this code can handle this special case
+   * but as sasa.h implements its algorithms with (m,1) SAs, specially
+   * handling this case trivially, without any queues and bookeeping
+   * functions leads to faster code. (atleast 2x in performance)
+   * */
+  if (columns == 1) {
+    for (int i = 0; i != input_mat.size(); ++i) {
+      load_inputs(input_mat.at(i));
+      for (int j = 0; j < rows; ++j) {
+        PE_Graph::Vertex<inputT, outputT> v = vertarray.at(j);
+        _propagate(v, chain);
+      }
+    }
+    return;
+  }
+
+  /* General case for SA of size (m,n) */
   std::queue<PE_Graph::Vertex<inputT, outputT>> exec_queue;
   std::queue<PE_Graph::Vertex<inputT, outputT>> alt_queue;
-
   prepare_queue(exec_queue);
   for (int i = 0; i != input_mat.size(); ++i) {
     load_inputs(input_mat.at(i));
@@ -627,14 +644,7 @@ SA<inputT, outputT>::SA(int r, int c, bool profile_enabled)
 template <typename inputT, typename outputT>
 int SA<inputT, outputT>::get_index_from_vertex(
     PE_Graph::Vertex<inputT, outputT> &v) {
-  // TODO: this is O(n), return PE::id directly?
-  int index;
-  for (index = 0; index < vertarray.size(); ++index) {
-    if (vertarray.at(index) == v) {
-      break;
-    }
-  }
-  return index;
+  return get_pe_from_vertex(v).get_id();
 }
 template <typename inputT, typename outputT>
 PE<inputT, outputT> &

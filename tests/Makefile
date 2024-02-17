@@ -7,7 +7,7 @@ LIB_PATH=../libsim.a
 EXE_DIR=exe
 
 CXX = g++
-CXXFLAGS = -g -std=c++17 `pkg-config --cflags python3`
+CXXFLAGS = -O3 -g -std=c++17 `pkg-config --cflags python3`
 PYTHONLIB = -lpython3.11
 PROTOLIB = -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread
 

@@ -169,8 +169,8 @@ void SASA<inputT, outputT>::master(Tensor<inputT> &input_tensor,
           threads.at(n).at(o)->join();
           auto temp_mat = sa_ptr.at(n * sa_channel_columns + o)->get_output();
           /* not needed for SA having column size == 1 */
-          auto temp_vec = ct_ptr.at(n)->untransform(temp_mat);
-          vec.at(k * sa_channels + n).push_back(temp_vec);
+          //auto temp_vec = ct_ptr.at(n)->untransform(temp_mat);
+          vec.at(k * sa_channels + n).push_back(temp_mat.at(0));
           sa_ptr.at(n * sa_channel_columns + o)->clear_output();
         }
         threads.at(n).clear();
