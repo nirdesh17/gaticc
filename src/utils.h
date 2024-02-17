@@ -245,6 +245,7 @@ inline int sa_odims_cols(Op::ConvParams const &cp) {
   return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
 }
 
+template <typename T = std::chrono::seconds>
 class Timer {
   using Tp = std::chrono::time_point<std::chrono::high_resolution_clock>;
   Tp m_start;
@@ -254,8 +255,8 @@ public:
   void start() { m_start = std::chrono::high_resolution_clock::now(); }
   void stop() { m_stop = std::chrono::high_resolution_clock::now(); }
 
-  std::chrono::seconds difference() {
-    return std::chrono::duration_cast<std::chrono::seconds>(m_stop - m_start);
+  T difference() {
+    return std::chrono::duration_cast<T>(m_stop - m_start);
   }
   void report(std::string msg) {
     std::cout << msg << difference().count() << '\n';
