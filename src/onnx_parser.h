@@ -1,9 +1,9 @@
 #pragma once
+#include <fstream>
 #include <functional>
 #include <map>
 #include <string>
 #include <vector>
-#include <fstream>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -36,8 +36,8 @@ struct GemmParams {
   int is; /* input size */
 };
 
-/* TODO: PoolParams, a better name? 
- * used by AveragePool too 
+/* TODO: PoolParams, a better name?
+ * used by AveragePool too
  */
 struct MaxpoolParams {
   /* TODO: imap in extract_maxpool_attr */
@@ -62,7 +62,7 @@ struct LayerBase {
    * this.
    */
   virtual const char *params() const;
-  /* Initializers are onnx::TensorProto objects that contains 
+  /* Initializers are onnx::TensorProto objects that contains
    * weights of a weighted layer (for eg, conv, gemm, batchnorm).
    * Classes that override this function should be weighted layers
    * that store a pointer to all the TensorProto they care about.
@@ -83,12 +83,10 @@ struct LayerBase {
   std::vector<VirtualAddress> outputs;
 };
 
-
-
 namespace Layer {
 
 struct Conv : public LayerBase {
-  const onnx::TensorProto* weights;
+  const onnx::TensorProto *weights;
   const onnx::TensorProto *bias;
   const char *m_optype = "Conv";
   ConvParams m_cp;
@@ -208,6 +206,7 @@ struct QLinearMatMul : public LayerBase {
   const char *op_type() const override;
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
+  void set_value_info_params(const onnx::ValueInfoProto &t) override;
 };
 
 struct QLinearAdd : public LayerBase {
@@ -219,8 +218,8 @@ struct QLinearAdd : public LayerBase {
 
 } // namespace Layer
 
-using Graph = boost::adjacency_list<boost::vecS, boost::listS, boost::bidirectionalS,
-                                    LayerBase *>;
+using Graph = boost::adjacency_list<boost::vecS, boost::listS,
+                                    boost::bidirectionalS, LayerBase *>;
 using Vertex = boost::graph_traits<Graph>::vertex_descriptor;
 using VertexIterator = Graph::vertex_iterator;
 using AdjacencyIterator = Graph::adjacency_iterator;
@@ -246,7 +245,7 @@ class Model {
   /* All 'Constants' in the onnx model are looked up using this table */
   std::map<std::string, onnx::NodeProto &> constant_pool;
 
-  std::vector<LayerBase*> execution_order;
+  std::vector<LayerBase *> execution_order;
 
   bool is_graph_input(const std::string &s) const;
   bool is_graph_output(const std::string &s) const;
@@ -257,6 +256,7 @@ class Model {
 public:
   void create_execution_order(void);
   void update_registers(void);
+  void infer_shapes(void);
 
   void save_graph_inputs(const onnx::ValueInfoProto &t);
   void save_graph_outputs(onnx::ValueInfoProto &t);
@@ -266,15 +266,15 @@ public:
   void add(LayerBase *layer, onnx::NodeProto &node);
   void add_to_constant_pool(onnx::NodeProto &node);
   void connect(onnx::NodeProto &node);
-  void save_first_layer_input_dims(const  onnx::ValueInfoProto &t);
+  void save_first_layer_input_dims(const onnx::ValueInfoProto &t);
   void connect_first_last_layer(onnx::GraphProto &graph);
 
-  /* return the topologically sorted graph (g) 
-   * used by LayerExecutors to execute layers 
+  /* return the topologically sorted graph (g)
+   * used by LayerExecutors to execute layers
    */
-  std::vector<Op::LayerBase*> get_execution_order(void) const;
+  std::vector<Op::LayerBase *> get_execution_order(void) const;
 
-  /* Print a summary of the network (traversed only through the 
+  /* Print a summary of the network (traversed only through the
    * boost::vertices() of g) */
   void bare_summary(void) const;
   /* Print a summary of the network (traversed like a graph in topological
@@ -318,8 +318,9 @@ class RegisterAllocator {
   void traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target);
   VirtualAddress acquire(void);
   void relinquish(VirtualAddress a);
-  public:
-    RegisterAllocator(Op::Graph g);
+
+public:
+  RegisterAllocator(Op::Graph g);
 };
 
 } // namespace Op

@@ -62,33 +62,37 @@ void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
 }
 
 void Op::Layer::Conv::set_value_info_params(const onnx::ValueInfoProto &t) {
-  if (t.has_type()) {
-    onnx::TypeProto type = t.type();
-    if (type.has_tensor_type()) {
-      onnx::TypeProto_Tensor tensor = type.tensor_type();
-      if (tensor.has_shape()) {
-        onnx::TensorShapeProto shape = tensor.shape();
-        assert(shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS &&
-               "Value info expected conv dimensions to be 4");
-        if (shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS) {
-          auto dims = shape.dim();
-          if (!dims.at(0).has_dim_value()) {
-            log_info(
-                "ValueInfoProto has params for Batch dimensions (not value):"
-                " and the param is: %s",
-                dims.at(0).dim_param().c_str());
-          }
-          std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
-            assert(val.has_dim_value() &&
-                   "Model could be missing shape information, consider running "
-                   "it through shape inference");
-          });
-          m_cp.ic = dims.at(1).dim_value();
-          m_cp.imap[0] = dims.at(2).dim_value();
-          m_cp.imap[1] = dims.at(3).dim_value();
-        }
-      }
+  if (!t.has_type()) {
+    return;
+  }
+  const onnx::TypeProto &type = t.type();
+  if (!type.has_tensor_type()) {
+    return;
+  }
+  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
+  if (!tensor.has_shape()) {
+    return;
+  }
+  const onnx::TensorShapeProto &shape = tensor.shape();
+  assert(shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS &&
+       "Value info expected conv dimensions to be 4");
+
+  if (shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS) {
+    auto dims = shape.dim();
+    if (!dims.at(0).has_dim_value()) {
+      log_info(
+          "ValueInfoProto has params for Batch dimensions (not value):"
+          " and the param is: %s",
+          dims.at(0).dim_param().c_str());
     }
+    std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
+      assert(val.has_dim_value() &&
+             "Model could be missing shape information, consider running "
+             "it through shape inference");
+    });
+    m_cp.ic = dims.at(1).dim_value();
+    m_cp.imap[0] = dims.at(2).dim_value();
+    m_cp.imap[1] = dims.at(3).dim_value();
   }
 }
 
@@ -123,30 +127,31 @@ void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
 }
 
 void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
-  /* TODO: REFACTOR: this can be cleaned up and turned into a generic function
-   */
-  if (t.has_type()) {
-    onnx::TypeProto type = t.type();
-    if (type.has_tensor_type()) {
-      onnx::TypeProto_Tensor tensor = type.tensor_type();
-      if (tensor.has_shape()) {
-        onnx::TensorShapeProto shape = tensor.shape();
+  if (!t.has_type()) {
+    return;
+  }
+  const onnx::TypeProto &type = t.type();
+    if (!type.has_tensor_type()) {
+      return;
+    }
+  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
+    if (!tensor.has_shape()) {
+      return;
+    }
+  const onnx::TensorShapeProto &shape = tensor.shape();
         assert(shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS &&
                "Value info expected conv dimensions to be 4");
-        if (shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS) {
-          auto dims = shape.dim();
-          if (!dims.at(0).has_dim_value()) {
-            log_info(
-                "ValueInfoProto has params for Batch dimensions (not value):"
-                " and the param is: %s",
-                dims.at(0).dim_param().c_str());
-          }
-          std::for_each(dims.begin() + 1, dims.end(),
-                        [](auto &val) { assert(val.has_dim_value()); });
-          m_cp.is = dims.at(1).dim_value();
-        }
-      }
+  if (shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS) {
+    auto dims = shape.dim();
+    if (!dims.at(0).has_dim_value()) {
+      log_info(
+          "ValueInfoProto has params for Batch dimensions (not value):"
+          " and the param is: %s",
+          dims.at(0).dim_param().c_str());
     }
+    std::for_each(dims.begin() + 1, dims.end(),
+                  [](auto &val) { assert(val.has_dim_value()); });
+    m_cp.is = dims.at(1).dim_value();
   }
 }
 
@@ -187,16 +192,16 @@ const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }
 
 const char *Op::Layer::Reshape::op_type() const { return m_optype; }
 
-
 const char *Op::Layer::DequantizeLinear::op_type() const { return m_optype; }
 
-const char *Op::Layer::DequantizeLinear::params() const { 
+const char *Op::Layer::DequantizeLinear::params() const {
   static char ret[64];
   sprintf(ret, "Scale: %f, Zero Point: %d", scale, zero_point);
   return ret;
 }
 
-void Op::Layer::DequantizeLinear::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::DequantizeLinear::set_initializer_params(
+    const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
     scale = t.float_data(0);
@@ -209,13 +214,14 @@ void Op::Layer::DequantizeLinear::set_initializer_params(const onnx::TensorProto
 
 const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
 
-const char *Op::Layer::QuantizeLinear::params() const { 
+const char *Op::Layer::QuantizeLinear::params() const {
   static char ret[64];
   sprintf(ret, "Scale: %f, Zero Point: %d", scale, zero_point);
   return ret;
 }
 
-void Op::Layer::QuantizeLinear::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::QuantizeLinear::set_initializer_params(
+    const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
     scale = t.float_data(0);
@@ -226,7 +232,9 @@ void Op::Layer::QuantizeLinear::set_initializer_params(const onnx::TensorProto &
   }
 }
 
-Op::Layer::QLinearMatMul::QLinearMatMul(GemmParams &cp) { std::memcpy(&m_cp, &cp, sizeof(cp)); }
+Op::Layer::QLinearMatMul::QLinearMatMul(GemmParams &cp) {
+  std::memcpy(&m_cp, &cp, sizeof(cp));
+}
 const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
 const char *Op::Layer::QLinearMatMul::params() const {
   static char ret[64];
@@ -234,12 +242,43 @@ const char *Op::Layer::QLinearMatMul::params() const {
   return ret;
 }
 
-void Op::Layer::QLinearMatMul::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::QLinearMatMul::set_initializer_params(
+    const onnx::TensorProto &t) {
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
     m_cp.wc = t.dims()[1];
     weights = &t;
-  } 
+  }
+}
+
+void Op::Layer::QLinearMatMul::set_value_info_params(
+    const onnx::ValueInfoProto &t) {
+  if (!t.has_type()) {
+    return;
+  }
+  const onnx::TypeProto &type = t.type();
+    if (!type.has_tensor_type()) {
+      return;
+    }
+  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
+    if (!tensor.has_shape()) {
+      return;
+    }
+  const onnx::TensorShapeProto &shape = tensor.shape();
+        assert(shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS &&
+               "Value info expected conv dimensions to be 4");
+  if (shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS) {
+    auto dims = shape.dim();
+    if (!dims.at(0).has_dim_value()) {
+      log_info(
+          "ValueInfoProto has params for Batch dimensions (not value):"
+          " and the param is: %s",
+          dims.at(0).dim_param().c_str());
+    }
+    std::for_each(dims.begin() + 1, dims.end(),
+                  [](auto &val) { assert(val.has_dim_value()); });
+    m_cp.is = dims.at(1).dim_value();
+  }
 }
 
 const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
@@ -734,7 +773,7 @@ Op::Parser::Parser(std::string const &filename) {
    * and needs special treatment
    */
   m_model.save_first_layer_input_dims(graph_inputs.at(0));
-  
+
   m_model.create_execution_order();
   m_model.update_registers();
 }
