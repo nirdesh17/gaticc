@@ -298,13 +298,20 @@ class Parser {
   google::protobuf::Arena arena;
   onnx::ModelProto *model_proto;
 
-public:
+  /* Integer representing the type of a model */
+  onnx::TensorProto_DataType model_type;
+
   void add_operator(onnx::NodeProto &node);
+  onnx::TensorProto_DataType
+  deduce_model_type(const onnx::GraphProto &graph) const;
+
+public:
   Parser(std::string const &filename);
   void summary(void) const;
   void bare_summary(void) const;
   long time_estimate(int M, int N, int K) const;
   std::vector<LayerBase *> get_execution_order(void) const;
+  onnx::TensorProto_DataType get_model_type(void) const;
   ~Parser();
 };
 

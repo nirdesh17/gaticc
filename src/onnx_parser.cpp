@@ -717,6 +717,30 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   }
 }
 
+onnx::TensorProto_DataType
+Op::Parser::deduce_model_type(const onnx::GraphProto &graph) const {
+  /* TODO: method of type deduction restricted to model that have atleast
+   * one conv/gemm layer, make it generic. Try to find a sure fire way to
+   * deduce an onnx model's type
+   */
+  auto order = this->get_execution_order();
+  for (Op::LayerBase *i : order) {
+    Op::Layer::Conv *cc;
+    Op::Layer::Gemm *gc;
+    if ((cc = dynamic_cast<Op::Layer::Conv *>(i)) != NULL) {
+      /* its a conv type, get the type of its initializer
+       * Cast valid, as TensorProto_DataType is int32_t and TensorProto::data_type()
+       * returns an int */
+      return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
+    }
+    else if ((gc = dynamic_cast<Op::Layer::Gemm *>(i)) != NULL) {
+      return static_cast<onnx::TensorProto_DataType>(gc->weights->data_type());
+    }
+  }
+  /* ideally shoudn't reach here */
+  log_fatal("Could not deduce model type");
+}
+
 Op::Parser::Parser(std::string const &filename) {
   loaded_model.open(filename, std::ios::in | std::ios::binary);
   if (loaded_model.fail()) {
@@ -776,6 +800,7 @@ Op::Parser::Parser(std::string const &filename) {
 
   m_model.create_execution_order();
   m_model.update_registers();
+  this->model_type = deduce_model_type(m_graph);
 }
 
 void Op::Parser::summary() const { m_model.summary(); }
@@ -786,6 +811,11 @@ long Op::Parser::time_estimate(int M, int N, int K) const {
 
 std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const {
   return m_model.get_execution_order();
+}
+
+
+onnx::TensorProto_DataType Op::Parser::get_model_type(void) const {
+  return model_type;
 }
 
 Op::Parser::~Parser() { loaded_model.close(); }
