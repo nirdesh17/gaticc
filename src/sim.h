@@ -3,6 +3,11 @@
 #include "onnx_parser.h"
 #include "tensor.h"
 #include "utils.h"
+#include "ffi.h"
+#ifndef PY_SSIZE_T_CLEAN
+#define PY_SSIZE_T_CLEAN
+#endif
+#include "Python.h"
 #include <algorithm>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -800,3 +805,25 @@ void SA<inputT, outputT>::print_array() {
   }
   std::cout << '\n';
 }
+
+
+class Executor {
+  template <typename inputT, typename outputT, typename intr_inputT, typename intr_outputT>
+  void execute(const Op::Parser &parser,
+                               const std::string &abs_img_path) {
+    std::vector<inputT> ifmap(224*224*3, 10);
+  }
+
+public:
+  Executor(const Op::Parser &parser, const std::string &img_path) {
+    onnx::TensorProto_DataType weight_type = parser.get_model_weight_type();
+    onnx::TensorProto_DataType input_type = parser.get_model_input_type();
+    onnx::TensorProto_DataType output_type = parser.get_model_output_type();
+
+    if (weight_type == onnx::TensorProto_DataType_INT8) {
+      execute<float, float, int8_t, int32_t>(parser, img_path);
+    } else if (weight_type == onnx::TensorProto_DataType_FLOAT) {
+      execute<float, float, float, float>(parser, img_path);
+    }
+  }
+};
