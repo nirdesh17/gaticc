@@ -2,6 +2,9 @@
 #include <numeric>
 
 #include "ffi.h"
+#ifndef PY_SSIZE_T_CLEAN
+#define PY_SSIZE_T_CLEAN
+#endif
 #include "Python.h"
 #include "onnx_parser.h"
 #include "sim.h"
@@ -22,6 +25,8 @@ int main(int argc, char *argv[]) {
   if (gbl_args.has_option("onnx")) {
     std::string s = gbl_args["onnx"].as<std::string>();
     Op::Parser parser(s);
+    std::string img_path("images/dog.jpg");
+    Executor e(parser, img_path);
     if (gbl_args.has_option("timeest")) {
       std::string arch_list = gbl_args["timeest"].as<std::string>();
       std::vector<int> mnk = parse_csv_string(arch_list);

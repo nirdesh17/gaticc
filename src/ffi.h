@@ -1,9 +1,10 @@
 #pragma once
 
 /* From libpython */
+#ifndef PY_SSIZE_T_CLEAN
+#define PY_SSIZE_T_CLEAN
 #include "Python.h"
-#include "tupleobject.h"
-#include "floatobject.h"
+#endif
 
 #include "utils.h"
 #include <filesystem>
@@ -56,6 +57,7 @@ template <typename T> std::vector<T> il2iv(PyObject *list) {
     log_fatal("Input not a list");
   }
   std::vector<T> vec;
+
   for (Py_ssize_t i = 0; i < PyList_Size(list); ++i) {
     PyObject *item = PyList_GetItem(list, i);
     py_fatal_err_check(item, "PyList_GetItem");
@@ -64,10 +66,7 @@ template <typename T> std::vector<T> il2iv(PyObject *list) {
 
     if (is_int_like<T>(value)) {
       if (!PyLong_Check(item)) {
-        /* Python list are heterogeneous, can contain different
-         * types of objects
-         */
-        continue;
+        log_fatal("heterogenous types");
       }
       value = PyLong_AsLong(item);
       if (value == -1 && PyErr_Occurred()) {
@@ -75,12 +74,10 @@ template <typename T> std::vector<T> il2iv(PyObject *list) {
       }
     } else if (is_float_like<T>(value)) {
       if (!PyFloat_Check(item)) {
-        /* Python list are heterogeneous, can contain different
-         * types of objects
-         */
+        log_fatal("heterogenous types");
         continue;
       }
-      value = (T) PyFloat_AsDouble(item);
+      value = static_cast<T>(PyFloat_AsDouble(item));
       if (value == -1.0 && PyErr_Occurred()) {
         log_fatal("Unable to extract float from obj");
       }
@@ -139,6 +136,7 @@ template <typename T> std::vector<T> il2iv(PyObject *list) {
     PyObject *flattened_list = call_func("nparr2l", args);
     py_fatal_rv_check(flattened_list, "nparr2l");
     std::vector<T> ret = il2iv<T>(flattened_list);
+
 
     Py_XDECREF(args);
     Py_XDECREF(flattened_list);

@@ -1,3 +1,6 @@
+#ifndef PY_SSIZE_T_CLEAN
+#define PY_SSIZE_T_CLEAN
+#endif
 #include "Python.h"
 #include "ffi.h"
 #include <cstdlib>
@@ -48,6 +51,17 @@ void py_list_print(PyObject *list) {
 
 PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) {
   /* No-op when called for the second-time */
+  //PyConfig config;
+  //PyConfig_InitPythonConfig(&config);
+
+  ////PyConfig_SetBytesString(&config, &config.home, "/home/metal/dev/misc/python/bin");
+  //PyStatus status = Py_InitializeFromConfig(&config);
+  //if (PyStatus_Exception(status)) {
+  //
+  //  Py_ExitStatusException(status);
+  //  log_fatal("Could not initialize");
+  //}
+
   Py_Initialize();
   PyObject *sys = PyImport_ImportModule("sys");
   PyObject *path = PyObject_GetAttrString(sys, "path");
@@ -56,6 +70,13 @@ PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) 
     log_err("PyList_Append");
     exit(EXIT_FAILURE);
   }
+
+#if 0
+  if (PyList_Append(path, PyUnicode_FromString("/home/metal/dev/onnx/lib/python3.11/site-packages")) == -1) {
+    log_err("PyList_Append");
+    exit(EXIT_FAILURE);
+  }
+#endif
   this->mod = PyImport_Import(PyUnicode_FromString(mod_name.c_str()));
   py_fatal_err_check(mod, "PyImport_Import");
   Py_XDECREF(sys);

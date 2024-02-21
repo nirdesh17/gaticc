@@ -179,6 +179,7 @@ inline void print_vec_point(const char *s, std::vector<Point> const &v) {
   std::cout << '\n';
 }
 
+/* TODO: use type_traits here */
 /* Check if v belongs to the signed int family */
 template <typename T> inline bool is_int_like(T v) {
   return typeid(v) == typeid(int) || typeid(v) == typeid(int8_t) ||
