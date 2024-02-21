@@ -718,7 +718,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
 }
 
 onnx::TensorProto_DataType
-Op::Parser::deduce_model_type(const onnx::GraphProto &graph) const {
+Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
   /* TODO: method of type deduction restricted to model that have atleast
    * one conv/gemm layer, make it generic. Try to find a sure fire way to
    * deduce an onnx model's type
@@ -739,6 +739,33 @@ Op::Parser::deduce_model_type(const onnx::GraphProto &graph) const {
   }
   /* ideally shoudn't reach here */
   log_fatal("Could not deduce model type");
+  return static_cast<onnx::TensorProto_DataType>(0);
+}
+
+onnx::TensorProto_DataType
+Op::Parser::deduce_model_input_type(const onnx::GraphProto &graph) const {
+  // i is a RepeatedFieldPtr<ValueInfoProto> 
+  const auto& i = graph.input();
+  if (i.size() < 1) {
+    log_fatal("graph has no inputs");
+  }
+  if (!i.at(0).has_type()) {
+    log_fatal("graph input's valueinfoproto does not have a data type");
+  }
+  const onnx::TypeProto &type = i.at(0).type();
+  if (!type.has_tensor_type()) {
+    log_fatal("input to the graph is not a a TensorType");
+  }
+  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
+  if (!tensor.has_elem_type()) {
+    log_fatal("tensor for graph's input does not have a elem_type");
+  }
+  return static_cast<onnx::TensorProto_DataType>(i.at(0).type().tensor_type().elem_type());
+}
+
+onnx::TensorProto_DataType
+Op::Parser::deduce_model_output_type(const onnx::GraphProto &graph) const {
+  return static_cast<onnx::TensorProto_DataType>(0);
 }
 
 Op::Parser::Parser(std::string const &filename) {
@@ -800,7 +827,9 @@ Op::Parser::Parser(std::string const &filename) {
 
   m_model.create_execution_order();
   m_model.update_registers();
-  this->model_type = deduce_model_type(m_graph);
+  this->model_weight_type = deduce_model_weight_type(m_graph);
+  this->model_input_type = deduce_model_input_type(m_graph);
+  this->model_output_type = deduce_model_output_type(m_graph);
 }
 
 void Op::Parser::summary() const { m_model.summary(); }
@@ -814,8 +843,30 @@ std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const {
 }
 
 
-onnx::TensorProto_DataType Op::Parser::get_model_type(void) const {
-  return model_type;
+onnx::TensorProto_DataType Op::Parser::get_model_weight_type(void) const {
+  return model_weight_type;
+}
+
+onnx::TensorProto_DataType Op::Parser::get_model_input_type(void) const {
+  return model_input_type;
+}
+
+onnx::TensorProto_DataType Op::Parser::get_model_output_type(void) const {
+  return model_output_type;
+}
+
+/* get the maximum register that was ever used in the
+ * model 
+ */
+int Op::Parser::get_total_registers(void) const {
+  std::vector<Op::LayerBase*> order = get_execution_order();
+
+  int max = 0;
+  for (Op::LayerBase *l : order) {
+    max = std::max(max, *std::max_element(l->inputs.begin(), l->inputs.end()));
+    max = std::max(max, *std::max_element(l->outputs.begin(), l->outputs.end()));
+  }
+  return max;
 }
 
 Op::Parser::~Parser() { loaded_model.close(); }

@@ -299,11 +299,18 @@ class Parser {
   onnx::ModelProto *model_proto;
 
   /* Integer representing the type of a model */
-  onnx::TensorProto_DataType model_type;
+  onnx::TensorProto_DataType model_weight_type;
+  onnx::TensorProto_DataType model_input_type;
+  onnx::TensorProto_DataType model_output_type;
 
   void add_operator(onnx::NodeProto &node);
   onnx::TensorProto_DataType
-  deduce_model_type(const onnx::GraphProto &graph) const;
+  deduce_model_weight_type(const onnx::GraphProto &graph) const;
+  onnx::TensorProto_DataType
+  deduce_model_input_type(const onnx::GraphProto &graph) const;
+  onnx::TensorProto_DataType
+  deduce_model_output_type(const onnx::GraphProto &graph) const;
+
 
 public:
   Parser(std::string const &filename);
@@ -311,7 +318,10 @@ public:
   void bare_summary(void) const;
   long time_estimate(int M, int N, int K) const;
   std::vector<LayerBase *> get_execution_order(void) const;
-  onnx::TensorProto_DataType get_model_type(void) const;
+  onnx::TensorProto_DataType get_model_weight_type(void) const;
+  onnx::TensorProto_DataType get_model_input_type(void) const;
+  onnx::TensorProto_DataType get_model_output_type(void) const;
+  int get_total_registers(void) const;
   ~Parser();
 };
 
