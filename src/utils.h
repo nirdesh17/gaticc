@@ -40,6 +40,12 @@ inline void log_info_func(const char *file, int line, const char *func,
   fprintf(stderr, "\n");
 }
 
+struct SaDims {
+  int rows;
+  int cols;
+  int num;
+};
+
 /* Wrapper over argagg library */
 class Argparse {
   const char *usage = "Usage: sysim [OPTIONS]\n";
@@ -142,6 +148,30 @@ public:
     std::cout << '\n';
   }
 };
+
+/* convert v into 2d array (Mat) of dims (rows,column) */
+template <typename T> Mat<T> v2mat(std::vector<T> &v, int rows, int columns) {
+  Mat<T> m;
+  for (int i = 0; i < rows; ++i) {
+    std::vector<T> vv;
+    for (int j = 0; j < columns; ++j) {
+      vv.push_back(v.at(i * columns + j));
+    }
+    m.push_back(vv);
+  }
+  return m;
+}
+
+template <typename T>
+std::vector<T> mat2v(Mat<T> const &m, int rows, int columns) {
+  std::vector<T> v;
+  for (int i = 0; i < m.size(); i++) {
+    for (int j = 0; j < m.at(0).size(); j++) {
+      v.push_back(m.at(i, j));
+    }
+  }
+  return v;
+}
 
 template <typename T>
 void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {

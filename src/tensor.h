@@ -7,7 +7,7 @@
 
 template <typename T> class Tensor {
 public:
-  Tensor(){};
+  Tensor() {} 
   virtual T at(std::vector<int> &at) { return -1; }
   virtual int dims_size() { return 0; }
   virtual int dims_at(int index) { return index; }

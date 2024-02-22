@@ -1,9 +1,9 @@
 #pragma once
 
+#include "ffi.h"
 #include "onnx_parser.h"
 #include "tensor.h"
 #include "utils.h"
-#include "ffi.h"
 #ifndef PY_SSIZE_T_CLEAN
 #define PY_SSIZE_T_CLEAN
 #endif
@@ -13,6 +13,7 @@
 #include <boost/graph/graph_traits.hpp>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <iostream>
 #include <iterator>
@@ -165,30 +166,6 @@ public:
   void incr_cycles(int count);
   uint64_t get_cycles();
 };
-
-/* convert v into 2d array (Mat) of dims (rows,column) */
-template <typename T> Mat<T> v2mat(std::vector<T> &v, int rows, int columns) {
-  Mat<T> m;
-  for (int i = 0; i < rows; ++i) {
-    std::vector<T> vv;
-    for (int j = 0; j < columns; ++j) {
-      vv.push_back(v.at(i * columns + j));
-    }
-    m.push_back(vv);
-  }
-  return m;
-}
-
-template <typename T>
-std::vector<T> mat2v(Mat<T> const &m, int rows, int columns) {
-  std::vector<T> v;
-  for (int i = 0; i < m.size(); i++) {
-    for (int j = 0; j < m.at(0).size(); j++) {
-      v.push_back(m.at(i, j));
-    }
-  }
-  return v;
-}
 
 template <typename T> Mat<T> Padder(Mat<T> &input, int padding) {
   Mat<T> new_mat;
@@ -393,11 +370,6 @@ using Neighbours =
               typename PE_Graph::Adjacency_iterator<inputT, outputT>>;
 } // namespace PE_Graph
 
-struct SaDims {
-  int rows;
-  int cols;
-  int num;
-};
 
 template <typename inputT, typename outputT> class SA {
 private:
@@ -475,7 +447,7 @@ void exchange_queues(std::queue<T> &dest, std::queue<T> &src) {
 template <typename inputT, typename outputT>
 void SA<inputT, outputT>::propagate(Mat<inputT> const &input_mat,
                                     Chain &chain) {
-  /* Special handling for SA of size (m, 1) 
+  /* Special handling for SA of size (m, 1)
    * The general case, following this code can handle this special case
    * but as sasa.h implements its algorithms with (m,1) SAs, specially
    * handling this case trivially, without any queues and bookeeping
@@ -504,7 +476,7 @@ void SA<inputT, outputT>::propagate(Mat<inputT> const &input_mat,
       exec_queue.pop();
       _propagate(v, chain);
     }
-    //print_array();
+    // print_array();
     exchange_queues<PE_Graph::Vertex<inputT, outputT>>(exec_queue, alt_queue);
     if (profile_enabled) {
       profiler.incr_cycles(1);
@@ -595,7 +567,7 @@ void SA<inputT, outputT>::push_to_output_array(int h, outputT t1) {
   } else if (output_array_counts.at(h) >= (rows - 2 + h)
              //&& output_array_counts.at(h) < (rows+rows-2+h)
   ) {
-      output_array.at(h).push_back(t1);
+    output_array.at(h).push_back(t1);
   }
   output_array_counts.at(h) += 1;
 }
@@ -791,7 +763,8 @@ template <typename inputT, typename outputT>
 void SA<inputT, outputT>::print_array() {
   for (int i = 0; i < rows; ++i) {
     for (int j = 0; j < columns; ++j) {
-      std::cout << get_pe_from_vertex(vertarray[i * columns + j]).get_weight() << '\t';
+      std::cout << get_pe_from_vertex(vertarray[i * columns + j]).get_weight()
+                << '\t';
 #if 0
             printf("%d\t%d\t|\t", get_pe_from_vertex(vertarray[i*columns+j]).get_reg(),
                     get_pe_from_vertex(vertarray[i*columns+j]).get_ps_buffer());
@@ -805,25 +778,3 @@ void SA<inputT, outputT>::print_array() {
   }
   std::cout << '\n';
 }
-
-
-class Executor {
-  template <typename inputT, typename outputT, typename intr_inputT, typename intr_outputT>
-  void execute(const Op::Parser &parser,
-                               const std::string &abs_img_path) {
-    std::vector<inputT> ifmap(224*224*3, 10);
-  }
-
-public:
-  Executor(const Op::Parser &parser, const std::string &img_path) {
-    onnx::TensorProto_DataType weight_type = parser.get_model_weight_type();
-    onnx::TensorProto_DataType input_type = parser.get_model_input_type();
-    onnx::TensorProto_DataType output_type = parser.get_model_output_type();
-
-    if (weight_type == onnx::TensorProto_DataType_INT8) {
-      execute<float, float, int8_t, int32_t>(parser, img_path);
-    } else if (weight_type == onnx::TensorProto_DataType_FLOAT) {
-      execute<float, float, float, float>(parser, img_path);
-    }
-  }
-};

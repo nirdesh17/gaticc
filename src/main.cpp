@@ -10,6 +10,7 @@
 #include "sim.h"
 #include "transformers.h"
 #include "utils.h"
+#include "sasa.h"
 
 /* instance of the gbl_args extern declaration in utils.h */
 Argparse gbl_args;

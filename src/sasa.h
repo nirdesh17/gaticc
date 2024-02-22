@@ -136,7 +136,6 @@ void SASA<inputT, outputT>::master(Tensor<inputT> &input_tensor,
   // channel pointers -> kernel pointers (0-7)
   // linear upto c0k7
   std::vector<Mat<outputT>> vec(conv_1.m_cp.ic);
-
   for (int k = 0; k < sa_channel_reloader;
        k++, decrement_channel_count(channel_count, sa_channels)) {
     for (int i = 0; i < sa_kernel_reloader; i++) {
@@ -254,3 +253,110 @@ SASA<inputT, outputT>::SASA(int sa_channel_rows, int sa_channel_columns,
                             int sa_channels, Op::Layer::Conv conv_1)
     : sa_channel_rows{sa_channel_rows}, sa_channel_columns{sa_channel_columns},
       sa_channels{sa_channels}, conv_1{conv_1} {}
+
+#if 0
+vgg16 int
+conv
+gemm
+bias
+quantization
+maxpool
+#endif
+
+/* TypelessData is a wrapper over a simple void pointer that carries
+ * type information along with the data. This is used by the executor
+ * to create a vector of heterogeneous data types (think a dynamically
+ * sized struct aggregate). This heterogeneous vector in-turn is used
+ * to execute layers which make take inputs of one type and output
+ * inputs of another. The Tensors that make the input and output
+ * cannot be stored in a vector directly, hence the need for this
+ * in-direction.
+ *
+ * Users (in this case run_* functions) of TypelessData re-cast data pointer
+ * into appropriate types (as they already know what type of data they
+ * expect, and out put). Extra type information helps especially when
+ * freeing the underlying *data as freeing a void* is an undefined
+ * behaviour.
+ */
+struct TypelessData {
+  void *data;
+  const std::type_info *typeinf;
+  void free();
+  template <typename T> void init(void *p) {
+    data = p;
+    typeinf = &typeid(T);
+  }
+};
+
+/* Executor iterates over layers one by one, executing each one of them */
+class Executor {
+  /* A pool of heterogenously typed vectors corresponding to
+   * `VirtualAddress` registers
+   */
+  std::vector<TypelessData> tensor_pool;
+
+  template <typename inputT, typename outputT>
+  void run_conv(Op::Layer::Conv *cc) {
+    if (tensor_pool.at(cc->outputs.at(0)).data != nullptr) {
+      tensor_pool.at(cc->outputs.at(0)).free();
+      tensor_pool.at(cc->outputs.at(0)).data = nullptr;
+    }
+    void *input_ptr = tensor_pool.at(cc->inputs.at(0)).data;
+    Tensor<inputT> *input = (Tensor<inputT> *)input_ptr;
+
+    std::vector<int> ofmap_dims {cc->m_cp.kn, sa_odims_row(cc->m_cp), sa_odims_cols(cc->m_cp)};
+    Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
+    void *output_ptr = (void *) output;
+    tensor_pool.at(cc->outputs.at(0)).init<outputT>(output_ptr);
+
+    /* TODO: get architecture size from gbl_args */
+    SASA<inputT, outputT> sasa(9, 16, 16, *cc);
+
+
+    sasa.master(*input, *output);
+    std::vector<outputT> vv = output->get();
+    std::cout << vv.size() << '\n';
+  }
+
+  /* inputT: input type of the entire model
+   * outputT: output type of the entire model
+   * intr_inputT: input type used internally by conv, gemm etc.
+   * intr_outputT: output type used internally by conv, gemm etc.
+   */
+  template <typename inputT, typename outputT, typename intr_inputT,
+            typename intr_outputT>
+  void execute(const Op::Parser &parser, const std::string &abs_img_path) {
+    Tensor<inputT> *inp = read_img<inputT>(abs_img_path);
+    /* TODO: 0 is hardcoded here */
+    tensor_pool.at(1).init<inputT>((void *) inp);
+
+
+    std::vector<Op::LayerBase *> order = parser.get_execution_order();
+    for (Op::LayerBase *l : order) {
+      if (dynamic_cast<Op::Layer::Conv *>(l)) {
+        Op::Layer::Conv *cc = dynamic_cast<Op::Layer::Conv *>(l);
+        run_conv<intr_inputT, intr_outputT>(cc);
+        break;
+      } else if (dynamic_cast<Op::Layer::QLinearMatMul *>(l) ||
+                 dynamic_cast<Op::Layer::Gemm *>(l)) {
+      }
+    }
+  }
+
+  template <typename T> Tensor<T> *read_img(const std::string &img_path) {
+    std::filesystem::path mod_path("src/");
+    PyEngine engine("ml_inference", mod_path);
+    PyObject *preprocess_args = Py_BuildValue("(s)", img_path.c_str());
+    PyObject *ifmap = engine.call_func("preprocess", preprocess_args);
+    std::vector<int> dims;
+    /* TODO: reduce this 2-level indirection, implement a np2iv overload
+     * to return Tensor directly
+     */
+    std::vector<T> ifmapv = engine.np2iv<T>(ifmap, dims);
+    Tensor<T> *ret = new TensorCreate<T>(ifmapv, dims);
+    return ret;
+  }
+
+public:
+  Executor(const Op::Parser &parser, const std::string &img_path);
+};

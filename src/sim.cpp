@@ -188,3 +188,4 @@ int BatchNorm::exec(int x) { return (gamma * ((x - mean) / sd)) + beta; }
 int Bias::exec(int x) {
   return x + bias; // element wise addition
 }
+
