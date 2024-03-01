@@ -438,8 +438,6 @@ void Op::print_node(Op::Vertex v, const Op::Graph *g) {
   }
   std::cout << ")\n";
 
-  std::cout << "Input Type " << node->input_type << '\n';
-  std::cout << "Output Type " << node->output_type << '\n';
   std::cout << '\n';
 }
 
@@ -457,6 +455,79 @@ void Op::print_node(const LayerBase *node) {
     std::cout << i << ' ';
   }
   std::cout << '\n';
+  std::cout << "Input Type: " << Op::get_tensorproto_dtype_name(node->input_type) << '\n';
+  std::cout << "Output Type: " << Op::get_tensorproto_dtype_name(node->output_type) << '\n';
+}
+
+const char* Op::get_tensorproto_dtype_name(onnx::TensorProto_DataType type) {
+  switch (type) {
+    case 0:
+      return "UNDEFINED";
+      break;
+    case 1:
+      return "FLOAT";
+      break;
+    case 2:
+      return "UINT8";
+      break;
+    case 3:
+      return "INT8";
+      break;
+    case 4:
+      return "UINT16";
+      break;
+    case 5:
+      return "INT16";
+      break;
+    case 6:
+      return "INT32";
+      break;
+    case 7:
+      return "INT64";
+      break;
+    case 8:
+      return "STRING";
+      break;
+    case 9:
+      return "BOOL";
+      break;
+    case 10:
+      return "FLOAT16";
+      break;
+    case 11:
+      return "DOUBLE";
+      break;
+    case 12:
+      return "UINT32";
+      break;
+    case 13:
+      return "UINT64";
+      break;
+    case 14:
+      return "COMPLEX64";
+      break;
+    case 15:
+      return "COMPLEX128";
+      break;
+    case 16:
+      return "BFLOAT16";
+      break;
+    case 17:
+      return "FLOAT8E4M3FN";
+      break;
+    case 18:
+      return "FLOAT8E4M3FNUZ";
+      break;
+    case 19:
+      return "FLOAT8E5M2";
+      break;
+    case 20:
+      return "FLOAT8E5M2FNUZ";
+      break;
+    default:
+      return "UNKNOWN";
+      break;
+  }
 }
 
 #define sa_odims(i, k, s, p) ((i - k + 2 * p) / s)
@@ -599,7 +670,7 @@ void Op::Model::set_output_type(const onnx::NodeProto &node, Op::LayerBase *l) {
     }
 }
 
-onnx::TensorProto_DataType Op::Model::get_type_from_value_info(const onnx::ValueInfoProto &v) {
+onnx::TensorProto_DataType Op::get_type_from_value_info(const onnx::ValueInfoProto &v) {
   if (!v.has_type()) {
     /* TODO: bug, last node's types are not being deduced */
     log_info("graph input's valueinfoproto named \"%s\" does not have a data type", v.name().c_str());

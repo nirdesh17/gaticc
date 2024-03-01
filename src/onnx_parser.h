@@ -238,6 +238,8 @@ bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g);
 void print_node(const LayerBase *node);
 void print_node(Op::Vertex v, const Op::Graph *g);
 Vertex get_root_node(const Op::Graph *g);
+const char* get_tensorproto_dtype_name(onnx::TensorProto_DataType type);
+onnx::TensorProto_DataType get_type_from_value_info(const onnx::ValueInfoProto &v);
 
 class Model {
   Op::Graph g;
@@ -257,7 +259,6 @@ class Model {
   bool is_graph_output(const std::string &s) const;
   bool is_initializer(const std::string &s) const;
 
-  onnx::TensorProto_DataType get_type_from_value_info(const onnx::ValueInfoProto &v);
   void set_input_type(const onnx::NodeProto &node, Op::LayerBase *l);
   void set_output_type(const onnx::NodeProto &node, Op::LayerBase *l);
 
