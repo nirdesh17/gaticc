@@ -318,6 +318,7 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   name_vertex_map.insert({node.name(), v});
 
   for (auto i : node.input()) {
+    // TODO: remove this 
     if (!is_initializer(i)) {
       // this is a non-weighted input (i.e. its values
       // are not pre-computed
@@ -376,7 +377,6 @@ void Op::Model::connect(onnx::NodeProto &node) {
   } else {
     log_fatal("Coudn't find node %s in name_vertex_map", node.name().c_str());
   }
-
   for (auto i : node.input()) {
     /* for inputs that are not initializers or inputs to the
      * graph, connect them to the current node
@@ -397,7 +397,7 @@ void Op::Model::save_initializers(const onnx::TensorProto &t) {
   initializer_map.insert({t.name(), t});
 }
 
-void Op::Model::save_graph_outputs(onnx::ValueInfoProto &t) {
+void Op::Model::save_graph_outputs(const onnx::ValueInfoProto &t) {
   graph_output_map.insert({t.name(), t});
 }
 
@@ -405,7 +405,7 @@ void Op::Model::save_graph_inputs(const onnx::ValueInfoProto &t) {
   graph_input_map.insert({t.name(), t});
 }
 
-void Op::Model::save_value_info(onnx::ValueInfoProto &t) {
+void Op::Model::save_value_info(const onnx::ValueInfoProto &t) {
   value_info_map.insert({t.name(), t});
 }
 
@@ -437,6 +437,9 @@ void Op::print_node(Op::Vertex v, const Op::Graph *g) {
     std::cout << (*g)[source_vertex]->name << ", ";
   }
   std::cout << ")\n";
+
+  std::cout << "Input Type " << node->input_type << '\n';
+  std::cout << "Output Type " << node->output_type << '\n';
   std::cout << '\n';
 }
 
@@ -503,6 +506,9 @@ long Op::Model::time_estimate(int M, int N, int K) const {
       cycles += t;
       std::cout << "Time: " << (float)t / 1e5 << "ms\n";
       Op::print_node(*itr, &g);
+    } else if (node->op_type() == "Add") {
+      Op::Layer::Add *add_node = (Op::Layer::Add *) node;
+      std::cout << add_node->params() << '\n';
     }
   }
   std::cout << "Total Estimated time for convolutions: " << (float)cycles / 1e5
@@ -542,6 +548,74 @@ void Op::Model::create_execution_order(void) {
 }
 
 void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
+
+void Op::Model::deduce_types(const onnx::GraphProto &gproto) {
+  /* Iterate over all nodes, search for input and output
+   * nodes that are not initializers, store their types
+   * in LayerBase->*_type  */
+  for (const auto &i : gproto.node()) {
+    auto itr = name_vertex_map.find(i.name());
+    Op::LayerBase *l = g[itr->second];
+    set_input_type(i, l);
+    set_output_type(i, l);
+    assert(l->input_type != onnx::TensorProto_DataType_UNDEFINED && "Input type cannot be Undefined");
+    //assert(l->output_type != onnx::TensorProto_DataType_UNDEFINED && "Output type cannot be Undefined");
+  }
+}
+
+void Op::Model::set_input_type(const onnx::NodeProto &node, Op::LayerBase *l) {
+    /* Update LayerBase->input_type for inputs of a node */
+    for (const auto &input : node.input()) {
+      /* If a node is found in value_info_map, it is likely
+       * not an initializer
+       */
+      auto vitr = value_info_map.find(input);
+      if (vitr != value_info_map.end()) {
+        l->input_type = get_type_from_value_info(vitr->second);
+        break;
+      }
+      /* Same, if is found in graph_input/graph_output map */
+      auto gi_itr = graph_input_map.find(input);
+      if (gi_itr != graph_input_map.end()) {
+        l->input_type = get_type_from_value_info(gi_itr->second);
+        break;
+      }
+    }
+}
+
+void Op::Model::set_output_type(const onnx::NodeProto &node, Op::LayerBase *l) {
+    /* Update types for outputs of a node */
+    for (const auto &output : node.output()) {
+      auto vitr = value_info_map.find(output);
+      if (vitr != value_info_map.end()) {
+        l->output_type = get_type_from_value_info(vitr->second);
+        break;
+      }
+      const auto go_itr = graph_output_map.find(output);
+      if (go_itr != graph_output_map.end()) {
+        l->output_type = get_type_from_value_info(go_itr->second);
+        break;
+      }
+    }
+}
+
+onnx::TensorProto_DataType Op::Model::get_type_from_value_info(const onnx::ValueInfoProto &v) {
+  if (!v.has_type()) {
+    /* TODO: bug, last node's types are not being deduced */
+    log_info("graph input's valueinfoproto named \"%s\" does not have a data type", v.name().c_str());
+    return onnx::TensorProto_DataType_UNDEFINED;
+  }
+  const onnx::TypeProto &type = v.type();
+  if (!type.has_tensor_type()) {
+    log_fatal("input to the graph is not a a TensorType");
+  }
+  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
+  if (!tensor.has_elem_type()) {
+    log_fatal("tensor for graph's input does not have a elem_type");
+  }
+  return static_cast<onnx::TensorProto_DataType>(tensor.elem_type());
+}
+
 
 std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return execution_order;
@@ -742,6 +816,7 @@ Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
   return static_cast<onnx::TensorProto_DataType>(0);
 }
 
+
 onnx::TensorProto_DataType
 Op::Parser::deduce_model_input_type(const onnx::GraphProto &graph) const {
   // i is a RepeatedFieldPtr<ValueInfoProto> 
@@ -827,9 +902,12 @@ Op::Parser::Parser(std::string const &filename) {
 
   m_model.create_execution_order();
   m_model.update_registers();
+
   this->model_weight_type = deduce_model_weight_type(m_graph);
   this->model_input_type = deduce_model_input_type(m_graph);
   this->model_output_type = deduce_model_output_type(m_graph);
+
+  m_model.deduce_types(m_graph);
 }
 
 void Op::Parser::summary() const { m_model.summary(); }

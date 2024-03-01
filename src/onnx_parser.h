@@ -81,6 +81,12 @@ struct LayerBase {
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
+
+  /* Assertion: A node may have many inputs/outputs but all of the
+   * same type
+   */
+  onnx::TensorProto_DataType input_type;
+  onnx::TensorProto_DataType output_type;
 };
 
 namespace Layer {
@@ -239,8 +245,8 @@ class Model {
   std::map<std::string, Op::Vertex> name_vertex_map;
   std::map<std::string, Op::Vertex> output_map;
   std::map<std::string, const onnx::TensorProto &> initializer_map;
-  std::map<std::string, onnx::ValueInfoProto &> value_info_map;
-  std::map<std::string, onnx::ValueInfoProto &> graph_output_map;
+  std::map<std::string, const onnx::ValueInfoProto &> value_info_map;
+  std::map<std::string, const onnx::ValueInfoProto &> graph_output_map;
   std::map<std::string, const onnx::ValueInfoProto &> graph_input_map;
   /* All 'Constants' in the onnx model are looked up using this table */
   std::map<std::string, onnx::NodeProto &> constant_pool;
@@ -251,16 +257,20 @@ class Model {
   bool is_graph_output(const std::string &s) const;
   bool is_initializer(const std::string &s) const;
 
+  onnx::TensorProto_DataType get_type_from_value_info(const onnx::ValueInfoProto &v);
+  void set_input_type(const onnx::NodeProto &node, Op::LayerBase *l);
+  void set_output_type(const onnx::NodeProto &node, Op::LayerBase *l);
+
   Op::Neighbours get_neighbouring_vertices(Op::Vertex v) const;
 
 public:
   void create_execution_order(void);
   void update_registers(void);
-  void infer_shapes(void);
+  void deduce_types(const onnx::GraphProto &gproto);
 
   void save_graph_inputs(const onnx::ValueInfoProto &t);
-  void save_graph_outputs(onnx::ValueInfoProto &t);
-  void save_value_info(onnx::ValueInfoProto &t);
+  void save_graph_outputs(const onnx::ValueInfoProto &t);
+  void save_value_info(const onnx::ValueInfoProto &t);
   void save_initializers(const onnx::TensorProto &t);
 
   void add(LayerBase *layer, onnx::NodeProto &node);
@@ -290,6 +300,7 @@ public:
   void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
   void extract_maxpool_attr(onnx::NodeProto &node, MaxpoolParams &params);
   void extract_clip_params(onnx::NodeProto &node, ClipParams &params);
+
 };
 
 class Parser {
@@ -339,5 +350,10 @@ class RegisterAllocator {
 public:
   RegisterAllocator(Op::Graph g);
 };
+
+template <typename T>
+bool isa(Op::LayerBase *l) {
+  return dynamic_cast<T>(l) ? true : false;
+}
 
 } // namespace Op
