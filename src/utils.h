@@ -1,8 +1,10 @@
 #pragma once
 
-#include "onnx_parser.h"
+#include <any>
+#include <chrono>
 #include <cmath>
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -89,7 +91,6 @@ public:
   }
 
   void print_usage() const { std::cerr << usage << argparser; }
-
 };
 
 /* This is globally available for all functions. Alternatively,
@@ -267,17 +268,7 @@ bool generate_report(const char *test_name, std::vector<expectedT> &expected,
 
 // void print_vec_point(const char *s, std::vector<Point> const &v);
 
-inline int sa_odims_row(Op::ConvParams const &cp) {
-  // o = ((iw - kw + 2p) / s) + 1
-  return ((cp.imap[0] - cp.k[0] + cp.pad[0] + cp.pad[2]) / cp.stride[0]) + 1;
-}
-
-inline int sa_odims_cols(Op::ConvParams const &cp) {
-  return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
-}
-
-template <typename T = std::chrono::seconds>
-class Timer {
+template <typename T = std::chrono::seconds> class Timer {
   using Tp = std::chrono::time_point<std::chrono::high_resolution_clock>;
   Tp m_start;
   Tp m_stop;
@@ -286,9 +277,7 @@ public:
   void start() { m_start = std::chrono::high_resolution_clock::now(); }
   void stop() { m_stop = std::chrono::high_resolution_clock::now(); }
 
-  T difference() {
-    return std::chrono::duration_cast<T>(m_stop - m_start);
-  }
+  T difference() { return std::chrono::duration_cast<T>(m_stop - m_start); }
   void report(std::string msg) {
     std::cout << msg << difference().count() << '\n';
   }
@@ -337,7 +326,7 @@ public:
 };
 
 /* Parse a csv string made of integers of the form:
- * "9, 8, 8" and return a vector 
+ * "9, 8, 8" and return a vector
  */
 inline std::vector<int> parse_csv_string(std::string &s) {
   std::vector<int> result;
@@ -348,4 +337,22 @@ inline std::vector<int> parse_csv_string(std::string &s) {
     result.push_back(std::stoi(token));
   }
   return result;
+}
+
+class TensorPool {
+  std::vector<std::any> pool;
+
+public:
+  template <typename T> void set(int index, T data);
+  template <typename T> T get(int index);
+  void free(int index);
+  bool has_value(int index);
+  void resize(int size);
+};
+
+template <typename T> void TensorPool::set(int index, T data) { pool.at(index) = data; }
+
+template <typename T> T TensorPool::get(int index) {
+  assert(pool.at(index).has_value() && "pool at index does not have a value");
+  return std::any_cast<T>(pool.at(index));
 }

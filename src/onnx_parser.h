@@ -12,6 +12,7 @@
 #include <google/protobuf/arena.h>
 
 #include "onnx.pb.h"
+#include "utils.h"
 
 /* Onnx Parser external interface */
 namespace Op {
@@ -79,6 +80,8 @@ struct LayerBase {
    */
   virtual void set_value_info_params(const onnx::ValueInfoProto &t);
 
+  virtual void run(TensorPool &tensor_pool);
+
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
 
@@ -101,6 +104,7 @@ struct Conv : public LayerBase {
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct Relu : public LayerBase {
@@ -240,6 +244,15 @@ void print_node(Op::Vertex v, const Op::Graph *g);
 Vertex get_root_node(const Op::Graph *g);
 const char* get_tensorproto_dtype_name(onnx::TensorProto_DataType type);
 onnx::TensorProto_DataType get_type_from_value_info(const onnx::ValueInfoProto &v);
+
+inline int sa_odims_row(Op::ConvParams const &cp) {
+  // o = ((iw - kw + 2p) / s) + 1
+  return ((cp.imap[0] - cp.k[0] + cp.pad[0] + cp.pad[2]) / cp.stride[0]) + 1;
+}
+
+inline int sa_odims_cols(Op::ConvParams const &cp) {
+  return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
+}
 
 class Model {
   Op::Graph g;

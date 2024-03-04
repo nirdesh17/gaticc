@@ -36,6 +36,9 @@ const char *Op::LayerBase::op_type() const { return "(null)"; }
 const char *Op::LayerBase::params() const { return "(null)"; }
 void Op::LayerBase::set_initializer_params(const onnx::TensorProto &t) {}
 void Op::LayerBase::set_value_info_params(const onnx::ValueInfoProto &t) {}
+void Op::LayerBase::run(TensorPool &tensor_pool) {
+  log_fatal("No overrides present for this layer: %s", name.c_str());
+}
 
 Op::Layer::Conv::Conv(ConvParams &cp) {
   std::memcpy(&m_cp, &cp, sizeof(ConvParams));
@@ -629,8 +632,11 @@ void Op::Model::deduce_types(const onnx::GraphProto &gproto) {
     Op::LayerBase *l = g[itr->second];
     set_input_type(i, l);
     set_output_type(i, l);
-    assert(l->input_type != onnx::TensorProto_DataType_UNDEFINED && "Input type cannot be Undefined");
+    //assert(l->input_type != onnx::TensorProto_DataType_UNDEFINED && "Input type cannot be Undefined");
     //assert(l->output_type != onnx::TensorProto_DataType_UNDEFINED && "Output type cannot be Undefined");
+    if (l->input_type == onnx::TensorProto_DataType_UNDEFINED) {
+      log_fatal("Failed Type Deduction. Input type for layer: %s cannot be UNDEFINED", l->name.c_str());
+    }
   }
 }
 
@@ -640,16 +646,19 @@ void Op::Model::set_input_type(const onnx::NodeProto &node, Op::LayerBase *l) {
       /* If a node is found in value_info_map, it is likely
        * not an initializer
        */
-      auto vitr = value_info_map.find(input);
-      if (vitr != value_info_map.end()) {
-        l->input_type = get_type_from_value_info(vitr->second);
-        break;
-      }
-      /* Same, if is found in graph_input/graph_output map */
-      auto gi_itr = graph_input_map.find(input);
-      if (gi_itr != graph_input_map.end()) {
-        l->input_type = get_type_from_value_info(gi_itr->second);
-        break;
+      if (!is_initializer(input)) {
+        auto vitr = value_info_map.find(input);
+        if (vitr != value_info_map.end()) {
+          l->input_type = get_type_from_value_info(vitr->second);
+          break;
+        }
+        /* Same, if is found in graph_input/graph_output map */
+        auto gi_itr = graph_input_map.find(input);
+        if (gi_itr != graph_input_map.end()) {
+          l->input_type = get_type_from_value_info(gi_itr->second);
+          break;
+        }
+        log_fatal("Couldn't find %s for node %s in value_info_map or graph_input_map", input.c_str(), node.name().c_str());
       }
     }
 }
@@ -657,16 +666,19 @@ void Op::Model::set_input_type(const onnx::NodeProto &node, Op::LayerBase *l) {
 void Op::Model::set_output_type(const onnx::NodeProto &node, Op::LayerBase *l) {
     /* Update types for outputs of a node */
     for (const auto &output : node.output()) {
-      auto vitr = value_info_map.find(output);
-      if (vitr != value_info_map.end()) {
-        l->output_type = get_type_from_value_info(vitr->second);
-        break;
-      }
-      const auto go_itr = graph_output_map.find(output);
-      if (go_itr != graph_output_map.end()) {
-        l->output_type = get_type_from_value_info(go_itr->second);
-        break;
-      }
+      if (!is_initializer(output)) {
+        auto vitr = value_info_map.find(output);
+        if (vitr != value_info_map.end()) {
+          l->output_type = get_type_from_value_info(vitr->second);
+          break;
+        }
+        const auto go_itr = graph_output_map.find(output);
+        if (go_itr != graph_output_map.end()) {
+          l->output_type = get_type_from_value_info(go_itr->second);
+          break;
+        }
+        log_fatal("Couldn't find %s for node %s in value_info_map or graph_output_map", output.c_str(), node.name().c_str());
+      } 
     }
 }
 

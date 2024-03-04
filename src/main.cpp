@@ -10,7 +10,7 @@
 #include "sim.h"
 #include "transformers.h"
 #include "utils.h"
-#include "sasa.h"
+#include "executor.h"
 
 /* instance of the gbl_args extern declaration in utils.h */
 Argparse gbl_args;
@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
       assert(mnk.size() == 3 && "Systolic Array shape should be 3 dimensional M, N, K");
       parser.time_estimate(mnk.at(0), mnk.at(1), mnk.at(2));
     } else if (gbl_args.has_option("summary")) {
-      parser.summary();
+      parser.bare_summary();
     } else {
       gbl_args.print_usage();
       log_fatal("Do not know what to do with --onnx, specify atleast one operation like --summary or --timeest");
