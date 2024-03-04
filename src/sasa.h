@@ -202,13 +202,13 @@ void SASA<inputT, outputT>::load_weights_tensor(Tensor<inputT> &weight_tensor, i
   sa_ptr->load_weights(weights);
 }
 
+/* TODO: remove ConvTransformer param 
+ * TODO: make this inline */
 template <typename inputT, typename outputT>
 void SASA<inputT, outputT>::slave_thread(Mat<inputT> &transformed_mats,
                                          SA<inputT, outputT> *sa_ptr,
                                          ConvTransformer<inputT, outputT> *ct_ptr) {
-  Chain c1;
-  c1.push(new Chainblock());
-  sa_ptr->propagate(transformed_mats, c1);
+  sa_ptr->propagate(transformed_mats);
   return;
 }
 

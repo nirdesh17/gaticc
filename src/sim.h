@@ -390,7 +390,7 @@ private:
   get_neighbouring_vertices(PE_Graph::Vertex<inputT, outputT> &v);
   PE_Graph::Vertex<inputT, outputT> &get_vertex_from_adjacency_iterator(
       PE_Graph::Adjacency_iterator<inputT, outputT> &itr);
-  void _propagate(PE_Graph::Vertex<inputT, outputT> &v, Chain &chain);
+  void _propagate(PE_Graph::Vertex<inputT, outputT> &v);
   void load_inputs(std::vector<inputT> const &inputs);
   bool is_output_vertex(PE_Graph::Vertex<inputT, outputT> &v);
   int output_array_hash(int n);
@@ -408,7 +408,7 @@ public:
   void clear_output();
   void print_array();
   void load_weights(std::vector<inputT> &weights);
-  void propagate(Mat<inputT> const &input_mat, Chain &chain);
+  void propagate(Mat<inputT> const &input_mat);
   void generate_profile_report();
   int total_vertices();
   int total_edges();
@@ -445,8 +445,7 @@ void exchange_queues(std::queue<T> &dest, std::queue<T> &src) {
 
 /* iterate over all PEs in systolic manner and call _propagate on them */
 template <typename inputT, typename outputT>
-void SA<inputT, outputT>::propagate(Mat<inputT> const &input_mat,
-                                    Chain &chain) {
+void SA<inputT, outputT>::propagate(Mat<inputT> const &input_mat) {
   /* Special handling for SA of size (m, 1)
    * The general case, following this code can handle this special case
    * but as sasa.h implements its algorithms with (m,1) SAs, specially
@@ -458,7 +457,7 @@ void SA<inputT, outputT>::propagate(Mat<inputT> const &input_mat,
       load_inputs(input_mat.at(i));
       for (int j = 0; j < rows; ++j) {
         PE_Graph::Vertex<inputT, outputT> v = vertarray.at(j);
-        _propagate(v, chain);
+        _propagate(v);
       }
     }
     return;
@@ -474,7 +473,7 @@ void SA<inputT, outputT>::propagate(Mat<inputT> const &input_mat,
       PE_Graph::Vertex<inputT, outputT> v = exec_queue.front();
       alt_queue.push(v);
       exec_queue.pop();
-      _propagate(v, chain);
+      _propagate(v);
     }
     // print_array();
     exchange_queues<PE_Graph::Vertex<inputT, outputT>>(exec_queue, alt_queue);
@@ -512,8 +511,7 @@ void SA<inputT, outputT>::load_inputs(std::vector<inputT> const &inputs) {
  * to the neighbouring PEs
  */
 template <typename inputT, typename outputT>
-void SA<inputT, outputT>::_propagate(PE_Graph::Vertex<inputT, outputT> &v,
-                                     Chain &chain) {
+void SA<inputT, outputT>::_propagate(PE_Graph::Vertex<inputT, outputT> &v) {
   /* expects ps and input_buffer to be filled */
   outputT res = get_pe_from_vertex(v).mac();
 
@@ -550,7 +548,6 @@ void SA<inputT, outputT>::_propagate(PE_Graph::Vertex<inputT, outputT> &v,
 
   if (is_output_vertex(v)) {
     outputT t1 = get_pe_from_vertex(v).get_reg() + res;
-    // t1 = chain.pass_through(t1);
     int h = output_array_hash(get_index_from_vertex(v));
     push_to_output_array(h, t1);
   }
