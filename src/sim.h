@@ -21,6 +21,7 @@
 #include <queue>
 #include <utility>
 #include <vector>
+#include <algorithm>
 
 namespace Int_Graph {
 using Graph =
@@ -211,15 +212,32 @@ public:
   int pass_through(int x);
 };
 
-class Relu : public Chainblock {
+template <typename T>
+class Relu {
   int clip_val;
-  bool no_clip;
 
 public:
   Relu(int clip_val);
   Relu();
-  int exec(int x) override;
+  void exec(Tensor<T> *input, Tensor<T> *output);
 };
+
+template <typename T>
+Relu<T>::Relu(int clip_val) : clip_val{clip_val} {
+}
+
+template <typename T>
+Relu<T>::Relu() : clip_val{INT_MAX} {
+}
+
+template <typename T>
+void Relu<T>::exec(Tensor<T> *input, Tensor<T> *output) {
+  for (int i = 0; i < input->size(); ++i) {
+    T x = input->at(i);
+    T v = (x < 0) ? 0 : ((x > clip_val) ? clip_val : x);
+    output->set(i, v);
+  }
+}
 
 /*Quantizer is used to re-encode information.It is used to reduce the size and
  *bandwidth required by 4 times. In our case we are reducing a 32bit-Int to a
@@ -326,32 +344,36 @@ Mat<T> Pooler<T>::movement(Mat<T> &input, Op::MaxpoolParams const &mp,
 
 template <typename T>
 Mat<T> Pooler<T>::max_pooler(Mat<T> &input, Op::MaxpoolParams const &mp) {
+  Mat<T> padded_in;
+  /* TODO: asymmetric padding? */
   if (mp.pad[0] != 0) {
-    input = Padder(input, mp.pad[0]);
+    padded_in = Padder(input, mp.pad[0]);
   }
-  return movement(input, mp, max_pooler_action);
+  return movement(padded_in, mp, max_pooler_action);
 }
 
 template <typename T>
 Mat<T> Pooler<T>::average_pooler(Mat<T> &input, Op::MaxpoolParams const &mp) {
+  Mat<T> padded_in;
   if (mp.pad[0] != 0) {
-    input = Padder<T>(input, mp.pad[0]);
+    padded_in = Padder<T>(input, mp.pad[0]);
   }
-  return movement(input, mp, average_pooler_action);
+  return movement(padded_in, mp, average_pooler_action);
 }
 
 template <typename T>
 Mat<T> Pooler<T>::global_average_pooler(Mat<T> &input,
                                         Op::MaxpoolParams const &mp) {
+  Mat<T> padded_in;
   if (mp.pad[0] != 0) {
-    input = Padder<T>(input, mp.pad[0]);
+    padded_in = Padder<T>(input, mp.pad[0]);
   }
   Op::MaxpoolParams mp_copy = mp;
   mp_copy.stride[0] = mp.stride[0] + mp.imap[0] + 2 * mp.pad[0];
   mp_copy.stride[1] = mp.stride[1] + mp.imap[1] + 2 * mp.pad[3];
   mp_copy.k[0] = mp.imap[0] + 2 * mp.pad[0];
   mp_copy.k[1] = mp.imap[1] + 2 * mp.pad[1];
-  return movement(input, mp_copy, average_pooler_action);
+  return movement(padded_in, mp_copy, average_pooler_action);
 }
 
 namespace PE_Graph {
@@ -774,4 +796,40 @@ void SA<inputT, outputT>::print_array() {
     std::cout << '\n';
   }
   std::cout << '\n';
+}
+
+inline int mp_odims_row(Op::MaxpoolParams const &cp) {
+  // o = ((iw - kw + 2p) / s) + 1
+  return ((cp.imap[0] - cp.k[0] + cp.pad[0] + cp.pad[2]) / cp.stride[0]) + 1;
+}
+
+inline int mp_odims_cols(Op::MaxpoolParams const &cp) {
+  return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
+}
+
+template <typename T>
+void maxpool(Tensor<T> *input, Tensor<T> *output,
+             const Op::MaxpoolParams &mp) {
+  int input_depth = input->dims_at(0);
+  int input_height = input->dims_at(1);
+  int input_width = input->dims_at(2);
+  int output_depth = input_depth;
+  int output_height = mp_odims_row(mp);
+  int output_width = mp_odims_cols(mp);
+
+  for (int d = 0; d < output_depth; ++d) {
+    for (int i = 0; i < output_height; ++i) {
+      for (int j = 0; j < output_width; ++j) {
+        T max_val = std::numeric_limits<T>::min();
+        for (int m = 0; m < mp.k[0]; ++m) {
+          for (int n = 0; n < mp.k[1]; ++n) {
+            std::vector<int> at_itr ({d, i * mp.k[0] + m, j * mp.k[1] + n});
+            max_val = std::max(max_val, input->at(at_itr));
+          }
+          std::vector<int> at_oitr ({d, i, j});
+          output->insert(at_oitr, max_val);
+        }
+      }
+    }
+  }
 }

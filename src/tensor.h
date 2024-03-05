@@ -1,6 +1,7 @@
 #pragma once
 #include "onnx.pb.h"
 #include "onnx_parser.h"
+#include "utils.h"
 #include <iostream>
 #include <thread>
 #include <vector>
@@ -9,6 +10,8 @@ template <typename T> class Tensor {
 public:
   Tensor() {} 
   virtual T at(std::vector<int> &at) { return -1; }
+  virtual T at(std::vector<int> &&at) { return -1; }
+  virtual T at(int index) { return -1; }
   virtual int dims_size() { return 0; }
   virtual int dims_at(int index) { return index; }
   virtual void push_back(T data) { return; }
@@ -20,8 +23,8 @@ public:
   virtual void shrink_to_fit() { return; }
   virtual int size() { return 0; }
   virtual std::vector<T> get() { return std::vector<T>(); }
-  virtual T get(int index) { return 0; }
-
+  virtual Mat<T> get_mat(int index) { return 0; }
+  virtual void set(int index, T val) { return; }
   virtual void print() { return; }
 };
 
@@ -115,6 +118,10 @@ public:
     return vec.at(sum);
   }
 
+  T at(std::vector<int> &&at) override { 
+    return this->at(at);
+  }
+
   T at(int index) { return vec.at(index); }
 
   int dims_size() override { return dims.size(); }
@@ -153,5 +160,18 @@ public:
 
   std::vector<T> get() override { return vec; }
 
-  T get(int index) override { return vec.at(index); }
+  void set(int index, T val) override { vec.at(index) = val; }
+
+  /* TODO: re-work */
+  Mat<T> get_mat(int index) override { 
+    assert(this->dims_size() == 3 && "not a 3d tensor, cant get mat");
+    std::vector<int> itr {0, 0, 0};
+    Mat<T> ret(this->dims_at(1), std::vector<T>(this->dims_at(2)));
+    for (int i = 0; i < this->dims_at(1); ++i) {
+      for (int j = 0; j < this->dims_at(2); ++j) {
+        ret.at(i, j) = this->at(std::vector({index, i, j}));
+      }
+    }
+    return ret;
+  }
 };

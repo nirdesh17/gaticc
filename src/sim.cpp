@@ -154,18 +154,6 @@ int Chain::pass_through(int x) {
   return x;
 }
 
-Relu::Relu(int clip_val) : clip_val{clip_val}, no_clip{false} {}
-
-Relu::Relu() : no_clip{true} {}
-
-int Relu::exec(int x) {
-  if (no_clip) {
-    return (x < 0) ? 0 : x;
-  } else {
-    return (x < 0) ? 0 : ((x > clip_val) ? clip_val : x);
-  }
-}
-
 Quantize::Quantize(int scale, int shift) : scale{scale}, shift{shift} {}
 
 int Quantize::exec(int x) { return clipper(x); }

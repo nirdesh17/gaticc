@@ -348,9 +348,12 @@ public:
   void free(int index);
   bool has_value(int index);
   void resize(int size);
+  /* TODO: add a destructor */
 };
 
-template <typename T> void TensorPool::set(int index, T data) { pool.at(index) = data; }
+template <typename T> void TensorPool::set(int index, T data) {
+  pool.at(index) = data;
+}
 
 template <typename T> T TensorPool::get(int index) {
   assert(pool.at(index).has_value() && "pool at index does not have a value");
