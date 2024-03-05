@@ -65,37 +65,14 @@ void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
 }
 
 void Op::Layer::Conv::set_value_info_params(const onnx::ValueInfoProto &t) {
-  if (!t.has_type()) {
-    return;
+  const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
+  if (Op::is_valid_tensor_shape(shape, CONV_WEIGHT_TENSOR_DIMS)) {
+    m_cp.ic = shape.dim().at(1).dim_value();
+    m_cp.imap[0] = shape.dim().at(2).dim_value();
+    m_cp.imap[1] = shape.dim().at(3).dim_value();
   }
-  const onnx::TypeProto &type = t.type();
-  if (!type.has_tensor_type()) {
-    return;
-  }
-  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
-  if (!tensor.has_shape()) {
-    return;
-  }
-  const onnx::TensorShapeProto &shape = tensor.shape();
-  assert(shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS &&
-       "Value info expected conv dimensions to be 4");
-
-  if (shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS) {
-    auto dims = shape.dim();
-    if (!dims.at(0).has_dim_value()) {
-      log_info(
-          "ValueInfoProto has params for Batch dimensions (not value):"
-          " and the param is: %s",
-          dims.at(0).dim_param().c_str());
-    }
-    std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
-      assert(val.has_dim_value() &&
-             "Model could be missing shape information, consider running "
-             "it through shape inference");
-    });
-    m_cp.ic = dims.at(1).dim_value();
-    m_cp.imap[0] = dims.at(2).dim_value();
-    m_cp.imap[1] = dims.at(3).dim_value();
+  else {
+    log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
 }
 
@@ -130,35 +107,14 @@ void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
 }
 
 void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
-  if (!t.has_type()) {
-    return;
-  }
-  const onnx::TypeProto &type = t.type();
-    if (!type.has_tensor_type()) {
-      return;
-    }
-  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
-    if (!tensor.has_shape()) {
-      return;
-    }
-  const onnx::TensorShapeProto &shape = tensor.shape();
-        assert(shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS &&
-               "Value info expected conv dimensions to be 4");
-  if (shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS) {
-    auto dims = shape.dim();
-    if (!dims.at(0).has_dim_value()) {
-      log_info(
-          "ValueInfoProto has params for Batch dimensions (not value):"
-          " and the param is: %s",
-          dims.at(0).dim_param().c_str());
-    }
-    std::for_each(dims.begin() + 1, dims.end(),
-                  [](auto &val) { assert(val.has_dim_value()); });
-    m_cp.is = dims.at(1).dim_value();
+  const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
+  if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
+    m_cp.is = shape.dim().at(1).dim_value();
+  } else {
+    log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
 }
 
-/* TODO: set_value_info_params for maxpool */
 Op::Layer::Maxpool::Maxpool(MaxpoolParams &cp) {
   std::memcpy(&m_cp, &cp, sizeof(MaxpoolParams));
 }
@@ -166,44 +122,20 @@ Op::Layer::Maxpool::Maxpool(MaxpoolParams &cp) {
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
 const char *Op::Layer::Maxpool::params() const {
   static char ret[64];
-  sprintf(ret, "(KS: %d,%d), (pad: %d,%d,%d,%d), (stride: %d,%d)", m_cp.k[0],
+  sprintf(ret, "(IC,IW,IH: %d,%d,%d) (KS: %d,%d), (pad: %d,%d,%d,%d), (stride: %d,%d)", m_cp.ic, m_cp.imap[0], m_cp.imap[1], m_cp.k[0],
           m_cp.k[1], m_cp.pad[0], m_cp.pad[1], m_cp.pad[2], m_cp.pad[3],
           m_cp.stride[0], m_cp.stride[1]);
   return ret;
 }
 
 void Op::Layer::Maxpool::set_value_info_params(const onnx::ValueInfoProto &t) {
-  if (!t.has_type()) {
-    return;
-  }
-  const onnx::TypeProto &type = t.type();
-  if (!type.has_tensor_type()) {
-    return;
-  }
-  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
-  if (!tensor.has_shape()) {
-    return;
-  }
-  const onnx::TensorShapeProto &shape = tensor.shape();
-  assert(shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS &&
-       "Value info expected conv dimensions to be 4");
-
-  if (shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS) {
-    auto dims = shape.dim();
-    if (!dims.at(0).has_dim_value()) {
-      log_info(
-          "ValueInfoProto has params for Batch dimensions (not value):"
-          " and the param is: %s",
-          dims.at(0).dim_param().c_str());
-    }
-    std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
-      assert(val.has_dim_value() &&
-             "Model could be missing shape information, consider running "
-             "it through shape inference");
-    });
-    m_cp.ic = dims.at(1).dim_value();
-    m_cp.imap[0] = dims.at(2).dim_value();
-    m_cp.imap[1] = dims.at(3).dim_value();
+  const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
+  if (Op::is_valid_tensor_shape(shape, CONV_WEIGHT_TENSOR_DIMS)) {
+    m_cp.ic = shape.dim().at(1).dim_value();
+    m_cp.imap[0] = shape.dim().at(2).dim_value();
+    m_cp.imap[1] = shape.dim().at(3).dim_value();
+  } else {
+    log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
 }
 
@@ -291,31 +223,11 @@ void Op::Layer::QLinearMatMul::set_initializer_params(
 
 void Op::Layer::QLinearMatMul::set_value_info_params(
     const onnx::ValueInfoProto &t) {
-  if (!t.has_type()) {
-    return;
-  }
-  const onnx::TypeProto &type = t.type();
-    if (!type.has_tensor_type()) {
-      return;
-    }
-  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
-    if (!tensor.has_shape()) {
-      return;
-    }
-  const onnx::TensorShapeProto &shape = tensor.shape();
-        assert(shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS &&
-               "Value info expected conv dimensions to be 4");
-  if (shape.dim_size() == GEMM_WEIGHT_TENSOR_DIMS) {
-    auto dims = shape.dim();
-    if (!dims.at(0).has_dim_value()) {
-      log_info(
-          "ValueInfoProto has params for Batch dimensions (not value):"
-          " and the param is: %s",
-          dims.at(0).dim_param().c_str());
-    }
-    std::for_each(dims.begin() + 1, dims.end(),
-                  [](auto &val) { assert(val.has_dim_value()); });
-    m_cp.is = dims.at(1).dim_value();
+  const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
+  if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
+    m_cp.is = shape.dim().at(1).dim_value();
+  } else {
+    log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
 }
 
@@ -732,6 +644,48 @@ onnx::TensorProto_DataType Op::get_type_from_value_info(const onnx::ValueInfoPro
     log_fatal("tensor for graph's input does not have a elem_type");
   }
   return static_cast<onnx::TensorProto_DataType>(tensor.elem_type());
+}
+
+const onnx::TensorShapeProto& Op::get_tensor_shape_proto(const onnx::ValueInfoProto &t) {
+  if (!t.has_type()) {
+    log_fatal("valueinfoproto %s does not have a type", t.name().c_str());
+  }
+  const onnx::TypeProto &type = t.type();
+  if (!type.has_tensor_type()) {
+    log_fatal("valueinfoproto %s has a type but does not have a tensor_type", t.name().c_str());
+  }
+  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
+  if (!tensor.has_shape()) {
+    log_fatal("valueinfoproto %s does not have a shape", t.name().c_str());
+  }
+  const onnx::TensorShapeProto &shape = tensor.shape();
+  return shape;
+}
+
+/* A tensor shape is valid if:
+ *  1. it matches expected dims 
+ *  2. all but 0th dims are have a dim_value()
+ */
+bool Op::is_valid_tensor_shape(const onnx::TensorShapeProto &shape, int expected_dims) {
+  assert(shape.dim_size() == expected_dims &&
+       "Value info expected conv dimensions to be 4");
+
+  if (shape.dim_size() == expected_dims) {
+    auto dims = shape.dim();
+    if (!dims.at(0).has_dim_value()) {
+      log_info(
+          "ValueInfoProto has params for Batch dimensions (not value):"
+          " and the param is: %s",
+          dims.at(0).dim_param().c_str());
+    }
+    std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
+      assert(val.has_dim_value() &&
+             "Model could be missing shape information, consider running "
+             "it through shape inference");
+    });
+    return true;
+  }
+  return false;
 }
 
 

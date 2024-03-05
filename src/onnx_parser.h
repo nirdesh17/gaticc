@@ -248,6 +248,8 @@ void print_node(Op::Vertex v, const Op::Graph *g);
 Vertex get_root_node(const Op::Graph *g);
 const char* get_tensorproto_dtype_name(onnx::TensorProto_DataType type);
 onnx::TensorProto_DataType get_type_from_value_info(const onnx::ValueInfoProto &v);
+const onnx::TensorShapeProto& get_tensor_shape_proto(const onnx::ValueInfoProto &t);
+bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape, int expected_dims);
 
 inline int sa_odims_row(Op::ConvParams const &cp) {
   // o = ((iw - kw + 2p) / s) + 1
