@@ -65,6 +65,7 @@ void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
 }
 
 void Op::Layer::Conv::set_value_info_params(const onnx::ValueInfoProto &t) {
+  std::cout << "setting value info for " << t.name() << '\n';
   const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
   if (Op::is_valid_tensor_shape(shape, CONV_WEIGHT_TENSOR_DIMS)) {
     m_cp.ic = shape.dim().at(1).dim_value();
@@ -646,11 +647,11 @@ const onnx::TensorShapeProto& Op::get_tensor_shape_proto(const onnx::ValueInfoPr
   }
   const onnx::TypeProto &type = t.type();
   if (!type.has_tensor_type()) {
-    log_fatal("valueinfoproto %s has a type but does not have a tensor_type", t.name().c_str());
+    log_fatal("valuefatalproto %s has a type but does not have a tensor_type", t.name().c_str());
   }
   const onnx::TypeProto_Tensor &tensor = type.tensor_type();
   if (!tensor.has_shape()) {
-    log_fatal("valueinfoproto %s does not have a shape", t.name().c_str());
+    log_fatal("valuefatalproto %s does not have a shape", t.name().c_str());
   }
   const onnx::TensorShapeProto &shape = tensor.shape();
   return shape;
@@ -915,6 +916,14 @@ Op::Parser::deduce_model_output_type(const onnx::GraphProto &graph) const {
   return static_cast<onnx::TensorProto_DataType>(0);
 }
 
+/* In onnx, all information relating to a node is not stored
+ * in one place. Actual kernels are stored in initializers (TensorProto),
+ * i/o shapes are stored in valueinfo, static shapes are stored in 
+ * attributes. The parser goes over the model in passes, collecting
+ * information and storing it in a Op::Model object. Some passes
+ * depend on other passes, therefore, order of execution of passes
+ * matter. 
+ */
 Op::Parser::Parser(std::string const &filename) {
   loaded_model.open(filename, std::ios::in | std::ios::binary);
   if (loaded_model.fail()) {
@@ -924,53 +933,18 @@ Op::Parser::Parser(std::string const &filename) {
       google::protobuf::Arena::CreateMessage<onnx::ModelProto>(&arena);
   model_proto->ParseFromIstream(&loaded_model);
   const onnx::GraphProto &m_graph = model_proto->graph();
-  auto graph_outputs = m_graph.output();
-  for (auto i : graph_outputs) {
-    m_model.save_graph_outputs(i);
-  }
 
-  const auto &graph_inputs = m_graph.input();
-  for (const auto &i : graph_inputs) {
-    m_model.save_graph_inputs(i);
-  }
-  /* value info */
-  auto value_infos = m_graph.value_info();
-  for (int i = 0; i < value_infos.size(); ++i) {
-    m_model.save_value_info(value_infos.at(i));
-  }
-  /* initializers */
-  const google::protobuf::RepeatedPtrField<onnx::TensorProto> &initializers =
-      m_graph.initializer();
-  for (int i = 0; i < initializers.size(); ++i) {
-    m_model.save_initializers(initializers.at(i));
-  }
-  /* nodes */
-  auto nodes = m_graph.node();
-  // add constants
-  for (auto i : nodes) {
-    if (i.op_type() == "Constant") {
-      m_model.add_to_constant_pool(i);
-    }
-  }
+  pass_save_graph_outputs(m_graph);
+  pass_save_graph_inputs(m_graph);
+  pass_save_value_infos(m_graph);
+  pass_save_initializers(m_graph);
+  pass_save_nodes(m_graph);
 
-  for (auto i : nodes) {
-    add_operator(i);
-  }
-
-  for (int i = 0; i < nodes.size(); ++i) {
-    if (nodes.at(i).op_type() == "Constant") {
-      /* Skip Constants, deal with them by adding in the
-       * "constant_pool"
-       */
-      continue;
-    }
-    m_model.connect(nodes.at(i));
-  }
   // assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
   /* input dimensions to the first layer are stored in graph.input
    * and needs special treatment
    */
-  m_model.save_first_layer_input_dims(graph_inputs.at(0));
+  m_model.save_first_layer_input_dims(m_graph.input().at(0));
 
   m_model.create_execution_order();
   m_model.update_registers();
@@ -1017,6 +991,52 @@ int Op::Parser::get_total_registers(void) const {
     max = std::max(max, *std::max_element(l->outputs.begin(), l->outputs.end()));
   }
   return max;
+}
+
+void Op::Parser::pass_save_graph_inputs(const onnx::GraphProto &graph) {
+  const auto &graph_inputs = graph.input();
+  for (const auto &i : graph_inputs) {
+    m_model.save_graph_inputs(i);
+  }
+}
+void Op::Parser::pass_save_graph_outputs(const onnx::GraphProto &graph) {
+  const auto &graph_outputs = graph.output();
+  for (const auto& i : graph_outputs) {
+    m_model.save_graph_outputs(i);
+  }
+}
+void Op::Parser::pass_save_value_infos(const onnx::GraphProto &graph) {
+  const auto &value_infos = graph.value_info();
+  for (int i = 0; i < value_infos.size(); ++i) {
+    m_model.save_value_info(value_infos.at(i));
+  }
+}
+void Op::Parser::pass_save_initializers(const onnx::GraphProto &graph) {
+  const auto &initializers = graph.initializer();
+  for (int i = 0; i < initializers.size(); ++i) {
+    m_model.save_initializers(initializers.at(i));
+  }
+}
+void Op::Parser::pass_save_nodes(const onnx::GraphProto &graph) {
+  auto nodes = graph.node();
+  /* add constants */
+  for (auto i : nodes) {
+    if (i.op_type() == "Constant") {
+      m_model.add_to_constant_pool(i);
+    }
+  }
+  for (auto i : nodes) {
+    add_operator(i);
+  }
+  for (int i = 0; i < nodes.size(); ++i) {
+    if (nodes.at(i).op_type() == "Constant") {
+      /* Skip Constants, deal with them by adding in the
+       * "constant_pool"
+       */
+      continue;
+    }
+    m_model.connect(nodes.at(i));
+  }
 }
 
 Op::Parser::~Parser() { loaded_model.close(); }

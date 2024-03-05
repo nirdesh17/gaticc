@@ -81,6 +81,7 @@ struct LayerBase {
    */
   virtual void set_value_info_params(const onnx::ValueInfoProto &t);
 
+
   virtual void run(TensorPool &tensor_pool);
 
   std::vector<VirtualAddress> inputs;
@@ -341,6 +342,12 @@ class Parser {
   deduce_model_input_type(const onnx::GraphProto &graph) const;
   onnx::TensorProto_DataType
   deduce_model_output_type(const onnx::GraphProto &graph) const;
+
+  void pass_save_graph_inputs(const onnx::GraphProto &graph);
+  void pass_save_graph_outputs(const onnx::GraphProto &graph);
+  void pass_save_value_infos(const onnx::GraphProto &graph);
+  void pass_save_initializers(const onnx::GraphProto &graph);
+  void pass_save_nodes(const onnx::GraphProto &graph);
 
 
 public:
