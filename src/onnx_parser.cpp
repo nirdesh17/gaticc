@@ -268,12 +268,6 @@ void Op::Model::add(Op::LayerBase *layer, onnx::NodeProto &node) {
   name_vertex_map.insert({node.name(), v});
 
   for (auto i : node.input()) {
-    // TODO: remove this 
-    if (!is_initializer(i)) {
-      // this is a non-weighted input (i.e. its values
-      // are not pre-computed
-      output_map.insert({i, v});
-    }
     /* find value_info param for `i` */
     auto itr2 = value_info_map.find(i);
     if (itr2 != value_info_map.end()) {
