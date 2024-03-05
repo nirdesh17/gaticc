@@ -43,6 +43,7 @@ struct GemmParams {
 struct MaxpoolParams {
   /* TODO: imap in extract_maxpool_attr */
   int imap[2];   /* input feature map */
+  int ic;        /* input channels */
   int k[2];      /* kernel width/height */
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
@@ -111,6 +112,7 @@ struct Relu : public LayerBase {
   const char *m_optype = "Relu";
   const char *op_type() const override;
   const char *params() const override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct Clip : public LayerBase {
@@ -139,6 +141,8 @@ struct Maxpool : public LayerBase {
   Maxpool(MaxpoolParams &cp);
   const char *op_type() const override;
   const char *params() const override;
+  void run(TensorPool &tensor_pool) override;
+  void set_value_info_params(const onnx::ValueInfoProto &t) override;
 };
 
 struct Flatten : public LayerBase {

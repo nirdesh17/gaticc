@@ -172,6 +172,41 @@ const char *Op::Layer::Maxpool::params() const {
   return ret;
 }
 
+void Op::Layer::Maxpool::set_value_info_params(const onnx::ValueInfoProto &t) {
+  if (!t.has_type()) {
+    return;
+  }
+  const onnx::TypeProto &type = t.type();
+  if (!type.has_tensor_type()) {
+    return;
+  }
+  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
+  if (!tensor.has_shape()) {
+    return;
+  }
+  const onnx::TensorShapeProto &shape = tensor.shape();
+  assert(shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS &&
+       "Value info expected conv dimensions to be 4");
+
+  if (shape.dim_size() == CONV_WEIGHT_TENSOR_DIMS) {
+    auto dims = shape.dim();
+    if (!dims.at(0).has_dim_value()) {
+      log_info(
+          "ValueInfoProto has params for Batch dimensions (not value):"
+          " and the param is: %s",
+          dims.at(0).dim_param().c_str());
+    }
+    std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
+      assert(val.has_dim_value() &&
+             "Model could be missing shape information, consider running "
+             "it through shape inference");
+    });
+    m_cp.ic = dims.at(1).dim_value();
+    m_cp.imap[0] = dims.at(2).dim_value();
+    m_cp.imap[1] = dims.at(3).dim_value();
+  }
+}
+
 const char *Op::Layer::Flatten::op_type() const { return m_optype; }
 
 Op::Layer::Dropout::Dropout(DropoutParams &cp) {
