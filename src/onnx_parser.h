@@ -24,6 +24,7 @@ struct ConvParams {
   int k[2];      /* kernel width/height */
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
+  int dilation[2];
 };
 
 struct ClipParams {
@@ -41,7 +42,6 @@ struct GemmParams {
  * used by AveragePool too
  */
 struct MaxpoolParams {
-  /* TODO: imap in extract_maxpool_attr */
   int imap[2];   /* input feature map */
   int ic;        /* input channels */
   int k[2];      /* kernel width/height */

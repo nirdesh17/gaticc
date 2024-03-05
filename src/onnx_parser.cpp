@@ -46,10 +46,10 @@ Op::Layer::Conv::Conv(ConvParams &cp) {
 
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
 const char *Op::Layer::Conv::params() const {
-  static char ret[64];
-  sprintf(ret, "(IW,IH: %d,%d), (KN,IC,KW,KH: %d,%d,%d,%d), (S,P: %d,%d)",
+  static char ret[128];
+  sprintf(ret, "(IW,IH: %d,%d), (KN,IC,KW,KH: %d,%d,%d,%d), (S,P,D: %d,%d,%d)",
           m_cp.imap[0], m_cp.imap[1], m_cp.kn, m_cp.ic, m_cp.k[0], m_cp.k[1],
-          m_cp.stride[0], m_cp.pad[0]);
+          m_cp.stride[0], m_cp.pad[0], m_cp.dilation[0]);
   return ret;
 }
 void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
@@ -121,10 +121,10 @@ Op::Layer::Maxpool::Maxpool(MaxpoolParams &cp) {
 
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
 const char *Op::Layer::Maxpool::params() const {
-  static char ret[64];
-  sprintf(ret, "(IC,IW,IH: %d,%d,%d) (KS: %d,%d), (pad: %d,%d,%d,%d), (stride: %d,%d)", m_cp.ic, m_cp.imap[0], m_cp.imap[1], m_cp.k[0],
+  static char ret[128];
+  sprintf(ret, "(IC,IW,IH: %d,%d,%d) (KS: %d,%d), (pad: %d,%d,%d,%d), (stride: %d,%d), (dilation: %d, %d)", m_cp.ic, m_cp.imap[0], m_cp.imap[1], m_cp.k[0],
           m_cp.k[1], m_cp.pad[0], m_cp.pad[1], m_cp.pad[2], m_cp.pad[3],
-          m_cp.stride[0], m_cp.stride[1]);
+          m_cp.stride[0], m_cp.stride[1], m_cp.dilation[0], m_cp.dilation[1]);
   return ret;
 }
 
@@ -744,6 +744,9 @@ void Op::Model::extract_conv_attr(onnx::NodeProto &node,
     } else if (itr->name() == "pads") {
       assert(itr->ints().size() == 4 && "expected pads shape to be 4 integers");
       parse_onnx_ints(*itr, params.pad);
+    } else if (itr->name() == "dilations") {
+      assert(itr->ints().size() == 2 && "expected dilations to be 2 integers");
+      parse_onnx_ints(*itr, params.dilation);
     }
   }
 }
@@ -775,6 +778,9 @@ void Op::Model::extract_maxpool_attr(onnx::NodeProto &node,
     } else if (itr->name() == "pads") {
       assert(itr->ints().size() == 4 && "expected pads shape to be 4 integers");
       parse_onnx_ints(*itr, params.pad);
+    } else if (itr->name() == "dilations") {
+      assert(itr->ints().size() == 2 && "expected dilations to be 2 integers");
+      parse_onnx_ints(*itr, params.dilation);
     }
   }
 }
