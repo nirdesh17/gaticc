@@ -27,11 +27,6 @@ struct ConvParams {
   int dilation[2];
 };
 
-struct ClipParams {
-  int min;
-  int max;
-};
-
 struct GemmParams {
   int wr; /* weight rows */
   int wc; /* weight columns */
@@ -50,9 +45,7 @@ struct MaxpoolParams {
   int dilation[2];
 };
 
-struct DropoutParams {
-  float drop;
-};
+struct DropoutParams {};
 
 using VirtualAddress = int;
 
@@ -81,6 +74,10 @@ struct LayerBase {
    */
   virtual void set_value_info_params(const onnx::ValueInfoProto &t);
 
+  /* Attributes are static information such as kernel_shape,
+   * strides, pads, dilations etc.
+   */
+  virtual void set_attributes(const onnx::NodeProto &node);
 
   virtual void run(TensorPool &tensor_pool);
 
@@ -92,6 +89,9 @@ struct LayerBase {
    */
   onnx::TensorProto_DataType input_type;
   onnx::TensorProto_DataType output_type;
+  /* All nodes with a parameter should have a constructor to
+   * initialize them. See conv for eg.
+   */
 };
 
 namespace Layer {
@@ -100,28 +100,31 @@ struct Conv : public LayerBase {
   const onnx::TensorProto *weights;
   const onnx::TensorProto *bias;
   const char *m_optype = "Conv";
+
+  Conv();
   ConvParams m_cp;
-  Conv(ConvParams &cp);
   const char *op_type() const override;
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
   void run(TensorPool &tensor_pool) override;
 };
 
 struct Relu : public LayerBase {
   const char *m_optype = "Relu";
   const char *op_type() const override;
-  const char *params() const override;
   void run(TensorPool &tensor_pool) override;
 };
 
 struct Clip : public LayerBase {
   const char *m_optype = "Clip";
-  ClipParams m_cp;
-  Clip(ClipParams &cp);
+  int m_min;
+  int m_max;
+  Clip();
   const char *op_type() const override;
   const char *params() const override;
+  void set_attributes(const onnx::NodeProto &node) override;
 };
 
 struct Gemm : public LayerBase {
@@ -129,7 +132,7 @@ struct Gemm : public LayerBase {
   const onnx::TensorProto *bias;
   const char *m_optype = "Gemm";
   GemmParams m_cp;
-  Gemm(GemmParams &cp);
+  Gemm();
   const char *op_type() const override;
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
@@ -139,11 +142,12 @@ struct Gemm : public LayerBase {
 struct Maxpool : public LayerBase {
   const char *m_optype = "Maxpool";
   MaxpoolParams m_cp;
-  Maxpool(MaxpoolParams &cp);
+  Maxpool();
   const char *op_type() const override;
   const char *params() const override;
   void run(TensorPool &tensor_pool) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
 };
 
 struct Flatten : public LayerBase {
@@ -152,11 +156,12 @@ struct Flatten : public LayerBase {
 };
 
 struct Dropout : public LayerBase {
-  DropoutParams m_cp;
   const char *m_optype = "Dropout";
-  Dropout(DropoutParams &cp);
+  float drop;
+  Dropout();
   const char *op_type() const override;
   const char *params() const override;
+  void set_initializer_params(const onnx::TensorProto &t) override;
 };
 
 struct Add : public LayerBase {
@@ -217,7 +222,7 @@ struct QLinearMatMul : public LayerBase {
   const onnx::TensorProto *weights;
   const char *m_optype = "QLinearMatMul";
   GemmParams m_cp;
-  QLinearMatMul(GemmParams &cp);
+  QLinearMatMul();
   const char *op_type() const override;
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
@@ -247,10 +252,13 @@ bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g);
 void print_node(const LayerBase *node);
 void print_node(Op::Vertex v, const Op::Graph *g);
 Vertex get_root_node(const Op::Graph *g);
-const char* get_tensorproto_dtype_name(onnx::TensorProto_DataType type);
-onnx::TensorProto_DataType get_type_from_value_info(const onnx::ValueInfoProto &v);
-const onnx::TensorShapeProto& get_tensor_shape_proto(const onnx::ValueInfoProto &t);
-bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape, int expected_dims);
+const char *get_tensorproto_dtype_name(onnx::TensorProto_DataType type);
+onnx::TensorProto_DataType
+get_type_from_value_info(const onnx::ValueInfoProto &v);
+const onnx::TensorShapeProto &
+get_tensor_shape_proto(const onnx::ValueInfoProto &t);
+bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
+                           int expected_dims);
 
 inline int sa_odims_row(Op::ConvParams const &cp) {
   // o = ((iw - kw + 2p) / s) + 1
@@ -271,7 +279,7 @@ class Model {
   std::map<std::string, const onnx::ValueInfoProto &> graph_output_map;
   std::map<std::string, const onnx::ValueInfoProto &> graph_input_map;
   /* All 'Constants' in the onnx model are looked up using this table */
-  std::map<std::string, onnx::NodeProto &> constant_pool;
+  std::map<std::string, const onnx::NodeProto &> constant_pool;
 
   std::vector<LayerBase *> execution_order;
 
@@ -293,12 +301,12 @@ public:
   void save_graph_outputs(const onnx::ValueInfoProto &t);
   void save_value_info(const onnx::ValueInfoProto &t);
   void save_initializers(const onnx::TensorProto &t);
+  void save_attribute(const onnx::NodeProto &node);
 
-  void add(LayerBase *layer, onnx::NodeProto &node);
-  void add_to_constant_pool(onnx::NodeProto &node);
-  void connect(onnx::NodeProto &node);
+  void add(LayerBase *layer, const onnx::NodeProto &node);
+  void add_to_constant_pool(const onnx::NodeProto &node);
+  void connect(const onnx::NodeProto &node);
   void save_first_layer_input_dims(const onnx::ValueInfoProto &t);
-  void connect_first_last_layer(onnx::GraphProto &graph);
 
   /* return the topologically sorted graph (g)
    * used by LayerExecutors to execute layers
@@ -316,12 +324,6 @@ public:
 
   size_t size(void);
   size_t size(void) const;
-
-  void extract_dropout_constant(onnx::NodeProto &node, DropoutParams &params);
-  void extract_conv_attr(onnx::NodeProto &node, ConvParams &params);
-  void extract_maxpool_attr(onnx::NodeProto &node, MaxpoolParams &params);
-  void extract_clip_params(onnx::NodeProto &node, ClipParams &params);
-
 };
 
 class Parser {
@@ -348,7 +350,6 @@ class Parser {
   void pass_save_value_infos(const onnx::GraphProto &graph);
   void pass_save_initializers(const onnx::GraphProto &graph);
   void pass_save_nodes(const onnx::GraphProto &graph);
-
 
 public:
   Parser(std::string const &filename);
@@ -378,8 +379,7 @@ public:
   RegisterAllocator(Op::Graph g);
 };
 
-template <typename T>
-bool isa(Op::LayerBase *l) {
+template <typename T> bool isa(Op::LayerBase *l) {
   return dynamic_cast<T>(l) ? true : false;
 }
 
