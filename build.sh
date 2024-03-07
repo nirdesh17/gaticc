@@ -14,4 +14,6 @@ elif [ "$1" = "-h" ]; then
   usage
 fi 
 LD_LIBRARY_PATH=/usr/local/lib protoc --cpp_out=${SRC_DIR} onnx.proto
+mkdir tests/exe 2>/dev/null
+mkdir obj 2>/dev/null
 make "$target_name" -j "$(nproc --all)" -B

@@ -71,8 +71,8 @@ PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) 
     exit(EXIT_FAILURE);
   }
 
-#if 0
-  if (PyList_Append(path, PyUnicode_FromString("/home/metal/dev/onnx/lib/python3.11/site-packages")) == -1) {
+#if 1
+  if (PyList_Insert(path, 0, PyUnicode_FromString("/home/shreeyash/python/lib/python3.11/site-packages")) == -1) {
     log_err("PyList_Append");
     exit(EXIT_FAILURE);
   }
