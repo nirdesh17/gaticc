@@ -219,7 +219,6 @@ void Op::Layer::Maxpool::set_attributes(const onnx::NodeProto &node) {
 const char *Op::Layer::Flatten::op_type() const { return m_optype; }
 
 Op::Layer::Dropout::Dropout() { drop = 0.f; }
-
 const char *Op::Layer::Dropout::op_type() const { return m_optype; }
 const char *Op::Layer::Dropout::params() const {
   static char ret[64];

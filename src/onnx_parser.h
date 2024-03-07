@@ -153,6 +153,7 @@ struct Maxpool : public LayerBase {
 struct Flatten : public LayerBase {
   const char *m_optype = "Flatten";
   const char *op_type() const override;
+  void run(TensorPool &tensor_pool);
 };
 
 struct Dropout : public LayerBase {

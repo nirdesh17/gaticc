@@ -833,3 +833,10 @@ void maxpool(Tensor<T> *input, Tensor<T> *output,
     }
   }
 }
+
+template <typename T>
+void flatten(Tensor<T> *input, Tensor<T> *output) {
+  std::vector<int> new_dims = {1, input->dims_iterator(-1)};
+  *output = *input;
+  output->set_dims(new_dims);
+}

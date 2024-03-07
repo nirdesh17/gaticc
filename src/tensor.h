@@ -6,6 +6,12 @@
 #include <thread>
 #include <vector>
 
+/* TODO: refactor this, make it cleaner 
+ * 1. Tensor as pure abstract class?
+ * 2. remove redundant functions
+ * 3. document
+ * */
+
 template <typename T> class Tensor {
 public:
   Tensor() {} 
@@ -18,6 +24,9 @@ public:
   /* insert one element at a time */
   virtual void insert(std::vector<int> &at, T data) { return; }
   virtual void set_dims(std::vector<int> const &temp_dims) { return; }
+  virtual std::vector<int> get_dims() {
+    return std::vector<int>();
+  }
   virtual int dims_iterator(int index) { return index; }
   virtual void clear() { return; }
   virtual void shrink_to_fit() { return; }
@@ -25,6 +34,8 @@ public:
   virtual std::vector<T> get() { return std::vector<T>(); }
   virtual Mat<T> get_mat(int index) { return 0; }
   virtual void set(int index, T val) { return; }
+  virtual Tensor<T>& operator=(Tensor<T>& rhs) {
+  }
   virtual void print() { return; }
 };
 
@@ -143,7 +154,9 @@ public:
     dims = temp_dims;
     return;
   }
-
+  std::vector<int> get_dims() override {
+    return dims;
+  }
   int dims_iterator(int index) override {
     int a = 1;
     for (int i = 1; i < dims.size() - index; i++) {
@@ -173,5 +186,11 @@ public:
       }
     }
     return ret;
+  }
+
+  virtual Tensor<T>& operator=(Tensor<T>& rhs) {
+    this->dims = rhs.get_dims();
+    this->vec = rhs.get();
+    return *this;
   }
 };

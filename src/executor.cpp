@@ -9,7 +9,7 @@
 #include <vector>
 #include <chrono>
 
-Executor::Executor(const Op::Parser &parser, const std::string &img_path) {
+Executor::Executor(PyEngine &engine, const Op::Parser &parser, const std::string &img_path) {
   onnx::TensorProto_DataType weight_type = parser.get_model_weight_type();
   onnx::TensorProto_DataType input_type = parser.get_model_input_type();
   onnx::TensorProto_DataType output_type = parser.get_model_output_type();
@@ -19,9 +19,9 @@ Executor::Executor(const Op::Parser &parser, const std::string &img_path) {
 
   std::cout << Op::get_tensorproto_dtype_name(input_type);
   if (input_type == onnx::TensorProto_DataType_FLOAT) {
-    execute<float>(parser, img_path);
+    execute<float>(engine, parser, img_path);
   } else if (input_type == onnx::TensorProto_DataType_INT8) {
-    execute<int8_t>(parser, img_path);
+    execute<int8_t>(engine, parser, img_path);
   } else {
     log_fatal("Unsupported input type to model: %s",
               Op::get_tensorproto_dtype_name(input_type));
@@ -54,7 +54,8 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Conv::run(TensorPool &tensor_pool) {
-  std::cout << "Running Conv layer: " << this->name << '\n';
+  std::cout << this->op_type() << ' ' << this->name << ' ' << 
+    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
 
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
@@ -88,16 +89,13 @@ template <typename T> void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
-  std::cout << "relu ot size : " << output->size() << '\n';
-
   Relu<T> relu;
   relu.exec(input, output);
-
-  std::cout << "finished relu\n";
 }
 
 void Op::Layer::Relu::run(TensorPool &tensor_pool) {
-  std::cout << "Running Relu layer: " << this->name << '\n';
+  std::cout << this->op_type() << ' ' << this->name << ' ' << 
+    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
 
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
@@ -143,7 +141,9 @@ void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
-  std::cout << "Running Maxpool layer: " << this->name << '\n';
+  std::cout << this->op_type() << ' ' << this->name << ' ' << 
+    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
+
 
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
@@ -162,3 +162,39 @@ void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
   }
 }
 
+template <typename T>
+void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Flatten *cc = dynamic_cast<Op::Layer::Flatten*>(l);
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+
+  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
+
+  std::vector<int> ofmap_dims{input->dims_at(0), input->dims_at(1)/2,
+                              input->dims_at(2)/2};
+  Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
+  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+  flatten<T>(input, output);
+}
+
+void Op::Layer::Flatten::run(TensorPool &tensor_pool) {
+  std::cout << this->op_type() << ' ' << this->name << ' ' << 
+    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
+
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type == output_type);
+  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+    run_flatten<float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+    run_flatten<int8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+    run_flatten<int>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: %s, %s",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+  
+}

@@ -36,17 +36,17 @@ class Executor {
   TensorPool tensor_pool;
   /* inputT: input type of the entire model */
   template <typename inputT>
-  void execute(const Op::Parser &parser, const std::string &abs_img_path);
-  template <typename T> Tensor<T> *read_img(const std::string &img_path);
+  void execute(PyEngine &engine, const Op::Parser &parser, const std::string &abs_img_path);
+  template <typename T> Tensor<T> *read_img(PyEngine &engine, const std::string &img_path);
 
 public:
-  Executor(const Op::Parser &parser, const std::string &img_path);
+  Executor(PyEngine &engine, const Op::Parser &parser, const std::string &img_path);
 };
 
 template <typename inputT>
-void Executor::execute(const Op::Parser &parser,
+void Executor::execute(PyEngine &engine, const Op::Parser &parser,
                        const std::string &abs_img_path) {
-  Tensor<inputT> *inp = read_img<inputT>(abs_img_path);
+  Tensor<inputT> *inp = read_img<inputT>(engine, abs_img_path);
   tensor_pool.set<Tensor<inputT>*>(0, inp);
 
   std::vector<Op::LayerBase *> order = parser.get_execution_order();
@@ -56,9 +56,7 @@ void Executor::execute(const Op::Parser &parser,
 }
 
 template <typename T>
-Tensor<T> *Executor::read_img(const std::string &img_path) {
-  std::filesystem::path mod_path("src/");
-  PyEngine engine("ml_inference", mod_path);
+Tensor<T> *Executor::read_img(PyEngine &engine, const std::string &img_path) {
   PyObject *preprocess_args = Py_BuildValue("(s)", img_path.c_str());
   PyObject *ifmap = engine.call_func("preprocess", preprocess_args);
   std::vector<int> dims;
