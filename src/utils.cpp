@@ -44,3 +44,4 @@ bool TensorPool::has_value(int index) { return pool.at(index).has_value(); }
 void TensorPool::resize(int size) {
   pool.resize(size);
 }
+

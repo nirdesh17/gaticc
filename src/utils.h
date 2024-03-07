@@ -56,7 +56,7 @@ class Argparse {
   argagg::parser argparser{
       /* name      invokation         description              expected
        *                                                       args */
-      {{"help", {"-h", "--help"}, "get this help message nigga", 0},
+      {{"help", {"-h", "--help"}, "print help and exit", 0},
        {"verbose", {"-v", "--v"}, "verbose", 0},
        {"onnx", {"--onnx"}, "load onnx file", 1},
        {"timeest",
@@ -64,6 +64,7 @@ class Argparse {
         "print estimated time that a model would take based on FLOP counts "
         "(this does not account for latencies such as that of DRAM)",
         1},
+       {"sim", {"--sim"}, "Simulate inference on an image. Args: [input_image]", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
 public:

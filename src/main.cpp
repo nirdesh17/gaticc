@@ -1,19 +1,11 @@
-#include <iostream>
-#include <numeric>
-
 #include "ffi.h"
-#ifndef PY_SSIZE_T_CLEAN
-#define PY_SSIZE_T_CLEAN
-#endif
-#include "Python.h"
-#include "onnx_parser.h"
-#include "sim.h"
-#include "transformers.h"
 #include "utils.h"
-#include "executor.h"
+#include <filesystem>
+#include "options.h"
 
 /* instance of the gbl_args extern declaration in utils.h */
 Argparse gbl_args;
+
 
 int main(int argc, char *argv[]) {
   gbl_args.parse(argc, argv);
@@ -23,22 +15,10 @@ int main(int argc, char *argv[]) {
     std::exit(EXIT_SUCCESS);
   }
 
+  std::filesystem::path mod_path("src/");
+  PyEngine engine("ml_inference", mod_path);
+
   if (gbl_args.has_option("onnx")) {
-    std::string s = gbl_args["onnx"].as<std::string>();
-    Op::Parser parser(s);
-    std::string img_path("images/dog.jpg");
-    Executor e(parser, img_path);
-    if (gbl_args.has_option("timeest")) {
-      std::string arch_list = gbl_args["timeest"].as<std::string>();
-      std::vector<int> mnk = parse_csv_string(arch_list);
-      assert(mnk.size() != 0 && "Ill formatted dimension string to --timeest, expects string like 9,8,8");
-      assert(mnk.size() == 3 && "Systolic Array shape should be 3 dimensional M, N, K");
-      parser.time_estimate(mnk.at(0), mnk.at(1), mnk.at(2));
-    } else if (gbl_args.has_option("summary")) {
-      parser.bare_summary();
-    } else {
-      gbl_args.print_usage();
-      log_fatal("Do not know what to do with --onnx, specify atleast one operation like --summary or --timeest");
-    }
+    dispatch_onnx_ops(engine);
   }
 }
