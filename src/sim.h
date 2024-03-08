@@ -840,3 +840,37 @@ void flatten(Tensor<T> *input, Tensor<T> *output) {
   *output = *input;
   output->set_dims(new_dims);
 }
+
+/* Vector Arrays 
+ * Used by Gemm/Matmul routines */
+template <typename inputT, typename outputT> class VA {
+  int wrows;
+  int wcols;
+  int isize;
+  Tensor<inputT> *weights;
+  public:
+    VA(Op::Layer::Gemm &gp);
+    void run(Tensor<inputT> *input, Tensor<outputT> *output);
+};
+
+
+template <typename inputT, typename outputT>
+VA<inputT, outputT>::VA(Op::Layer::Gemm &gp) {
+  wrows = gp.m_cp.wr;
+  wcols = gp.m_cp.wc;
+  isize = gp.m_cp.is;
+  weights = new TensorExtant<inputT>(gp.weights);
+}
+
+template <typename inputT, typename outputT>
+void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
+  std::cout << "weights dims: " << weights->dims_iterator(-1) << '\n';
+  std::cout << "input dims: " << input->dims_iterator(-1) << '\n';
+  for (int i = 0; i < wrows; ++i) {
+    outputT dst = 0;
+    for (int j = 0; j < wcols; ++j) {
+      dst += weights->at(i * wcols + j) * input->at(j);
+    }
+    output->set(i, dst);
+  }
+}

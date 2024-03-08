@@ -84,8 +84,7 @@ template <typename T> void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
 
   /* TODO: use relu's params */
-  std::vector<int> ofmap_dims{input->dims_at(0), input->dims_at(1),
-                              input->dims_at(2)};
+  std::vector<int> ofmap_dims{input->get_dims()};
   Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
@@ -171,8 +170,7 @@ void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
 
-  std::vector<int> ofmap_dims{input->dims_at(0), input->dims_at(1)/2,
-                              input->dims_at(2)/2};
+  std::vector<int> ofmap_dims{1, input->dims_iterator(-1)};
   Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   flatten<T>(input, output);
@@ -196,5 +194,86 @@ void Op::Layer::Flatten::run(TensorPool &tensor_pool) {
               Op::get_tensorproto_dtype_name(input_type),
               Op::get_tensorproto_dtype_name(output_type));
   }
-  
+}
+
+template <typename inputT, typename outputT> 
+void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Gemm *cc = dynamic_cast<Op::Layer::Gemm *>(l);
+
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+
+  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
+
+  std::vector<int> ofmap_dims {1, cc->m_cp.wr};
+  Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
+  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+
+  print_vec("output dims ", output->get_dims());
+
+  VA<inputT, outputT> va(*cc);
+  /* TODO: get architecture size from gbl_args */
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
+  va.run(input, output);
+  tt.stop();
+  tt.report("Time taken: ");
+}
+
+void Op::Layer::Gemm::run(TensorPool &tensor_pool) {
+  std::cout << this->op_type() << ' ' << this->name << ' ' << 
+    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
+
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT &&
+      output_type == onnx::TensorProto_DataType_FLOAT) {
+    run_gemm<float, float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+             output_type == onnx::TensorProto_DataType_INT32) {
+    run_gemm<int8_t, int>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: %s, %s",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}
+
+template <typename T>
+void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Dropout *cc = dynamic_cast<Op::Layer::Dropout*>(l);
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+
+  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
+
+  Tensor<T> *output = new TensorCreate<T>(input->get_dims());
+  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+  /* TODO: implement dropout correctly */
+  *output = *input;
+}
+
+
+void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
+  std::cout << this->op_type() << ' ' << this->name << ' ' << 
+    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
+
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type == output_type);
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+    run_dropout<float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+    run_dropout<int8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+    run_dropout<int>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: %s, %s",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
 }

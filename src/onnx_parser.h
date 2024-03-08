@@ -137,6 +137,7 @@ struct Gemm : public LayerBase {
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct Maxpool : public LayerBase {
@@ -153,7 +154,7 @@ struct Maxpool : public LayerBase {
 struct Flatten : public LayerBase {
   const char *m_optype = "Flatten";
   const char *op_type() const override;
-  void run(TensorPool &tensor_pool);
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct Dropout : public LayerBase {
@@ -163,6 +164,7 @@ struct Dropout : public LayerBase {
   const char *op_type() const override;
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct Add : public LayerBase {
