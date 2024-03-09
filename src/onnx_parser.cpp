@@ -851,7 +851,9 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QuantizeLinear(), node);
   } else if (opt == "QLinearConv") {
     /* TODO: get scale values and add QunatizeLinear nodes
-     * there */
+     * there 
+     * better to not use Conv at all
+     */
     m_model.add(new Op::Layer::Conv(), node);
   } else if (opt == "DequantizeLinear") {
     m_model.add(new Op::Layer::DequantizeLinear(), node);

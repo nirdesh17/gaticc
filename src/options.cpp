@@ -12,7 +12,7 @@ void dispatch_onnx_ops(PyEngine &engine) {
   Op::Parser parser(s);
   if (gbl_args.has_option("timeest")) {
     std::string arch_list = gbl_args["timeest"].as<std::string>();
-    std::vector<int> mnk = parse_csv_string(arch_list);
+    std::vector<int> mnk = parse_csv_string<int>(arch_list);
     assert(mnk.size() != 0 && "Ill formatted dimension string to --timeest, "
                               "expects string like 9,8,8");
     assert(mnk.size() == 3 &&

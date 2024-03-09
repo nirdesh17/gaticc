@@ -21,12 +21,11 @@
  */
 
 #if 0
-vgg16 int
-conv
-gemm
-bias
+conv bias
+gemm correctness
 quantization
-maxpool
+maxpool refactor
+dropout impl
 #endif
 
 class Executor {
@@ -35,7 +34,7 @@ class Executor {
    */
   TensorPool tensor_pool;
   /* inputT: input type of the entire model */
-  template <typename inputT>
+  template <typename inputT, typename outputT>
   void execute(PyEngine &engine, const Op::Parser &parser, const std::string &abs_img_path);
   template <typename T> Tensor<T> *read_img(PyEngine &engine, const std::string &img_path);
 
@@ -43,16 +42,41 @@ public:
   Executor(PyEngine &engine, const Op::Parser &parser, const std::string &img_path);
 };
 
-template <typename inputT>
+template <typename inputT, typename outputT>
 void Executor::execute(PyEngine &engine, const Op::Parser &parser,
                        const std::string &abs_img_path) {
   Tensor<inputT> *inp = read_img<inputT>(engine, abs_img_path);
-  tensor_pool.set<Tensor<inputT>*>(0, inp);
+  tensor_pool.set<Tensor<inputT> *>(0, inp);
+
+  std::vector<std::string> dump_candidates;
+
+  if (gbl_args.has_option("dump-output")) {
+    std::string arg = gbl_args["dump-output"].as<std::string>();
+    if (arg != "all") {
+      dump_candidates = parse_csv_string<std::string>(arg);
+    }
+  }
 
   std::vector<Op::LayerBase *> order = parser.get_execution_order();
   for (Op::LayerBase *l : order) {
-    l->run(tensor_pool);
+    std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
+              << Op::get_tensorproto_dtype_name(l->input_type) << ' '
+              << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
+    if (dump_candidates.size() == 0) {
+      l->dump_output = true;
+      l->run(tensor_pool);
+    } else {
+      auto itr =
+          std::find(dump_candidates.begin(), dump_candidates.end(), l->name);
+      if (itr != dump_candidates.end()) {
+        l->dump_output = true;
+      } else {
+        l->dump_output = false;
+      }
+      l->run(tensor_pool);
+    }
   }
+  std::cout << "Finish\n";
 }
 
 template <typename T>

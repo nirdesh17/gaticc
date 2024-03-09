@@ -89,6 +89,12 @@ struct LayerBase {
    */
   onnx::TensorProto_DataType input_type;
   onnx::TensorProto_DataType output_type;
+
+  /* Used by executor, decides whether current layer's output
+   * should be dumped. Set by Executor::executor
+   */
+  bool dump_output;
+
   /* All nodes with a parameter should have a constructor to
    * initialize them. See conv for eg.
    */

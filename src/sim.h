@@ -265,12 +265,31 @@ public:
   int exec(int x) override;
 };
 
-class Bias : public Chainblock {
-  int bias;
+template <typename T>
+void bias_add(Tensor<T> *arr, Op::Layer::Conv *cc) {
+  Tensor<T> *bias_arr = new TensorExtant<T>(cc->bias);
+  if (arr->dims_size() != 3) {
+    log_fatal("input to bias not 3-dimensional");
+  }
+  int stride = arr->dims_at(1) * arr->dims_at(2);
+  std::cout << "stride " << stride << '\n';
+  std::cout << "dlaksjh" << arr->dims_at(0) << '\n';
+  for (int i = 0; i < arr->dims_iterator(-1); ++i) {
+    arr->at(i);
+  }
+#if 0
+  for (int i = 0; i < arr->dims_at(0); ++i) {
+    for (int j = 0; j < stride; ++j) {
+      int index = i * stride + j;
+      std::cout << i << ' ' << j << '\n';
+      //T val = arr->at(index) + bias_arr->at(i);
+      //arr->set(index, 3.33);
+    }
+  }
+#endif
+  delete bias_arr;
+}
 
-public:
-  int exec(int x) override;
-};
 
 /*
 * this max pooler pools out the max val when a kernel window is slid over the
@@ -848,9 +867,14 @@ template <typename inputT, typename outputT> class VA {
   int wcols;
   int isize;
   Tensor<inputT> *weights;
+  Tensor<inputT> *bias;
   public:
     VA(Op::Layer::Gemm &gp);
     void run(Tensor<inputT> *input, Tensor<outputT> *output);
+    ~VA() {
+      delete weights;
+      delete bias;
+    }
 };
 
 
@@ -860,17 +884,17 @@ VA<inputT, outputT>::VA(Op::Layer::Gemm &gp) {
   wcols = gp.m_cp.wc;
   isize = gp.m_cp.is;
   weights = new TensorExtant<inputT>(gp.weights);
+  bias = new TensorExtant<inputT>(gp.bias);
 }
 
 template <typename inputT, typename outputT>
 void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
-  std::cout << "weights dims: " << weights->dims_iterator(-1) << '\n';
-  std::cout << "input dims: " << input->dims_iterator(-1) << '\n';
   for (int i = 0; i < wrows; ++i) {
     outputT dst = 0;
     for (int j = 0; j < wcols; ++j) {
       dst += weights->at(i * wcols + j) * input->at(j);
     }
+    dst += bias->at(i);
     output->set(i, dst);
   }
 }

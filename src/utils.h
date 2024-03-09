@@ -10,6 +10,7 @@
 #include <iostream>
 #include <list>
 #include <typeinfo>
+#include <iomanip>
 #include <unistd.h>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
@@ -62,9 +63,13 @@ class Argparse {
        {"timeest",
         {"--timeest"},
         "print estimated time that a model would take based on FLOP counts "
-        "(this does not account for latencies such as that of DRAM)",
+        "(this does not account for latencies such as that of DRAM)"
+        "\n\tArgs: [comma separated arch config]"
+        "\n\tEx: --timeest 9,8,8",
         1},
        {"sim", {"--sim"}, "Simulate inference on an image. Args: [input_image]", 1},
+       {"dump-output", {"--dump-output"}, "Dump Outputs produced by the "
+         "simulator. Args: [all | comma separated layer names]", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
 public:
@@ -190,7 +195,7 @@ void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
 template <typename T> void print_vec(const char *s, std::vector<T> const &v) {
   printf("%s: ", s);
   for (auto a : v) {
-    std::cout << a << ' ';
+    std::cout << std::setprecision(8) << std::fixed << a << ' ';
   }
   std::cout << '\n';
 }
@@ -326,15 +331,24 @@ public:
   }
 };
 
-/* Parse a csv string made of integers of the form:
- * "9, 8, 8" and return a vector
+/* Parse a csv string of the form "9,8,8" and return a vector
  */
+template <typename T> inline std::vector<T> parse_csv_string(std::string &s) {
+  std::vector<T> result;
+  std::stringstream ss(s);
+  std::string token;
+  while (std::getline(ss, token, ',')) {
+    result.push_back(token);
+  }
+  return result;
+}
+
+template <>
 inline std::vector<int> parse_csv_string(std::string &s) {
   std::vector<int> result;
   std::stringstream ss(s);
   std::string token;
   while (std::getline(ss, token, ',')) {
-    // Convert token to integer and add to result vector
     result.push_back(std::stoi(token));
   }
   return result;

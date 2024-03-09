@@ -12,19 +12,22 @@
 Executor::Executor(PyEngine &engine, const Op::Parser &parser, const std::string &img_path) {
   onnx::TensorProto_DataType weight_type = parser.get_model_weight_type();
   onnx::TensorProto_DataType input_type = parser.get_model_input_type();
-  onnx::TensorProto_DataType output_type = parser.get_model_output_type();
+  /* TODO: fix this */
+  onnx::TensorProto_DataType output_type = onnx::TensorProto_DataType_FLOAT; //parser.get_model_output_type();
 
   int total_regs = parser.get_total_registers() + 1;
   tensor_pool.resize(total_regs);
 
-  std::cout << Op::get_tensorproto_dtype_name(input_type);
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
-    execute<float>(engine, parser, img_path);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
-    execute<int8_t>(engine, parser, img_path);
+  if (input_type == onnx::TensorProto_DataType_FLOAT &&
+      output_type == onnx::TensorProto_DataType_FLOAT) {
+    execute<float, float>(engine, parser, img_path);
+  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+             output_type == onnx::TensorProto_DataType_INT32) {
+    execute<int8_t, int>(engine, parser, img_path);
   } else {
-    log_fatal("Unsupported input type to model: %s",
-              Op::get_tensorproto_dtype_name(input_type));
+    log_fatal("Unsupported type combo: %s, %s",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
   }
 }
 
@@ -46,17 +49,20 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   /* TODO: get architecture size from gbl_args */
   SASA<inputT, outputT> sasa(9, 16, 16, *cc);
+
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   sasa.master(*input, *output);
+  //bias_add<outputT>(output, cc);
   tt.stop();
   tt.report("Time taken: ");
+
+  if (l->dump_output) {
+    output->print();
+  }
 }
 
 void Op::Layer::Conv::run(TensorPool &tensor_pool) {
-  std::cout << this->op_type() << ' ' << this->name << ' ' << 
-    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
-
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
 
@@ -90,12 +96,12 @@ template <typename T> void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Relu<T> relu;
   relu.exec(input, output);
+  if (l->dump_output) {
+    output->print();
+  }
 }
 
 void Op::Layer::Relu::run(TensorPool &tensor_pool) {
-  std::cout << this->op_type() << ' ' << this->name << ' ' << 
-    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
-
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(input_type == output_type);
@@ -127,23 +133,13 @@ void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
                               input->dims_at(2)/2};
   Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-
-#if 0
-  Pooler<T> pooler;
-  for (int i = 0; i < input->dims_at(0); ++i) {
-    Mat<T> tmp = input->get_mat(i);
-    std::cout << tmp.size() << ' ' << tmp.at(0).size() << '\n';
-    *output += pooler.max_pooler(tmp, *cc);
-  }
-#endif
   maxpool<T>(input, output, cc->m_cp);
+  if (l->dump_output) {
+    output->print();
+  }
 }
 
 void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
-  std::cout << this->op_type() << ' ' << this->name << ' ' << 
-    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
-
-
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(input_type == output_type);
@@ -174,12 +170,12 @@ void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   flatten<T>(input, output);
+  if (l->dump_output) {
+    output->print();
+  }
 }
 
 void Op::Layer::Flatten::run(TensorPool &tensor_pool) {
-  std::cout << this->op_type() << ' ' << this->name << ' ' << 
-    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
-
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(input_type == output_type);
@@ -210,8 +206,6 @@ void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
   tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
 
-  print_vec("output dims ", output->get_dims());
-
   VA<inputT, outputT> va(*cc);
   /* TODO: get architecture size from gbl_args */
   Timer<std::chrono::milliseconds> tt;
@@ -219,12 +213,12 @@ void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   va.run(input, output);
   tt.stop();
   tt.report("Time taken: ");
+  if (l->dump_output) {
+    output->print();
+  }
 }
 
 void Op::Layer::Gemm::run(TensorPool &tensor_pool) {
-  std::cout << this->op_type() << ' ' << this->name << ' ' << 
-    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
-
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
 
@@ -254,13 +248,13 @@ void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   /* TODO: implement dropout correctly */
   *output = *input;
+  if (l->dump_output) {
+    output->print();
+  }
 }
 
 
 void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
-  std::cout << this->op_type() << ' ' << this->name << ' ' << 
-    get_tensorproto_dtype_name(this->input_type) << ' ' << get_tensorproto_dtype_name(this->output_type) << '\n';
-
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
   assert(input_type == output_type);

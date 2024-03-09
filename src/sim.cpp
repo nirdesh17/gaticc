@@ -172,8 +172,3 @@ BatchNorm::BatchNorm(int mean, int sd, int gamma, int beta)
     : mean{mean}, sd{sd}, gamma{gamma}, beta{beta} {}
 
 int BatchNorm::exec(int x) { return (gamma * ((x - mean) / sd)) + beta; }
-
-int Bias::exec(int x) {
-  return x + bias; // element wise addition
-}
-

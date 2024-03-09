@@ -35,6 +35,9 @@ public:
   virtual Mat<T> get_mat(int index) { return 0; }
   virtual void set(int index, T val) { return; }
   virtual Tensor<T>& operator=(Tensor<T>& rhs) {
+    /* TODO: clean this, dangling reference?! */
+    Tensor<T> t1;
+    return t1;
   }
   virtual void print() { return; }
 };
@@ -192,5 +195,9 @@ public:
     this->dims = rhs.get_dims();
     this->vec = rhs.get();
     return *this;
+  }
+
+  void print() override { 
+    print_vec("tensor", vec);
   }
 };
