@@ -10,7 +10,8 @@ import re
 from math import ceil
 from PIL import Image
 
-import torch
+import jax.lax
+import jax.numpy
 import os.path
 
 # NEEDED BY SYSIM FFI
@@ -127,20 +128,33 @@ def vgg_float_get_kernel(model_path, layernum):
 def post_infer_layer(ofmap):
     return np.array(ofmap).flatten().tolist()
 
+# Deprecated: torch. functions mess with the program in unknown
+# ways. Probably because both torch and sysim dynamically link to
+# libprotobuf. Real cause unknown but the solution is to not use
+# torch functions
+#def vgg_int_infer_layer(model_path, ifmap, layernum):
+#    ifmap = torch.Tensor(ifmap)
+#    k = np.copy(vgg_int_get_kernel(model_path, layernum))
+#    kernels = torch.Tensor(k)
+#    ofmap = torch.nn.functional.conv2d(ifmap, kernels)
+#    ofmap = np.array(ofmap)
+#    ofmap = post_infer_layer(ofmap.astype(np.int32))
+#    return ofmap
+
 def vgg_int_infer_layer(model_path, ifmap, layernum):
-    ifmap = torch.Tensor(ifmap)
+    ifmap = jax.numpy.array(ifmap)
     k = np.copy(vgg_int_get_kernel(model_path, layernum))
-    kernels = torch.Tensor(k)
-    ofmap = torch.nn.functional.conv2d(ifmap, kernels)
+    kernels = jax.numpy.array(k)
+    ofmap = jax.lax.conv(ifmap, kernels, (1,1), ((0,0),(0,0)))
     ofmap = np.array(ofmap)
     ofmap = post_infer_layer(ofmap.astype(np.int32))
     return ofmap
 
 def vgg_float_infer_layer(model_path, ifmap, layernum):
-    ifmap = torch.Tensor(ifmap)
+    ifmap = jax.numpy.array(ifmap)
     k = np.copy(vgg_float_get_kernel(model_path, layernum))
-    kernels = torch.Tensor(k)
-    ofmap = torch.nn.functional.conv2d(ifmap, kernels)
+    kernels = jax.numpy.array(k)
+    ofmap = jax.lax.conv(ifmap, kernels, (1,1), ((0,0),(0,0)))
     ofmap = np.array(ofmap)
     ofmap = post_infer_layer(ofmap.astype(np.float32))
     return ofmap
@@ -154,9 +168,5 @@ def preprocess_quantize(image):
     arr = quantize_fp32i8(arr, 0.01865844801068306, 114)
     return arr
 
-#if __main__ == __name__:
-#    ifm = preprocess("images/mug.jpg")
-#    model_name = "onnx/vgg/vgg16-12-int8.onnx"
-#    oo = infer_layer(model_name, ifm, 0)
-#    oo = oo.reshape((1,64,222,222))
-#    bo = np.array(infer_layer_torch(model_name, ifm, 0))
+# Example call:
+# vgg_float_infer_layer("../onnx/vgg/vgg16-12.onnx", preprocess("../images/dog.jpg"), 0)
