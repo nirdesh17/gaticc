@@ -194,16 +194,32 @@ void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
 
 template <typename T> void print_vec(const char *s, std::vector<T> const &v) {
   printf("%s: ", s);
-  for (auto a : v) {
-    std::cout << std::setprecision(8) << std::fixed << a << ' ';
+  int newline_cnt = 0;
+  std::cout << std::setprecision(8) << std::fixed;
+  for (const auto &a : v) {
+    /* print only 16 number on a single line */
+    if (newline_cnt >= 16) {
+      std::cout << '\n';
+      newline_cnt = 0;
+    }
+    std::cout << a << '\t';
+    newline_cnt++;
   }
   std::cout << '\n';
 }
 
 template <typename T> void print_vec(const char *s, std::list<T> const &v) {
   printf("%s: ", s);
-  for (auto const &a : v) {
-    std::cout << a << ' ';
+  int newline_cnt = 0;
+  std::cout << std::setprecision(8) << std::fixed;
+  for (const auto &a : v) {
+    /* print only 16 number on a single line */
+    if (newline_cnt >= 16) {
+      std::cout << '\n';
+      newline_cnt = 0;
+    }
+    std::cout << a << '\t';
+    newline_cnt++;
   }
   std::cout << '\n';
 }
