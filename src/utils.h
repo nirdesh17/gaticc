@@ -7,10 +7,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <list>
 #include <typeinfo>
-#include <iomanip>
 #include <unistd.h>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
@@ -67,9 +67,20 @@ class Argparse {
         "\n\tArgs: [comma separated arch config]"
         "\n\tEx: --timeest 9,8,8",
         1},
-       {"sim", {"--sim"}, "Simulate inference on an image. Args: [input_image]", 1},
-       {"dump-output", {"--dump-output"}, "Dump Outputs produced by the "
-         "simulator. Args: [all | comma separated layer names]", 1},
+       {"sim",
+        {"--sim"},
+        "Simulate inference on an image. Args: [input_image]",
+        1},
+       {"dump-output",
+        {"--dump-output"},
+        "Dump Outputs produced by the "
+        "simulator. Args: [all | comma separated layer names]",
+        1},
+       {"venv-path",
+        {"--venv-path"},
+        "Append venv-path to sys.path while loading the interpreter. Args: [ : "
+        "separated path list]",
+        1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
 public:
@@ -359,8 +370,7 @@ template <typename T> inline std::vector<T> parse_csv_string(std::string &s) {
   return result;
 }
 
-template <>
-inline std::vector<int> parse_csv_string(std::string &s) {
+template <> inline std::vector<int> parse_csv_string(std::string &s) {
   std::vector<int> result;
   std::stringstream ss(s);
   std::string token;
