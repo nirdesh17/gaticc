@@ -7,4 +7,4 @@ make $1.o -B -j 8
 if [[ $HOST == "galactos" ]]; then
   source ~/python/bin/activate
 fi
-./exe/$1 $@
+./exe/$1 $@ | tee log.txt
