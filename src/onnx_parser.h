@@ -225,7 +225,9 @@ struct ReorderOutput : public LayerBase {
 struct Reshape : public LayerBase {
   const char *m_optype = "Reshape";
   const char *op_type() const override;
-  /* TODO: add params to this layer */
+  const char *params() const override;
+  std::vector<int64_t> new_shape;
+  void set_initializer_params(const onnx::TensorProto &t) override;
 };
 
 struct QuantizeLinear : public LayerBase {
@@ -262,6 +264,15 @@ struct QLinearAdd : public LayerBase {
   const char *m_optype = "QLinearAdd";
   const char *op_type() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
+};
+
+struct Transpose : public LayerBase {
+  const onnx::TensorProto *addend;
+  const char *m_optype = "Transpose";
+  const char *op_type() const override;
+  const char *params() const override;
+  std::vector<int> perm;
+  void set_attributes(const onnx::NodeProto &node) override;
 };
 
 } // namespace Layer

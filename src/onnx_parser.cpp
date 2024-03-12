@@ -8,6 +8,7 @@
 #include <iostream>
 #include <map>
 #include <queue>
+#include <sstream>
 #include <typeinfo>
 
 #include <boost/graph/adjacency_list.hpp>
@@ -242,6 +243,34 @@ const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }
 
 const char *Op::Layer::Reshape::op_type() const { return m_optype; }
 
+const char *Op::Layer::Reshape::params() const {
+  std::stringstream ss;
+  ss << "shape: ";
+  for (int64_t i : new_shape) {
+    ss << i << ", ";
+  }
+  return ss.str().c_str();
+}
+
+void Op::Layer::Reshape::set_initializer_params(const onnx::TensorProto &t) {
+  if (t.int64_data_size() > 0) {
+    for (int64_t val : t.int32_data()) {
+      new_shape.push_back(val);
+    }
+  } else if (t.has_raw_data()) {
+    /* oddly enough, protobuf uses std::string to hold bytes, hence
+     * the need for reinterpret_cast
+     */
+    const int64_t *raw_ptr = reinterpret_cast<const int64_t *>(&t.raw_data());
+    for (int i = 0; i < 4; ++i) {
+      new_shape.push_back(raw_ptr[i]);
+    }
+  } else {
+    log_fatal("Do not know how to interpret TensorProto for %s",
+              t.name().c_str());
+  }
+}
+
 const char *Op::Layer::DequantizeLinear::op_type() const { return m_optype; }
 
 const char *Op::Layer::DequantizeLinear::params() const {
@@ -314,6 +343,33 @@ const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
 void Op::Layer::QLinearAdd::set_initializer_params(const onnx::TensorProto &t) {
   if (t.dims_size() == BIAS_TENSOR_DIMS) {
     addend = &t;
+  }
+}
+
+const char *Op::Layer::Transpose::op_type() const { return m_optype; }
+
+const char *Op::Layer::Transpose::params() const {
+  std::stringstream ss;
+  ss << "perm: ";
+  for (int64_t i : perm) {
+    ss << i << ", ";
+  }
+  return ss.str().c_str();
+}
+
+void Op::Layer::Transpose::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "perm") {
+      if (itr->ints_size() < 1) {
+        log_fatal("expected node %s to contain perm info", node.name().c_str());
+      }
+      perm.resize(itr->ints_size(), 0);
+      parse_onnx_ints(*itr, perm.data());
+    } else {
+      log_info("Parser un-implemented for attribute %s at node %s",
+               itr->name().c_str(), node.name().c_str());
+    }
   }
 }
 
@@ -663,9 +719,9 @@ void Op::Model::deduce_types(const onnx::GraphProto &gproto) {
     // onnx::TensorProto_DataType_UNDEFINED && "Output type cannot be
     // Undefined");
     if (l->input_type == onnx::TensorProto_DataType_UNDEFINED) {
-      log_fatal(
-          "Failed Type Deduction. Input type for layer: %s cannot be UNDEFINED",
-          l->name.c_str());
+      log_fatal("Failed Type Deduction. Input type for layer: %s cannot be "
+                "UNDEFINED",
+                l->name.c_str());
     }
   }
 }
@@ -709,9 +765,9 @@ void Op::Model::set_output_type(const onnx::NodeProto &node, Op::LayerBase *l) {
         l->output_type = get_type_from_value_info(go_itr->second);
         break;
       }
-      log_fatal(
-          "Couldn't find %s for node %s in value_info_map or graph_output_map",
-          output.c_str(), node.name().c_str());
+      log_fatal("Couldn't find %s for node %s in value_info_map or "
+                "graph_output_map",
+                output.c_str(), node.name().c_str());
     }
   }
 }
@@ -851,7 +907,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QuantizeLinear(), node);
   } else if (opt == "QLinearConv") {
     /* TODO: get scale values and add QunatizeLinear nodes
-     * there 
+     * there
      * better to not use Conv at all
      */
     m_model.add(new Op::Layer::Conv(), node);
@@ -861,6 +917,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QLinearMatMul(), node);
   } else if (opt == "QLinearAdd") {
     m_model.add(new Op::Layer::QLinearAdd(), node);
+  } else if (opt == "Transpose") {
+    m_model.add(new Op::Layer::Transpose(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }
