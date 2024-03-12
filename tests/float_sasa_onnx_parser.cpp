@@ -8,6 +8,7 @@
 #include <chrono>
 #include <numeric>
 #include <stdlib.h>
+#include <chrono>
 
 #include "../src/onnx_parser.h"
 
@@ -42,18 +43,11 @@ int main(int argc, char *argv[]) {
   PyObject *py_expected = engine.call_func("vgg_float_infer_layer", infer_args);
   std::vector<outputT> expected = engine.il2iv<outputT>(py_expected);
 
-  Timer tt;
+  Timer<std::chrono::milliseconds> tt;
   tt.start();
 
 
-  /* do not move this under the next three lines */
-  /* a very ill bug resides somewhere */
   Op::Parser my_parser(model_path);
-
-  /* TODO: this here is important do not touch */
-  std::fstream input(model_path, std::ios::in);
-  onnx::ModelProto mp;
-  mp.ParseFromIstream(&input);
 
   std::vector<Op::LayerBase *> order = my_parser.get_execution_order();
 
@@ -89,7 +83,3 @@ int main(int argc, char *argv[]) {
       generate_report<outputT, outputT>(argv[0], expected, calculated);
   return status;
 }
-
-// must in documents
-// if decided to use tensor.pushback , make sure to set it dims afterwards and
-// make sure to ONLY use pushback when used default constructor of TensorCreate

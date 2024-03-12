@@ -82,7 +82,3 @@ int main(int argc, char *argv[]) {
       generate_report<outputT, outputT>(argv[0], expected, calculated);
   return status;
 }
-
-// must in documents
-// if decided to use tensor.pushback , make sure to set it dims afterwards and
-// make sure to ONLY use pushback when used default constructor of TensorCreate
