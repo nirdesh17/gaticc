@@ -271,3 +271,43 @@ void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
               Op::get_tensorproto_dtype_name(output_type));
   }
 }
+
+template <typename T>
+void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Reshape *cc = dynamic_cast<Op::Layer::Reshape*>(l);
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+
+  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
+
+  Tensor<T> *output = new TensorCreate<T>(input->get_dims());
+  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+
+  int negative_ones = std::count(cc->new_shape.begin(), cc->new_shape.end(), -1);
+  if (negative_ones > 1) {
+    log_fatal("didn't expect more than one -1 in shape for node %s", l->name.c_str());
+  }
+  reshape<T>(input, output, cc->new_shape);
+  if (l->dump_output) {
+    output->print();
+  }
+}
+
+void Op::Layer::Reshape::run(TensorPool &tensor_pool) {
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type == output_type);
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+    run_reshape<float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+    run_reshape<int8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+    run_reshape<int>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: %s, %s",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}

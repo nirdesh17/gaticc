@@ -10,6 +10,7 @@
 #include <queue>
 #include <sstream>
 #include <typeinfo>
+#include <cstring>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -38,7 +39,7 @@ const char *Op::LayerBase::params() const { return "(null)"; }
 void Op::LayerBase::set_initializer_params(const onnx::TensorProto &t) {}
 void Op::LayerBase::set_value_info_params(const onnx::ValueInfoProto &t) {}
 void Op::LayerBase::run(TensorPool &tensor_pool) {
-  log_fatal("No overrides present for this layer: %s", name.c_str());
+  log_fatal("No overrides present for this layer %s: %s", this->op_type(), name.c_str());
 }
 void Op::LayerBase::set_attributes(const onnx::NodeProto &node) { return; }
 
@@ -157,6 +158,7 @@ void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
 void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
   const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
   if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
+    /* TODO: check dim1 here */
     m_cp.is = shape.dim().at(1).dim_value();
   } else {
     log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
@@ -244,15 +246,24 @@ const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }
 const char *Op::Layer::Reshape::op_type() const { return m_optype; }
 
 const char *Op::Layer::Reshape::params() const {
+  static char ret[128];
+  std::memset(ret, '\0', 128);
   std::stringstream ss;
-  ss << "shape: ";
+  ss << "(shape: ";
   for (int64_t i : new_shape) {
     ss << i << ", ";
   }
-  return ss.str().c_str();
+  ss << ")";
+  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  return ret;
 }
 
 void Op::Layer::Reshape::set_initializer_params(const onnx::TensorProto &t) {
+  if (t.dims_size() != 1) {
+    log_fatal("New shape expected to be a linear vector, got vector of size %d for"
+        " tensor %s", t.dims_size(), t.name().c_str());
+  }
+        
   if (t.int64_data_size() > 0) {
     for (int64_t val : t.int32_data()) {
       new_shape.push_back(val);
@@ -261,8 +272,8 @@ void Op::Layer::Reshape::set_initializer_params(const onnx::TensorProto &t) {
     /* oddly enough, protobuf uses std::string to hold bytes, hence
      * the need for reinterpret_cast
      */
-    const int64_t *raw_ptr = reinterpret_cast<const int64_t *>(&t.raw_data());
-    for (int i = 0; i < 4; ++i) {
+    const int64_t *raw_ptr = reinterpret_cast<const int64_t *>(t.raw_data().c_str());
+    for (int i = 0; i < t.dims(0); ++i) {
       new_shape.push_back(raw_ptr[i]);
     }
   } else {
@@ -349,12 +360,16 @@ void Op::Layer::QLinearAdd::set_initializer_params(const onnx::TensorProto &t) {
 const char *Op::Layer::Transpose::op_type() const { return m_optype; }
 
 const char *Op::Layer::Transpose::params() const {
+  static char ret[128];
+  std::memset(ret, '\0', 128);
   std::stringstream ss;
-  ss << "perm: ";
+  ss << "(perm: ";
   for (int64_t i : perm) {
     ss << i << ", ";
   }
-  return ss.str().c_str();
+  ss << ")";
+  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  return ret;
 }
 
 void Op::Layer::Transpose::set_attributes(const onnx::NodeProto &node) {
@@ -372,6 +387,37 @@ void Op::Layer::Transpose::set_attributes(const onnx::NodeProto &node) {
     }
   }
 }
+
+Op::Layer::MatMul::MatMul() { m_cp = {}; }
+
+const char *Op::Layer::MatMul::op_type() const { return m_optype; }
+
+const char *Op::Layer::MatMul::params() const {
+  static char ret[64];
+  sprintf(ret, "WR,WC,IS: %d,%d,%d", m_cp.wr, m_cp.wc, m_cp.is);
+  return ret;
+}
+
+void Op::Layer::MatMul::set_initializer_params(
+    const onnx::TensorProto &t) {
+  if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
+    m_cp.wr = t.dims()[0];
+    m_cp.wc = t.dims()[1];
+    weights = &t;
+  }
+}
+
+void Op::Layer::MatMul::set_value_info_params(
+    const onnx::ValueInfoProto &t) {
+  const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
+  if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
+    m_cp.is = shape.dim().at(1).dim_value();
+  } else {
+    log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
+  }
+}
+
+
 
 /* Auxillary Graph Functions */
 
@@ -919,6 +965,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QLinearAdd(), node);
   } else if (opt == "Transpose") {
     m_model.add(new Op::Layer::Transpose(), node);
+  } else if (opt == "MatMul") {
+    m_model.add(new Op::Layer::MatMul(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }

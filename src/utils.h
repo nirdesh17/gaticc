@@ -209,7 +209,7 @@ template <typename T> void print_vec(const char *s, std::vector<T> const &v) {
   std::cout << std::setprecision(8) << std::fixed;
   for (const auto &a : v) {
     /* print only 16 number on a single line */
-    if (newline_cnt >= 16) {
+    if (newline_cnt >= 9) {
       std::cout << '\n';
       newline_cnt = 0;
     }
@@ -399,4 +399,16 @@ template <typename T> void TensorPool::set(int index, T data) {
 template <typename T> T TensorPool::get(int index) {
   assert(pool.at(index).has_value() && "pool at index does not have a value");
   return std::any_cast<T>(pool.at(index));
+}
+
+/* like std::accumulate but calculates products 
+ * TODO: use this in tensor.h
+ */
+template<class InputIt, class T>
+T prod(InputIt first, InputIt last, T init) {
+  T product = init;
+  for (InputIt i = first; i != last; ++i) {
+    product *= *i;
+  }
+  return product;
 }

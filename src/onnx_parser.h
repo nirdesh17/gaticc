@@ -228,6 +228,7 @@ struct Reshape : public LayerBase {
   const char *params() const override;
   std::vector<int64_t> new_shape;
   void set_initializer_params(const onnx::TensorProto &t) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct QuantizeLinear : public LayerBase {
@@ -273,6 +274,17 @@ struct Transpose : public LayerBase {
   const char *params() const override;
   std::vector<int> perm;
   void set_attributes(const onnx::NodeProto &node) override;
+};
+
+struct MatMul : public LayerBase {
+  const onnx::TensorProto *weights;
+  const char *m_optype = "MatMul";
+  GemmParams m_cp;
+  MatMul();
+  const char *op_type() const override;
+  const char *params() const override;
+  void set_initializer_params(const onnx::TensorProto &t) override;
+  void set_value_info_params(const onnx::ValueInfoProto &t) override;
 };
 
 } // namespace Layer
