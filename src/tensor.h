@@ -21,6 +21,7 @@ public:
   virtual int dims_size() { return 0; }
   virtual int dims_at(int index) { return index; }
   virtual void push_back(T data) { return; }
+  virtual void push_back(const std::vector<T>& data) { return; }
   /* insert one element at a time */
   virtual void insert(std::vector<int> &at, T data) { return; }
   virtual void set_dims(std::vector<int> const &temp_dims) { return; }
@@ -63,18 +64,32 @@ public:
     for (int i = 0; i < at.size(); i++) {
       sum = sum + at[i] * dims_iterator(i);
     }
-    if (typeid(T) == typeid(float))
+
+    if (typeid(T) == typeid(float) && ptr->float_data_size() != 0) {
       return (ptr->float_data(sum));
-    else if (typeid(T) == typeid(int32_t))
-      return ((int8_t)ptr->raw_data().at(sum));
-    // return (ptr->int32_data(sum));
-    else if (typeid(T) == typeid(int64_t))
-      return (ptr->int64_data(sum));
-    else if (typeid(T) == typeid(int8_t))
-      return ((int8_t)ptr->raw_data().at(sum));
-    else
-      return -1;
+    } else if (typeid(T) == typeid(int32_t) && ptr->int32_data_size() != 0) {
+      return (ptr->int32_data(sum));
+    } else if (typeid(T) == typeid(int64_t) && ptr->int32_data_size() != 0) {
+      return (ptr->int64_data(sum)); 
+    } else {
+      log_info("deducing type for tensor %s from raw_data", ptr->name().c_str());
+      onnx::TensorProto_DataType ptr_dtype = static_cast<onnx::TensorProto_DataType>(ptr->data_type());
+
+      if (ptr_dtype == onnx::TensorProto_DataType_FLOAT) {
+        const float *raw = reinterpret_cast<const float *>(ptr->raw_data().c_str());
+        return raw[sum];
+      } else if (ptr_dtype == onnx::TensorProto_DataType_INT32) {
+        const int32_t *raw = reinterpret_cast<const int32_t *>(ptr->raw_data().c_str());
+        return raw[sum];
+      } else if (ptr_dtype == onnx::TensorProto_DataType_INT8) {
+        const int8_t *raw = reinterpret_cast<const int8_t *>(ptr->raw_data().c_str());
+        return raw[sum];
+      } else {
+        log_fatal("Unable to deduce type for tensor or un-implemented: %s", ptr->name().c_str());
+      }
+    }
   }
+
   int dims_size() override { return dims.size(); }
 
   int dims_at(int index) override {
@@ -142,6 +157,12 @@ public:
 
   int dims_at(int index) override { return dims.at(index); }
   void push_back(T data) override { vec.push_back(data); }
+
+  void push_back(const std::vector<T>& data) { 
+    for (const T& i : data) {
+      this->push_back(i);
+    }
+  }
 
   void insert(std::vector<int> &at, T data) override {
     assert(at.size() <= dims.size());
