@@ -36,6 +36,25 @@ To install boost and protobuf in mac we can use either [brew](https://brew.sh) o
 brew install boost protobuf
 ```
 
+### Python dependencies
+
+Regardless of the OS, these packages have to be installed. If pip on your system
+supports installing packages system-wide, run: 
+
+```
+pip install numpy jax jaxlib pillow
+```
+
+Otherwise, create a virtual env and install it there:
+
+```
+mkdir my_env
+cd my_env
+python -m venv .
+source bin/activate
+pip install {above_packages}
+```
+
 ## Compile
 
 ```
