@@ -9,8 +9,25 @@ LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 
 CXX = g++
 # TODO: figure out how to specify lib paths for numpy
-CXXFLAGS = -O3 -g -std=c++17 `pkg-config --cflags python3`
-LDFLAGS = -lpython3.11 -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread
+
+# Determine the operating system
+UNAME_S := $(shell uname -s)
+
+CXXFLAGS =  -O3 -g -std=c++17 `pkg-config --cflags python3`
+
+ifeq ($(UNAME_S),Darwin)
+# TODO: Add generatlised support for mac os where paths will be the same for all versions of protobuf
+	CXXFLAGS += -I/opt/homebrew/Cellar/protobuf/25.3_1/include -I/opt/homebrew/Cellar/abseil/20240116.1/include
+	CXXFLAGS += -I/opt/homebrew/opt/boost/include
+#LDFLAGS
+    LDFLAGS +=  -L/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib -Wl,-rpath,/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib 
+	LDFLAGS +=  -Wl,-undefined,dynamic_lookup
+	LDFLAGS +=  -L/opt/homebrew/Cellar/protobuf/25.3_1/lib -lpython3.12 
+else
+	LDLIBS  +=  -Wl,--copy-dt-needed-entries 
+endif
+
+LDFLAGS += -lpthread -lprotobuf -lprotoc
 LD_LIBRARY_PATH = /usr/local/lib
 
 all: a

@@ -27,6 +27,15 @@ sudo apt install libprotobuf{available_version} libprotobuf-dev \
 `{available_version}` here is a version number of the packages available in
 the apt repos.
 
+### Mac OS M1/M2
+
+To install boost and protobuf in mac we can use either [brew](https://brew.sh) or [macports](https://www.macports.org).
+
+**Using Brew**
+```
+brew install boost protobuf
+```
+
 ## Compile
 
 ```
