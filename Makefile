@@ -17,13 +17,17 @@ UNAME_S := $(shell uname -s)
 CXXFLAGS =  -O3 -g -std=c++17 `pkg-config --cflags python3`
 
 ifeq ($(UNAME_S),Darwin)
-	# TODO: Add generatlised support for mac os where paths will be the same for all versions of protobuf
-	CXXFLAGS += -I/opt/homebrew/Cellar/protobuf/25.3_1/include -I/opt/homebrew/Cellar/abseil/20240116.1/include
-	CXXFLAGS += -I/opt/homebrew/opt/boost/include
-	LDFLAGS +=  -L/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
+	PROTOBUF_PATH_MAC = $(shell brew info protobuf | grep "$(brew --cellar)" | cut -d " " -f 1)
+	ABSEIL_PATH_MAC = $(shell brew info abseil | grep "$(brew --cellar)" | cut -d " " -f 1)
+	BOOST_PATH_MAC = $(shell brew info boost | grep "$(brew --cellar)" | cut -d " " -f 1)
+	PYTHON_PATH_MAC = $(shell brew info python | grep "$(brew --cellar)" | cut -d " " -f 1)
+
+	CXXFLAGS += -I$(PROTOBUF_PATH_MAC)/include -I$(ABSEIL_PATH_MAC)/include
+	CXXFLAGS += -I$(BOOST_PATH_MAC)/include
+	LDFLAGS +=  -L$(PYTHON_PATH_MAC)/Frameworks/Python.framework/Versions/Current/lib 
 	# NOTNEEDED? same as -L?: -Wl,-rpath,/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
 	LDFLAGS +=  -Wl,-undefined,dynamic_lookup
-	LDFLAGS +=  -L/opt/homebrew/Cellar/protobuf/25.3_1/lib 
+	LDFLAGS +=  -L$(PROTOBUF_PATH_MAC)/lib 
 else ifeq ($(UNAME_S),Linux)
 	LDFLAGS  +=  -Wl,--copy-dt-needed-entries
 else
