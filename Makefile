@@ -7,8 +7,9 @@ SRC_FILES = main.cpp sim.cpp ffi.cpp onnx_parser.cpp utils.cpp executor.cpp opti
 OBJ_FILES = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES)) $(OBJ_DIR)/onnx.pb.o
 LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 
+PYTHON_VERSION=$(shell python3 -c 'import sys; vv = sys.version_info[:2]; sys.stdout.write(f"{vv[0]}.{vv[1]}")')
+
 CXX = g++
-# TODO: figure out how to specify lib paths for numpy
 
 # Determine the operating system
 UNAME_S := $(shell uname -s)
@@ -16,18 +17,20 @@ UNAME_S := $(shell uname -s)
 CXXFLAGS =  -O3 -g -std=c++17 `pkg-config --cflags python3`
 
 ifeq ($(UNAME_S),Darwin)
-# TODO: Add generatlised support for mac os where paths will be the same for all versions of protobuf
+	# TODO: Add generatlised support for mac os where paths will be the same for all versions of protobuf
 	CXXFLAGS += -I/opt/homebrew/Cellar/protobuf/25.3_1/include -I/opt/homebrew/Cellar/abseil/20240116.1/include
 	CXXFLAGS += -I/opt/homebrew/opt/boost/include
-#LDFLAGS
-    LDFLAGS +=  -L/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib -Wl,-rpath,/opt/homebrew/opt/python@3.12/Frameworks/Python.framework/Versions/3.12/lib 
+	LDFLAGS +=  -L/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
+	# NOTNEEDED? same as -L?: -Wl,-rpath,/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
 	LDFLAGS +=  -Wl,-undefined,dynamic_lookup
-	LDFLAGS +=  -L/opt/homebrew/Cellar/protobuf/25.3_1/lib -lpython3.12 
+	LDFLAGS +=  -L/opt/homebrew/Cellar/protobuf/25.3_1/lib 
+else ifeq ($(UNAME_S),Linux)
+	LDFLAGS  +=  -Wl,--copy-dt-needed-entries
 else
-	LDLIBS  +=  -Wl,--copy-dt-needed-entries 
+	$(error "Unknown OS: ${UNAME_S}")
 endif
 
-LDFLAGS += -lpthread -lprotobuf -lprotoc
+LDFLAGS += -lpython${PYTHON_VERSION} -lpthread -lprotobuf -lprotoc
 LD_LIBRARY_PATH = /usr/local/lib
 
 all: a
@@ -35,7 +38,7 @@ all: a
 a: $(OBJ_FILES)
 	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) $(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
-# main does not contain a main.h file (handled separately)
+# main.cpp has no main.h (handled separately)
 $(OBJ_DIR)/main.o: ${SRC_DIR}/main.cpp ${SRC_DIR}/utils.h ${SRC_DIR}/sim.h ${SRC_DIR}/transformers.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
