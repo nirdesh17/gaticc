@@ -17,17 +17,19 @@ UNAME_S := $(shell uname -s)
 CXXFLAGS =  -O3 -g -std=c++17 `pkg-config --cflags python3`
 
 ifeq ($(UNAME_S),Darwin)
-	PROTOBUF_PATH_MAC = $(shell brew info protobuf | grep "$(brew --cellar)" | cut -d " " -f 1)
-	ABSEIL_PATH_MAC = $(shell brew info abseil | grep "$(brew --cellar)" | cut -d " " -f 1)
-	BOOST_PATH_MAC = $(shell brew info boost | grep "$(brew --cellar)" | cut -d " " -f 1)
-	PYTHON_PATH_MAC = $(shell brew info python | grep "$(brew --cellar)" | cut -d " " -f 1)
+	PROTOBUF_PATH_MAC = `brew info protobuf | grep -m 1 'Cellar' | cut -d " " -f 1`
+	ABSEIL_PATH_MAC = `brew info abseil | grep -m 1 'Cellar' | cut -d " " -f 1`
+	BOOST_PATH_MAC = `brew info boost | grep -m 1 'Cellar' | cut -d " " -f 1`
+	PYTHON_PATH_MAC = `brew info python | grep -m 1 'Cellar' | cut -d " " -f 1`
+	
+	ONEONE = $(shell echo "${PYTHON_PATH_MAC}")
 
 	CXXFLAGS += -I$(PROTOBUF_PATH_MAC)/include -I$(ABSEIL_PATH_MAC)/include
 	CXXFLAGS += -I$(BOOST_PATH_MAC)/include
 	LDFLAGS +=  -L$(PYTHON_PATH_MAC)/Frameworks/Python.framework/Versions/Current/lib 
 	# NOTNEEDED? same as -L?: -Wl,-rpath,/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
 	LDFLAGS +=  -Wl,-undefined,dynamic_lookup
-	LDFLAGS +=  -L$(PROTOBUF_PATH_MAC)/lib 
+	LDFLAGS +=  -L${PROTOBUF_PATH_MAC}/lib 
 else ifeq ($(UNAME_S),Linux)
 	LDFLAGS  +=  -Wl,--copy-dt-needed-entries
 else
