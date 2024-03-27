@@ -13,6 +13,7 @@ from PIL import Image
 import jax.lax
 import jax.numpy
 import os.path
+from os.path import join
 
 # NEEDED BY SYSIM FFI
 def l2nparr(l,dims):
@@ -89,6 +90,51 @@ def preprocess(image):
     img = img.astype(np.float32)
     img = np.expand_dims(img, axis=0)
     return img
+
+
+def np2jpg(arr, filename):
+    """ convert `arr` to a jpg with filename `filename` """
+    img = Image.fromarray(arr)
+    img.save(f"{filename}.jpg")
+
+
+def mnist_idx_image_load(path, sample_size):
+    """ return a np.array of dims (sample_size, 28, 28, 1) """
+    image_size = 28
+    with open(path, mode='rb') as file: 
+        file.read(16)
+        buf = file.read(image_size * image_size * sample_size)
+        data = np.frombuffer(buf, dtype=np.uint8)
+        images = data.reshape(sample_size, image_size, image_size, 1)
+        return images
+
+def mnist_idx_labels_load(path, sample_size):
+    """ return a np.array of dims (sample_size) """
+    with open(path, mode='rb') as file:
+        file.read(8)
+        buf = file.read(sample_size)
+        data = np.frombuffer(buf, dtype=np.uint8)
+        return data
+
+def quantize_ui8fp32(tensor):
+    assert tensor.dtype == np.uint8
+    src_max = np.max(tensor)
+    src_min = np.min(tensor)
+    scale = 1.0 / src_max - src_min
+    return tensor * scale
+
+def get_mnist_image(arr, n):
+    """ get nth image from arr (which is loaded by mnist_idx_image_load() """
+    return quantize_ui8fp32(arr[n])
+
+def mnist_image_x(x):
+    """ get xth image from mnist set """
+    images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)
+    return get_mnist_image(images, x)
+
+def mnist_label_x(x):
+    labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)
+    return labels[x]
     
 # Uses custom conv2d
 def infer_layer(model, ifm, layer):
@@ -163,10 +209,17 @@ def quantize_fp32i8(tensor, scale, zero_point):
     tten = np.clip(np.round((tensor / scale) + zero_point), -128, 127)
     return tten.astype(np.int8)
 
+
+
 def preprocess_quantize(image):
     arr = preprocess(image)
+    # TODO: do not hardcode, scale values, calculate them
     arr = quantize_fp32i8(arr, 0.01865844801068306, 114)
     return arr
+
+#images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)
+#labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)
+#get_mnist_image(images, 0)
 
 # Example call:
 # vgg_float_infer_layer("../onnx/vgg/vgg16-12.onnx", preprocess("../images/dog.jpg"), 0)

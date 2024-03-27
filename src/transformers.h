@@ -460,8 +460,8 @@ void ConvTransformer<inputT, outputT>::generate_index(std::vector<Point> const &
 template <typename inputT, typename outputT> Mat<inputT> ConvTransformer<inputT, outputT>::transform(std::vector<inputT> &a) {
   Mat<inputT> input = v2mat<inputT>(a, m_cp.imap[0], m_cp.imap[1]);
   Mat<inputT> out;
-  std::vector<Point> ibuf(m_cp.k[HEIGHT] * m_cp.k[WIDTH], std::make_pair(0, 0));
-  std::vector<Point> ibuf2(m_cp.k[HEIGHT] * m_cp.k[WIDTH], std::make_pair(0, 0));
+  std::vector<Point> ibuf(m_cp.k[HEIGHT] * m_cp.k[WIDTH], Point(0, 0));
+  std::vector<Point> ibuf2(m_cp.k[HEIGHT] * m_cp.k[WIDTH], Point(0, 0));
   ibuf2.at(0).second = -1;
   /* prologue */
   for (int i = 1; i < (m_cp.k[HEIGHT] * m_cp.k[WIDTH]); ++i) {
