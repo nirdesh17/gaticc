@@ -274,6 +274,7 @@ struct Transpose : public LayerBase {
   const char *params() const override;
   std::vector<int> perm;
   void set_attributes(const onnx::NodeProto &node) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct MatMul : public LayerBase {
