@@ -122,7 +122,12 @@ public:
  */
 extern Argparse gbl_args;
 
-using Point = std::pair<int, int>;
+struct Point {
+  int first;
+  int second;
+  Point(int a, int b);
+};
+std::ostream& operator<<(std::ostream &os, const Point& p);
 
 template <typename T> class Mat {
   std::vector<std::vector<T>> data;
@@ -203,42 +208,22 @@ void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
   std::cout << '\n';
 }
 
-template <typename T> void print_vec(const char *s, std::vector<T> const &v) {
+/* any container that overloads std::begin and std::end and operator<< on 
+ * its elements should be printable. the name has been kept for legacy
+ * reasons, makes sense to use on linear containers.
+ */
+template <typename Container> void print_vec(const char *s, Container const &v) {
   printf("%s: ", s);
   int newline_cnt = 0;
   std::cout << std::setprecision(8) << std::fixed;
-  for (const auto &a : v) {
+  for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
     /* print only 16 number on a single line */
     if (newline_cnt >= 9) {
       std::cout << '\n';
       newline_cnt = 0;
     }
-    std::cout << a << '\t';
+    std::cout << *itr << '\t';
     newline_cnt++;
-  }
-  std::cout << '\n';
-}
-
-template <typename T> void print_vec(const char *s, std::list<T> const &v) {
-  printf("%s: ", s);
-  int newline_cnt = 0;
-  std::cout << std::setprecision(8) << std::fixed;
-  for (const auto &a : v) {
-    /* print only 16 number on a single line */
-    if (newline_cnt >= 16) {
-      std::cout << '\n';
-      newline_cnt = 0;
-    }
-    std::cout << a << '\t';
-    newline_cnt++;
-  }
-  std::cout << '\n';
-}
-
-inline void print_vec_point(const char *s, std::vector<Point> const &v) {
-  printf("%s: ", s);
-  for (auto &p : v) {
-    std::cout << p.first << ',' << p.second << ' ';
   }
   std::cout << '\n';
 }
@@ -412,3 +397,14 @@ T prod(InputIt first, InputIt last, T init) {
   }
   return product;
 }
+
+/* Add v1 and v2 and store into v1 */
+template <typename T>
+void add_vec(std::vector<T>& v1, const std::vector<T>& v2) {
+  assert(v1.size() == v2.size());
+  std::vector<T> ret(v1.size());
+  for (int i = 0; i < v1.size(); ++i) {
+    v1[i] = v1[i] + v2[i];
+  }
+}
+
