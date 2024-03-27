@@ -1013,19 +1013,20 @@ inline void increment_shape(std::vector<int> &ii, const std::vector<int> &limit_
 /* TODO: use valarray where fits */
 template <typename T>
 void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
-  // FIXME: this should really be dims_size() == perm.size() batch dimension
+  // FIXME
   // i.e. the first dimension of input/output tensors are currently ignored.
-  assert(input->dims_size() == perm.size() - 1);
-  // make sure the dimension we are ignoring does not move
-  // from its place
-  assert(perm.at(0) == 0);
-  /* Hack to turn the perm array to 3d
-   * because input tensors are 3d not 4d
-   * 1. remove first element (0th dimension)
-   * 2. subtract 1 from each dim */
-  perm.erase(perm.begin(), perm.begin() + 1);
-  for (int i = 0; i < perm.size(); ++i) {
-    perm.at(i) -= 1;
+  if (perm.size() == input->dims_size() + 1) {
+    assert(perm.at(0) == 0);
+    /* Hack to turn the perm array to 3d
+     * because input tensors are 3d not 4d
+     * 1. remove first element (0th dimension)
+     * 2. subtract 1 from each dim */
+    perm.erase(perm.begin(), perm.begin() + 1);
+    for (int i = 0; i < perm.size(); ++i) {
+      perm.at(i) -= 1;
+    }
+  } else {
+    assert(input->dims_size() == perm.size());
   }
 
   std::valarray<int> ishape = vec2val(input->get_dims());

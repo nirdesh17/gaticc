@@ -213,9 +213,12 @@ def quantize_fp32i8(tensor, scale, zero_point):
 
 def preprocess_quantize(image):
     arr = preprocess(image)
-    # TODO: do not hardcode, scale values, calculate them
+    # TODO: do not hardcode scale values, calculate them
     arr = quantize_fp32i8(arr, 0.01865844801068306, 114)
     return arr
+
+def transpose_aux(arr, perm):
+    return np.transpose(arr, perm).flatten().tolist()
 
 #images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)
 #labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)

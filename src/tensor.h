@@ -41,6 +41,11 @@ public:
     return t1;
   }
   virtual void print() { return; }
+
+  virtual typename std::vector<T>::iterator begin() {
+  }
+  virtual typename std::vector<T>::iterator end() {
+  }
 };
 
 template <typename T> class TensorExtant : public Tensor<T> {
@@ -220,5 +225,12 @@ public:
 
   void print() override { 
     print_vec("tensor", vec);
+  }
+
+  typename std::vector<T>::iterator begin() override {
+    return vec.begin();
+  }
+  typename std::vector<T>::iterator end() override {
+    return vec.end();
   }
 };
