@@ -48,52 +48,23 @@ public:
   }
 };
 
+
 template <typename T> class TensorExtant : public Tensor<T> {
 private:
   std::vector<int> dims;
   const onnx::TensorProto *ptr;
-
+  /* Where the actual data resides in memory */
+  const T *data;
+  /* Initialize `dims` and `ptr`, `data` is initialized
+   * by template specialized constructors
+   */
+  void init_dims(const onnx::TensorProto *ptr);
 public:
-  TensorExtant(const onnx::TensorProto *ptr) {
-    dims = std::vector<int>(ptr->dims_size());
-    for (int i = 0; i < dims.size(); i++) {
-      dims[i] = ptr->dims(i);
-    }
-    this->ptr = ptr;
-  }
-
-  T at(std::vector<int> &at) override {
-    assert(at.size() == dims.size());
-
-    int sum = 0;
-    for (int i = 0; i < at.size(); i++) {
-      sum = sum + at[i] * dims_iterator(i);
-    }
-
-    if (typeid(T) == typeid(float) && ptr->float_data_size() != 0) {
-      return (ptr->float_data(sum));
-    } else if (typeid(T) == typeid(int32_t) && ptr->int32_data_size() != 0) {
-      return (ptr->int32_data(sum));
-    } else if (typeid(T) == typeid(int64_t) && ptr->int32_data_size() != 0) {
-      return (ptr->int64_data(sum)); 
-    } else {
-      log_info("deducing type for tensor %s from raw_data", ptr->name().c_str());
-      onnx::TensorProto_DataType ptr_dtype = static_cast<onnx::TensorProto_DataType>(ptr->data_type());
-
-      if (ptr_dtype == onnx::TensorProto_DataType_FLOAT) {
-        const float *raw = reinterpret_cast<const float *>(ptr->raw_data().c_str());
-        return raw[sum];
-      } else if (ptr_dtype == onnx::TensorProto_DataType_INT32) {
-        const int32_t *raw = reinterpret_cast<const int32_t *>(ptr->raw_data().c_str());
-        return raw[sum];
-      } else if (ptr_dtype == onnx::TensorProto_DataType_INT8) {
-        const int8_t *raw = reinterpret_cast<const int8_t *>(ptr->raw_data().c_str());
-        return raw[sum];
-      } else {
-        log_fatal("Unable to deduce type for tensor or un-implemented: %s", ptr->name().c_str());
-      }
-    }
-  }
+  /* There are no generic constructors for TensorExtant,
+   * all are specialized
+   */
+  TensorExtant(const onnx::TensorProto *ptr);
+  T at(std::vector<int> &at) override;
 
   int dims_size() override { return dims.size(); }
 
@@ -124,10 +95,25 @@ public:
   }
 };
 
+template <typename T>
+void TensorExtant<T>::init_dims(const onnx::TensorProto *ptr) {
+  dims.resize(ptr->dims_size());
+  std::copy(ptr->dims().begin(), ptr->dims().end(), dims.begin());
+  this->ptr = ptr;
+}
+
+template <typename T> T TensorExtant<T>::at(std::vector<int> &at) {
+  assert(at.size() == dims.size());
+  int sum = 0;
+  for (int i = 0; i < at.size(); i++) {
+    sum = sum + at[i] * dims_iterator(i);
+  }
+  return data[sum];
+}
+
 template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
   std::vector<T> vec;
-
 public:
   TensorCreate() = delete;
 
