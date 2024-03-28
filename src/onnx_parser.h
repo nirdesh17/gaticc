@@ -14,11 +14,14 @@
 #include "onnx.pb.h"
 #include "utils.h"
 
+#define WIDTH 1
+#define HEIGHT 0
+
 /* Onnx Parser external interface */
 namespace Op {
 
 struct ConvParams {
-  int imap[2];   /* input feature map */
+  int imap[2];   /* input feature map  HxW */
   int kn;        /* total number of kernels */
   int ic;        /* input channels */
   int k[2];      /* kernel width/height */
