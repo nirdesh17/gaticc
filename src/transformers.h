@@ -75,7 +75,7 @@ private:
   void mark_occured(Point const &p, std::vector<bool> &occurence);
   bool has_occured(Point const &p, std::vector<bool> const &occurence);
   bool is_kern_edge(Point const &i);
-
+  bool ispadcord(Point &p);
 public:
   ConvTransformer() = delete;
   ConvTransformer(Op::ConvParams const &cp, SaDims const &sa_dims);
@@ -249,8 +249,7 @@ template <typename inputT, typename outputT> bool ConvTransformer<inputT, output
 /* true if index is last slide middle element */
 template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_lsme(Point const &index) {
   int y = index.second;
-  return ((y > (m_cp.imap[WIDTH]+m_cp.pad[LEFT]+m_cp.pad[RIGHT] - m_cp.k[WIDTH])) && (y < m_cp.imap[WIDTH]+m_cp.pad[0]+m_cp.pad[2] - 1)) ? true
-                                                                      : false;
+  return ((y > (m_cp.imap[WIDTH]+m_cp.pad[LEFT]+m_cp.pad[RIGHT] - m_cp.k[WIDTH])) && (y < m_cp.imap[WIDTH]+m_cp.pad[LEFT]+m_cp.pad[RIGHT] - 1)) ? true : false;
 }
 /* true if index is last slide last element */
 template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_lsle(Point const &index) {
@@ -319,6 +318,20 @@ void ConvTransformer<inputT, outputT>::mark_occured(Point const &p,
   occurence.at(y % lsfe) = 1;
 }
 
+
+template <typename inputT, typename outputT>
+bool ConvTransformer<inputT, outputT>::ispadcord(Point &p) {
+  int x = p.first;
+  int y = p.second;
+  if ((x < m_cp.pad[UP]) || (y < m_cp.pad[LEFT]) ||
+      ((y >= (m_cp.imap[WIDTH] + m_cp.pad[LEFT])) &&
+       (y < (m_cp.imap[WIDTH] + m_cp.pad[LEFT] + m_cp.pad[RIGHT]))) ||
+      ((x >= (m_cp.imap[HEIGHT] + m_cp.pad[UP])) &&
+       (x < (m_cp.imap[HEIGHT] + m_cp.pad[UP] + m_cp.pad[DOWN])))) {
+    return true;
+  }
+  return false;
+}
 /* fill 'out' matrix with values from 'input' at co-ordinates present in ibuf
  * starting from offset till n
  */
@@ -331,7 +344,8 @@ void ConvTransformer<inputT, outputT>::fill_index(Mat<inputT> &out, Mat<inputT> 
   std::vector<inputT> buf(m_cp.k[HEIGHT] * m_cp.k[WIDTH], 0);
   for (int i = offset; i < n; ++i) {
     auto p = ibuf.at(i);
-    buf.at(i) = input.at(p.first, p.second);
+    if (ispadcord(p)) buf.at(i) = 0;
+    else  buf.at(i) = input.at(p.first - m_cp.pad[UP], p.second - m_cp.pad[LEFT]);
   }
   assert(buf.size() <= (m_cp.k[HEIGHT] * m_cp.k[WIDTH]));
   out.push_back(buf);
