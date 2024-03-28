@@ -244,18 +244,18 @@ template <typename inputT, typename outputT> TransformerType ConvTransformer<inp
 /* true if index is last slide first element */
 template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_lsfe(Point const &index) {
   int y = index.second;
-  return (y == (m_cp.imap[WIDTH] - m_cp.k[WIDTH])) ? true : false;
+  return (y == (m_cp.imap[WIDTH]+m_cp.pad[0]+m_cp.pad[2] - m_cp.k[WIDTH])) ? true : false;
 }
 /* true if index is last slide middle element */
 template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_lsme(Point const &index) {
   int y = index.second;
-  return ((y > (m_cp.imap[WIDTH] - m_cp.k[WIDTH])) && (y < m_cp.imap[WIDTH] - 1)) ? true
+  return ((y > (m_cp.imap[WIDTH]+m_cp.pad[0]+m_cp.pad[2] - m_cp.k[WIDTH])) && (y < m_cp.imap[WIDTH]+m_cp.pad[0]+m_cp.pad[2] - 1)) ? true
                                                                       : false;
 }
 /* true if index is last slide last element */
 template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_lsle(Point const &index) {
   int y = index.second;
-  return (y == m_cp.imap[WIDTH] - 1);
+  return (y == m_cp.imap[WIDTH]+m_cp.pad[0]+m_cp.pad[2] - 1);
 }
 
 /* true if index is at the last position in the current slide */
@@ -297,7 +297,7 @@ template <typename inputT, typename outputT>
 bool ConvTransformer<inputT, outputT>::has_occured(Point const &p,
                                      std::vector<bool> const &occurence) {
   int y = p.second;
-  int lsfe = (m_cp.imap[WIDTH] - m_cp.k[WIDTH]);
+  int lsfe = (m_cp.imap[WIDTH]+m_cp.pad[0]+m_cp.pad[2] - m_cp.k[WIDTH]);
   return occurence.at(y % lsfe);
 }
 
@@ -307,15 +307,15 @@ template <typename inputT, typename outputT> bool ConvTransformer<inputT, output
 
 /* true if p is the first element of kernel at last sliding position */
 template <typename inputT, typename outputT> bool ConvTransformer<inputT, outputT>::is_last_kernel(Point const &p) {
-  return ((p.first == (m_cp.imap[HEIGHT] - m_cp.k[HEIGHT])) &&
-          (p.second == (m_cp.imap[WIDTH] - m_cp.k[WIDTH])));
+  return ((p.first == (m_cp.imap[HEIGHT]+m_cp.pad[1]+m_cp.pad[3] - m_cp.k[HEIGHT])) &&
+          (p.second == (m_cp.imap[WIDTH]+m_cp.pad[0]+m_cp.pad[2] - m_cp.k[WIDTH])));
 }
 
 template <typename inputT, typename outputT>
 void ConvTransformer<inputT, outputT>::mark_occured(Point const &p,
                                       std::vector<bool> &occurence) {
   int y = p.second;
-  int lsfe = (m_cp.imap[WIDTH] - m_cp.k[WIDTH]);
+  int lsfe = (m_cp.imap[WIDTH]+m_cp.pad[0]+m_cp.pad[2] - m_cp.k[WIDTH]);
   occurence.at(y % lsfe) = 1;
 }
 
