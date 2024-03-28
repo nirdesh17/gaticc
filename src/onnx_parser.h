@@ -17,6 +17,11 @@
 #define WIDTH 1
 #define HEIGHT 0
 
+#define LEFT 0
+#define RIGHT 2
+#define UP 1
+#define DOWN 3
+ 
 /* Onnx Parser external interface */
 namespace Op {
 
