@@ -56,10 +56,14 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   /* TODO: get architecture size from gbl_args */
   SASA<inputT, outputT> sasa(9, 16, 16, *cc);
 
+
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   sasa.master(*input, *output);
-  //bias_add<outputT>(output, cc);
+  Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
+  std::cout << "before adding bias\n"; 
+  output->print();
+  tensor_vector_add(output, output, bias);
   tt.stop();
   tt.report("Time taken: ");
 

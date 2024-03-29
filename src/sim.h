@@ -1094,10 +1094,35 @@ void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
 }
 
 
+/* Element wise tensor addition */
 template <typename inputT, typename outputT>
 void tensor_add(Tensor<outputT> *output, Tensor<inputT> *input1, Tensor<inputT> *input2) {
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   for (int i = 0; i < input1->dims_iterator(-1); ++i) {
     output->set(i, input1->at(i) + input2->at(i));
+  }
+}
+
+/* Add a tensor and a vector. Each element of the
+ * vector is added to all elements of each channel
+ * of the tensor
+ *
+ *  input_tensor.shape = (X, _, _)
+ *  input_vector.shape = (X)
+ */
+template <typename inputT, typename outputT>
+void tensor_vector_add(Tensor<outputT> *output, Tensor<inputT> *input_tensor, Tensor<inputT> *input_vector) {
+  assert(input_vector->dims_size() == 1);
+  assert(input_vector->dims_at(0) == input_tensor->dims_at(0));
+  assert(input_tensor->dims_size() == 3);
+
+  for (int i = 0; i < input_tensor->dims_at(0); ++i) {
+    for (int j = 0; j < input_tensor->dims_at(1); ++j) {
+      for (int k = 0; k < input_tensor->dims_at(2); ++k) {
+        std::vector<int> index {i, j, k};
+        outputT t1 = input_tensor->at(index) + input_vector->at(i);
+        output->insert(index, t1);
+      }
+    }
   }
 }
