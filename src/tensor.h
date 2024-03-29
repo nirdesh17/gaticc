@@ -65,6 +65,8 @@ public:
    */
   TensorExtant(const onnx::TensorProto *ptr);
   T at(std::vector<int> &at) override;
+  T at(int i) override;
+  void print() override;
 
   int dims_size() override { return dims.size(); }
 
@@ -80,19 +82,7 @@ public:
     }
     return a;
   }
-
-  void print() override {
-    /* TODO: needs refactoring */
-    for (int i = 0; i < dims_iterator(-1); ++i) {
-      if (typeid(T) == typeid(float)) {
-        std::cout << ptr->float_data(i) << '\n';
-      } else if (typeid(T) == typeid(int8_t)) {
-        std::cout << (int8_t)ptr->raw_data().at(i) << '\n';
-      } else {
-        std::cout << -1 << '\n';
-      }
-    }
-  }
+  std::vector<int> get_dims() override;
 };
 
 template <typename T>
@@ -102,14 +92,35 @@ void TensorExtant<T>::init_dims(const onnx::TensorProto *ptr) {
   this->ptr = ptr;
 }
 
-template <typename T> T TensorExtant<T>::at(std::vector<int> &at) {
-  assert(at.size() == dims.size());
-  int sum = 0;
-  for (int i = 0; i < at.size(); i++) {
-    sum = sum + at[i] * dims_iterator(i);
-  }
-  return data[sum];
+template <typename T> T TensorExtant<T>::at(int index) {
+  assert(index < this->dims_iterator(-1));
+  return data[index];
 }
+
+template <typename T> T TensorExtant<T>::at(std::vector<int> &index) {
+  assert(index.size() == dims.size());
+  int sum = 0;
+  for (int i = 0; i < index.size(); i++) {
+    sum = sum + index[i] * dims_iterator(i);
+  }
+  return at(sum);
+}
+
+template <typename T>
+void TensorExtant<T>::print() {
+  for (int i = 0; i < dims_iterator(-1); ++i) {
+    if (i % 9 == 0) {
+      std::cout << '\n';
+    }
+    std::cout << data[i] << '\t';
+  }
+}
+
+template <typename T>
+std::vector<int> TensorExtant<T>::get_dims() {
+  return dims;
+}
+
 
 template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
