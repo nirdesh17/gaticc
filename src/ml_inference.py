@@ -125,7 +125,9 @@ def quantize_ui8fp32(tensor):
 
 def get_mnist_image(arr, n):
     """ get nth image from arr (which is loaded by mnist_idx_image_load() """
-    return quantize_ui8fp32(arr[n])
+    img = quantize_ui8fp32(arr[n])
+    Image.fromarray((img * 255.0).astype(np.uint8).reshape(28, 28)).save("mnist_get.png")
+    return img
 
 def mnist_image_x(x):
     """ get xth image from mnist set """
@@ -209,8 +211,6 @@ def quantize_fp32i8(tensor, scale, zero_point):
     tten = np.clip(np.round((tensor / scale) + zero_point), -128, 127)
     return tten.astype(np.int8)
 
-
-
 def preprocess_quantize(image):
     arr = preprocess(image)
     # TODO: do not hardcode scale values, calculate them
@@ -222,7 +222,7 @@ def transpose_aux(arr, perm):
 
 #images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)
 #labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)
-#get_mnist_image(images, 0)
+#3get_mnist_image(images, 0)
 
 # Example call:
 # vgg_float_infer_layer("../onnx/vgg/vgg16-12.onnx", preprocess("../images/dog.jpg"), 0)

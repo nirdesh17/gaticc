@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <unordered_set>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -114,6 +115,14 @@ struct LayerBase {
    */
   bool dump_output;
 
+  /* Dimensions of the input feature map */
+  /* dim[0] -> height
+   * dim[1] -> width
+   * dim[2] -> channels
+   * dim[3] -> batch
+   */
+  std::vector<int> dims;
+
   /* All nodes with a parameter should have a constructor to
    * initialize them. See conv for eg.
    */
@@ -194,7 +203,11 @@ struct Dropout : public LayerBase {
 
 struct Add : public LayerBase {
   const char *m_optype = "Add";
+  const onnx::TensorProto *addend;
+  Add();
   const char *op_type() const override;
+  void set_initializer_params(const onnx::TensorProto &t) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct GlobalAveragePool : public LayerBase {
@@ -286,6 +299,7 @@ struct MatMul : public LayerBase {
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 } // namespace Layer
@@ -297,7 +311,7 @@ using VertexIterator = Graph::vertex_iterator;
 using AdjacencyIterator = Graph::adjacency_iterator;
 using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 
-/* Auxillary Graph functions (no where else to put them...) */
+/* Auxillary functions (no where else to put them...) */
 
 bool is_root_node(Op::Vertex v, const Op::Graph *g);
 bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g);
@@ -311,11 +325,14 @@ const onnx::TensorShapeProto &
 get_tensor_shape_proto(const onnx::ValueInfoProto &t);
 bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
                            int expected_dims);
+/* compare t1 and t2 */
+bool dtype_eq(int32_t t1, onnx::TensorProto_DataType t2);
 
 inline int sa_odims_row(Op::ConvParams const &cp) {
   // o = ((iw - kw + 2p) / s) + 1
   return ((cp.imap[HEIGHT] - cp.k[HEIGHT] + cp.pad[LEFT] + cp.pad[RIGHT]) / cp.stride[HEIGHT]) + 1;
 }
+
 
 inline int sa_odims_cols(Op::ConvParams const &cp) {
   return ((cp.imap[WIDTH] - cp.k[WIDTH] + cp.pad[UP] + cp.pad[DOWN]) / cp.stride[WIDTH]) + 1;

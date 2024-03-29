@@ -872,6 +872,7 @@ template <typename inputT, typename outputT> class VA {
   Tensor<inputT> *bias;
   public:
     VA(Op::Layer::Gemm &gp);
+    VA(Op::Layer::MatMul &gp);
     void run(Tensor<inputT> *input, Tensor<outputT> *output);
     ~VA() {
       delete weights;
@@ -890,15 +891,56 @@ VA<inputT, outputT>::VA(Op::Layer::Gemm &gp) {
 }
 
 template <typename inputT, typename outputT>
+VA<inputT, outputT>::VA(Op::Layer::MatMul &gp) {
+  wrows = gp.m_cp.wc;
+  wcols = gp.m_cp.wr;
+  isize = gp.m_cp.is;
+  weights = new TensorExtant<inputT>(gp.weights);
+  bias = nullptr;
+}
+
+template <typename inputT, typename outputT>
 void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
+  
+  print_vec("input_dims", input->get_dims());
+  print_vec("weight_dims", weights->get_dims());
+  print_vec("output_dims", output->get_dims());
+
+  assert(input->dims_size() == 2 && weights->dims_size() == 2);
+  assert(input->dims_at(1) == weights->dims_at(0) && "non-matching matrix dimensions");
+
+  int N = input->dims_at(0);
+  int M = input->dims_at(1);
+  int K = weights->dims_at(1);
+  for (int i = 0; i < N; ++i) {
+    for (int j = 0; j < K; ++j) {
+      outputT dst = 0;
+      for (int k = 0; k < M; ++k) {
+        /* TODO: use Tensor->at that returns a reference and += operator
+         * part of tensor refactor
+         */
+        dst += input->at(i * M + k) * weights->at(k * K + j);
+      }
+      /* For gemm */
+      if (bias != nullptr) {
+        dst += bias->at(i*K + j);
+      }
+      output->set(i*K + j, dst);
+    }
+  }
+
+#if 0
   for (int i = 0; i < wrows; ++i) {
     outputT dst = 0;
     for (int j = 0; j < wcols; ++j) {
       dst += weights->at(i * wcols + j) * input->at(j);
     }
-    dst += bias->at(i);
+    if (bias != nullptr) {
+      dst += bias->at(i);
+    }
     output->set(i, dst);
   }
+#endif
 }
 
 /* Deduces and removes -1/0 from old_shape to return 
@@ -1048,5 +1090,14 @@ void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
     int oindex = std::accumulate(std::begin(t3), std::end(t3), 0);
     output->set(oindex, input->at(iindex));
     increment_shape(ii, input->get_dims());
+  }
+}
+
+
+template <typename inputT, typename outputT>
+void tensor_add(Tensor<outputT> *output, Tensor<inputT> *input1, Tensor<inputT> *input2) {
+  assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
+  for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+    output->set(i, input1->at(i) + input2->at(i));
   }
 }

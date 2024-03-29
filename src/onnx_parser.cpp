@@ -235,7 +235,15 @@ void Op::Layer::Dropout::set_initializer_params(const onnx::TensorProto &t) {
   }
 }
 
+Op::Layer::Add::Add() {
+  addend = nullptr;
+}
+
 const char *Op::Layer::Add::op_type() const { return m_optype; }
+
+void Op::Layer::Add::set_initializer_params(const onnx::TensorProto &t) {
+  addend = &t;
+}
 
 const char *Op::Layer::GlobalAveragePool::op_type() const { return m_optype; }
 
@@ -882,6 +890,11 @@ bool Op::is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
   return false;
 }
 
+bool Op::dtype_eq(int32_t t1, onnx::TensorProto_DataType t2) {
+    onnx::TensorProto_DataType ptr_dtype = static_cast<onnx::TensorProto_DataType>(t1);
+    return ptr_dtype == t2;
+}
+
 std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return execution_order;
 }
@@ -972,6 +985,9 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   }
 }
 
+/* TODO: adding a TypeInfo to LayerBase would allow this to 
+ * be much cleaner
+ */
 onnx::TensorProto_DataType
 Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
   /* TODO: method of type deduction restricted to model that have atleast
@@ -980,15 +996,18 @@ Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
    */
   auto order = this->get_execution_order();
   for (Op::LayerBase *i : order) {
-    Op::Layer::Conv *cc;
-    Op::Layer::Gemm *gc;
-    if ((cc = dynamic_cast<Op::Layer::Conv *>(i)) != NULL) {
+    if (dynamic_cast<Op::Layer::Conv *>(i) != NULL) {
+      Op::Layer::Conv *cc = dynamic_cast<Op::Layer::Conv *>(i);
       /* its a conv type, get the type of its initializer
        * Cast valid, as TensorProto_DataType is int32_t and
        * TensorProto::data_type() returns an int */
       return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
-    } else if ((gc = dynamic_cast<Op::Layer::Gemm *>(i)) != NULL) {
-      return static_cast<onnx::TensorProto_DataType>(gc->weights->data_type());
+    } else if (dynamic_cast<Op::Layer::Gemm *>(i) != NULL) {
+      Op::Layer::Gemm *cc = dynamic_cast<Op::Layer::Gemm *>(i);
+      return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
+    } else if (dynamic_cast<Op::Layer::MatMul *>(i) != NULL) {
+      Op::Layer::MatMul *cc = dynamic_cast<Op::Layer::MatMul *>(i);
+      return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
     }
   }
   /* ideally shoudn't reach here */
