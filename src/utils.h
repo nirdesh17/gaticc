@@ -22,7 +22,7 @@
 #define log_info(fmt, ...)                                                     \
   (log_info_func(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
 
-inline void log_fatal_func(const char *file, int line, const char *func,
+[[noreturn]] inline void log_fatal_func(const char *file, int line, const char *func,
                            const char *fmt, ...) {
   fprintf(stderr, "%s:%d: %s: FATAL: ", file, line, func);
   va_list ap;
