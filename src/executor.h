@@ -85,7 +85,7 @@ template <typename T>
 Tensor<T> *Executor::read_img(PyEngine &engine, const std::string &img_path) {
   PyObject *preprocess_args = Py_BuildValue("(s)", img_path.c_str());
   /* TODO: temporary fix for mnist inference, make this generic */
-  PyObject *mnist_arg = Py_BuildValue("(i)", 2);
+  PyObject *mnist_arg = Py_BuildValue("(i)", 10);
   PyObject *ifmap = engine.call_func("mnist_image_x", mnist_arg);
   //PyObject *ifmap = engine.call_func("preprocess", preprocess_args);
   std::vector<int> dims;

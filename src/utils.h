@@ -407,4 +407,3 @@ void add_vec(std::vector<T>& v1, const std::vector<T>& v2) {
     v1[i] = v1[i] + v2[i];
   }
 }
-

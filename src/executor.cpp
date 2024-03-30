@@ -61,8 +61,6 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   sasa.master(*input, *output);
   Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
-  std::cout << "before adding bias\n"; 
-  output->print();
   tensor_vector_add(output, output, bias);
   tt.stop();
   tt.report("Time taken: ");

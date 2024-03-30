@@ -989,13 +989,11 @@ inline std::valarray<int> get_stride_from_shape(const std::valarray<int> &&shape
 
 inline std::vector<int> permute(const std::vector<int> &v,
                                   std::vector<int> perm) {
-
   std::for_each(perm.begin(), perm.end(),
                 [&v](int i) { assert((i < v.size()) ? true : false); });
-
   std::vector<int> ret(v.size());
   for (int i = 0; i < v.size(); ++i) {
-    ret.at(perm.at(i)) = v.at(i);
+    ret.at(i) = v.at(perm.at(i));
   }
   return ret;
 }
@@ -1071,11 +1069,13 @@ void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
     assert(input->dims_size() == perm.size());
   }
 
+  print_vec("new perm", perm);
+  output->set_dims(permute(input->get_dims(),  perm));
   std::valarray<int> ishape = vec2val(input->get_dims());
 
   std::valarray<int> istride = get_stride_from_shape(ishape);
   /* consider making get_stride_from_shape take valarrays */
-  std::valarray<int> ostride = get_stride_from_shape(vec2val(permute(input->get_dims(),  perm)));
+  std::valarray<int> ostride = get_stride_from_shape(vec2val(output->get_dims()));
   
 
   /* TODO: use valarray here */
