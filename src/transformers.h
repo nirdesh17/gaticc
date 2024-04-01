@@ -75,7 +75,7 @@ private:
   void mark_occured(Point const &p, std::vector<bool> &occurence);
   bool has_occured(Point const &p, std::vector<bool> const &occurence);
   bool is_kern_edge(Point const &i);
-  bool ispadcord(Point &p);
+  bool ispadcord(Point const &p);
 public:
   ConvTransformer() = delete;
   ConvTransformer(Op::ConvParams const &cp, SaDims const &sa_dims);
@@ -320,18 +320,18 @@ void ConvTransformer<inputT, outputT>::mark_occured(Point const &p,
 
 
 template <typename inputT, typename outputT>
-bool ConvTransformer<inputT, outputT>::ispadcord(Point &p) {
+bool ConvTransformer<inputT, outputT>::ispadcord(Point const &p) {
   int x = p.first;
   int y = p.second;
-  if ((x < m_cp.pad[UP]) || (y < m_cp.pad[LEFT]) ||
-      ((y >= (m_cp.imap[WIDTH] + m_cp.pad[LEFT])) &&
-       (y < (m_cp.imap[WIDTH] + m_cp.pad[LEFT] + m_cp.pad[RIGHT]))) ||
-      ((x >= (m_cp.imap[HEIGHT] + m_cp.pad[UP])) &&
-       (x < (m_cp.imap[HEIGHT] + m_cp.pad[UP] + m_cp.pad[DOWN])))) {
+  if ((x < m_cp.pad[UP]) ||
+	    (y < m_cp.pad[LEFT]) ||
+      ((y >= (m_cp.imap[WIDTH] + m_cp.pad[LEFT])) &&(y < (m_cp.imap[WIDTH] + m_cp.pad[LEFT] + m_cp.pad[RIGHT]))) ||
+      ((x >= (m_cp.imap[HEIGHT] + m_cp.pad[UP])) && (x < (m_cp.imap[HEIGHT] + m_cp.pad[UP] + m_cp.pad[DOWN])))) {
     return true;
   }
   return false;
 }
+
 /* fill 'out' matrix with values from 'input' at co-ordinates present in ibuf
  * starting from offset till n
  */

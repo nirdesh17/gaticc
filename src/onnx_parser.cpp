@@ -55,18 +55,18 @@ Op::Layer::Conv::Conv() {
   /* zero initialize */
   m_cp = {};
   /* overwrite with sane defaults */
-  m_cp.stride[0] = 1;
-  m_cp.stride[1] = 1;
-  m_cp.dilation[0] = 1;
-  m_cp.dilation[1] = 1;
+  m_cp.stride[HEIGHT]   = 1;
+  m_cp.stride[WIDTH]    = 1;
+  m_cp.dilation[HEIGHT] = 1;
+  m_cp.dilation[WIDTH]  = 1;
 }
 
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
 const char *Op::Layer::Conv::params() const {
   static char ret[128];
   sprintf(ret, "(IW,IH: %d,%d), (KN,IC,KW,KH: %d,%d,%d,%d), (S,P,D: %d,%d,%d)",
-          m_cp.imap[0], m_cp.imap[1], m_cp.kn, m_cp.ic, m_cp.k[0], m_cp.k[1],
-          m_cp.stride[0], m_cp.pad[0], m_cp.dilation[0]);
+          m_cp.imap[HEIGHT], m_cp.imap[WIDTH], m_cp.kn, m_cp.ic, m_cp.k[HEIGHT], m_cp.k[WIDTH],
+          m_cp.stride[HEIGHT], m_cp.pad[LEFT], m_cp.dilation[HEIGHT]);
   return ret;
 }
 void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
@@ -166,10 +166,10 @@ Op::Layer::Maxpool::Maxpool() {
   /* zero initialize */
   m_cp = {};
   /* overwrite with sane defaults */
-  m_cp.stride[0] = 1;
-  m_cp.stride[1] = 1;
-  m_cp.dilation[0] = 1;
-  m_cp.dilation[1] = 1;
+  m_cp.stride[HEIGHT]   = 1;
+  m_cp.stride[WIDTH]    = 1;
+  m_cp.dilation[HEIGHT] = 1;
+  m_cp.dilation[WIDTH]  = 1;
 }
 
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }

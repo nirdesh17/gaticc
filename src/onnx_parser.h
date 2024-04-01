@@ -14,10 +14,19 @@
 #include "onnx.pb.h"
 #include "utils.h"
 
-#define WIDTH 1
-#define HEIGHT 0
 
-#define LEFT 0
+#define WIDTH 1  /*Indicates the Number of columns For a Given Mat */
+#define HEIGHT 0 /*Indicates the Number of Row For a Given Mat */
+/*
+  eg:imap[2]
+  imap[HEIGHT],imap[WIDTH]-> Size of the Matrix
+*/
+
+
+/*  Definition for Paddding starting from left to down in clock wise Direction 
+ *   p{Left,up,right,down} Replaced with indicices {0,1,2,3}
+ */
+#define LEFT 0  
 #define RIGHT 2
 #define UP 1
 #define DOWN 3
@@ -279,11 +288,11 @@ bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
 
 inline int sa_odims_row(Op::ConvParams const &cp) {
   // o = ((iw - kw + 2p) / s) + 1
-  return ((cp.imap[0] - cp.k[0] + cp.pad[0] + cp.pad[2]) / cp.stride[0]) + 1;
+  return ((cp.imap[HEIGHT] - cp.k[HEIGHT] + cp.pad[LEFT] + cp.pad[RIGHT]) / cp.stride[HEIGHT]) + 1;
 }
 
 inline int sa_odims_cols(Op::ConvParams const &cp) {
-  return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
+  return ((cp.imap[WIDTH] - cp.k[WIDTH] + cp.pad[UP] + cp.pad[DOWN]) / cp.stride[WIDTH]) + 1;
 }
 
 class Model {

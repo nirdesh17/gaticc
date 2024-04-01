@@ -1,5 +1,5 @@
 TEST_TARGETS=3x3-3x3 5x3-3x3 1x1-1x1 5x7-7x7 10x10-10x10 \
-             conv_transform max_pooler average_pooler \
+             conv_transform conv_testpad max_pooler average_pooler \
 						 global_average_pooler gemm_transform \
              6x6-3x3-9x3 10x10-3x3-9x1 sasa_test \
 						 ffi_test float_sasa_test float_sasa_onnx_parser \
