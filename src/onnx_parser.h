@@ -15,12 +15,17 @@
 #include "utils.h"
 
 
+/*
+  imap[2]
+  imap[HEIGHT],imap[WIDTH]-> Here either imap[0] or imap[HEIGHT] Gives the 
+  Number of Rows in a Matrix but wrting code as imap[HEIGHT] Adds more Readability for code 
+  and which in turn Reduces the erroneousness when one try to understand it visually 
+  and manipulate them accordinly
+  uses can be found at eg:lsfe,lsle..(at tranformer.h)..etc.
+*/
 #define WIDTH 1  /*Indicates the Number of columns For a Given Mat */
 #define HEIGHT 0 /*Indicates the Number of Row For a Given Mat */
-/*
-  eg:imap[2]
-  imap[HEIGHT],imap[WIDTH]-> Size of the Matrix
-*/
+
 
 
 /*  Definition for Paddding starting from left to down in clock wise Direction 
