@@ -86,25 +86,6 @@ sysim --onnx model.onnx --layer-input 'vgg0_conv2_fwd' -o layer_in.save
 sysim --compare layer.save layer2.save 
 ```
 
-# Todo
-
-- Float shift bug
-    - python interpreter, main program loading the same program
-    - load a custom compiled protobuf
-- change the ffi make wrap around torch.nn only
-- custom shape inference due to stale value_info_protos after quantization
-- executor
-- memory leaks (valgrind) 
-- full const correctness
-- im2col
-    - multi size kernels
-    - strided convo
-    - DW/PW convo
-    - dilated convo
-    - padded convo
-- onnx parser test scripts
-- onnx optimizer + shape inference
-
 # compiler/rt (speculative)
 
 ## compiler
@@ -132,4 +113,23 @@ sysim --compare layer.save layer2.save
 - given a bitstream, program the fpga with it
 - feed image/video stream to the fpga and receive the results reliably
 - provide a way to add preprocess/postprocess on inputs/results (python ffi)
-- 
+
+# Contributing to sysim
+
+- Format all your commit messages according to <https://www.conventionalcommits.org/en/v1.0.0/>.
+- For bugs, create an issues here: <https://github.com/vicharak-in/sysim/issues/>
+- Keep commit message titles succinct. Use the body for further elaboration if
+  needed. See <https://cbea.ms/git-commit/>
+- PRs should be related to a topic/goal, be easy to review and check for bugs.
+  Do not create large PRs with random changes. 
+- Write simple and easy to read/maintain code.
+- "Pre-mature optimizations are the root of all evil". Measure before you
+  optimize. Do not use convoluted features of a language just because you know
+  them.
+- Read <https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines> and what
+  and what not to use.
+- Use a formatter. sysim uses LLVM style formatting for c++
+  <https://clang.llvm.org/docs/ClangFormat.html>
+- We do not follow any coding guideline to the T but welcome good style
+  suggestions. (suggest through ISSUES)
+- You can find some here: <https://google.github.io/styleguide/cppguide.html>
