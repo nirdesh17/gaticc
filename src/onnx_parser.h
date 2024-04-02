@@ -16,20 +16,17 @@
 
 
 /*
-  imap[2]
-  imap[HEIGHT],imap[WIDTH]-> Here either imap[0] or imap[HEIGHT] Gives the 
-  Number of Rows in a Matrix but wrting code as imap[HEIGHT] Adds more Readability for code 
-  and which in turn Reduces the erroneousness when one try to understand it visually 
-  and manipulate them accordinly
+  imap[2]->
+  here imap[HEIGHT],imap[WIDTH] 
+  using imap[HEIGHT] adds more readability than using imap[0]
   uses can be found at eg:lsfe,lsle..(at tranformer.h)..etc.
 */
-#define WIDTH 1  /*Indicates the Number of columns For a Given Mat */
-#define HEIGHT 0 /*Indicates the Number of Row For a Given Mat */
-
+#define WIDTH 1 
+#define HEIGHT 0 
 
 
 /*  Definition for Paddding starting from left to down in clock wise Direction 
- *   p{Left,up,right,down} Replaced with indicices {0,1,2,3}
+ *  p{Left,up,right,down} Replaced with indicices {0,1,2,3}
  */
 #define LEFT 0  
 #define RIGHT 2
