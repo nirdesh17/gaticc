@@ -35,17 +35,23 @@ class Executor {
   TensorPool tensor_pool;
   /* inputT: input type of the entire model */
   template <typename inputT, typename outputT>
-  void execute(PyEngine &engine, const Op::Parser &parser, const std::string &abs_img_path);
-  template <typename T> Tensor<T> *read_img(PyEngine &engine, const std::string &img_path);
+  void execute(PyEngine &engine, const Op::Parser &parser,
+               const std::string &abs_img_path);
+  template <typename T>
+  Tensor<T> *read_img(PyEngine &engine, const std::string &img_path);
 
 public:
-  Executor(PyEngine &engine, const Op::Parser &parser, const std::string &img_path);
+  Executor(PyEngine &engine, const Op::Parser &parser,
+           const std::string &img_path);
 };
 
 template <typename inputT, typename outputT>
 void Executor::execute(PyEngine &engine, const Op::Parser &parser,
                        const std::string &abs_img_path) {
   Tensor<inputT> *inp = read_img<inputT>(engine, abs_img_path);
+  /* Implicit assumption here that the first layer's input is
+   * at VirtualAddress 0
+   */
   tensor_pool.set<Tensor<inputT> *>(0, inp);
 
   std::vector<std::string> dump_candidates;
@@ -64,30 +70,32 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser,
               << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
     if (dump_candidates.size() == 0) {
       l->dump_output = true;
-      l->run(tensor_pool);
     } else {
       auto itr =
           std::find(dump_candidates.begin(), dump_candidates.end(), l->name);
-      if (itr != dump_candidates.end()) {
-        l->dump_output = true;
-      } else {
-        l->dump_output = false;
-      }
-      l->run(tensor_pool);
+      l->dump_output = (itr != dump_candidates.end()) ? true : false;
     }
+    l->run(tensor_pool);
   }
+
   std::cout << "Finish\n";
 }
 
 template <typename T>
 Tensor<T> *Executor::read_img(PyEngine &engine, const std::string &img_path) {
   PyObject *preprocess_args = Py_BuildValue("(s)", img_path.c_str());
-  PyObject *ifmap = engine.call_func("preprocess", preprocess_args);
+  /* TODO: temporary fix for mnist inference, make this generic */
+  PyObject *mnist_arg = Py_BuildValue("(i)", 10);
+  PyObject *ifmap = engine.call_func("mnist_image_x", mnist_arg);
+  //PyObject *ifmap = engine.call_func("preprocess", preprocess_args);
   std::vector<int> dims;
   /* TODO: reduce this 2-level indirection, implement a np2iv overload
    * to return Tensor directly
    */
   std::vector<T> ifmapv = engine.np2iv<T>(ifmap, dims);
   Tensor<T> *ret = new TensorCreate<T>(ifmapv, dims);
+  Py_XDECREF(preprocess_args);
+  Py_XDECREF(mnist_arg);
+  Py_XDECREF(ifmap);
   return ret;
 }

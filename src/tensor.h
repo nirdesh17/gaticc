@@ -6,108 +6,216 @@
 #include <thread>
 #include <vector>
 
-/* TODO: refactor this, make it cleaner 
- * 1. Tensor as pure abstract class?
- * 2. remove redundant functions
- * 3. document
- * */
+/* TODO: iterator mechanism for tensors
+ */
 
+/* A general purpose interface to an n-dimensional tensor
+ *
+ * Implementation Details:
+ * 
+ * The Tensor Base Class is abstract and defines a 
+ * blueprint for underlying implementations. The
+ * implementations inherit and override neccessarily
+ * the pure functions and optionally the regular virtual
+ * functions. All 'read' type of functions i.e. functions
+ * that do not mutate the underlying tensor are pure and
+ * need to be defined by every derived class. Regular
+ * virtual functions are 'read+write' mutating functions, they 
+ * should only be implemented if the derived class wishes
+ * to.
+ *
+ * Derived classes implement (or wrap around) different
+ * types of concrete data structures to create a common
+ * interface that of the Tensor base class. See, currently
+ * implemented derived classes TensorExtant and TensorCreate
+ * below.
+ */
 template <typename T> class Tensor {
 public:
-  Tensor() {} 
-  virtual T at(std::vector<int> &at) { return -1; }
-  virtual T at(std::vector<int> &&at) { return -1; }
-  virtual T at(int index) { return -1; }
-  virtual int dims_size() { return 0; }
-  virtual int dims_at(int index) { return index; }
-  virtual void push_back(T data) { return; }
+  /* Read functions */
+
+  virtual T at(std::vector<int> &at) = 0;
+  virtual T at(std::vector<int> &&at) = 0;
+  virtual T at(int index) = 0;
+  virtual int dims_size() = 0;
+  virtual int dims_at(int index) = 0;
+  virtual std::vector<int> get_dims() = 0;
+  virtual int dims_iterator(int index) = 0;
+  virtual int size() = 0;
+  virtual std::vector<T> get() = 0;
+  virtual void print() = 0;
+
+  /* Write functions */
+
   /* insert one element at a time */
-  virtual void insert(std::vector<int> &at, T data) { return; }
-  virtual void set_dims(std::vector<int> const &temp_dims) { return; }
-  virtual std::vector<int> get_dims() {
-    return std::vector<int>();
-  }
-  virtual int dims_iterator(int index) { return index; }
-  virtual void clear() { return; }
-  virtual void shrink_to_fit() { return; }
-  virtual int size() { return 0; }
-  virtual std::vector<T> get() { return std::vector<T>(); }
-  virtual Mat<T> get_mat(int index) { return 0; }
-  virtual void set(int index, T val) { return; }
-  virtual Tensor<T>& operator=(Tensor<T>& rhs) {
-    /* TODO: clean this, dangling reference?! */
-    Tensor<T> t1;
-    return t1;
-  }
-  virtual void print() { return; }
+  virtual void insert(std::vector<int> &at, T data);
+  virtual void push_back(T data);
+  virtual void push_back(const std::vector<T>& data);
+  virtual void set_dims(std::vector<int> const &temp_dims);
+  virtual void clear();
+  virtual void shrink_to_fit();
+  virtual void set(int index, T val);
+  virtual Tensor<T>& operator=(Tensor<T>& rhs);
+  virtual typename std::vector<T>::iterator begin();
+  virtual typename std::vector<T>::iterator end();
 };
 
+template <typename T>
+void Tensor<T>::insert(std::vector<int> &at, T data) {
+  log_fatal("Un-implemented function");
+}
+template <typename T>
+void Tensor<T>::push_back(T data) {
+  log_fatal("Un-implemented function");
+}
+template <typename T>
+void Tensor<T>::push_back(const std::vector<T>& data) {
+  log_fatal("Un-implemented function");
+}
+template <typename T>
+void Tensor<T>::set_dims(std::vector<int> const &temp_dims) {
+  log_fatal("Un-implemented function");
+}
+template <typename T>
+void Tensor<T>::clear() {
+  log_fatal("Un-implemented function");
+}
+
+template <typename T>
+void Tensor<T>::shrink_to_fit() {
+  log_fatal("Un-implemented function");
+}
+template <typename T>
+void Tensor<T>::set(int index, T val) {
+  log_fatal("Un-implemented function");
+}
+
+template <typename T>
+Tensor<T>& Tensor<T>::operator=(Tensor<T>& rhs) {
+  log_fatal("Un-implemented function");
+}
+
+template <typename T>
+typename std::vector<T>::iterator Tensor<T>::begin() {
+  log_fatal("Un-implemented function");
+}
+
+template <typename T>
+typename std::vector<T>::iterator Tensor<T>::end() {
+  log_fatal("Un-implemented function");
+}
+
+/* TensorExtant - Wrapper around onnx::TensorProto
+ *
+ * TensorExtant deduces where actual data is stored
+ * in a onnx::TensorProto object (where weights and biases
+ * of a NN are stored) and keeps a pointer
+ * to it. It is read-only, does not allow mutating
+ * weights
+ */
 template <typename T> class TensorExtant : public Tensor<T> {
 private:
   std::vector<int> dims;
   const onnx::TensorProto *ptr;
-
+  /* Where the actual data resides in memory */
+  const T *data;
+  /* Initialize `dims` and `ptr`, `data` is initialized
+   * by template specialized constructors
+   */
+  void init_dims(const onnx::TensorProto *ptr);
 public:
-  TensorExtant(const onnx::TensorProto *ptr) {
-    dims = std::vector<int>(ptr->dims_size());
-    for (int i = 0; i < dims.size(); i++) {
-      dims[i] = ptr->dims(i);
-    }
-    this->ptr = ptr;
-  }
-
-  T at(std::vector<int> &at) override {
-    assert(at.size() == dims.size());
-
-    int sum = 0;
-    for (int i = 0; i < at.size(); i++) {
-      sum = sum + at[i] * dims_iterator(i);
-    }
-    if (typeid(T) == typeid(float))
-      return (ptr->float_data(sum));
-    else if (typeid(T) == typeid(int32_t))
-      return ((int8_t)ptr->raw_data().at(sum));
-    // return (ptr->int32_data(sum));
-    else if (typeid(T) == typeid(int64_t))
-      return (ptr->int64_data(sum));
-    else if (typeid(T) == typeid(int8_t))
-      return ((int8_t)ptr->raw_data().at(sum));
-    else
-      return -1;
-  }
-  int dims_size() override { return dims.size(); }
-
-  int dims_at(int index) override {
-    assert(index < dims.size());
-    return dims[index];
-  }
-
-  int dims_iterator(int index) override {
-    int a = 1;
-    for (int i = 1; i < dims.size() - index; i++) {
-      a *= dims[index + i];
-    }
-    return a;
-  }
-
-  void print() override {
-    /* TODO: needs refactoring */
-    for (int i = 0; i < dims_iterator(-1); ++i) {
-      if (typeid(T) == typeid(float)) {
-        std::cout << ptr->float_data(i) << '\n';
-      } else if (typeid(T) == typeid(int8_t)) {
-        std::cout << (int8_t)ptr->raw_data().at(i) << '\n';
-      } else {
-        std::cout << -1 << '\n';
-      }
-    }
-  }
+  /* There are no generic constructors for TensorExtant,
+   * all are specialized. See tensor.cpp.
+   */
+  TensorExtant(const onnx::TensorProto *ptr);
+  T at(std::vector<int> &at) override;
+  T at(std::vector<int> &&at) override;
+  T at(int index) override;
+  int dims_size() override;
+  int dims_at(int index) override;
+  std::vector<int> get_dims() override;
+  int dims_iterator(int index) override;
+  int size() override;
+  /* Expensive function, creates a copy of the
+   * underlying data
+   */
+  std::vector<T> get() override;
+  void print() override;
 };
+
+
+template <typename T>
+void TensorExtant<T>::init_dims(const onnx::TensorProto *ptr) {
+  dims.resize(ptr->dims_size());
+  std::copy(ptr->dims().begin(), ptr->dims().end(), dims.begin());
+  this->ptr = ptr;
+}
+
+template <typename T> T TensorExtant<T>::at(int index) {
+  assert(index < this->dims_iterator(-1));
+  return data[index];
+}
+
+template <typename T> T TensorExtant<T>::at(std::vector<int> &index) {
+  assert(index.size() == dims.size());
+  int sum = 0;
+  for (int i = 0; i < index.size(); i++) {
+    sum = sum + index[i] * dims_iterator(i);
+  }
+  return at(sum);
+}
+
+template <typename T> T TensorExtant<T>::at(std::vector<int> &&index) {
+  return at(index);
+}
+
+template <typename T>
+void TensorExtant<T>::print() {
+  for (int i = 0; i < dims_iterator(-1); ++i) {
+    if (i % 9 == 0) {
+      std::cout << '\n';
+    }
+    std::cout << data[i] << '\t';
+  }
+}
+
+template <typename T>
+std::vector<int> TensorExtant<T>::get_dims() {
+  return dims;
+}
+
+template <typename T>
+int TensorExtant<T>::dims_size() { return dims.size(); }
+
+template <typename T> int TensorExtant<T>::dims_at(int index) {
+  assert(index < dims.size());
+  return dims[index];
+}
+
+template <typename T> int TensorExtant<T>::dims_iterator(int index) {
+  int a = 1;
+  for (int i = 1; i < dims.size() - index; i++) {
+    a *= dims[index + i];
+  }
+  return a;
+}
+
+template <typename T> int TensorExtant<T>::size() {
+  return dims_iterator(-1);
+}
+
+template <typename T> std::vector<T> TensorExtant<T>::get() {
+  std::vector<T> ret (dims_iterator(-1));
+  for (int i = 0; i < this->size(); ++i) {
+    ret[i] = data[i];
+  }
+  return ret;
+}
+
 
 template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
   std::vector<T> vec;
-
 public:
   TensorCreate() = delete;
 
@@ -142,6 +250,12 @@ public:
 
   int dims_at(int index) override { return dims.at(index); }
   void push_back(T data) override { vec.push_back(data); }
+
+  void push_back(const std::vector<T>& data) { 
+    for (const T& i : data) {
+      this->push_back(i);
+    }
+  }
 
   void insert(std::vector<int> &at, T data) override {
     assert(at.size() <= dims.size());
@@ -178,19 +292,6 @@ public:
 
   void set(int index, T val) override { vec.at(index) = val; }
 
-  /* TODO: re-work */
-  Mat<T> get_mat(int index) override { 
-    assert(this->dims_size() == 3 && "not a 3d tensor, cant get mat");
-    std::vector<int> itr {0, 0, 0};
-    Mat<T> ret(this->dims_at(1), std::vector<T>(this->dims_at(2)));
-    for (int i = 0; i < this->dims_at(1); ++i) {
-      for (int j = 0; j < this->dims_at(2); ++j) {
-        ret.at(i, j) = this->at(std::vector({index, i, j}));
-      }
-    }
-    return ret;
-  }
-
   virtual Tensor<T>& operator=(Tensor<T>& rhs) {
     this->dims = rhs.get_dims();
     this->vec = rhs.get();
@@ -199,5 +300,12 @@ public:
 
   void print() override { 
     print_vec("tensor", vec);
+  }
+
+  typename std::vector<T>::iterator begin() override {
+    return vec.begin();
+  }
+  typename std::vector<T>::iterator end() override {
+    return vec.end();
   }
 };

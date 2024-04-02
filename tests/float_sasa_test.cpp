@@ -8,6 +8,7 @@
 #include <chrono>
 #include <numeric>
 #include <stdlib.h>
+#include <chrono>
 
 Argparse gbl_args;
 const char *image_loc = "../images/dog.jpg";
@@ -35,19 +36,22 @@ int main(int argc, char *argv[]) {
 
   Tensor<inputT> *ifmap_tensor = new TensorCreate<inputT>(ifmap_v, ifmap_dims);
 
-  PyObject *infer_args = Py_BuildValue("(sOi)", model_path.c_str(), py_ifmap, 0);
+  PyObject *infer_args =
+      Py_BuildValue("(sOi)", model_path.c_str(), py_ifmap, 0);
   PyObject *py_expected = engine.call_func("vgg_float_infer_layer", infer_args);
   std::vector<outputT> expected = engine.il2iv<outputT>(py_expected);
 
-  Op::ConvParams cp{.imap = {224, 224},
-                    .kn = 64,
-                    .ic = 3,
-                    .k = {3, 3},
-                    .pad = {0, 0, 0, 0},
-                    .stride = {1, 1}};
-  Op::Layer::Conv conv1(cp);
+  Op::Layer::Conv conv1;
 
-  Timer tt;
+  conv1.m_cp =
+  {.imap = {224, 224},
+   .kn = 64,
+   .ic = 3,
+   .k = {3, 3},
+   .pad = {0, 0, 0, 0},
+   .stride = {1, 1} };
+
+  Timer<std::chrono::milliseconds> tt;
   tt.start();
 
   /* TODO: fix when onnx parser support int models */
@@ -57,11 +61,12 @@ int main(int argc, char *argv[]) {
   conv1.weights = mp.mutable_graph()->mutable_initializer(0);
 
   SASA<inputT, outputT> sasa(9, 8, 8, conv1);
-  std::vector<int> ofmap_dims {conv1.m_cp.kn, sa_odims_row(cp), sa_odims_cols(cp)};
+  std::vector<int> ofmap_dims{conv1.m_cp.kn, sa_odims_row(conv1.m_cp),
+                              sa_odims_cols(conv1.m_cp)};
 
   Tensor<outputT> *ofmap_tensor = new TensorCreate<outputT>(ofmap_dims);
   sasa.master(*ifmap_tensor, *ofmap_tensor);
-  //ofmap_tensor->set_dims(output_dims);
+  // ofmap_tensor->set_dims(output_dims);
 
   tt.stop();
   tt.report("time taken by sasa: ");
@@ -70,13 +75,10 @@ int main(int argc, char *argv[]) {
 
   std::vector<outputT> calculated = ofmap_tensor->get();
 
-  Py_XDECREF(py_args );
+  Py_XDECREF(py_args);
   Py_XDECREF(py_expected);
 
-  bool status = generate_report<outputT, outputT>(argv[0], expected, calculated);
+  bool status =
+      generate_report<outputT, outputT>(argv[0], expected, calculated);
   return status;
 }
-
-// must in documents
-// if decided to use tensor.pushback , make sure to set it dims afterwards and
-// make sure to ONLY use pushback when used default constructor of TensorCreate

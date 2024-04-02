@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 #include <algorithm>
+#include <cmath>
+#include <valarray>
 
 namespace Int_Graph {
 using Graph =
@@ -870,6 +872,7 @@ template <typename inputT, typename outputT> class VA {
   Tensor<inputT> *bias;
   public:
     VA(Op::Layer::Gemm &gp);
+    VA(Op::Layer::MatMul &gp);
     void run(Tensor<inputT> *input, Tensor<outputT> *output);
     ~VA() {
       delete weights;
@@ -888,13 +891,238 @@ VA<inputT, outputT>::VA(Op::Layer::Gemm &gp) {
 }
 
 template <typename inputT, typename outputT>
+VA<inputT, outputT>::VA(Op::Layer::MatMul &gp) {
+  wrows = gp.m_cp.wc;
+  wcols = gp.m_cp.wr;
+  isize = gp.m_cp.is;
+  weights = new TensorExtant<inputT>(gp.weights);
+  bias = nullptr;
+}
+
+template <typename inputT, typename outputT>
 void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
+  
+  print_vec("input_dims", input->get_dims());
+  print_vec("weight_dims", weights->get_dims());
+  print_vec("output_dims", output->get_dims());
+
+  assert(input->dims_size() == 2 && weights->dims_size() == 2);
+  assert(input->dims_at(1) == weights->dims_at(0) && "non-matching matrix dimensions");
+
+  int N = input->dims_at(0);
+  int M = input->dims_at(1);
+  int K = weights->dims_at(1);
+  for (int i = 0; i < N; ++i) {
+    for (int j = 0; j < K; ++j) {
+      outputT dst = 0;
+      for (int k = 0; k < M; ++k) {
+        /* TODO: use Tensor->at that returns a reference and += operator
+         * part of tensor refactor
+         */
+        dst += input->at(i * M + k) * weights->at(k * K + j);
+      }
+      /* For gemm */
+      if (bias != nullptr) {
+        dst += bias->at(i*K + j);
+      }
+      output->set(i*K + j, dst);
+    }
+  }
+
+#if 0
   for (int i = 0; i < wrows; ++i) {
     outputT dst = 0;
     for (int j = 0; j < wcols; ++j) {
       dst += weights->at(i * wcols + j) * input->at(j);
     }
-    dst += bias->at(i);
+    if (bias != nullptr) {
+      dst += bias->at(i);
+    }
     output->set(i, dst);
+  }
+#endif
+}
+
+/* Deduces and removes -1/0 from old_shape to return 
+ * a correct new_shape.
+ * See https://onnx.ai/onnx/operators/onnx__Reshape.html#reshape
+ *
+ * TODO: handle 0s in shape (does not do it presently)
+ */
+inline std::vector<int64_t> deduce_new_shape(std::vector<int64_t> old_shape, int input_total_size) {
+  auto itr = std::find(old_shape.begin(), old_shape.end(), -1);
+  if (itr != old_shape.end()) {
+    int remaining_size = std::abs(prod(old_shape.begin(), old_shape.end(), 1));
+    assert(input_total_size % remaining_size == 0 && "unable to deduce new shape");
+    int remaining_dim = input_total_size / remaining_size;
+    *itr = remaining_dim; 
+  }
+  return old_shape;
+}
+
+template <typename T>
+void reshape(Tensor<T> *input, Tensor<T> *output, const std::vector<int64_t> &new_shape) {
+  /* atmost 1 dimension can be -1 */
+  std::vector<int64_t> deduced_shape = deduce_new_shape(new_shape, input->dims_iterator(-1));
+  print_vec("deduce_shape: ", deduced_shape);
+  *output = *input;
+  std::vector<int> dims (deduced_shape.size());
+  std::copy(deduced_shape.begin(), deduced_shape.end(), dims.begin());
+  output->set_dims(dims);
+}
+
+/* strides arrays are used pre-dominantly in elementwise vector-to-vector
+ * style multiplications and addition, thus makes sense to use a valarray 
+ * here
+ */
+inline std::valarray<int> get_stride_from_shape(const std::valarray<int> &shape) {
+  std::valarray<int> ret(shape.size());
+  for (int i = 0; i < shape.size(); ++i) {
+    ret[i] = prod(std::begin(shape)+i+1, std::end(shape), 1);
+  }
+  return ret;
+}
+
+inline std::valarray<int> get_stride_from_shape(const std::valarray<int> &&shape) {
+  return get_stride_from_shape(shape);
+}
+
+inline std::vector<int> permute(const std::vector<int> &v,
+                                  std::vector<int> perm) {
+  std::for_each(perm.begin(), perm.end(),
+                [&v](int i) { assert((i < v.size()) ? true : false); });
+  std::vector<int> ret(v.size());
+  for (int i = 0; i < v.size(); ++i) {
+    ret.at(i) = v.at(perm.at(i));
+  }
+  return ret;
+}
+
+template <typename T>
+std::valarray<T> vec2val(const std::vector<T> &v) {
+  std::valarray<T> ret(v.size());
+  for (int i = 0; i < v.size(); ++i) {
+    ret[i] = v[i];
+  }
+  return ret;
+}
+
+template <typename T>
+std::valarray<T> vec2val(std::vector<T> &&v) {
+  return vec2val(v);
+}
+
+/* n-dimensional-index incrementer
+ * ii is a n-dimensional index
+ * limit_shape is the shape of the tensor that ii is indexing
+ *
+ * for example,
+ * consider, limit_shape = [3,4,2]
+ * first,
+ *  ii = [0,0,0]
+ * calling increment_shape on it makes it,
+ *  ii = [0,0,1]
+ * then,
+ *  ii = [0,1,0]
+ *  ii = [0,1,1]
+ *  ii = [0,2,0]
+ *  ii = [0,2,1]
+ *  ii = [0,3,0]
+ *  ii = [0,3,1]
+ *  ii = [1,0,0]
+ * and so on till
+ *  ii = [2,3,1]
+ */
+inline void increment_shape(std::vector<int> &ii, const std::vector<int> &limit_shape) {
+  assert(ii.size() == limit_shape.size());
+  int current_index = ii.size() - 1;
+  while (current_index >= 0) {
+    ii.at(current_index)++;
+    if (ii.at(current_index) >= limit_shape.at(current_index)) {
+      ii.at(current_index) = 0;
+      current_index--;
+    } else {
+      break;
+    }
+  }
+  if (ii.at(0) >= limit_shape.at(0)) {
+    log_fatal("Cannot increment past limit_shape");
+  }
+}
+
+/* TODO: use valarray where fits */
+template <typename T>
+void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
+  // FIXME
+  // i.e. the first dimension of input/output tensors are currently ignored.
+  if (perm.size() == input->dims_size() + 1) {
+    assert(perm.at(0) == 0);
+    /* Hack to turn the perm array to 3d
+     * because input tensors are 3d not 4d
+     * 1. remove first element (0th dimension)
+     * 2. subtract 1 from each dim */
+    perm.erase(perm.begin(), perm.begin() + 1);
+    for (int i = 0; i < perm.size(); ++i) {
+      perm.at(i) -= 1;
+    }
+  } else {
+    assert(input->dims_size() == perm.size());
+  }
+
+  print_vec("new perm", perm);
+  output->set_dims(permute(input->get_dims(),  perm));
+  std::valarray<int> ishape = vec2val(input->get_dims());
+
+  std::valarray<int> istride = get_stride_from_shape(ishape);
+  /* consider making get_stride_from_shape take valarrays */
+  std::valarray<int> ostride = get_stride_from_shape(vec2val(output->get_dims()));
+  
+
+  /* TODO: use valarray here */
+  std::vector<int> ii (input->dims_size(), 0);
+  int total_elements = input->dims_iterator(-1);
+  for (int i = 0; i < total_elements; ++i) {
+    std::valarray<int> t0 = vec2val(ii);
+    std::valarray<int> t1 = istride * t0;
+    int iindex = std::accumulate(std::begin(t1), std::end(t1), 0);
+    std::valarray<int> t2 = vec2val(permute(ii, perm));
+    std::valarray<int> t3 = ostride * t2;
+    int oindex = std::accumulate(std::begin(t3), std::end(t3), 0);
+    output->set(oindex, input->at(iindex));
+    increment_shape(ii, input->get_dims());
+  }
+}
+
+
+/* Element wise tensor addition */
+template <typename inputT, typename outputT>
+void tensor_add(Tensor<outputT> *output, Tensor<inputT> *input1, Tensor<inputT> *input2) {
+  assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
+  for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+    output->set(i, input1->at(i) + input2->at(i));
+  }
+}
+
+/* Add a tensor and a vector. Each element of the
+ * vector is added to all elements of each channel
+ * of the tensor
+ *
+ *  input_tensor.shape = (X, _, _)
+ *  input_vector.shape = (X)
+ */
+template <typename inputT, typename outputT>
+void tensor_vector_add(Tensor<outputT> *output, Tensor<inputT> *input_tensor, Tensor<inputT> *input_vector) {
+  assert(input_vector->dims_size() == 1);
+  assert(input_vector->dims_at(0) == input_tensor->dims_at(0));
+  assert(input_tensor->dims_size() == 3);
+
+  for (int i = 0; i < input_tensor->dims_at(0); ++i) {
+    for (int j = 0; j < input_tensor->dims_at(1); ++j) {
+      for (int k = 0; k < input_tensor->dims_at(2); ++k) {
+        std::vector<int> index {i, j, k};
+        outputT t1 = input_tensor->at(index) + input_vector->at(i);
+        output->insert(index, t1);
+      }
+    }
   }
 }

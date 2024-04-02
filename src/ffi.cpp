@@ -50,18 +50,9 @@ void py_list_print(PyObject *list) {
 }
 
 PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) {
-  /* No-op when called for the second-time */
-  //PyConfig config;
-  //PyConfig_InitPythonConfig(&config);
-
-  ////PyConfig_SetBytesString(&config, &config.home, "/home/metal/dev/misc/python/bin");
-  //PyStatus status = Py_InitializeFromConfig(&config);
-  //if (PyStatus_Exception(status)) {
-  //
-  //  Py_ExitStatusException(status);
-  //  log_fatal("Could not initialize");
-  //}
-
+  /* TODO: move this to global init context. currently prevents multiple
+   * PyEngines to be created
+   */ 
   Py_Initialize();
   PyObject *sys = PyImport_ImportModule("sys");
   PyObject *path = PyObject_GetAttrString(sys, "path");
@@ -71,12 +62,13 @@ PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) 
     exit(EXIT_FAILURE);
   }
 
-#if 1
-  if (PyList_Insert(path, 0, PyUnicode_FromString("/home/shreeyash/python/lib/python3.11/site-packages")) == -1) {
-    log_err("PyList_Append");
-    exit(EXIT_FAILURE);
+  if (gbl_args.has_option("venv-path")) {
+    std::string venv_path = gbl_args["venv-path"].as<std::string>();
+    if (PyList_Insert(path, 0, PyUnicode_FromString(venv_path.c_str())) == -1) {
+      log_err("PyList_Append");
+      exit(EXIT_FAILURE);
+    }
   }
-#endif
   this->mod = PyImport_Import(PyUnicode_FromString(mod_name.c_str()));
   py_fatal_err_check(mod, "PyImport_Import");
   Py_XDECREF(sys);

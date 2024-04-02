@@ -8,7 +8,9 @@
 #include <iostream>
 #include <map>
 #include <queue>
+#include <sstream>
 #include <typeinfo>
+#include <cstring>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -37,7 +39,7 @@ const char *Op::LayerBase::params() const { return "(null)"; }
 void Op::LayerBase::set_initializer_params(const onnx::TensorProto &t) {}
 void Op::LayerBase::set_value_info_params(const onnx::ValueInfoProto &t) {}
 void Op::LayerBase::run(TensorPool &tensor_pool) {
-  log_fatal("No overrides present for this layer: %s", name.c_str());
+  log_fatal("No overrides present for this layer %s: %s", this->op_type(), name.c_str());
 }
 void Op::LayerBase::set_attributes(const onnx::NodeProto &node) { return; }
 
@@ -156,6 +158,7 @@ void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
 void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
   const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
   if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
+    /* TODO: check dim1 here */
     m_cp.is = shape.dim().at(1).dim_value();
   } else {
     log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
@@ -232,7 +235,15 @@ void Op::Layer::Dropout::set_initializer_params(const onnx::TensorProto &t) {
   }
 }
 
+Op::Layer::Add::Add() {
+  addend = nullptr;
+}
+
 const char *Op::Layer::Add::op_type() const { return m_optype; }
+
+void Op::Layer::Add::set_initializer_params(const onnx::TensorProto &t) {
+  addend = &t;
+}
 
 const char *Op::Layer::GlobalAveragePool::op_type() const { return m_optype; }
 
@@ -241,6 +252,43 @@ const char *Op::Layer::BatchNorm::op_type() const { return m_optype; }
 const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }
 
 const char *Op::Layer::Reshape::op_type() const { return m_optype; }
+
+const char *Op::Layer::Reshape::params() const {
+  static char ret[128];
+  std::memset(ret, '\0', 128);
+  std::stringstream ss;
+  ss << "(shape: ";
+  for (int64_t i : new_shape) {
+    ss << i << ", ";
+  }
+  ss << ")";
+  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  return ret;
+}
+
+void Op::Layer::Reshape::set_initializer_params(const onnx::TensorProto &t) {
+  if (t.dims_size() != 1) {
+    log_fatal("New shape expected to be a linear vector, got vector of size %d for"
+        " tensor %s", t.dims_size(), t.name().c_str());
+  }
+        
+  if (t.int64_data_size() > 0) {
+    for (int64_t val : t.int32_data()) {
+      new_shape.push_back(val);
+    }
+  } else if (t.has_raw_data()) {
+    /* oddly enough, protobuf uses std::string to hold bytes, hence
+     * the need for reinterpret_cast
+     */
+    const int64_t *raw_ptr = reinterpret_cast<const int64_t *>(t.raw_data().c_str());
+    for (int i = 0; i < t.dims(0); ++i) {
+      new_shape.push_back(raw_ptr[i]);
+    }
+  } else {
+    log_fatal("Do not know how to interpret TensorProto for %s",
+              t.name().c_str());
+  }
+}
 
 const char *Op::Layer::DequantizeLinear::op_type() const { return m_optype; }
 
@@ -316,6 +364,68 @@ void Op::Layer::QLinearAdd::set_initializer_params(const onnx::TensorProto &t) {
     addend = &t;
   }
 }
+
+const char *Op::Layer::Transpose::op_type() const { return m_optype; }
+
+const char *Op::Layer::Transpose::params() const {
+  static char ret[128];
+  std::memset(ret, '\0', 128);
+  std::stringstream ss;
+  ss << "(perm: ";
+  for (int64_t i : perm) {
+    ss << i << ", ";
+  }
+  ss << ")";
+  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  return ret;
+}
+
+void Op::Layer::Transpose::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "perm") {
+      if (itr->ints_size() < 1) {
+        log_fatal("expected node %s to contain perm info", node.name().c_str());
+      }
+      perm.resize(itr->ints_size(), 0);
+      parse_onnx_ints(*itr, perm.data());
+    } else {
+      log_info("Parser un-implemented for attribute %s at node %s",
+               itr->name().c_str(), node.name().c_str());
+    }
+  }
+}
+
+Op::Layer::MatMul::MatMul() { m_cp = {}; }
+
+const char *Op::Layer::MatMul::op_type() const { return m_optype; }
+
+const char *Op::Layer::MatMul::params() const {
+  static char ret[64];
+  sprintf(ret, "WR,WC,IS: %d,%d,%d", m_cp.wr, m_cp.wc, m_cp.is);
+  return ret;
+}
+
+void Op::Layer::MatMul::set_initializer_params(
+    const onnx::TensorProto &t) {
+  if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
+    m_cp.wr = t.dims()[0];
+    m_cp.wc = t.dims()[1];
+    weights = &t;
+  }
+}
+
+void Op::Layer::MatMul::set_value_info_params(
+    const onnx::ValueInfoProto &t) {
+  const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
+  if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
+    m_cp.is = shape.dim().at(1).dim_value();
+  } else {
+    log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
+  }
+}
+
+
 
 /* Auxillary Graph Functions */
 
@@ -663,9 +773,9 @@ void Op::Model::deduce_types(const onnx::GraphProto &gproto) {
     // onnx::TensorProto_DataType_UNDEFINED && "Output type cannot be
     // Undefined");
     if (l->input_type == onnx::TensorProto_DataType_UNDEFINED) {
-      log_fatal(
-          "Failed Type Deduction. Input type for layer: %s cannot be UNDEFINED",
-          l->name.c_str());
+      log_fatal("Failed Type Deduction. Input type for layer: %s cannot be "
+                "UNDEFINED",
+                l->name.c_str());
     }
   }
 }
@@ -709,9 +819,9 @@ void Op::Model::set_output_type(const onnx::NodeProto &node, Op::LayerBase *l) {
         l->output_type = get_type_from_value_info(go_itr->second);
         break;
       }
-      log_fatal(
-          "Couldn't find %s for node %s in value_info_map or graph_output_map",
-          output.c_str(), node.name().c_str());
+      log_fatal("Couldn't find %s for node %s in value_info_map or "
+                "graph_output_map",
+                output.c_str(), node.name().c_str());
     }
   }
 }
@@ -778,6 +888,11 @@ bool Op::is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
     return true;
   }
   return false;
+}
+
+bool Op::dtype_eq(int32_t t1, onnx::TensorProto_DataType t2) {
+    onnx::TensorProto_DataType ptr_dtype = static_cast<onnx::TensorProto_DataType>(t1);
+    return ptr_dtype == t2;
 }
 
 std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
@@ -851,7 +966,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QuantizeLinear(), node);
   } else if (opt == "QLinearConv") {
     /* TODO: get scale values and add QunatizeLinear nodes
-     * there 
+     * there
      * better to not use Conv at all
      */
     m_model.add(new Op::Layer::Conv(), node);
@@ -861,11 +976,18 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QLinearMatMul(), node);
   } else if (opt == "QLinearAdd") {
     m_model.add(new Op::Layer::QLinearAdd(), node);
+  } else if (opt == "Transpose") {
+    m_model.add(new Op::Layer::Transpose(), node);
+  } else if (opt == "MatMul") {
+    m_model.add(new Op::Layer::MatMul(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }
 }
 
+/* TODO: adding a TypeInfo to LayerBase would allow this to 
+ * be much cleaner
+ */
 onnx::TensorProto_DataType
 Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
   /* TODO: method of type deduction restricted to model that have atleast
@@ -874,15 +996,18 @@ Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
    */
   auto order = this->get_execution_order();
   for (Op::LayerBase *i : order) {
-    Op::Layer::Conv *cc;
-    Op::Layer::Gemm *gc;
-    if ((cc = dynamic_cast<Op::Layer::Conv *>(i)) != NULL) {
+    if (dynamic_cast<Op::Layer::Conv *>(i) != NULL) {
+      Op::Layer::Conv *cc = dynamic_cast<Op::Layer::Conv *>(i);
       /* its a conv type, get the type of its initializer
        * Cast valid, as TensorProto_DataType is int32_t and
        * TensorProto::data_type() returns an int */
       return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
-    } else if ((gc = dynamic_cast<Op::Layer::Gemm *>(i)) != NULL) {
-      return static_cast<onnx::TensorProto_DataType>(gc->weights->data_type());
+    } else if (dynamic_cast<Op::Layer::Gemm *>(i) != NULL) {
+      Op::Layer::Gemm *cc = dynamic_cast<Op::Layer::Gemm *>(i);
+      return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
+    } else if (dynamic_cast<Op::Layer::MatMul *>(i) != NULL) {
+      Op::Layer::MatMul *cc = dynamic_cast<Op::Layer::MatMul *>(i);
+      return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
     }
   }
   /* ideally shoudn't reach here */

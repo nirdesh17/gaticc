@@ -7,10 +7,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <list>
 #include <typeinfo>
-#include <iomanip>
 #include <unistd.h>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
@@ -22,7 +22,7 @@
 #define log_info(fmt, ...)                                                     \
   (log_info_func(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
 
-inline void log_fatal_func(const char *file, int line, const char *func,
+[[noreturn]] inline void log_fatal_func(const char *file, int line, const char *func,
                            const char *fmt, ...) {
   fprintf(stderr, "%s:%d: %s: FATAL: ", file, line, func);
   va_list ap;
@@ -67,9 +67,20 @@ class Argparse {
         "\n\tArgs: [comma separated arch config]"
         "\n\tEx: --timeest 9,8,8",
         1},
-       {"sim", {"--sim"}, "Simulate inference on an image. Args: [input_image]", 1},
-       {"dump-output", {"--dump-output"}, "Dump Outputs produced by the "
-         "simulator. Args: [all | comma separated layer names]", 1},
+       {"sim",
+        {"--sim"},
+        "Simulate inference on an image. Args: [input_image]",
+        1},
+       {"dump-output",
+        {"--dump-output"},
+        "Dump Outputs produced by the "
+        "simulator. Args: [all | comma separated layer names]",
+        1},
+       {"venv-path",
+        {"--venv-path"},
+        "Append venv-path to sys.path while loading the interpreter. Args: [ : "
+        "separated path list]",
+        1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
 public:
@@ -111,7 +122,12 @@ public:
  */
 extern Argparse gbl_args;
 
-using Point = std::pair<int, int>;
+struct Point {
+  int first;
+  int second;
+  Point(int a, int b);
+};
+std::ostream& operator<<(std::ostream &os, const Point& p);
 
 template <typename T> class Mat {
   std::vector<std::vector<T>> data;
@@ -192,26 +208,22 @@ void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
   std::cout << '\n';
 }
 
-template <typename T> void print_vec(const char *s, std::vector<T> const &v) {
+/* any container that overloads std::begin and std::end and operator<< on 
+ * its elements should be printable. the name has been kept for legacy
+ * reasons, makes sense to use on linear containers.
+ */
+template <typename Container> void print_vec(const char *s, Container const &v) {
   printf("%s: ", s);
-  for (auto a : v) {
-    std::cout << std::setprecision(8) << std::fixed << a << ' ';
-  }
-  std::cout << '\n';
-}
-
-template <typename T> void print_vec(const char *s, std::list<T> const &v) {
-  printf("%s: ", s);
-  for (auto const &a : v) {
-    std::cout << a << ' ';
-  }
-  std::cout << '\n';
-}
-
-inline void print_vec_point(const char *s, std::vector<Point> const &v) {
-  printf("%s: ", s);
-  for (auto &p : v) {
-    std::cout << p.first << ',' << p.second << ' ';
+  int newline_cnt = 0;
+  std::cout << std::setprecision(8) << std::fixed;
+  for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
+    /* print only 16 number on a single line */
+    if (newline_cnt >= 9) {
+      std::cout << '\n';
+      newline_cnt = 0;
+    }
+    std::cout << *itr << '\t';
+    newline_cnt++;
   }
   std::cout << '\n';
 }
@@ -343,8 +355,7 @@ template <typename T> inline std::vector<T> parse_csv_string(std::string &s) {
   return result;
 }
 
-template <>
-inline std::vector<int> parse_csv_string(std::string &s) {
+template <> inline std::vector<int> parse_csv_string(std::string &s) {
   std::vector<int> result;
   std::stringstream ss(s);
   std::string token;
@@ -373,4 +384,26 @@ template <typename T> void TensorPool::set(int index, T data) {
 template <typename T> T TensorPool::get(int index) {
   assert(pool.at(index).has_value() && "pool at index does not have a value");
   return std::any_cast<T>(pool.at(index));
+}
+
+/* like std::accumulate but calculates products 
+ * TODO: use this in tensor.h
+ */
+template<class InputIt, class T>
+T prod(InputIt first, InputIt last, T init) {
+  T product = init;
+  for (InputIt i = first; i != last; ++i) {
+    product *= *i;
+  }
+  return product;
+}
+
+/* Add v1 and v2 and store into v1 */
+template <typename T>
+void add_vec(std::vector<T>& v1, const std::vector<T>& v2) {
+  assert(v1.size() == v2.size());
+  std::vector<T> ret(v1.size());
+  for (int i = 0; i < v1.size(); ++i) {
+    v1[i] = v1[i] + v2[i];
+  }
 }

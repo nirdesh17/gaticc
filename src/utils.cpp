@@ -45,3 +45,9 @@ void TensorPool::resize(int size) {
   pool.resize(size);
 }
 
+Point::Point(int a, int b): first {a}, second {b} {}
+
+std::ostream& operator<<(std::ostream &os, const Point& p) {
+  os << p.first << ',' << p.second;
+  return os;
+}
