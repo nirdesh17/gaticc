@@ -3,7 +3,8 @@
 function usage() {
   cat << EOF
 build.sh [target]
-  possible targets: all, test, clean
+  generates protobuf files and builds sysim
+  possible targets: all (default), test, clean
 EOF
 }
 SRC_DIR=src/

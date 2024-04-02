@@ -59,11 +59,30 @@ pip install {above_packages}
 
 ```
 cd path/to/sysim
-make -j $(nproc --all)
+./build.sh
 ```
-Additionally,
+
+Additionally, to build all the tests.
 ```
-make test -j $(nproc --all)
+./build.sh test
+```
+
+To run all the tests,
+```
+make run-tests
+```
+
+To run only a single test,
+```
+./run_test.sh <test_name>
+```
+`test_name` is name of the source file of the test present in tests/ directory
+without `.cpp` extension or the path. 
+
+For example,
+```
+./run_test.sh conv_transformer
+./run_test.sh 3x3-3x3
 ```
 
 ## Usage (projected)
@@ -116,6 +135,9 @@ sysim --compare layer.save layer2.save
 
 # Contributing to sysim
 
+## General 
+
+- Find a TODO list here: <https://github.com/vicharak-in/sysim/issues/15>
 - Format all your commit messages according to <https://www.conventionalcommits.org/en/v1.0.0/>.
 - For bugs, create an issues here: <https://github.com/vicharak-in/sysim/issues/>
 - Keep commit message titles succinct. Use the body for further elaboration if
@@ -133,3 +155,18 @@ sysim --compare layer.save layer2.save
 - We do not follow any coding guideline to the T but welcome good style
   suggestions. (suggest through ISSUES)
 - You can find some here: <https://google.github.io/styleguide/cppguide.html>
+
+## Adding tests
+
+- sysim does not use any fancy testing/mocking frameworks. all tests are
+standalone executables that are staticallt linked to libsim.a created
+on the fly by a Makefile.
+- add new tests by adding a `<test_name>.cpp` file to tests/ directory.
+- For ideas on what to put in it, see `.cpp` files for other tests.
+- The general idea is to test a single feature by comparing its 'computed'
+outputs to a known truthful 'expected' output. For example, to test a `square`
+function, for a set of inputs {1,2,3,4,5}, expected outputs are {1,4,9,16,25},
+and if your `square` function generates the same, the test is considered Passing.
+- All tests return either a 0 (for failed test) or 1 (for passed tests)
+- The helper function `generate_test` in utils.h can be used for comparison
+and generation of a report. 

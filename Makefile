@@ -66,4 +66,4 @@ clean:
 	rm -rf $(OBJ_DIR)/*.o a
 
 run-tests: 
-	$(TEST_DIR)/execute_tests.sh
+	./execute_tests.sh
