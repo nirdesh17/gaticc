@@ -50,10 +50,6 @@ void py_list_print(PyObject *list) {
 }
 
 PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) {
-  /* TODO: move this to global init context. currently prevents multiple
-   * PyEngines to be created
-   */ 
-  Py_Initialize();
   PyObject *sys = PyImport_ImportModule("sys");
   PyObject *path = PyObject_GetAttrString(sys, "path");
 

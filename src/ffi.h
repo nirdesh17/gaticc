@@ -1,10 +1,16 @@
 #pragma once
 
+//#define PY_ARRAY_UNIQUE_SYMBOL ffi_ARRAY_API
+
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 /* From libpython */
 #ifndef PY_SSIZE_T_CLEAN
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #endif
+
+#include "numpy/arrayobject.h"
+#include "numpy/ndarraytypes.h"
 
 #include "utils.h"
 #include <filesystem>
@@ -33,6 +39,19 @@
       exit(EXIT_FAILURE);                                                      \
     }                                                                          \
   } while (0)
+
+template <typename T>
+int deduce_typenum() {
+  if (typeid(T) == typeid(float)) {
+    return NPY_FLOAT32;
+  } else if (typeid(T) == typeid(int)) {
+    return NPY_INT32;
+  } else if (typeid(T) == typeid(int8_t)) {
+    return NPY_INT8;
+  } else {
+    log_fatal("Cannot deduce typenum or unimplemented");
+  }
+}
 
 /* Use PyEngine objects to load python files and call
  * functions inside it. Basically a wrapper around the
@@ -103,22 +122,21 @@ template <typename T> std::vector<T> il2iv(PyObject *list) {
 
   template <typename T>
   PyObject *iv2np(std::vector<T> const &v, std::vector<int> const &dims) {
-    /* TODO:
-     * Ideally, one would use PyArray_* functions directly
-     * instead of going this circuitous route of converting
-     * a std::vector to python list and converting it
-     * to ndarray with a python function. numpy capi
-     * hasn't been working for me (import errors i think)
-     */
-    PyObject *v_l = iv2il<T>(v);
-    PyObject *dims_l = iv2il<int>(dims);
-
-    PyObject *args = Py_BuildValue("(OO)", v_l, dims_l);
-    PyObject *ret = call_func("l2nparr", args);
-
-    Py_XDECREF(v_l);
-    Py_XDECREF(dims_l);
-    Py_XDECREF(args);
+    /* Create a flattened array then call reshape on it */
+    Py_intptr_t retdims[1]{prod(dims.begin(), dims.end(), 1)};
+    int typenum = deduce_typenum<T>();
+    PyObject *nparr = PyArray_SimpleNew(1, retdims, typenum);
+    for (int i = 0; i < PyArray_Size(nparr); ++i) {
+      T *ptr = (T *)PyArray_GETPTR1((PyArrayObject *)nparr, i);
+      *ptr = v[i];
+    }
+    PyObject *shape = PyTuple_New(dims.size());
+    for (int i = 0; i < dims.size(); ++i) {
+      PyTuple_SET_ITEM(shape, i, PyLong_FromLong(dims[i]));
+    }
+    PyObject *ret = PyArray_Reshape((PyArrayObject *)nparr, shape);
+    Py_XDECREF(nparr);
+    Py_XDECREF(shape);
     return ret;
   }
 
