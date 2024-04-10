@@ -17,6 +17,7 @@
 #include <string>
 #include <typeinfo>
 #include <vector>
+#include "tensor.h"
 
 #define log_err(err) fprintf(stderr, "%s: %d: %s\n", __FILE__, __LINE__, err);
 
@@ -159,6 +160,47 @@ public:
     Py_XDECREF(flattened);
     return ret;
   }
+
+  template <typename T>
+  Tensor<T>* np2t(PyObject *nparr) {
+    Py_intptr_t *shape = PyArray_SHAPE((PyArrayObject *)nparr);
+    int total_dims = PyArray_NDIM((PyArrayObject *)nparr);
+    std::vector<int> dims;
+    for (int i = 0; i < total_dims; ++i) {
+      dims.push_back(shape[i]);
+    }
+
+    int nparrsz = PyArray_SIZE((PyArrayObject *)nparr);
+    Tensor<T> *ret = new TensorCreate<T>(dims);
+    PyObject *flattened = PyArray_Flatten((PyArrayObject *)nparr, NPY_CORDER);
+    for (int i = 0; i < nparrsz; ++i) {
+      ret->set(i, *((T *)PyArray_GETPTR1((PyArrayObject *)flattened, i)));
+    }
+    Py_XDECREF(flattened);
+    return ret;
+  }
+
+  template <typename T>
+  PyObject *t2np(const Tensor<T> *t) {
+    /* Create a flattened array then call reshape on it */
+    std::vector<int> dims = t->get_dims();
+    Py_intptr_t retdims[1]{prod(dims.begin(), dims.end(), 1)};
+    int typenum = deduce_typenum<T>();
+    PyObject *nparr = PyArray_SimpleNew(1, retdims, typenum);
+    for (int i = 0; i < PyArray_Size(nparr); ++i) {
+      T *ptr = (T *)PyArray_GETPTR1((PyArrayObject *)nparr, i);
+      *ptr = t->at(i);
+    }
+    PyObject *shape = PyTuple_New(dims.size());
+    for (int i = 0; i < dims.size(); ++i) {
+      PyTuple_SET_ITEM(shape, i, PyLong_FromLong(dims[i]));
+    }
+    PyObject *ret = PyArray_Reshape((PyArrayObject *)nparr, shape);
+    Py_XDECREF(nparr);
+    Py_XDECREF(shape);
+    return ret;
+  }
+
 };
 
 std::vector<int> py_read_img(PyEngine &engine, std::string const &filepath);

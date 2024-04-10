@@ -16,6 +16,8 @@
  *  iv2il
  *  iv2np
  *  np2iv
+ *  np2t
+ *  t2np
  *  in ffi.h
  */
 
@@ -43,8 +45,17 @@ int main(int argc, char *argv[]) {
   std::vector<expected_t> tmp1 = engine.il2iv<expected_t>(vv);
   
   PyObject *nparr = engine.iv2np<expected_t>(tmp1, expected_dims);
-  std::vector<int> computed_dims;
-  std::vector<expected_t> computed = engine.np2iv<expected_t>(nparr, computed_dims);
+
+  std::vector<int> computed0_dims;
+  std::vector<expected_t> computed0 = engine.np2iv<expected_t>(nparr, computed0_dims);
+
+  Tensor<expected_t> *t1 = new TensorCreate<expected_t>(computed0, computed0_dims);
+
+  PyObject *tnparr = engine.t2np<expected_t>(t1);
+  Tensor<expected_t> *t2 = engine.np2t<expected_t>(tnparr);
+
+  std::vector<expected_t> computed = t2->get();
+  std::vector<int> computed_dims = t2->get_dims();
 
   bool dims_status = generate_report<int, int>("ffi_test dims", expected_dims, computed_dims);
   bool vec_status = generate_report<expected_t, expected_t>("ffi_test vector", expected, computed);
