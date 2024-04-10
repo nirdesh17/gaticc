@@ -46,7 +46,6 @@ int main(int argc, char *argv[]) {
   std::vector<int> computed_dims;
   std::vector<expected_t> computed = engine.np2iv<expected_t>(nparr, computed_dims);
 
-  print_vec("computed", computed);
   bool dims_status = generate_report<int, int>("ffi_test dims", expected_dims, computed_dims);
   bool vec_status = generate_report<expected_t, expected_t>("ffi_test vector", expected, computed);
   return dims_status & vec_status;
