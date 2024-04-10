@@ -34,16 +34,16 @@ template <typename T> class Tensor {
 public:
   /* Read functions */
 
-  virtual T at(std::vector<int> &at) = 0;
-  virtual T at(std::vector<int> &&at) = 0;
-  virtual T at(int index) = 0;
-  virtual int dims_size() = 0;
-  virtual int dims_at(int index) = 0;
-  virtual std::vector<int> get_dims() = 0;
-  virtual int dims_iterator(int index) = 0;
-  virtual int size() = 0;
-  virtual std::vector<T> get() = 0;
-  virtual void print() = 0;
+  virtual T at(std::vector<int> &at) const = 0;
+  virtual T at(std::vector<int> &&at) const = 0;
+  virtual T at(int index) const = 0;
+  virtual int dims_size() const = 0;
+  virtual int dims_at(int index) const = 0;
+  virtual std::vector<int> get_dims() const = 0;
+  virtual int dims_iterator(int index) const = 0;
+  virtual int size() const = 0;
+  virtual std::vector<T> get() const = 0;
+  virtual void print() const = 0;
 
   /* Write functions */
 
@@ -128,19 +128,19 @@ public:
    * all are specialized. See tensor.cpp.
    */
   TensorExtant(const onnx::TensorProto *ptr);
-  T at(std::vector<int> &at) override;
-  T at(std::vector<int> &&at) override;
-  T at(int index) override;
-  int dims_size() override;
-  int dims_at(int index) override;
-  std::vector<int> get_dims() override;
-  int dims_iterator(int index) override;
-  int size() override;
+  T at(std::vector<int> &at) const override;
+  T at(std::vector<int> &&at) const override;
+  T at(int index) const override;
+  int dims_size() const override;
+  int dims_at(int index) const override;
+  std::vector<int> get_dims() const override;
+  int dims_iterator(int index) const override;
+  int size() const override;
   /* Expensive function, creates a copy of the
    * underlying data
    */
-  std::vector<T> get() override;
-  void print() override;
+  std::vector<T> get() const override;
+  void print() const override;
 };
 
 
@@ -151,12 +151,12 @@ void TensorExtant<T>::init_dims(const onnx::TensorProto *ptr) {
   this->ptr = ptr;
 }
 
-template <typename T> T TensorExtant<T>::at(int index) {
+template <typename T> T TensorExtant<T>::at(int index) const {
   assert(index < this->dims_iterator(-1));
   return data[index];
 }
 
-template <typename T> T TensorExtant<T>::at(std::vector<int> &index) {
+template <typename T> T TensorExtant<T>::at(std::vector<int> &index) const {
   assert(index.size() == dims.size());
   int sum = 0;
   for (int i = 0; i < index.size(); i++) {
@@ -165,12 +165,12 @@ template <typename T> T TensorExtant<T>::at(std::vector<int> &index) {
   return at(sum);
 }
 
-template <typename T> T TensorExtant<T>::at(std::vector<int> &&index) {
+template <typename T> T TensorExtant<T>::at(std::vector<int> &&index) const {
   return at(index);
 }
 
 template <typename T>
-void TensorExtant<T>::print() {
+void TensorExtant<T>::print() const {
   for (int i = 0; i < dims_iterator(-1); ++i) {
     if (i % 9 == 0) {
       std::cout << '\n';
@@ -180,19 +180,19 @@ void TensorExtant<T>::print() {
 }
 
 template <typename T>
-std::vector<int> TensorExtant<T>::get_dims() {
+std::vector<int> TensorExtant<T>::get_dims() const {
   return dims;
 }
 
 template <typename T>
-int TensorExtant<T>::dims_size() { return dims.size(); }
+int TensorExtant<T>::dims_size() const { return dims.size(); }
 
-template <typename T> int TensorExtant<T>::dims_at(int index) {
+template <typename T> int TensorExtant<T>::dims_at(int index) const {
   assert(index < dims.size());
   return dims[index];
 }
 
-template <typename T> int TensorExtant<T>::dims_iterator(int index) {
+template <typename T> int TensorExtant<T>::dims_iterator(int index) const {
   int a = 1;
   for (int i = 1; i < dims.size() - index; i++) {
     a *= dims[index + i];
@@ -200,11 +200,11 @@ template <typename T> int TensorExtant<T>::dims_iterator(int index) {
   return a;
 }
 
-template <typename T> int TensorExtant<T>::size() {
+template <typename T> int TensorExtant<T>::size() const {
   return dims_iterator(-1);
 }
 
-template <typename T> std::vector<T> TensorExtant<T>::get() {
+template <typename T> std::vector<T> TensorExtant<T>::get() const {
   std::vector<T> ret (dims_iterator(-1));
   for (int i = 0; i < this->size(); ++i) {
     ret[i] = data[i];
@@ -229,7 +229,7 @@ public:
     vec.resize(dims_iterator(-1), 0);
   }
 
-  T at(std::vector<int> &at) override {
+  T at(std::vector<int> &at) const override {
     assert(at.size() == dims.size());
 
     int sum = 0;
@@ -240,15 +240,15 @@ public:
     return vec.at(sum);
   }
 
-  T at(std::vector<int> &&at) override { 
+  T at(std::vector<int> &&at) const override { 
     return this->at(at);
   }
 
-  T at(int index) { return vec.at(index); }
+  T at(int index) const override { return vec.at(index); }
 
-  int dims_size() override { return dims.size(); }
+  int dims_size() const override { return dims.size(); }
 
-  int dims_at(int index) override { return dims.at(index); }
+  int dims_at(int index) const override { return dims.at(index); }
   void push_back(T data) override { vec.push_back(data); }
 
   void push_back(const std::vector<T>& data) { 
@@ -271,10 +271,10 @@ public:
     dims = temp_dims;
     return;
   }
-  std::vector<int> get_dims() override {
+  std::vector<int> get_dims() const override {
     return dims;
   }
-  int dims_iterator(int index) override {
+  int dims_iterator(int index) const override {
     int a = 1;
     for (int i = 1; i < dims.size() - index; i++) {
       a *= dims[index + i];
@@ -286,9 +286,9 @@ public:
 
   void shrink_to_fit() override { vec.shrink_to_fit(); }
 
-  int size() override { return vec.size(); }
+  int size() const override { return vec.size(); }
 
-  std::vector<T> get() override { return vec; }
+  std::vector<T> get() const override { return vec; }
 
   void set(int index, T val) override { vec.at(index) = val; }
 
@@ -298,7 +298,7 @@ public:
     return *this;
   }
 
-  void print() override { 
+  void print() const override { 
     print_vec("tensor", vec);
   }
 
