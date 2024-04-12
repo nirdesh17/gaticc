@@ -51,3 +51,20 @@ std::ostream& operator<<(std::ostream &os, const Point& p) {
   os << p.first << ',' << p.second;
   return os;
 }
+
+/* path: such as "/usr/bin/file.txt"
+ * returns: "file.txt"
+ */
+std::filesystem::path extract_basename(const std::string &path) {
+  std::filesystem::path fs_path(path);
+  return fs_path.filename();
+}
+
+/* path: such as "/usr/bin/file.txt"
+ * returns: "/usr/bin"
+ */
+std::filesystem::path extract_dirname(const std::string &path) {
+  std::filesystem::path fs_path(path);
+  return fs_path.remove_filename();
+}
+

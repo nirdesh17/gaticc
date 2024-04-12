@@ -12,6 +12,7 @@
 #include <list>
 #include <typeinfo>
 #include <unistd.h>
+#include <filesystem>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
  */
@@ -69,8 +70,8 @@ class Argparse {
         1},
        {"sim",
         {"--sim"},
-        "Simulate inference on an image. Args: [input_image]",
-        1},
+        "Simulate inference on an input. Use options like --onnx, --loadpy, --preprocfn, --postprocfn to load weights/inputs to the simulator",
+        0},
        {"dump-output",
         {"--dump-output"},
         "Dump Outputs produced by the "
@@ -80,6 +81,21 @@ class Argparse {
         {"--venv-path"},
         "Append venv-path to sys.path while loading the interpreter. Args: [ : "
         "separated path list]",
+        1},
+       {"loadpy",
+        {"--loadpy"},
+        "Load the python script mentioned in arg. Usually the script that'll contain pre/post process functions for --sim"
+        "\n\tArgs: [script_name.py]",
+        1},
+       {"preprocfn",
+        {"--preprocfn"},
+        "Function that'll be called to get inputs that should be fed to the inference engine. Accepts no arguments, Returns a numpy array of atleast two dims, first being the batch and rest inputs i.e. (batch_size, ...)"
+        "\n\tArgs: [func_name]",
+        1},
+       {"postprocfn",
+        {"--postprocfn"},
+        "Results from the inference engine would be handed to this function. Should expect (batch_size, ...) dimensional array"
+        "\n\tArgs: [func_name]",
         1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
@@ -407,3 +423,22 @@ void add_vec(std::vector<T>& v1, const std::vector<T>& v2) {
     v1[i] = v1[i] + v2[i];
   }
 }
+
+/* path: such as "/usr/bin/file.txt"
+ * returns: "file.txt"
+ */
+std::filesystem::path extract_basename(const std::string &path);
+/* path: such as "/usr/bin/file.txt"
+ * returns: "/usr/bin"
+ */
+std::filesystem::path extract_dirname(const std::string &path);
+
+/* Vector Concatenate */
+template <typename T>
+std::vector<T> operator+(const std::vector<T> &v1, const std::vector<T> &v2) {
+  std::vector<T> ret;
+  ret.insert(ret.begin(), v1.begin(), v1.end());
+  ret.insert(ret.end(), v2.begin(), v2.end());
+  return ret;
+}
+
