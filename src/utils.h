@@ -433,12 +433,23 @@ std::filesystem::path extract_basename(const std::string &path);
  */
 std::filesystem::path extract_dirname(const std::string &path);
 
-/* Vector Concatenate */
-template <typename T>
-std::vector<T> operator+(const std::vector<T> &v1, const std::vector<T> &v2) {
-  std::vector<T> ret;
+/* Container Concatenate */
+template <typename Container>
+Container concat(const Container &v1, const Container &v2) {
+  Container ret;
   ret.insert(ret.begin(), v1.begin(), v1.end());
   ret.insert(ret.end(), v2.begin(), v2.end());
+  return ret;
+}
+
+/* Element-wise multiplication */
+template <typename T>
+std::vector<T> operator*(const std::vector<T> &v1, const std::vector<T> &v2) {
+  assert(v1.size() == v2.size());
+  std::vector<T> ret(v1.size());
+  for (int i = 0; i < v1.size(); ++i) {
+    ret[i] = v1[i] * v2[i];
+  }
   return ret;
 }
 
