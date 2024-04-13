@@ -309,3 +309,127 @@ public:
     return vec.end();
   }
 };
+
+
+template <typename T> class TensorSlice : public Tensor<T> {
+  Tensor<T> *src;
+  std::vector<int> slice;
+  /* Linear offset wrt the original linear representation
+   * of src tensor
+   */
+  int offset;
+  /* Linear size upper bound of this slice */
+  int slice_size;
+
+  std::vector<int> dims;
+
+public:
+  TensorSlice(Tensor<T> *src, std::vector<int> slice);
+  T at(std::vector<int> &index) const override;
+  T at(std::vector<int> &&index) const override;
+  T at(int index) const override;
+  int dims_size() const override;
+  int dims_at(int index) const override;
+  std::vector<int> get_dims() const override;
+  int dims_iterator(int index) const override;
+  int size() const override;
+  std::vector<T> get() const override;
+  void print() const override;
+
+  /* Write functions */
+
+  /* insert one element at a time */
+#if 0
+  void insert(std::vector<int> &at, T data);
+  void push_back(T data);
+  void push_back(const std::vector<T>& data);
+  void set_dims(std::vector<int> const &temp_dims);
+  void clear();
+  void shrink_to_fit();
+  void set(int index, T val);
+  Tensor<T>& operator=(Tensor<T>& rhs);
+  typename std::vector<T>::iterator begin();
+  typename std::vector<T>::iterator end();
+#endif
+};
+
+template <typename T>
+TensorSlice<T>::TensorSlice(Tensor<T> *src, std::vector<int> slice) {
+  assert(slice.size() <= src->dims_size());
+
+  this->slice = slice;
+  this->src = src;
+  this->offset = 0;
+  std::vector<int> strides = get_stride_from_shape(src->get_dims());
+  for (int i = 0; i < slice.size(); ++i) {
+    this->offset += (strides[i] * slice[i]);
+  }
+  for (int i = slice.size(); i < src->dims_size(); ++i) {
+    this->dims.push_back(src->dims_at(i));
+  }
+  this->slice_size = prod(dims.begin(), dims.end(), 1);
+}
+
+template <typename T>
+T TensorSlice<T>::at(std::vector<int> &index) const {
+  std::vector<int> new_index = concat(slice, index);
+  return src->at(new_index);
+}
+
+template <typename T>
+T TensorSlice<T>::at(std::vector<int> &&index) const {
+  return at(index);
+}
+
+template <typename T> T TensorSlice<T>::at(int index) const {
+  assert(index >= 0);
+  assert(index < slice_size);
+  return src->at(offset + index);
+}
+
+template <typename T>
+int TensorSlice<T>::dims_size() const {
+  return dims.size();
+}
+template <typename T>
+int TensorSlice<T>::dims_at(int index) const {
+  return dims.at(index);
+}
+template <typename T>
+std::vector<int> TensorSlice<T>::get_dims() const {
+  return dims;
+}
+template <typename T>
+int TensorSlice<T>::dims_iterator(int index) const {
+  int a = 1;
+  for (int i = 1; i < dims.size() - index; i++) {
+    a *= dims[index + i];
+  }
+  return a;
+}
+template <typename T>
+int TensorSlice<T>::size() const {
+  return slice_size;
+}
+
+
+template <typename T>
+std::vector<T> TensorSlice<T>::get() const {
+  /* TODO: expensive function, remove get completely from tensor's 
+   * interface
+   */
+  std::vector<T> ret(slice_size);
+  for (int i = 0; i < slice_size; ++i) {
+    ret[i] = at(i);
+  }
+  return ret;
+}
+
+template <typename T>
+void TensorSlice<T>::print() const {
+  for (int i = 0; i < slice_size; ++i) {
+    std::cout << at(i) << ' ';
+  }
+  std::cout << '\n';
+  std::cout << "slice print " << slice_size << '\n';
+}

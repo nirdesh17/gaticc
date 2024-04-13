@@ -453,3 +453,20 @@ std::vector<T> operator*(const std::vector<T> &v1, const std::vector<T> &v2) {
   return ret;
 }
 
+/* strides arrays are used pre-dominantly in elementwise vector-to-vector
+ * style multiplications and addition, thus makes sense to use a valarray 
+ * here
+ */
+template <typename Container>
+inline Container get_stride_from_shape(const Container &shape) {
+  Container ret(shape.size());
+  for (int i = 0; i < shape.size(); ++i) {
+    ret[i] = prod(std::begin(shape)+i+1, std::end(shape), 1);
+  }
+  return ret;
+}
+
+template <typename Container>
+inline Container get_stride_from_shape(const Container &&shape) {
+  return get_stride_from_shape(shape);
+}
