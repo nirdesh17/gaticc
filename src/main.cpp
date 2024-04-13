@@ -1,7 +1,5 @@
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include "numpy_init.h"
 #include "Python.h"
-#include "numpy/arrayobject.h"
-#include "numpy/ndarraytypes.h"
 #include "ffi.h"
 #include "utils.h"
 #include <filesystem>
@@ -28,10 +26,7 @@ int main(int argc, char *argv[]) {
     std::exit(EXIT_SUCCESS);
   }
 
-  std::filesystem::path mod_path("src/");
-  PyEngine engine("ml_inference", mod_path);
-
   if (gbl_args.has_option("onnx")) {
-    dispatch_onnx_ops(engine);
+    dispatch_onnx_ops();
   }
 }

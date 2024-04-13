@@ -1,3 +1,4 @@
+#include "../src/numpy_init.h"
 #include "../src/sasa.h"
 #include "../src/sim.h"
 #include "../src/tensor.h"

@@ -1,23 +1,20 @@
 #pragma once
 
-// #define PY_ARRAY_UNIQUE_SYMBOL ffi_ARRAY_API
+#define NO_IMPORT_ARRAY
+#include "numpy_init.h"
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 /* From libpython */
 #ifndef PY_SSIZE_T_CLEAN
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #endif
 
-#include "numpy/arrayobject.h"
-#include "numpy/ndarraytypes.h"
-
+#include "tensor.h"
 #include "utils.h"
 #include <filesystem>
 #include <string>
 #include <typeinfo>
 #include <vector>
-#include "tensor.h"
 
 #define log_err(err) fprintf(stderr, "%s: %d: %s\n", __FILE__, __LINE__, err);
 
@@ -60,6 +57,7 @@ template <typename T> int deduce_typenum() {
 class PyEngine {
 private:
   PyObject *mod;
+  PyObject *dict;
 
 public:
   /**
@@ -161,8 +159,7 @@ public:
     return ret;
   }
 
-  template <typename T>
-  Tensor<T>* np2t(PyObject *nparr) {
+  template <typename T> Tensor<T> *np2t(PyObject *nparr) {
     Py_intptr_t *shape = PyArray_SHAPE((PyArrayObject *)nparr);
     int total_dims = PyArray_NDIM((PyArrayObject *)nparr);
     std::vector<int> dims;
@@ -170,9 +167,12 @@ public:
       dims.push_back(shape[i]);
     }
 
-    int nparrsz = PyArray_SIZE((PyArrayObject *)nparr);
+    int nparrsz = PyArray_Size(nparr);
     Tensor<T> *ret = new TensorCreate<T>(dims);
     PyObject *flattened = PyArray_Flatten((PyArrayObject *)nparr, NPY_CORDER);
+    if (!flattened) {
+      log_fatal("Could not flatten array");
+    }
     for (int i = 0; i < nparrsz; ++i) {
       ret->set(i, *((T *)PyArray_GETPTR1((PyArrayObject *)flattened, i)));
     }
@@ -180,8 +180,7 @@ public:
     return ret;
   }
 
-  template <typename T>
-  PyObject *t2np(const Tensor<T> *t) {
+  template <typename T> PyObject *t2np(const Tensor<T> *t) {
     /* Create a flattened array then call reshape on it */
     std::vector<int> dims = t->get_dims();
     Py_intptr_t retdims[1]{prod(dims.begin(), dims.end(), 1)};
@@ -200,7 +199,6 @@ public:
     Py_XDECREF(shape);
     return ret;
   }
-
 };
 
 std::vector<int> py_read_img(PyEngine &engine, std::string const &filepath);

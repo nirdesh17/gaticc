@@ -1,7 +1,19 @@
 #pragma once
+
+#define NO_IMPORT_ARRAY
+#include "numpy_init.h"
+
 #include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "sasa.h"
+#include "ffi.h"
+
+/* From libpython */
+#ifndef PY_SSIZE_T_CLEAN
+#define PY_SSIZE_T_CLEAN
+#include "Python.h"
+#endif
+
 #include <vector>
 
 /* Executor iterates over layers one by one, executing each one of them
@@ -20,82 +32,84 @@
  * one in.
  */
 
-#if 0
-conv bias
-gemm correctness
-quantization
-maxpool refactor
-dropout impl
-#endif
-
 class Executor {
   /* A pool of heterogenously typed vectors corresponding to
    * `VirtualAddress` registers
    */
   TensorPool tensor_pool;
-  /* inputT: input type of the entire model */
+  /* inputT: input type of the entire model 
+   * outputT: output type of the entire model
+   */
   template <typename inputT, typename outputT>
-  void execute(PyEngine &engine, const Op::Parser &parser,
-               const std::string &abs_img_path);
+  void execute(PyEngine &engine, const Op::Parser &parser);
   template <typename T>
-  Tensor<T> *read_img(PyEngine &engine, const std::string &img_path);
+  Tensor<T> *read_model_input(PyEngine &engine);
 
 public:
-  Executor(PyEngine &engine, const Op::Parser &parser,
-           const std::string &img_path);
+  Executor(PyEngine &engine, const Op::Parser &parser);
 };
 
 template <typename inputT, typename outputT>
-void Executor::execute(PyEngine &engine, const Op::Parser &parser,
-                       const std::string &abs_img_path) {
-  Tensor<inputT> *inp = read_img<inputT>(engine, abs_img_path);
-  /* Implicit assumption here that the first layer's input is
-   * at VirtualAddress 0
-   */
-  tensor_pool.set<Tensor<inputT> *>(0, inp);
+void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
+  Tensor<inputT> *full_batch = read_model_input<inputT>(engine);
 
-  std::vector<std::string> dump_candidates;
+  int batch_size = full_batch->dims_at(0);
+  log_info("batch size set to: %d", batch_size);
+  print_vec("input dims: ", full_batch->get_dims());
 
-  if (gbl_args.has_option("dump-output")) {
-    std::string arg = gbl_args["dump-output"].as<std::string>();
-    if (arg != "all") {
-      dump_candidates = parse_csv_string<std::string>(arg);
+  for (int i = 0; i < batch_size; ++i) {
+    std::cout << "Running input " << i << '\n';
+    /* ith slice of the batch */
+    TensorSlice<inputT> slice_x(full_batch, std::vector<int>{i});
+    Tensor<inputT> *inp = &slice_x; 
+    print_vec("slice dims ", inp->get_dims());
+    /* Implicit assumption here that the first layer's input is
+     * at VirtualAddress 0
+     */
+    tensor_pool.set<Tensor<inputT> *>(0, inp);
+
+    std::vector<std::string> dump_candidates;
+
+    if (gbl_args.has_option("dump-output")) {
+      std::string arg = gbl_args["dump-output"].as<std::string>();
+      if (arg != "all") {
+        dump_candidates = parse_csv_string<std::string>(arg);
+      }
     }
-  }
 
-  std::vector<Op::LayerBase *> order = parser.get_execution_order();
-  for (Op::LayerBase *l : order) {
-    std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
-              << Op::get_tensorproto_dtype_name(l->input_type) << ' '
-              << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
-    if (dump_candidates.size() == 0) {
-      l->dump_output = true;
-    } else {
-      auto itr =
-          std::find(dump_candidates.begin(), dump_candidates.end(), l->name);
-      l->dump_output = (itr != dump_candidates.end()) ? true : false;
+    std::vector<Op::LayerBase *> order = parser.get_execution_order();
+    for (Op::LayerBase *l : order) {
+      std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
+                << Op::get_tensorproto_dtype_name(l->input_type) << ' '
+                << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
+      if (dump_candidates.size() == 0) {
+        l->dump_output = true;
+      } else {
+        auto itr =
+            std::find(dump_candidates.begin(), dump_candidates.end(), l->name);
+        l->dump_output = (itr != dump_candidates.end()) ? true : false;
+      }
+      l->run(tensor_pool);
     }
-    l->run(tensor_pool);
+    std::cout << "Finish\n";
+    std::exit(1);
   }
-
-  std::cout << "Finish\n";
 }
 
 template <typename T>
-Tensor<T> *Executor::read_img(PyEngine &engine, const std::string &img_path) {
-  PyObject *preprocess_args = Py_BuildValue("(s)", img_path.c_str());
-  /* TODO: temporary fix for mnist inference, make this generic */
-  PyObject *mnist_arg = Py_BuildValue("(i)", 10);
-  PyObject *ifmap = engine.call_func("mnist_image_x", mnist_arg);
-  //PyObject *ifmap = engine.call_func("preprocess", preprocess_args);
-  std::vector<int> dims;
-  /* TODO: reduce this 2-level indirection, implement a np2iv overload
-   * to return Tensor directly
-   */
-  std::vector<T> ifmapv = engine.np2iv<T>(ifmap, dims);
-  Tensor<T> *ret = new TensorCreate<T>(ifmapv, dims);
-  Py_XDECREF(preprocess_args);
-  Py_XDECREF(mnist_arg);
-  Py_XDECREF(ifmap);
-  return ret;
+Tensor<T> *Executor::read_model_input(PyEngine &engine) {
+  PyObject *no_args = PyTuple_New(0);
+  std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
+  PyObject *input_object = engine.call_func(preprocfn, no_args);
+
+  if (PyErr_Occurred()) {
+    PyErr_Print();
+    log_fatal("function %s erred", preprocfn.c_str());
+  }
+  
+  if (!PyArray_CheckExact(input_object)) {
+    log_fatal("function %s must return a numpy array", preprocfn.c_str());
+  }
+  Tensor<T> *input = engine.np2t<T>(input_object);
+  return input;
 }

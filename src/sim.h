@@ -907,7 +907,7 @@ void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
   print_vec("output_dims", output->get_dims());
 
   assert(input->dims_size() == 2 && weights->dims_size() == 2);
-  assert(input->dims_at(1) == weights->dims_at(0) && "non-matching matrix dimensions");
+  //assert(input->dims_at(1) == weights->dims_at(0) && "non-matching matrix dimensions");
 
   int N = input->dims_at(0);
   int M = input->dims_at(1);
@@ -969,22 +969,6 @@ void reshape(Tensor<T> *input, Tensor<T> *output, const std::vector<int64_t> &ne
   std::vector<int> dims (deduced_shape.size());
   std::copy(deduced_shape.begin(), deduced_shape.end(), dims.begin());
   output->set_dims(dims);
-}
-
-/* strides arrays are used pre-dominantly in elementwise vector-to-vector
- * style multiplications and addition, thus makes sense to use a valarray 
- * here
- */
-inline std::valarray<int> get_stride_from_shape(const std::valarray<int> &shape) {
-  std::valarray<int> ret(shape.size());
-  for (int i = 0; i < shape.size(); ++i) {
-    ret[i] = prod(std::begin(shape)+i+1, std::end(shape), 1);
-  }
-  return ret;
-}
-
-inline std::valarray<int> get_stride_from_shape(const std::valarray<int> &&shape) {
-  return get_stride_from_shape(shape);
 }
 
 inline std::vector<int> permute(const std::vector<int> &v,

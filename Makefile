@@ -16,7 +16,7 @@ UNAME_S := $(shell uname -s)
 
 NUMPY_INSTALL_PATH = /usr/lib/python3.11/site-packages/numpy/
 
-CXXFLAGS =  -O3 -g -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
+CXXFLAGS = -O3 -g -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
 
 ifeq ($(UNAME_S),Darwin)
 	PROTOBUF_PATH_MAC = `brew info protobuf | grep -m 1 'Cellar' | cut -d " " -f 1`
