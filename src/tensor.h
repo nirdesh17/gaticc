@@ -44,6 +44,13 @@ public:
   virtual int size() const = 0;
   virtual std::vector<T> get() const = 0;
   virtual void print() const = 0;
+  /* Derived classes implement this and return whether delete can be called
+   * on the underlying tensor. For derived types (such as TensorExtant and
+   * TensorSlice) that wrap around some other type and do not fully own their
+   * tensors, freeable() returns false. For TensorCreate(), true is returned
+   * as it fully own the underlying Tensor
+   * */
+  virtual bool freeable() const = 0;
 
   /* Write functions */
 
@@ -136,6 +143,7 @@ public:
   std::vector<int> get_dims() const override;
   int dims_iterator(int index) const override;
   int size() const override;
+  bool freeable() const override;
   /* Expensive function, creates a copy of the
    * underlying data
    */
@@ -212,6 +220,10 @@ template <typename T> std::vector<T> TensorExtant<T>::get() const {
   return ret;
 }
 
+template <typename T>
+bool TensorExtant<T>::freeable() const {
+  return false;
+}
 
 template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
@@ -308,6 +320,10 @@ public:
   typename std::vector<T>::iterator end() override {
     return vec.end();
   }
+
+  bool freeable() const override {
+    return true;
+  }
 };
 
 
@@ -335,6 +351,8 @@ public:
   int size() const override;
   std::vector<T> get() const override;
   void print() const override;
+  bool freeable() const override;
+
 
   /* Write functions */
 
@@ -432,4 +450,9 @@ void TensorSlice<T>::print() const {
   }
   std::cout << '\n';
   std::cout << "slice print " << slice_size << '\n';
+}
+
+template <typename T>
+bool TensorSlice<T>::freeable() const {
+  return false;
 }

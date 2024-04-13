@@ -3,14 +3,6 @@
 #include <cstdint>
 #include <typeinfo>
 
-template <typename T>
-bool isTensorSlice(Tensor<T> *t) {
-  if (dynamic_cast<TensorSlice<T>*>(t)) {
-    return true;
-  }
-  return false;
-}
-
 /* Used by run_* functions in executor to free under-lying Tensor
  * pointers. This could very well be templated by that requires the
  * caller to know the type of the under-lying data that is being
@@ -22,37 +14,37 @@ void TensorPool::free(int index) {
   if (v.type() == typeid(Tensor<int8_t> *)) {
     Tensor<int8_t> *dd = std::any_cast<Tensor<int8_t> *>(v);
     /* TODO: temporary hack, find a cleaner workaround */
-    if (!isTensorSlice(dd)) {
+    if (dd->freeable()) {
       delete dd;
     }
   } else if (v.type() == typeid(Tensor<int16_t> *)) {
     Tensor<int16_t> *dd = std::any_cast<Tensor<int16_t> *>(v);
-    if (!isTensorSlice(dd)) {
+    if (dd->freeable()) {
       delete dd;
     }
   } else if (v.type() == typeid(Tensor<int> *)) {
     Tensor<int> *dd = std::any_cast<Tensor<int> *>(v);
-    if (!isTensorSlice(dd)) {
+    if (dd->freeable()) {
       delete dd;
     }
   } else if (v.type() == typeid(Tensor<int64_t> *)) {
     Tensor<int64_t> *dd = std::any_cast<Tensor<int64_t> *>(v);
-    if (!isTensorSlice(dd)) {
+    if (dd->freeable()) {
       delete dd;
     }
   } else if (v.type() == typeid(Tensor<int32_t> *)) {
     Tensor<int32_t> *dd = std::any_cast<Tensor<int32_t> *>(v);
-    if (!isTensorSlice(dd)) {
+    if (dd->freeable()) {
       delete dd;
     }
   } else if (v.type() == typeid(Tensor<float> *)) {
     Tensor<float> *dd = std::any_cast<Tensor<float> *>(v);
-    if (!isTensorSlice(dd)) {
+    if (dd->freeable()) {
       delete dd;
     }
   } else if (v.type() == typeid(Tensor<double> *)) {
     Tensor<double> *dd = std::any_cast<Tensor<double> *>(v);
-    if (!isTensorSlice(dd)) {
+    if (dd->freeable()) {
       delete dd;
     }
   } else {
