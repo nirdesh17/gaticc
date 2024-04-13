@@ -99,6 +99,10 @@ class Argparse {
         1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
+    const char *usage_examples = "Examples:\n"
+    "\tRun simulation over a model and inputs\n"
+    "\t./sysim --onnx path/to/model.onnx --sim --loadpy path/to/script.py --preprocfn \"preproc_func\" --postprocfn \"postprocfunc\" --venv-path path/to/venv/site-packages\n";
+
 public:
   void parse(int argc, char *argv[]) {
 #if 0
@@ -123,7 +127,7 @@ public:
     return args.has_option(name);
   }
 
-  void print_usage() const { std::cerr << usage << argparser; }
+  void print_usage() const { std::cerr << usage << argparser << usage_examples; }
 };
 
 /* This is globally available for all functions. Alternatively,
