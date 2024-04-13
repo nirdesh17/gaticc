@@ -391,6 +391,7 @@ class TensorPool {
 public:
   template <typename T> void set(int index, T data);
   template <typename T> T get(int index);
+  void free();
   void free(int index);
   bool has_value(int index);
   void resize(int size);

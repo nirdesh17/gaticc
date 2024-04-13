@@ -54,6 +54,13 @@ void TensorPool::free(int index) {
   pool.at(index).reset();
 }
 
+void TensorPool::free() {
+  for (int i = 0; i < pool.size(); ++i) {
+    pool.at(i).reset();
+  }
+}
+
+
 bool TensorPool::has_value(int index) { return pool.at(index).has_value(); }
 
 void TensorPool::resize(int size) {
