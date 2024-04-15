@@ -66,13 +66,20 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
     /* Implicit assumption here that the first layer's input is
      * at VirtualAddress 0
      */
+    tensor_pool.free();
     tensor_pool.set<Tensor<inputT> *>(0, inp);
 
     std::vector<std::string> dump_candidates;
+    bool dump_all = false;
+    bool dump_none = false;
 
     if (gbl_args.has_option("dump-output")) {
       std::string arg = gbl_args["dump-output"].as<std::string>();
-      if (arg != "all") {
+      if (arg == "all") {
+        dump_all = true;
+      } else if (arg == "none") {
+        dump_none = true;
+      } else {
         dump_candidates = parse_csv_string<std::string>(arg);
       }
     }
@@ -82,8 +89,10 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
       std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
                 << Op::get_tensorproto_dtype_name(l->input_type) << ' '
                 << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
-      if (dump_candidates.size() == 0) {
+      if (dump_all) {
         l->dump_output = true;
+      } else if (dump_none) {
+        l->dump_output = false;
       } else {
         auto itr =
             std::find(dump_candidates.begin(), dump_candidates.end(), l->name);
@@ -91,8 +100,6 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
       }
       l->run(tensor_pool);
     }
-    std::cout << "Finish\n";
-    std::exit(1);
   }
 }
 

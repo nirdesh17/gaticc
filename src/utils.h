@@ -75,7 +75,7 @@ class Argparse {
        {"dump-output",
         {"--dump-output"},
         "Dump Outputs produced by the "
-        "simulator. Args: [all | comma separated layer names]",
+        "simulator. Args: [all | none | comma separated layer names]",
         1},
        {"venv-path",
         {"--venv-path"},
