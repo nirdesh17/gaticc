@@ -99,6 +99,21 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
         l->dump_output = (itr != dump_candidates.end()) ? true : false;
       }
       l->run(tensor_pool);
+
+      if (parser.has_graph_output(l)) {
+        std::cout << "Model has a output at layer " << l->name << '\n';
+        //onnx::TensorProto_DataType otype = parser.get_model_output_type();
+        /* TODO: fix this hack. get model_output_type() from graph_output_map */
+        onnx::TensorProto_DataType otype = onnx::TensorProto_DataType_FLOAT;
+        if (otype == onnx::TensorProto_DataType_FLOAT) {
+          Tensor<float>* out = tensor_pool.get<Tensor<float> *>(l->outputs.at(0));
+          out->print();
+        } else {
+          log_fatal("Graph outputs unknown type %s, support has to be added", 
+              Op::get_tensorproto_dtype_name(otype));
+        }
+      } 
+
     }
   }
 }
