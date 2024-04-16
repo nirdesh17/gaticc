@@ -45,6 +45,9 @@ class Executor {
   template <typename T>
   Tensor<T> *read_model_input(PyEngine &engine);
 
+  template <typename T>
+  void write_model_output(PyEngine &engine, Tensor<T> *out);
+
 public:
   Executor(PyEngine &engine, const Op::Parser &parser);
 };
@@ -54,14 +57,11 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
   Tensor<inputT> *full_batch = read_model_input<inputT>(engine);
 
   int batch_size = full_batch->dims_at(0);
-  log_info("batch size set to: %d", batch_size);
-  print_vec("input dims: ", full_batch->get_dims());
-
   for (int i = 0; i < batch_size; ++i) {
     std::cout << "Running input " << i << '\n';
     /* ith slice of the batch */
     TensorSlice<inputT> slice_x(full_batch, std::vector<int>{i});
-    Tensor<inputT> *inp = &slice_x; 
+    Tensor<inputT> *inp = &slice_x;
     print_vec("slice dims ", inp->get_dims());
     /* Implicit assumption here that the first layer's input is
      * at VirtualAddress 0
@@ -102,18 +102,9 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
 
       if (parser.has_graph_output(l)) {
         std::cout << "Model has a output at layer " << l->name << '\n';
-        //onnx::TensorProto_DataType otype = parser.get_model_output_type();
-        /* TODO: fix this hack. get model_output_type() from graph_output_map */
-        onnx::TensorProto_DataType otype = onnx::TensorProto_DataType_FLOAT;
-        if (otype == onnx::TensorProto_DataType_FLOAT) {
-          Tensor<float>* out = tensor_pool.get<Tensor<float> *>(l->outputs.at(0));
-          out->print();
-        } else {
-          log_fatal("Graph outputs unknown type %s, support has to be added", 
-              Op::get_tensorproto_dtype_name(otype));
-        }
-      } 
-
+        Tensor<outputT> *out = tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
+        write_model_output<outputT>(engine, out);
+      }
     }
   }
 }
@@ -134,4 +125,13 @@ Tensor<T> *Executor::read_model_input(PyEngine &engine) {
   }
   Tensor<T> *input = engine.np2t<T>(input_object);
   return input;
+}
+
+template <typename T>
+void Executor::write_model_output(PyEngine &engine, Tensor<T> *out) {
+  assert(gbl_args.has_option("postprocfn") && "post process function is required");
+  std::string postprocfn = gbl_args["postprocfn"].as<std::string>();
+  PyObject *t = engine.t2np<T>(out);
+  PyObject *arr = Py_BuildValue("(O)", t);
+  engine.call_func(postprocfn, arr);
 }

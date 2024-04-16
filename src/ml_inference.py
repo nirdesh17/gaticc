@@ -225,7 +225,10 @@ def load_imagenet():
     return preprocess("images/dog.jpg").reshape(1, 3, 224, 224)
 
 def load_mnist():
-    return quantize_ui8fp32(mnist_idx_image_load("images/t10k-images-idx3-ubyte", 500)).astype(np.float32)
+    return quantize_ui8fp32(mnist_idx_image_load("images/t10k-images-idx3-ubyte", 3)).astype(np.float32)
+
+def post_mnist(arr):
+    print("Inferred number: ", np.argmax(arr.flatten()))
 
 #images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)
 #labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)
