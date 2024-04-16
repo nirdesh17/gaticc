@@ -68,10 +68,10 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
   tensor_vector_add(output, output, bias);
   tt.stop();
-  tt.report("Time taken: ");
 
   if (l->dump_output) {
     output->print();
+    tt.report("Time taken: ");
   }
 }
 
@@ -225,9 +225,9 @@ void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   va.run(input, output);
   tt.stop();
-  tt.report("Time taken: ");
   if (l->dump_output) {
     output->print();
+    tt.report("Time taken: ");
   }
 }
 
@@ -382,9 +382,9 @@ void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   va.run(input, output);
   tt.stop();
-  tt.report("Time taken: ");
   if (l->dump_output) {
     output->print();
+    tt.report("Time taken: ");
   }
 }
 

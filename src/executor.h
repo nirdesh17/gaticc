@@ -62,7 +62,6 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
     /* ith slice of the batch */
     TensorSlice<inputT> slice_x(full_batch, std::vector<int>{i});
     Tensor<inputT> *inp = &slice_x;
-    print_vec("slice dims ", inp->get_dims());
     /* Implicit assumption here that the first layer's input is
      * at VirtualAddress 0
      */
@@ -86,9 +85,12 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
 
     std::vector<Op::LayerBase *> order = parser.get_execution_order();
     for (Op::LayerBase *l : order) {
-      std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
-                << Op::get_tensorproto_dtype_name(l->input_type) << ' '
-                << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
+      if (gbl_args.has_option("verbose")) {
+        std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
+                  << Op::get_tensorproto_dtype_name(l->input_type) << ' '
+                  << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
+      }
+
       if (dump_all) {
         l->dump_output = true;
       } else if (dump_none) {
@@ -101,7 +103,6 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
       l->run(tensor_pool);
 
       if (parser.has_graph_output(l)) {
-        std::cout << "Model has a output at layer " << l->name << '\n';
         Tensor<outputT> *out = tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
         write_model_output<outputT>(engine, out);
       }

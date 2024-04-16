@@ -274,8 +274,6 @@ void bias_add(Tensor<T> *arr, Op::Layer::Conv *cc) {
     log_fatal("input to bias not 3-dimensional");
   }
   int stride = arr->dims_at(1) * arr->dims_at(2);
-  std::cout << "stride " << stride << '\n';
-  std::cout << "dlaksjh" << arr->dims_at(0) << '\n';
   for (int i = 0; i < arr->dims_iterator(-1); ++i) {
     arr->at(i);
   }
@@ -901,11 +899,6 @@ VA<inputT, outputT>::VA(Op::Layer::MatMul &gp) {
 
 template <typename inputT, typename outputT>
 void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
-  
-  print_vec("input_dims", input->get_dims());
-  print_vec("weight_dims", weights->get_dims());
-  print_vec("output_dims", output->get_dims());
-
   assert(input->dims_size() == 2 && weights->dims_size() == 2);
   //assert(input->dims_at(1) == weights->dims_at(0) && "non-matching matrix dimensions");
 
@@ -964,7 +957,6 @@ template <typename T>
 void reshape(Tensor<T> *input, Tensor<T> *output, const std::vector<int64_t> &new_shape) {
   /* atmost 1 dimension can be -1 */
   std::vector<int64_t> deduced_shape = deduce_new_shape(new_shape, input->dims_iterator(-1));
-  print_vec("deduce_shape: ", deduced_shape);
   *output = *input;
   std::vector<int> dims (deduced_shape.size());
   std::copy(deduced_shape.begin(), deduced_shape.end(), dims.begin());
@@ -1053,7 +1045,6 @@ void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
     assert(input->dims_size() == perm.size());
   }
 
-  print_vec("new perm", perm);
   output->set_dims(permute(input->get_dims(),  perm));
   std::valarray<int> ishape = vec2val(input->get_dims());
 
