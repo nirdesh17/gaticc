@@ -2,7 +2,7 @@
 
 # Remote server details
 remote_user="shreeyash"
-remote_host="192.168.29.12"
+remote_host="192.168.29.9"
 remote_folder="/home/$remote_user/sysim"
 
 remote_file="$remote_folder/run_test.sh"
