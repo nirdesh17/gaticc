@@ -37,16 +37,31 @@ class Executor {
    * `VirtualAddress` registers
    */
   TensorPool tensor_pool;
+
+  struct DumpOptions {
+    bool dump_all;
+    bool dump_none;
+    std::vector<std::string> dump_candidates;
+  } dump_options;
+
   /* inputT: input type of the entire model 
    * outputT: output type of the entire model
    */
   template <typename inputT, typename outputT>
   void execute(PyEngine &engine, const Op::Parser &parser);
+
   template <typename T>
   Tensor<T> *read_model_input(PyEngine &engine);
 
   template <typename T>
   void write_model_output(PyEngine &engine, Tensor<T> *out);
+
+  /* Sets dump_options based on parameters from gbl_args for dump_options */
+  void configure_dump_options();
+  /* True if l's outputs need to be dumped */
+  bool should_dump(const Op::LayerBase *l);
+
+  void print_extra_info(const Op::LayerBase *l);
 
 public:
   Executor(PyEngine &engine, const Op::Parser &parser);
@@ -56,50 +71,23 @@ template <typename inputT, typename outputT>
 void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
   Tensor<inputT> *full_batch = read_model_input<inputT>(engine);
 
+  /* TODO: add checks here if inputs is batched and matches expected dims */
+  std::vector<Op::LayerBase *> order = parser.get_execution_order();
   int batch_size = full_batch->dims_at(0);
   for (int i = 0; i < batch_size; ++i) {
     std::cout << "Running input " << i << '\n';
     /* ith slice of the batch */
     TensorSlice<inputT> slice_x(full_batch, std::vector<int>{i});
     Tensor<inputT> *inp = &slice_x;
+    tensor_pool.free();
     /* Implicit assumption here that the first layer's input is
      * at VirtualAddress 0
      */
-    tensor_pool.free();
     tensor_pool.set<Tensor<inputT> *>(0, inp);
 
-    std::vector<std::string> dump_candidates;
-    bool dump_all = false;
-    bool dump_none = false;
-
-    if (gbl_args.has_option("dump-output")) {
-      std::string arg = gbl_args["dump-output"].as<std::string>();
-      if (arg == "all") {
-        dump_all = true;
-      } else if (arg == "none") {
-        dump_none = true;
-      } else {
-        dump_candidates = parse_csv_string<std::string>(arg);
-      }
-    }
-
-    std::vector<Op::LayerBase *> order = parser.get_execution_order();
     for (Op::LayerBase *l : order) {
-      if (gbl_args.has_option("verbose")) {
-        std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
-                  << Op::get_tensorproto_dtype_name(l->input_type) << ' '
-                  << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
-      }
-
-      if (dump_all) {
-        l->dump_output = true;
-      } else if (dump_none) {
-        l->dump_output = false;
-      } else {
-        auto itr =
-            std::find(dump_candidates.begin(), dump_candidates.end(), l->name);
-        l->dump_output = (itr != dump_candidates.end()) ? true : false;
-      }
+      print_extra_info(l);
+      l->dump_output = should_dump(l);
       l->run(tensor_pool);
 
       if (parser.has_graph_output(l)) {

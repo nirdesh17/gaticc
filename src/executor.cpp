@@ -12,6 +12,39 @@
 #include <typeinfo>
 #include <vector>
 
+void Executor::configure_dump_options() {
+  if (gbl_args.has_option("dump-output")) {
+    std::string arg = gbl_args["dump-output"].as<std::string>();
+    if (arg == "all") {
+      dump_options.dump_all = true;
+    } else if (arg == "none") {
+      dump_options.dump_none = true;
+    } else {
+      dump_options.dump_candidates = parse_csv_string<std::string>(arg);
+    }
+  }
+}
+
+bool Executor::should_dump(const Op::LayerBase *l) {
+  if (dump_options.dump_all) {
+    return true;
+  } else if (dump_options.dump_none) {
+    return false;
+  } else {
+    auto start = dump_options.dump_candidates.begin();
+    auto stop = dump_options.dump_candidates.end();
+    auto itr = std::find(start, stop, l->name);
+    return (itr != stop) ? true : false;
+  }
+}
+
+void Executor::print_extra_info(const Op::LayerBase *l) {
+  if (gbl_args.has_option("verbose")) {
+    std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
+              << Op::get_tensorproto_dtype_name(l->input_type) << ' '
+              << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
+  }
+}
 
 Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
   onnx::TensorProto_DataType weight_type = parser.get_model_weight_type();
@@ -22,6 +55,8 @@ Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
 
   int total_regs = parser.get_total_registers() + 1;
   tensor_pool.resize(total_regs);
+
+  configure_dump_options();
 
   if (input_type == onnx::TensorProto_DataType_FLOAT &&
       output_type == onnx::TensorProto_DataType_FLOAT) {
@@ -35,6 +70,7 @@ Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
               Op::get_tensorproto_dtype_name(output_type));
   }
 }
+
 
 /* helper function for Op::Layer::Conv::run() */
 template <typename inputT, typename outputT>
