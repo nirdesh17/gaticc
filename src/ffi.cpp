@@ -92,9 +92,6 @@ PyObject *PyEngine::call_func(std::string const &func_name, PyObject *args) {
   py_fatal_err_check(sum_fn, "PyDict_GetItem");
   PyObject *ret = PyObject_CallObject(sum_fn, args);
   py_fatal_err_check(ret, "PyObject_CallObject");
-
-  Py_XDECREF(dict);
-  Py_XDECREF(sum_fn);
   return ret;
 }
 
