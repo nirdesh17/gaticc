@@ -12,6 +12,7 @@
 #include <list>
 #include <typeinfo>
 #include <unistd.h>
+#include <filesystem>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
  */
@@ -69,19 +70,38 @@ class Argparse {
         1},
        {"sim",
         {"--sim"},
-        "Simulate inference on an image. Args: [input_image]",
-        1},
+        "Simulate inference on an input. Use options like --onnx, --loadpy, --preprocfn, --postprocfn to load weights/inputs to the simulator",
+        0},
        {"dump-output",
         {"--dump-output"},
         "Dump Outputs produced by the "
-        "simulator. Args: [all | comma separated layer names]",
+        "simulator. Args: [all | none | comma separated layer names]",
         1},
        {"venv-path",
         {"--venv-path"},
         "Append venv-path to sys.path while loading the interpreter. Args: [ : "
         "separated path list]",
         1},
+       {"loadpy",
+        {"--loadpy"},
+        "Load the python script mentioned in arg. Usually the script that'll contain pre/post process functions for --sim"
+        "\n\tArgs: [script_name.py]",
+        1},
+       {"preprocfn",
+        {"--preprocfn"},
+        "Function that'll be called to get inputs that should be fed to the inference engine. Accepts no arguments, Returns a numpy array of atleast two dims, first being the batch and rest inputs i.e. (batch_size, ...)"
+        "\n\tArgs: [func_name]",
+        1},
+       {"postprocfn",
+        {"--postprocfn"},
+        "Results from the inference engine would be handed to this function. Should expect (batch_size, ...) dimensional array"
+        "\n\tArgs: [func_name]",
+        1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
+
+    const char *usage_examples = "Examples:\n"
+    "\tRun simulation over a model and inputs\n"
+    "\t./sysim --onnx path/to/model.onnx --sim --loadpy path/to/script.py --preprocfn \"preproc_func\" --postprocfn \"postprocfunc\" --venv-path path/to/venv/site-packages\n";
 
 public:
   void parse(int argc, char *argv[]) {
@@ -107,7 +127,7 @@ public:
     return args.has_option(name);
   }
 
-  void print_usage() const { std::cerr << usage << argparser; }
+  void print_usage() const { std::cerr << usage << argparser << usage_examples; }
 };
 
 /* This is globally available for all functions. Alternatively,
@@ -371,6 +391,7 @@ class TensorPool {
 public:
   template <typename T> void set(int index, T data);
   template <typename T> T get(int index);
+  void free();
   void free(int index);
   bool has_value(int index);
   void resize(int size);
@@ -406,4 +427,51 @@ void add_vec(std::vector<T>& v1, const std::vector<T>& v2) {
   for (int i = 0; i < v1.size(); ++i) {
     v1[i] = v1[i] + v2[i];
   }
+}
+
+/* path: such as "/usr/bin/file.txt"
+ * returns: "file.txt"
+ */
+std::filesystem::path extract_basename(const std::string &path);
+/* path: such as "/usr/bin/file.txt"
+ * returns: "/usr/bin"
+ */
+std::filesystem::path extract_dirname(const std::string &path);
+
+/* Container Concatenate */
+template <typename Container>
+Container concat(const Container &v1, const Container &v2) {
+  Container ret;
+  ret.insert(ret.begin(), v1.begin(), v1.end());
+  ret.insert(ret.end(), v2.begin(), v2.end());
+  return ret;
+}
+
+/* Element-wise multiplication */
+template <typename T>
+std::vector<T> operator*(const std::vector<T> &v1, const std::vector<T> &v2) {
+  assert(v1.size() == v2.size());
+  std::vector<T> ret(v1.size());
+  for (int i = 0; i < v1.size(); ++i) {
+    ret[i] = v1[i] * v2[i];
+  }
+  return ret;
+}
+
+/* strides arrays are used pre-dominantly in elementwise vector-to-vector
+ * style multiplications and addition, thus makes sense to use a valarray 
+ * here
+ */
+template <typename Container>
+inline Container get_stride_from_shape(const Container &shape) {
+  Container ret(shape.size());
+  for (int i = 0; i < shape.size(); ++i) {
+    ret[i] = prod(std::begin(shape)+i+1, std::end(shape), 1);
+  }
+  return ret;
+}
+
+template <typename Container>
+inline Container get_stride_from_shape(const Container &&shape) {
+  return get_stride_from_shape(shape);
 }

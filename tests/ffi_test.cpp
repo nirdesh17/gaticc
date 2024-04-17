@@ -1,9 +1,12 @@
+#include "../src/numpy_init.h"
 #include "../src/sasa.h"
 #include "../src/sim.h"
 #include "../src/tensor.h"
 #include "../src/transformers.h"
 #include "../src/utils.h"
 #include "Python.h"
+#include "numpy/arrayobject.h"
+#include "numpy/ndarraytypes.h"
 #include "../src/ffi.h"
 #include <chrono>
 #include <numeric>
@@ -14,12 +17,19 @@
  *  iv2il
  *  iv2np
  *  np2iv
+ *  np2t
+ *  t2np
  *  in ffi.h
  */
 
 Argparse gbl_args;
 int main(int argc, char *argv[]) {
   gbl_args.parse(argc, argv);
+  Py_Initialize();
+  import_array();
+  if (PyErr_Occurred()) {
+    log_fatal("Failed to import numpy Python module(s).");
+  }
   std::filesystem::path p = std::filesystem::absolute("../src/");
   PyEngine engine("ml_inference", p);
   using expected_t = int8_t;
@@ -36,8 +46,17 @@ int main(int argc, char *argv[]) {
   std::vector<expected_t> tmp1 = engine.il2iv<expected_t>(vv);
   
   PyObject *nparr = engine.iv2np<expected_t>(tmp1, expected_dims);
-  std::vector<int> computed_dims;
-  std::vector<expected_t> computed = engine.np2iv<expected_t>(nparr, computed_dims);
+
+  std::vector<int> computed0_dims;
+  std::vector<expected_t> computed0 = engine.np2iv<expected_t>(nparr, computed0_dims);
+
+  Tensor<expected_t> *t1 = new TensorCreate<expected_t>(computed0, computed0_dims);
+
+  PyObject *tnparr = engine.t2np<expected_t>(t1);
+  Tensor<expected_t> *t2 = engine.np2t<expected_t>(tnparr);
+
+  std::vector<expected_t> computed = t2->get();
+  std::vector<int> computed_dims = t2->get_dims();
 
   bool dims_status = generate_report<int, int>("ffi_test dims", expected_dims, computed_dims);
   bool vec_status = generate_report<expected_t, expected_t>("ffi_test vector", expected, computed);

@@ -1,35 +1,76 @@
+#define NO_IMPORT_ARRAY
+#include "numpy_init.h"
+
 #include "executor.h"
 #include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "sasa.h"
-#include "utils.h"
 #include "sim.h"
+#include "utils.h"
+#include <chrono>
 #include <iostream>
 #include <typeinfo>
 #include <vector>
-#include <chrono>
 
-Executor::Executor(PyEngine &engine, const Op::Parser &parser, const std::string &img_path) {
+void Executor::configure_dump_options() {
+  if (gbl_args.has_option("dump-output")) {
+    std::string arg = gbl_args["dump-output"].as<std::string>();
+    if (arg == "all") {
+      dump_options.dump_all = true;
+    } else if (arg == "none") {
+      dump_options.dump_none = true;
+    } else {
+      dump_options.dump_candidates = parse_csv_string<std::string>(arg);
+    }
+  }
+}
+
+bool Executor::should_dump(const Op::LayerBase *l) {
+  if (dump_options.dump_all) {
+    return true;
+  } else if (dump_options.dump_none) {
+    return false;
+  } else {
+    auto start = dump_options.dump_candidates.begin();
+    auto stop = dump_options.dump_candidates.end();
+    auto itr = std::find(start, stop, l->name);
+    return (itr != stop) ? true : false;
+  }
+}
+
+void Executor::print_extra_info(const Op::LayerBase *l) {
+  if (gbl_args.has_option("verbose")) {
+    std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
+              << Op::get_tensorproto_dtype_name(l->input_type) << ' '
+              << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
+  }
+}
+
+Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
   onnx::TensorProto_DataType weight_type = parser.get_model_weight_type();
   onnx::TensorProto_DataType input_type = parser.get_model_input_type();
   /* TODO: fix this */
-  onnx::TensorProto_DataType output_type = onnx::TensorProto_DataType_FLOAT; //parser.get_model_output_type();
+  onnx::TensorProto_DataType output_type =
+      onnx::TensorProto_DataType_FLOAT; // parser.get_model_output_type();
 
   int total_regs = parser.get_total_registers() + 1;
   tensor_pool.resize(total_regs);
 
+  configure_dump_options();
+
   if (input_type == onnx::TensorProto_DataType_FLOAT &&
       output_type == onnx::TensorProto_DataType_FLOAT) {
-    execute<float, float>(engine, parser, img_path);
+    execute<float, float>(engine, parser);
   } else if (input_type == onnx::TensorProto_DataType_INT8 &&
              output_type == onnx::TensorProto_DataType_INT32) {
-    execute<int8_t, int>(engine, parser, img_path);
+    execute<int8_t, int>(engine, parser);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
               Op::get_tensorproto_dtype_name(input_type),
               Op::get_tensorproto_dtype_name(output_type));
   }
 }
+
 
 /* helper function for Op::Layer::Conv::run() */
 template <typename inputT, typename outputT>
@@ -42,20 +83,20 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
   if (input->dims_size() == 4 && input->dims_at(0) == 1) {
-    std::vector<int> squeezed_dims (3);
+    std::vector<int> squeezed_dims(3);
     std::vector<int> current_dims = input->get_dims();
-    std::copy(current_dims.begin()+1, current_dims.end(), squeezed_dims.begin());
+    std::copy(current_dims.begin() + 1, current_dims.end(),
+              squeezed_dims.begin());
     input->set_dims(squeezed_dims);
   }
 
   std::vector<int> ofmap_dims{cc->m_cp.kn, sa_odims_row(cc->m_cp),
                               sa_odims_cols(cc->m_cp)};
   Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
-  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   /* TODO: get architecture size from gbl_args */
   SASA<inputT, outputT> sasa(9, 16, 16, *cc);
-
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
@@ -63,10 +104,10 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
   tensor_vector_add(output, output, bias);
   tt.stop();
-  tt.report("Time taken: ");
 
   if (l->dump_output) {
     output->print();
+    tt.report("Time taken: ");
   }
 }
 
@@ -137,8 +178,8 @@ void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
 
-  std::vector<int> ofmap_dims{input->dims_at(0), input->dims_at(1)/2,
-                              input->dims_at(2)/2};
+  std::vector<int> ofmap_dims{input->dims_at(0), input->dims_at(1) / 2,
+                              input->dims_at(2) / 2};
   Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   maxpool<T>(input, output, cc->m_cp);
@@ -167,7 +208,7 @@ void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
 
 template <typename T>
 void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Flatten *cc = dynamic_cast<Op::Layer::Flatten*>(l);
+  Op::Layer::Flatten *cc = dynamic_cast<Op::Layer::Flatten *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
@@ -200,7 +241,7 @@ void Op::Layer::Flatten::run(TensorPool &tensor_pool) {
   }
 }
 
-template <typename inputT, typename outputT> 
+template <typename inputT, typename outputT>
 void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Gemm *cc = dynamic_cast<Op::Layer::Gemm *>(l);
 
@@ -210,9 +251,9 @@ void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  std::vector<int> ofmap_dims {1, cc->m_cp.wr};
+  std::vector<int> ofmap_dims{1, cc->m_cp.wr};
   Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
-  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   VA<inputT, outputT> va(*cc);
   /* TODO: get architecture size from gbl_args */
@@ -220,9 +261,9 @@ void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   va.run(input, output);
   tt.stop();
-  tt.report("Time taken: ");
   if (l->dump_output) {
     output->print();
+    tt.report("Time taken: ");
   }
 }
 
@@ -245,7 +286,7 @@ void Op::Layer::Gemm::run(TensorPool &tensor_pool) {
 
 template <typename T>
 void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Dropout *cc = dynamic_cast<Op::Layer::Dropout*>(l);
+  Op::Layer::Dropout *cc = dynamic_cast<Op::Layer::Dropout *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
@@ -260,7 +301,6 @@ void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
     output->print();
   }
 }
-
 
 void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
   assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
@@ -282,7 +322,7 @@ void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
 
 template <typename T>
 void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Reshape *cc = dynamic_cast<Op::Layer::Reshape*>(l);
+  Op::Layer::Reshape *cc = dynamic_cast<Op::Layer::Reshape *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
@@ -292,9 +332,11 @@ void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *output = new TensorCreate<T>(input->get_dims());
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
-  int negative_ones = std::count(cc->new_shape.begin(), cc->new_shape.end(), -1);
+  int negative_ones =
+      std::count(cc->new_shape.begin(), cc->new_shape.end(), -1);
   if (negative_ones > 1) {
-    log_fatal("didn't expect more than one -1 in shape for node %s", l->name.c_str());
+    log_fatal("didn't expect more than one -1 in shape for node %s",
+              l->name.c_str());
   }
   reshape<T>(input, output, cc->new_shape);
   if (l->dump_output) {
@@ -322,7 +364,7 @@ void Op::Layer::Reshape::run(TensorPool &tensor_pool) {
 
 template <typename T>
 void run_transpose(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Transpose *cc = dynamic_cast<Op::Layer::Transpose*>(l);
+  Op::Layer::Transpose *cc = dynamic_cast<Op::Layer::Transpose *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
@@ -331,7 +373,7 @@ void run_transpose(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<T> *output = new TensorCreate<T>(input->get_dims());
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-  transpose<T>(input, output, cc->perm); 
+  transpose<T>(input, output, cc->perm);
   if (l->dump_output) {
     output->print();
   }
@@ -356,7 +398,7 @@ void Op::Layer::Transpose::run(TensorPool &tensor_pool) {
 }
 
 /* TODO: refactor to share this with gemm */
-template <typename inputT, typename outputT> 
+template <typename inputT, typename outputT>
 void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::MatMul *cc = dynamic_cast<Op::Layer::MatMul *>(l);
 
@@ -366,9 +408,9 @@ void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  std::vector<int> ofmap_dims {1, cc->m_cp.wc};
+  std::vector<int> ofmap_dims{1, cc->m_cp.wc};
   Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
-  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   VA<inputT, outputT> va(*cc);
   /* TODO: get architecture size from gbl_args */
@@ -376,9 +418,9 @@ void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   va.run(input, output);
   tt.stop();
-  tt.report("Time taken: ");
   if (l->dump_output) {
     output->print();
+    tt.report("Time taken: ");
   }
 }
 
@@ -399,7 +441,7 @@ void Op::Layer::MatMul::run(TensorPool &tensor_pool) {
   }
 }
 
-template <typename inputT, typename outputT> 
+template <typename inputT, typename outputT>
 void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Add *cc = dynamic_cast<Op::Layer::Add *>(l);
 
@@ -409,9 +451,9 @@ void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  std::vector<int> ofmap_dims {1, input1->dims_iterator(-1)};
+  std::vector<int> ofmap_dims{1, input1->dims_iterator(-1)};
   Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
-  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   Tensor<inputT> *input2;
   if (cc->inputs.size() > 1) {
@@ -420,7 +462,7 @@ void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_add(output, input1, input2);
   } else {
     // one of the inputs is an initializer (available statically)
-    input2 = new TensorExtant<inputT>(cc->addend); 
+    input2 = new TensorExtant<inputT>(cc->addend);
     tensor_add(output, input1, input2);
     delete input2;
   }

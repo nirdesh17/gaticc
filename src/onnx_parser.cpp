@@ -556,6 +556,19 @@ void Op::Model::save_first_layer_input_dims(const onnx::ValueInfoProto &t) {
 size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
+bool Op::Model::has_graph_output(Op::LayerBase *l) const {
+  if (graph_output_map.size() != 1) {
+    log_fatal("Graphs with only one outputs are currently supported");
+  }
+  auto graph_out = graph_output_map.begin();
+  auto output_name = (graph_out->second).name();
+  auto itr = output_map.find(output_name);
+  if (itr != output_map.end() && g[itr->second]->name == l->name) {
+    return true;
+  }
+  return false;
+}
+
 void Op::print_node(Op::Vertex v, const Op::Graph *g) {
   LayerBase *node = (*g)[v];
   Op::print_node(node);
@@ -1117,6 +1130,10 @@ int Op::Parser::get_total_registers(void) const {
         std::max(max, *std::max_element(l->outputs.begin(), l->outputs.end()));
   }
   return max;
+}
+
+bool Op::Parser::has_graph_output(Op::LayerBase *l) const {
+  return m_model.has_graph_output(l);
 }
 
 void Op::Parser::pass_save_graph_inputs(const onnx::GraphProto &graph) {

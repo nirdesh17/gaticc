@@ -1,3 +1,6 @@
+#define NO_IMPORT_ARRAY
+#include "numpy_init.h"
+
 #ifndef PY_SSIZE_T_CLEAN
 #define PY_SSIZE_T_CLEAN
 #endif
@@ -6,6 +9,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
+
 
 /*
  * On reference counting,
@@ -50,10 +54,6 @@ void py_list_print(PyObject *list) {
 }
 
 PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) {
-  /* TODO: move this to global init context. currently prevents multiple
-   * PyEngines to be created
-   */ 
-  Py_Initialize();
   PyObject *sys = PyImport_ImportModule("sys");
   PyObject *path = PyObject_GetAttrString(sys, "path");
 
@@ -71,6 +71,8 @@ PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) 
   }
   this->mod = PyImport_Import(PyUnicode_FromString(mod_name.c_str()));
   py_fatal_err_check(mod, "PyImport_Import");
+
+
   Py_XDECREF(sys);
   Py_XDECREF(path);
 }
@@ -82,16 +84,14 @@ PyEngine::~PyEngine() {
 }
 
 PyObject *PyEngine::call_func(std::string const &func_name, PyObject *args) {
+
   PyObject *dict = PyModule_GetDict(mod);
   py_fatal_err_check(dict, "PyModule_GetDict");
   PyObject *sum_fn =
       PyDict_GetItem(dict, PyUnicode_FromString(func_name.c_str()));
-  py_fatal_err_check(dict, "PyDict_GetItem");
+  py_fatal_err_check(sum_fn, "PyDict_GetItem");
   PyObject *ret = PyObject_CallObject(sum_fn, args);
   py_fatal_err_check(ret, "PyObject_CallObject");
-
-  Py_XDECREF(dict);
-  Py_XDECREF(sum_fn);
   return ret;
 }
 

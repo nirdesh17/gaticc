@@ -13,31 +13,53 @@ void TensorPool::free(int index) {
   std::any v = pool.at(index);
   if (v.type() == typeid(Tensor<int8_t> *)) {
     Tensor<int8_t> *dd = std::any_cast<Tensor<int8_t> *>(v);
-    delete dd;
+    /* TODO: temporary hack, find a cleaner workaround */
+    if (dd->freeable()) {
+      delete dd;
+    }
   } else if (v.type() == typeid(Tensor<int16_t> *)) {
     Tensor<int16_t> *dd = std::any_cast<Tensor<int16_t> *>(v);
-    delete dd;
+    if (dd->freeable()) {
+      delete dd;
+    }
   } else if (v.type() == typeid(Tensor<int> *)) {
     Tensor<int> *dd = std::any_cast<Tensor<int> *>(v);
-    delete dd;
+    if (dd->freeable()) {
+      delete dd;
+    }
   } else if (v.type() == typeid(Tensor<int64_t> *)) {
     Tensor<int64_t> *dd = std::any_cast<Tensor<int64_t> *>(v);
-    delete dd;
+    if (dd->freeable()) {
+      delete dd;
+    }
   } else if (v.type() == typeid(Tensor<int32_t> *)) {
     Tensor<int32_t> *dd = std::any_cast<Tensor<int32_t> *>(v);
-    delete dd;
+    if (dd->freeable()) {
+      delete dd;
+    }
   } else if (v.type() == typeid(Tensor<float> *)) {
     Tensor<float> *dd = std::any_cast<Tensor<float> *>(v);
-    delete dd;
+    if (dd->freeable()) {
+      delete dd;
+    }
   } else if (v.type() == typeid(Tensor<double> *)) {
     Tensor<double> *dd = std::any_cast<Tensor<double> *>(v);
-    delete dd;
+    if (dd->freeable()) {
+      delete dd;
+    }
   } else {
     log_fatal("Unknown type: %s, cannot free. Support has to be added",
               v.type().name());
   }
   pool.at(index).reset();
 }
+
+void TensorPool::free() {
+  for (int i = 0; i < pool.size(); ++i) {
+    pool.at(i).reset();
+  }
+}
+
 
 bool TensorPool::has_value(int index) { return pool.at(index).has_value(); }
 
@@ -51,3 +73,20 @@ std::ostream& operator<<(std::ostream &os, const Point& p) {
   os << p.first << ',' << p.second;
   return os;
 }
+
+/* path: such as "/usr/bin/file.txt"
+ * returns: "file.txt"
+ */
+std::filesystem::path extract_basename(const std::string &path) {
+  std::filesystem::path fs_path(path);
+  return fs_path.filename();
+}
+
+/* path: such as "/usr/bin/file.txt"
+ * returns: "/usr/bin"
+ */
+std::filesystem::path extract_dirname(const std::string &path) {
+  std::filesystem::path fs_path(path);
+  return fs_path.remove_filename();
+}
+

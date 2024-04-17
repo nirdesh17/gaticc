@@ -352,6 +352,7 @@ class Model {
 
   std::vector<LayerBase *> execution_order;
 
+
   bool is_graph_input(const std::string &s) const;
   bool is_graph_output(const std::string &s) const;
   bool is_initializer(const std::string &s) const;
@@ -393,6 +394,10 @@ public:
 
   size_t size(void);
   size_t size(void) const;
+
+  /* true if 'l' has an output that is also a graph_output */
+  bool has_graph_output(Op::LayerBase *l) const;
+
 };
 
 class Parser {
@@ -430,6 +435,8 @@ public:
   onnx::TensorProto_DataType get_model_input_type(void) const;
   onnx::TensorProto_DataType get_model_output_type(void) const;
   int get_total_registers(void) const;
+  /* true if 'l' has an output that is also a graph_output */
+  bool has_graph_output(Op::LayerBase *l) const;
   ~Parser();
 };
 
