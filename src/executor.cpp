@@ -13,6 +13,8 @@
 #include <vector>
 
 void Executor::configure_dump_options() {
+  dump_options.dump_all = false;
+  dump_options.dump_none = false;
   if (gbl_args.has_option("dump-output")) {
     std::string arg = gbl_args["dump-output"].as<std::string>();
     if (arg == "all") {

@@ -7,7 +7,7 @@
 ### Arch
 
 ```
-sudo pacman -S boost boost-libs python3 protobuf 
+sudo pacman -S boost boost-libs python3 protobuf python-numpy
 ```
 
 ### Fedora

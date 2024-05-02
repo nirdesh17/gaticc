@@ -14,7 +14,7 @@ CXX = g++
 # Determine the operating system
 UNAME_S := $(shell uname -s)
 
-NUMPY_INSTALL_PATH = /usr/lib/python3.11/site-packages/numpy/
+NUMPY_INSTALL_PATH = /usr/lib/python${PYTHON_VERSION}/site-packages/numpy/
 
 CXXFLAGS = -O3 -g -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
 
