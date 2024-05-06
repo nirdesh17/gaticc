@@ -90,3 +90,23 @@ std::filesystem::path extract_dirname(const std::string &path) {
   return fs_path.remove_filename();
 }
 
+/* true if two shapes are broadcastable 
+ * see https://numpy.org/doc/stable/user/basics.broadcasting.html
+ */
+bool is_broadcastable(const std::vector<int> &shape1, const std::vector<int>& shape2) {
+  if (shape1.size() == 1 || shape2.size() == 1) {
+    return true;
+  }
+
+  if (shape1.size() == shape2.size()) {
+    /* iterate from rhs */
+    for (int i = shape1.size()-1; i > 0; --i) {
+      if (shape1[i] != shape2[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  return false;
+}

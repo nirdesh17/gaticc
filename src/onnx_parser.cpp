@@ -43,6 +43,10 @@ void Op::LayerBase::run(TensorPool &tensor_pool) {
 }
 void Op::LayerBase::set_attributes(const onnx::NodeProto &node) { return; }
 
+void Op::LayerBase::infer_shape(const std::vector<int>& input_dims) {
+  log_fatal("Shape Inference Un-implemented for this layer %s", this->name.c_str());
+}
+
 /* Get a array of ints from attr and store into array */
 void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&
@@ -115,8 +119,25 @@ void Op::Layer::Conv::set_value_info_params(const onnx::ValueInfoProto &t) {
   }
 }
 
+void Op::Layer::Conv::infer_shape(const std::vector<int>& input_dims) {
+  this->input_dims = input_dims;
+  assert(input_dims.size() == 4); // NCHW
+  this->output_dims.resize(4);
+  this->output_dims[0] = input_dims[0];
+  this->output_dims[1] = this->m_cp.kn;
+  this->output_dims[2] = sa_odims_row(this->m_cp);
+  this->output_dims[3] = sa_odims_cols(this->m_cp);
+}
+
 /* TODO: set_value_info_params for RELU */
-const char *Op::Layer::Relu::op_type() const { return m_optype; }
+const char *Op::Layer::Relu::op_type() const {
+  return m_optype;
+}
+
+void Op::Layer::Relu::infer_shape(const std::vector<int>& input_dims) { 
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;;
+}
 
 Op::Layer::Clip::Clip() {
   /* defaults */
@@ -219,7 +240,25 @@ void Op::Layer::Maxpool::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
+void Op::Layer::Maxpool::infer_shape(const std::vector<int>& input_dims) {
+  this->input_dims = input_dims;
+  assert(input_dims.size() == 4);
+  this->output_dims.resize(4);
+  this->output_dims[0] = input_dims[0];
+  this->output_dims[1] = this->m_cp.ic;
+  this->output_dims[2] = mp_odims_row(this->m_cp);
+  this->output_dims[3] = mp_odims_cols(this->m_cp);
+}
+
 const char *Op::Layer::Flatten::op_type() const { return m_optype; }
+
+void Op::Layer::Flatten::infer_shape(const std::vector<int>& input_dims) {
+  this->input_dims = input_dims;
+  int total_elements = prod(input_dims.begin(), input_dims.end(), 1);
+  this->output_dims.resize(2);
+  this->output_dims.at(0) = 1;
+  this->output_dims.at(1) = total_elements;
+}
 
 Op::Layer::Dropout::Dropout() { drop = 0.f; }
 const char *Op::Layer::Dropout::op_type() const { return m_optype; }
@@ -310,6 +349,11 @@ void Op::Layer::DequantizeLinear::set_initializer_params(
   }
 }
 
+void Op::Layer::DequantizeLinear::infer_shape(const std::vector<int>& input_dims) { 
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;;
+}
+
 const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
 
 const char *Op::Layer::QuantizeLinear::params() const {
@@ -329,6 +373,12 @@ void Op::Layer::QuantizeLinear::set_initializer_params(
     log_fatal("Could not find an initializer of expected types");
   }
 }
+
+void Op::Layer::QuantizeLinear::infer_shape(const std::vector<int>& input_dims) { 
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;;
+}
+
 
 Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
 const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
@@ -357,12 +407,33 @@ void Op::Layer::QLinearMatMul::set_value_info_params(
   }
 }
 
+void Op::Layer::QLinearMatMul::infer_shape(const std::vector<int>& input_dims) {
+  assert(input_dims.size() == 2);
+  this->input_dims = input_dims;
+  assert(input_dims.at(1) == this->m_cp.wr && "QLinearMatMul, matrix dimensions do not match");
+  this->output_dims.resize(2);
+  this->output_dims.at(0) = input_dims.at(0);
+  this->output_dims.at(1) =this->m_cp.wc;
+}
+
 const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
 
 void Op::Layer::QLinearAdd::set_initializer_params(const onnx::TensorProto &t) {
   if (t.dims_size() == BIAS_TENSOR_DIMS) {
     addend = &t;
   }
+}
+
+void Op::Layer::QLinearAdd::infer_shape(const std::vector<int>& input_dims) {
+  std::vector<int> weight_dims = get_tensorproto_shape(*this->addend);
+  if (!is_broadcastable(input_dims, weight_dims)) {
+    log_fatal("input_dims and weight_dims can't be broadcasted for layer %s", this->name.c_str());
+  }
+  assert(input_dims.size() == 2);
+  this->input_dims = input_dims;
+  this->output_dims.resize(2);
+  this->output_dims.at(0) = input_dims.at(0);
+  this->output_dims.at(1) = input_dims.at(1);
 }
 
 const char *Op::Layer::Transpose::op_type() const { return m_optype; }
@@ -682,6 +753,15 @@ const char *Op::get_tensorproto_dtype_name(onnx::TensorProto_DataType type) {
   }
 }
 
+std::vector<int> Op::get_tensorproto_shape(const onnx::TensorProto &t) {
+  const auto &dims = t.dims();
+  std::vector<int> ret_dims;
+  for (auto i : dims) {
+    ret_dims.push_back(i);
+  }
+  return ret_dims;
+}
+
 #define sa_odims(i, k, s, p) ((i - k + 2 * p) / s)
 
 long Op::Model::time_estimate(int M, int N, int K) const {
@@ -771,6 +851,38 @@ void Op::Model::create_execution_order(void) {
 }
 
 void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
+
+
+/* recursively calls `virtual LayerBase::infer_shape` on each node and its child nodes */
+void Op::Model::deduce_shapes(const std::vector<int>& input_dims) {
+  std::queue<Op::Vertex> S;
+  Op::Graph gcopy = g;
+
+  auto vitr = boost::vertices(gcopy);
+  Op::Vertex v = *(vitr.first);
+  /* set first layer's input dims */
+  gcopy[v]->infer_shape(input_dims);
+  S.push(v);
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::LayerBase *l = gcopy[n];
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, gcopy);
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
+      //print_vec("Input to layer ", l->input_dims);
+      gcopy[dest_vertex]->infer_shape(l->output_dims);
+      //print_vec("Input to layer ", l->input_dims);
+      boost::remove_edge(*itr, gcopy);
+      if (boost::in_degree(dest_vertex, gcopy) == 0) {
+        S.push(dest_vertex);
+      }
+    }
+  }
+
+}
 
 void Op::Model::deduce_types(const onnx::GraphProto &gproto) {
   /* Iterate over all nodes, search for input and output
@@ -875,6 +987,23 @@ Op::get_tensor_shape_proto(const onnx::ValueInfoProto &t) {
   }
   const onnx::TensorShapeProto &shape = tensor.shape();
   return shape;
+}
+
+std::vector<int> Op::get_dims_from_value_info(const onnx::ValueInfoProto &v) {
+  const auto& shape = Op::get_tensor_shape_proto(v);
+  std::vector<int> dims;
+  for (const auto& i : shape.dim()) {
+    if (i.has_dim_value()) {
+      dims.push_back(static_cast<int>(i.dim_value()));
+    } else if (i.has_dim_param()) {
+      /* default batch size */
+      log_info("got dim parameter %s, setting it to 1 (default)", i.dim_param().c_str());
+      dims.push_back(1);
+    } else if (i.has_denotation()) {
+      log_info("found denotation, but ignoring (needs support)");
+    }
+  }
+  return dims;
 }
 
 /* A tensor shape is valid if:
@@ -1083,6 +1212,9 @@ Op::Parser::Parser(std::string const &filename) {
   /* input dimensions to the first layer are stored in graph.input
    * and needs special treatment
    */
+  /* TODO: remove this, requires i/o part of all *Params structs to
+   * be removed from the struct and all its users must use LayerBase
+   * io */
   m_model.save_first_layer_input_dims(m_graph.input().at(0));
 
   m_model.create_execution_order();
@@ -1092,7 +1224,10 @@ Op::Parser::Parser(std::string const &filename) {
   this->model_input_type = deduce_model_input_type(m_graph);
   this->model_output_type = deduce_model_output_type(m_graph);
 
-  m_model.deduce_types(m_graph);
+  //m_model.deduce_types(m_graph);
+  /* first layer's input dims */
+  std::vector<int> input_dims = get_dims_from_value_info(m_graph.input().at(0));
+  m_model.deduce_shapes(input_dims);
 }
 
 void Op::Parser::summary() const { m_model.summary(); }

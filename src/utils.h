@@ -475,3 +475,5 @@ template <typename Container>
 inline Container get_stride_from_shape(const Container &&shape) {
   return get_stride_from_shape(shape);
 }
+
+bool is_broadcastable(const std::vector<int> &shape1, const std::vector<int>& shape2);

@@ -817,14 +817,6 @@ void SA<inputT, outputT>::print_array() {
   std::cout << '\n';
 }
 
-inline int mp_odims_row(Op::MaxpoolParams const &cp) {
-  // o = ((iw - kw + 2p) / s) + 1
-  return ((cp.imap[0] - cp.k[0] + cp.pad[0] + cp.pad[2]) / cp.stride[0]) + 1;
-}
-
-inline int mp_odims_cols(Op::MaxpoolParams const &cp) {
-  return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
-}
 
 template <typename T>
 void maxpool(Tensor<T> *input, Tensor<T> *output,

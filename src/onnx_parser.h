@@ -101,6 +101,8 @@ struct LayerBase {
 
   virtual void run(TensorPool &tensor_pool);
 
+  virtual void infer_shape(const std::vector<int>& input_dims);
+
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
 
@@ -121,7 +123,8 @@ struct LayerBase {
    * dim[2] -> channels
    * dim[3] -> batch
    */
-  std::vector<int> dims;
+  std::vector<int> input_dims;
+  std::vector<int> output_dims;
 
   /* All nodes with a parameter should have a constructor to
    * initialize them. See conv for eg.
@@ -143,12 +146,14 @@ struct Conv : public LayerBase {
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void run(TensorPool &tensor_pool) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct Relu : public LayerBase {
   const char *m_optype = "Relu";
   const char *op_type() const override;
   void run(TensorPool &tensor_pool) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct Clip : public LayerBase {
@@ -183,12 +188,14 @@ struct Maxpool : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct Flatten : public LayerBase {
   const char *m_optype = "Flatten";
   const char *op_type() const override;
   void run(TensorPool &tensor_pool) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct Dropout : public LayerBase {
@@ -251,6 +258,7 @@ struct QuantizeLinear : public LayerBase {
   float scale;
   int zero_point;
   void set_initializer_params(const onnx::TensorProto &t) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct DequantizeLinear : public LayerBase {
@@ -260,6 +268,7 @@ struct DequantizeLinear : public LayerBase {
   float scale;
   int zero_point;
   void set_initializer_params(const onnx::TensorProto &t) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct QLinearMatMul : public LayerBase {
@@ -271,6 +280,7 @@ struct QLinearMatMul : public LayerBase {
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct QLinearAdd : public LayerBase {
@@ -278,6 +288,7 @@ struct QLinearAdd : public LayerBase {
   const char *m_optype = "QLinearAdd";
   const char *op_type() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct Transpose : public LayerBase {
@@ -319,12 +330,14 @@ void print_node(const LayerBase *node);
 void print_node(Op::Vertex v, const Op::Graph *g);
 Vertex get_root_node(const Op::Graph *g);
 const char *get_tensorproto_dtype_name(onnx::TensorProto_DataType type);
+std::vector<int> get_tensorproto_shape(const onnx::TensorProto &t);
 onnx::TensorProto_DataType
 get_type_from_value_info(const onnx::ValueInfoProto &v);
 const onnx::TensorShapeProto &
 get_tensor_shape_proto(const onnx::ValueInfoProto &t);
 bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
                            int expected_dims);
+std::vector<int> get_dims_from_value_info(const onnx::ValueInfoProto &v);
 /* compare t1 and t2 */
 bool dtype_eq(int32_t t1, onnx::TensorProto_DataType t2);
 
@@ -336,6 +349,15 @@ inline int sa_odims_row(Op::ConvParams const &cp) {
 
 inline int sa_odims_cols(Op::ConvParams const &cp) {
   return ((cp.imap[WIDTH] - cp.k[WIDTH] + cp.pad[UP] + cp.pad[DOWN]) / cp.stride[WIDTH]) + 1;
+}
+
+inline int mp_odims_row(Op::MaxpoolParams const &cp) {
+  // o = ((iw - kw + 2p) / s) + 1
+  return ((cp.imap[0] - cp.k[0] + cp.pad[0] + cp.pad[2]) / cp.stride[0]) + 1;
+}
+
+inline int mp_odims_cols(Op::MaxpoolParams const &cp) {
+  return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
 }
 
 class Model {
@@ -397,7 +419,8 @@ public:
 
   /* true if 'l' has an output that is also a graph_output */
   bool has_graph_output(Op::LayerBase *l) const;
-
+  
+  void deduce_shapes(const std::vector<int>& input_dims);
 };
 
 class Parser {
