@@ -9,6 +9,7 @@
 #include <iostream>
 #include <thread>
 
+#if 0
 #define decrement_channel_count(channel_count, sa_channels)                    \
   ((channel_count > sa_channels) ? (channel_count -= sa_channels)              \
                                  : (channel_count))
@@ -293,3 +294,5 @@ SASA<inputT, outputT>::SASA(int sa_channel_rows, int sa_channel_columns,
                             int sa_channels, Op::Layer::Conv conv_1)
     : sa_channel_rows{sa_channel_rows}, sa_channel_columns{sa_channel_columns},
       sa_channels{sa_channels}, conv_1{conv_1} {}
+
+#endif

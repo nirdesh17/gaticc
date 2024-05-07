@@ -92,19 +92,17 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
     input->set_dims(squeezed_dims);
   }
 
-  std::vector<int> ofmap_dims{cc->m_cp.kn, sa_odims_row(cc->m_cp),
-                              sa_odims_cols(cc->m_cp)};
-  Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   /* TODO: get architecture size from gbl_args */
-  SASA<inputT, outputT> sasa(9, 16, 16, *cc);
+  //SASA<inputT, outputT> sasa(9, 16, 16, *cc);
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
-  sasa.master(*input, *output);
+  //sasa.master(*input, *output);
   Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
-  tensor_vector_add(output, output, bias);
+  //tensor_vector_add(output, output, bias);
   tt.stop();
 
   if (l->dump_output) {

@@ -25,6 +25,7 @@
 #include <cmath>
 #include <valarray>
 
+#if 0
 namespace Int_Graph {
 using Graph =
     boost::adjacency_list<boost::vecS, boost::listS, boost::directedS, int>;
@@ -59,8 +60,9 @@ public:
   std::vector<int> breadth_first_order();
 };
 
-#define sa_output_dims(ip_rows, padding, dilation, kernel_rows, stride)        \
-  (((ip_rows + 2 * padding - dilation * (kernel_rows - 1) - 1) / stride) + 1)
+//TODO: remove this
+//#define sa_output_dims(ip_rows, padding, dilation, kernel_rows, stride)        \
+//  (((ip_rows + 2 * padding - dilation * (kernel_rows - 1) - 1) / stride) + 1)
 
 template <typename inputT, typename outputT> class PE {
 private:
@@ -213,6 +215,7 @@ public:
   ~Chain();
   int pass_through(int x);
 };
+#endif
 
 template <typename T>
 class Relu {
@@ -240,6 +243,8 @@ void Relu<T>::exec(Tensor<T> *input, Tensor<T> *output) {
     output->set(i, v);
   }
 }
+
+#if 0
 
 /*Quantizer is used to re-encode information.It is used to reduce the size and
  *bandwidth required by 4 times. In our case we are reducing a 32bit-Int to a
@@ -289,8 +294,9 @@ void bias_add(Tensor<T> *arr, Op::Layer::Conv *cc) {
 #endif
   delete bias_arr;
 }
+#endif
 
-
+#if 0
 /*
 * this max pooler pools out the max val when a kernel window is slid over the
 * output matrix after convolution
@@ -394,7 +400,9 @@ Mat<T> Pooler<T>::global_average_pooler(Mat<T> &input,
   mp_copy.k[1] = mp.imap[1] + 2 * mp.pad[1];
   return movement(padded_in, mp_copy, average_pooler_action);
 }
+#endif
 
+#if 0
 namespace PE_Graph {
 
 template <typename inputT, typename outputT>
@@ -816,6 +824,7 @@ void SA<inputT, outputT>::print_array() {
   }
   std::cout << '\n';
 }
+#endif
 
 
 template <typename T>
@@ -825,8 +834,8 @@ void maxpool(Tensor<T> *input, Tensor<T> *output,
   int input_height = input->dims_at(1);
   int input_width = input->dims_at(2);
   int output_depth = input_depth;
-  int output_height = mp_odims_row(mp);
-  int output_width = mp_odims_cols(mp);
+  int output_height = mp_odims_row(mp, input->get_dims());
+  int output_width = mp_odims_cols(mp, input->get_dims());
 
   for (int d = 0; d < output_depth; ++d) {
     for (int i = 0; i < output_height; ++i) {
@@ -875,7 +884,7 @@ template <typename inputT, typename outputT>
 VA<inputT, outputT>::VA(Op::Layer::Gemm &gp) {
   wrows = gp.m_cp.wr;
   wcols = gp.m_cp.wc;
-  isize = gp.m_cp.is;
+  isize = gp.input_dims[TENSOR_2D_WIDTH];
   weights = new TensorExtant<inputT>(gp.weights);
   bias = new TensorExtant<inputT>(gp.bias);
 }
@@ -884,7 +893,7 @@ template <typename inputT, typename outputT>
 VA<inputT, outputT>::VA(Op::Layer::MatMul &gp) {
   wrows = gp.m_cp.wc;
   wcols = gp.m_cp.wr;
-  isize = gp.m_cp.is;
+  isize = gp.input_dims[TENSOR_2D_WIDTH];
   weights = new TensorExtant<inputT>(gp.weights);
   bias = nullptr;
 }
@@ -1089,6 +1098,42 @@ void tensor_vector_add(Tensor<outputT> *output, Tensor<inputT> *input_tensor, Te
         std::vector<int> index {i, j, k};
         outputT t1 = input_tensor->at(index) + input_vector->at(i);
         output->insert(index, t1);
+      }
+    }
+  }
+}
+
+
+template <typename inputT, typename outputT>
+void conv2d(const Tensor<inputT> *input, Tensor<outputT> *output,
+            const Op::Layer::Conv *cc) {
+  int kn = cc->m_cp.kn;
+  int ic = input->dims_at(TENSOR_4D_CHANNELS);
+  int oh = output->dims_at(TENSOR_4D_HEIGHT);
+  int ow = output->dims_at(TENSOR_4D_WIDTH);
+  int kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
+  int kw = cc->m_cp.k[TENSOR_2D_WIDTH];
+
+  Tensor<inputT> *weights = new TensorExtant<inputT>(cc->weights);
+  Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
+
+  for (int k = 0; k < kn; ++k) {
+    for (int ici = 0; ici < ic; ++ici) {
+      for (int ohi = 0; ohi < oh; ohi++) {
+        for (int owi = 0; owi < ow; ++owi) {
+          for (int khi = 0; khi < kh; ++khi) {
+            for (int kwi = 0; kwi < kw; ++kwi) {
+              // printf("k %d, ici %d, ohi,owi %d,%d, ihi,iwi %d,%d, khi,kwi
+              // %d,%d\n", k, ici, ohi, owi, ohi+khi, owi+kwi, khi, kwi);
+              std::vector<int> out_index {kn, ohi, owi};
+              std::vector<int> in_index {ic, ohi+khi, owi+kwi};
+              std::vector<int> w_index {kn, ic, kh, kw};
+              outputT val = output->at(out_index);
+              outputT val2 = input->at(in_index) * weights->at(w_index);
+              output->insert(out_index, val + val2);
+            }
+          }
+        }
       }
     }
   }
