@@ -61,24 +61,26 @@ Op::Layer::Conv::Conv() {
   /* zero initialize */
   m_cp = {};
   /* overwrite with sane defaults */
-  m_cp.stride[HEIGHT]   = 1;
-  m_cp.stride[WIDTH]    = 1;
-  m_cp.dilation[HEIGHT] = 1;
-  m_cp.dilation[WIDTH]  = 1;
+  m_cp.stride[TENSOR_2D_HEIGHT]   = 1;
+  m_cp.stride[TENSOR_2D_WIDTH]    = 1;
+  m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
+  m_cp.dilation[TENSOR_2D_WIDTH]  = 1;
 }
 
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
 const char *Op::Layer::Conv::params() const {
   static char ret[128];
   sprintf(ret, "(IW,IH: %d,%d), (KN,IC,KW,KH: %d,%d,%d,%d), (S,P,D: %d,%d,%d)",
-          m_cp.imap[HEIGHT], m_cp.imap[WIDTH], m_cp.kn, m_cp.ic, m_cp.k[HEIGHT], m_cp.k[WIDTH],
-          m_cp.stride[HEIGHT], m_cp.pad[LEFT], m_cp.dilation[HEIGHT]);
+          this->input_dims[TENSOR_4D_WIDTH], this->input_dims[TENSOR_4D_HEIGHT],
+          m_cp.kn, this->input_dims[TENSOR_4D_CHANNELS], m_cp.k[TENSOR_2D_WIDTH], m_cp.k[TENSOR_2D_HEIGHT],
+          m_cp.stride[TENSOR_2D_WIDTH], m_cp.pad[I_LEFT],
+          m_cp.dilation[TENSOR_2D_WIDTH]);
   return ret;
 }
+
 void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
   if (t.dims_size() == CONV_WEIGHT_TENSOR_DIMS) {
     m_cp.kn = t.dims()[0];
-    m_cp.ic = t.dims()[1];
     m_cp.k[0] = t.dims()[2];
     m_cp.k[1] = t.dims()[3];
     weights = &t;
@@ -109,6 +111,7 @@ void Op::Layer::Conv::set_attributes(const onnx::NodeProto &node) {
 }
 
 void Op::Layer::Conv::set_value_info_params(const onnx::ValueInfoProto &t) {
+  /*
   const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
   if (Op::is_valid_tensor_shape(shape, CONV_WEIGHT_TENSOR_DIMS)) {
     m_cp.ic = shape.dim().at(1).dim_value();
@@ -117,6 +120,7 @@ void Op::Layer::Conv::set_value_info_params(const onnx::ValueInfoProto &t) {
   } else {
     log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
+  */
 }
 
 void Op::Layer::Conv::infer_shape(const std::vector<int>& input_dims) {
@@ -125,8 +129,8 @@ void Op::Layer::Conv::infer_shape(const std::vector<int>& input_dims) {
   this->output_dims.resize(4);
   this->output_dims[0] = input_dims[0];
   this->output_dims[1] = this->m_cp.kn;
-  this->output_dims[2] = sa_odims_row(this->m_cp);
-  this->output_dims[3] = sa_odims_cols(this->m_cp);
+  this->output_dims[2] = sa_odims_row(this->m_cp, input_dims);
+  this->output_dims[3] = sa_odims_cols(this->m_cp, input_dims);
 }
 
 /* TODO: set_value_info_params for RELU */
@@ -162,7 +166,8 @@ Op::Layer::Gemm::Gemm() { m_cp = {}; }
 const char *Op::Layer::Gemm::op_type() const { return m_optype; }
 const char *Op::Layer::Gemm::params() const {
   static char ret[64];
-  sprintf(ret, "WR,WC,IS: %d,%d,%d", m_cp.wr, m_cp.wc, m_cp.is);
+  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d", this->input_dims[TENSOR_2D_HEIGHT],
+          this->input_dims[TENSOR_2D_WIDTH], m_cp.wr, m_cp.wc);
   return ret;
 }
 
@@ -177,6 +182,7 @@ void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
 }
 
 void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
+#if 0
   const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
   if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
     /* TODO: check dim1 here */
@@ -184,16 +190,18 @@ void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
   } else {
     log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
+  */
+#endif
 }
 
 Op::Layer::Maxpool::Maxpool() {
   /* zero initialize */
   m_cp = {};
   /* overwrite with sane defaults */
-  m_cp.stride[HEIGHT]   = 1;
-  m_cp.stride[WIDTH]    = 1;
-  m_cp.dilation[HEIGHT] = 1;
-  m_cp.dilation[WIDTH]  = 1;
+  m_cp.stride[TENSOR_2D_HEIGHT]   = 1;
+  m_cp.stride[TENSOR_2D_WIDTH]    = 1;
+  m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
+  m_cp.dilation[TENSOR_2D_WIDTH]  = 1;
 }
 
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
@@ -202,13 +210,17 @@ const char *Op::Layer::Maxpool::params() const {
   sprintf(ret,
           "(IC,IW,IH: %d,%d,%d) (KS: %d,%d), (pad: %d,%d,%d,%d), (stride: "
           "%d,%d), (dilation: %d, %d)",
-          m_cp.ic, m_cp.imap[0], m_cp.imap[1], m_cp.k[0], m_cp.k[1],
-          m_cp.pad[0], m_cp.pad[1], m_cp.pad[2], m_cp.pad[3], m_cp.stride[0],
-          m_cp.stride[1], m_cp.dilation[0], m_cp.dilation[1]);
+          this->input_dims[TENSOR_4D_CHANNELS],
+          this->input_dims[TENSOR_4D_WIDTH], this->input_dims[TENSOR_4D_HEIGHT],
+          m_cp.k[TENSOR_2D_HEIGHT], m_cp.k[TENSOR_2D_WIDTH], m_cp.pad[I_LEFT],
+          m_cp.pad[I_UP], m_cp.pad[I_RIGHT], m_cp.pad[I_DOWN],
+          m_cp.stride[TENSOR_2D_HEIGHT], m_cp.stride[TENSOR_2D_WIDTH],
+          m_cp.dilation[TENSOR_2D_WIDTH], m_cp.dilation[TENSOR_2D_HEIGHT]);
   return ret;
 }
 
 void Op::Layer::Maxpool::set_value_info_params(const onnx::ValueInfoProto &t) {
+#if 0
   const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
   if (Op::is_valid_tensor_shape(shape, CONV_WEIGHT_TENSOR_DIMS)) {
     m_cp.ic = shape.dim().at(1).dim_value();
@@ -217,6 +229,7 @@ void Op::Layer::Maxpool::set_value_info_params(const onnx::ValueInfoProto &t) {
   } else {
     log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
+#endif
 }
 
 void Op::Layer::Maxpool::set_attributes(const onnx::NodeProto &node) {
@@ -245,9 +258,9 @@ void Op::Layer::Maxpool::infer_shape(const std::vector<int>& input_dims) {
   assert(input_dims.size() == 4);
   this->output_dims.resize(4);
   this->output_dims[0] = input_dims[0];
-  this->output_dims[1] = this->m_cp.ic;
-  this->output_dims[2] = mp_odims_row(this->m_cp);
-  this->output_dims[3] = mp_odims_cols(this->m_cp);
+  this->output_dims[1] = input_dims[1];
+  this->output_dims[2] = mp_odims_row(this->m_cp, input_dims);
+  this->output_dims[3] = mp_odims_cols(this->m_cp, input_dims);
 }
 
 const char *Op::Layer::Flatten::op_type() const { return m_optype; }
@@ -384,7 +397,8 @@ Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
 const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
 const char *Op::Layer::QLinearMatMul::params() const {
   static char ret[64];
-  sprintf(ret, "WR,WC,IS: %d,%d,%d", m_cp.wr, m_cp.wc, m_cp.is);
+  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d", this->input_dims[TENSOR_2D_HEIGHT],
+          this->input_dims[TENSOR_2D_WIDTH], m_cp.wr, m_cp.wc);
   return ret;
 }
 
@@ -399,12 +413,14 @@ void Op::Layer::QLinearMatMul::set_initializer_params(
 
 void Op::Layer::QLinearMatMul::set_value_info_params(
     const onnx::ValueInfoProto &t) {
+#if 0
   const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
   if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
     m_cp.is = shape.dim().at(1).dim_value();
   } else {
     log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
+#endif
 }
 
 void Op::Layer::QLinearMatMul::infer_shape(const std::vector<int>& input_dims) {
@@ -473,7 +489,8 @@ const char *Op::Layer::MatMul::op_type() const { return m_optype; }
 
 const char *Op::Layer::MatMul::params() const {
   static char ret[64];
-  sprintf(ret, "WR,WC,IS: %d,%d,%d", m_cp.wr, m_cp.wc, m_cp.is);
+  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d", this->input_dims[TENSOR_2D_HEIGHT],
+          this->input_dims[TENSOR_2D_WIDTH], m_cp.wr, m_cp.wc);
   return ret;
 }
 
@@ -488,12 +505,14 @@ void Op::Layer::MatMul::set_initializer_params(
 
 void Op::Layer::MatMul::set_value_info_params(
     const onnx::ValueInfoProto &t) {
+#if 0
   const onnx::TensorShapeProto &shape = Op::get_tensor_shape_proto(t);
   if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
     m_cp.is = shape.dim().at(1).dim_value();
   } else {
     log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
   }
+#endif
 }
 
 
@@ -773,12 +792,9 @@ long Op::Model::time_estimate(int M, int N, int K) const {
     if (node->op_type() == "Conv") {
       Op::Layer::Conv *c = (Op::Layer::Conv *)node;
       int available_pe_columns = 0;
-      int input_columns = sa_odims(c->m_cp.imap[0], c->m_cp.k[0],
-                                   c->m_cp.stride[0], c->m_cp.pad[0]) *
-                          sa_odims(c->m_cp.imap[1], c->m_cp.k[1],
-                                   c->m_cp.stride[0], c->m_cp.pad[0]);
+      int input_columns = sa_odims_row(c->m_cp, c->input_dims) * sa_odims_cols(c->m_cp, c->input_dims);
 
-      if (c->m_cp.ic == 1) {
+      if (c->input_dims[TENSOR_4D_CHANNELS] == 1) {
         // depth wise default
         available_pe_columns = K;
       }
@@ -797,15 +813,15 @@ long Op::Model::time_estimate(int M, int N, int K) const {
       }
 
       int t =
-          ((c->m_cp.ic * c->m_cp.kn) / available_pe_columns) * input_columns;
+          ((c->input_dims[TENSOR_4D_CHANNELS] * c->m_cp.kn) / available_pe_columns) * input_columns;
       cycles += t;
       std::cout << "Time: " << (float)t / 1e5 << "ms\n";
       Op::print_node(*itr, &g);
     } else if (node->op_type() == "Gemm") {
       Op::Layer::Gemm *gemm_node = (Op::Layer::Gemm *)node;
-      assert(gemm_node->m_cp.wc == gemm_node->m_cp.is);
+      assert(gemm_node->m_cp.wc == gemm_node->input_dims[TENSOR_2D_WIDTH]);
       int available_pe_columns = (N * K > 32) ? 32 : N * K;
-      int t = (gemm_node->m_cp.wr / available_pe_columns) * gemm_node->m_cp.is;
+      int t = (gemm_node->m_cp.wr / available_pe_columns) * gemm_node->input_dims[TENSOR_2D_WIDTH];
       cycles += t;
       std::cout << "Time: " << (float)t / 1e5 << "ms\n";
       Op::print_node(*itr, &g);

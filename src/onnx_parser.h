@@ -22,25 +22,35 @@
   using imap[HEIGHT] adds more readability than using imap[0]
   uses can be found at eg:lsfe,lsle..(at tranformer.h)..etc.
 */
-#define WIDTH 1 
-#define HEIGHT 0 
 
+/* Indices for accessing dimensions. I_BATCH should be read as
+ * index for BATCH dimension
+ *
+ * To access of dimension array (dim[]) of size 4, use
+ * dim[I_BATCH]. Instead of implicity assuming indices for
+ * dimensions
+ */
+#define TENSOR_4D_BATCH 0
+#define TENSOR_4D_CHANNELS 1
+#define TENSOR_4D_HEIGHT 2
+#define TENSOR_4D_WIDTH 3 
+
+#define TENSOR_2D_HEIGHT 0
+#define TENSOR_2D_WIDTH 1
 
 /*  Definition for Paddding starting from left to down in clock wise Direction 
  *  p{Left,up,right,down} Replaced with indicices {0,1,2,3}
  */
-#define LEFT 0  
-#define RIGHT 2
-#define UP 1
-#define DOWN 3
+#define I_LEFT 0  
+#define I_RIGHT 2
+#define I_UP 1
+#define I_DOWN 3
  
 /* Onnx Parser external interface */
 namespace Op {
 
 struct ConvParams {
-  int imap[2];   /* input feature map  HxW */
   int kn;        /* total number of kernels */
-  int ic;        /* input channels */
   int k[2];      /* kernel width/height */
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
@@ -50,15 +60,12 @@ struct ConvParams {
 struct GemmParams {
   int wr; /* weight rows */
   int wc; /* weight columns */
-  int is; /* input size */
 };
 
 /* TODO: PoolParams, a better name?
  * used by AveragePool too
  */
 struct MaxpoolParams {
-  int imap[2];   /* input feature map */
-  int ic;        /* input channels */
   int k[2];      /* kernel width/height */
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
@@ -341,23 +348,23 @@ std::vector<int> get_dims_from_value_info(const onnx::ValueInfoProto &v);
 /* compare t1 and t2 */
 bool dtype_eq(int32_t t1, onnx::TensorProto_DataType t2);
 
-inline int sa_odims_row(Op::ConvParams const &cp) {
+inline int sa_odims_row(Op::ConvParams const &cp, const std::vector<int>& input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
-  return ((cp.imap[HEIGHT] - cp.k[HEIGHT] + cp.pad[LEFT] + cp.pad[RIGHT]) / cp.stride[HEIGHT]) + 1;
+  return ((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] + cp.pad[I_LEFT] + cp.pad[I_RIGHT]) / cp.stride[TENSOR_2D_HEIGHT]) + 1;
 }
 
 
-inline int sa_odims_cols(Op::ConvParams const &cp) {
-  return ((cp.imap[WIDTH] - cp.k[WIDTH] + cp.pad[UP] + cp.pad[DOWN]) / cp.stride[WIDTH]) + 1;
+inline int sa_odims_cols(Op::ConvParams const &cp, const std::vector<int>& input_dims) {
+  return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] + cp.pad[I_DOWN]) / cp.stride[TENSOR_2D_WIDTH]) + 1;
 }
 
-inline int mp_odims_row(Op::MaxpoolParams const &cp) {
+inline int mp_odims_row(Op::MaxpoolParams const &cp, const std::vector<int>& input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
-  return ((cp.imap[0] - cp.k[0] + cp.pad[0] + cp.pad[2]) / cp.stride[0]) + 1;
+  return ((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] + cp.pad[I_LEFT] + cp.pad[I_RIGHT]) / cp.stride[TENSOR_2D_HEIGHT]) + 1;
 }
 
-inline int mp_odims_cols(Op::MaxpoolParams const &cp) {
-  return ((cp.imap[1] - cp.k[1] + cp.pad[1] + cp.pad[3]) / cp.stride[1]) + 1;
+inline int mp_odims_cols(Op::MaxpoolParams const &cp, const std::vector<int>& input_dims) {
+  return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] + cp.pad[I_DOWN]) / cp.stride[TENSOR_2D_WIDTH]) + 1;
 }
 
 class Model {
