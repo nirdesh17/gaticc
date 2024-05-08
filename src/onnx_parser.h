@@ -72,8 +72,6 @@ struct MaxpoolParams {
   int dilation[2];
 };
 
-struct DropoutParams {};
-
 using VirtualAddress = int;
 
 struct LayerBase {
@@ -183,6 +181,7 @@ struct Gemm : public LayerBase {
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
   void run(TensorPool &tensor_pool) override;
 };
 
@@ -213,6 +212,7 @@ struct Dropout : public LayerBase {
   const char *params() const override;
   void set_initializer_params(const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
+  void infer_shape(const std::vector<int>& input_dims) override;
 };
 
 struct Add : public LayerBase {

@@ -84,26 +84,21 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  if (input->dims_size() == 4 && input->dims_at(0) == 1) {
-    std::vector<int> squeezed_dims(3);
-    std::vector<int> current_dims = input->get_dims();
-    std::copy(current_dims.begin() + 1, current_dims.end(),
-              squeezed_dims.begin());
-    input->set_dims(squeezed_dims);
-  }
-
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   /* TODO: get architecture size from gbl_args */
   //SASA<inputT, outputT> sasa(9, 16, 16, *cc);
+  //sasa.master(*input, *output);
+  //Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
+  //tensor_vector_add(output, output, bias);
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
-  //sasa.master(*input, *output);
-  Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
-  //tensor_vector_add(output, output, bias);
+  ConvEngine<inputT, outputT> cc_engine(cc);
+  cc_engine.run(input, output);
   tt.stop();
+  output->print();
 
   if (l->dump_output) {
     output->print();

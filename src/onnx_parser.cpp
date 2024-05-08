@@ -44,7 +44,7 @@ void Op::LayerBase::run(TensorPool &tensor_pool) {
 void Op::LayerBase::set_attributes(const onnx::NodeProto &node) { return; }
 
 void Op::LayerBase::infer_shape(const std::vector<int>& input_dims) {
-  log_fatal("Shape Inference Un-implemented for this layer %s", this->name.c_str());
+  log_fatal("Shape Inference Un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
 /* Get a array of ints from attr and store into array */
@@ -194,6 +194,22 @@ void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
 #endif
 }
 
+void Op::Layer::Gemm::infer_shape(const std::vector<int> &input_dims) {
+  assert(input_dims.size() == 2);
+  this->input_dims = input_dims;
+  /* TODO: this should be the same for all matmul types (should
+   * use this->m_cp.wr, different because vgg use transB = 1. fix
+   * this by creating a fake transpose over TensorExtant as it
+   * can't do real transpose (no writes) */
+  print_vec("input_dims", input_dims);
+  std::cout << this->params() << '\n';
+  assert(input_dims.at(1) == this->m_cp.wc &&
+         "Gemm, matrix dimensions do not match");
+  this->output_dims.resize(2);
+  this->output_dims.at(0) = input_dims.at(0);
+  this->output_dims.at(1) = this->m_cp.wr;
+}
+
 Op::Layer::Maxpool::Maxpool() {
   /* zero initialize */
   m_cp = {};
@@ -285,6 +301,11 @@ void Op::Layer::Dropout::set_initializer_params(const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     this->drop = t.float_data()[0];
   }
+}
+
+void Op::Layer::Dropout::infer_shape(const std::vector<int> &input_dims) {
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 Op::Layer::Add::Add() {
@@ -1240,7 +1261,7 @@ Op::Parser::Parser(std::string const &filename) {
   this->model_input_type = deduce_model_input_type(m_graph);
   this->model_output_type = deduce_model_output_type(m_graph);
 
-  //m_model.deduce_types(m_graph);
+  m_model.deduce_types(m_graph);
   /* first layer's input dims */
   std::vector<int> input_dims = get_dims_from_value_info(m_graph.input().at(0));
   m_model.deduce_shapes(input_dims);

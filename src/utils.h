@@ -477,3 +477,8 @@ inline Container get_stride_from_shape(const Container &&shape) {
 }
 
 bool is_broadcastable(const std::vector<int> &shape1, const std::vector<int>& shape2);
+
+std::vector<int> get_dims_after_pad(std::vector<int> current_dims, const std::vector<int>& pad);
+
+/* return true if i,j lie in pad section of a 2d segment */
+bool islying(int i, int j, int rows, int cols, const std::vector<int> &pad);

@@ -110,3 +110,21 @@ bool is_broadcastable(const std::vector<int> &shape1, const std::vector<int>& sh
 
   return false;
 }
+
+std::vector<int> get_dims_after_pad(std::vector<int> current_dims, const std::vector<int>& pad) {
+  auto last_dim = current_dims.rbegin();
+  auto second_last_dim = current_dims.rbegin() + 1;
+  
+  *second_last_dim = *second_last_dim + pad[I_UP] + pad[I_DOWN];
+  *last_dim = *last_dim + pad[I_LEFT] + pad[I_RIGHT];
+  return current_dims;
+}
+
+bool islying(int i, int j, int rows, int cols, const std::vector<int> &pad) {
+  if (((j >= 0 && j < pad[0]) || (j >= (cols + pad[0]) && j < (cols + pad[0] + pad[2]))) ||
+      ((i >= 0 && i < pad[1]) || (i >= (rows + pad[1]) && i < (rows + pad[1] + pad[3])))) {
+    return true;
+  } else {
+    return false;
+  }
+}

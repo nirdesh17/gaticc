@@ -73,6 +73,26 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
 
   /* TODO: add checks here if inputs is batched and matches expected dims */
   std::vector<Op::LayerBase *> order = parser.get_execution_order();
+
+  tensor_pool.free();
+  /* Implicit assumption here that the first layer's input is
+   * at VirtualAddress 0
+   */
+  tensor_pool.set<Tensor<inputT> *>(0, full_batch);
+
+  for (Op::LayerBase *l : order) {
+    print_extra_info(l);
+    l->dump_output = should_dump(l);
+    l->run(tensor_pool);
+
+    if (parser.has_graph_output(l)) {
+      Tensor<outputT> *out =
+          tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
+      write_model_output<outputT>(engine, out);
+    }
+  }
+
+#if 0
   int batch_size = full_batch->dims_at(0);
   for (int i = 0; i < batch_size; ++i) {
     std::cout << "Running input " << i << '\n';
@@ -96,6 +116,7 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
       }
     }
   }
+#endif
 }
 
 template <typename T>
