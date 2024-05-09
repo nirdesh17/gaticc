@@ -40,6 +40,8 @@
 #define I_RIGHT 2
 #define I_UP 1
 #define I_DOWN 3
+
+using TPDT = onnx::TensorProto_DataType;
  
 /* Onnx Parser external interface */
 namespace Op {
@@ -107,14 +109,16 @@ struct LayerBase {
 
   virtual void infer_shape(const std::vector<std::vector<int>>& input_dims);
 
+  virtual void infer_type();
+
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
 
   /* Assertion: A node may have many inputs/outputs but all of the
    * same type
    */
-  onnx::TensorProto_DataType input_type;
-  onnx::TensorProto_DataType output_type;
+  TPDT input_type;
+  TPDT output_type;
 
   /* Used by executor, decides whether current layer's output
    * should be dumped. Set by Executor::executor
@@ -341,9 +345,9 @@ bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g);
 void print_node(const LayerBase *node);
 void print_node(Op::Vertex v, const Op::Graph *g);
 Vertex get_root_node(const Op::Graph *g);
-const char *get_tensorproto_dtype_name(onnx::TensorProto_DataType type);
+const char *get_tensorproto_dtype_name(TPDT type);
 std::vector<int> get_tensorproto_shape(const onnx::TensorProto &t);
-onnx::TensorProto_DataType
+TPDT
 get_type_from_value_info(const onnx::ValueInfoProto &v);
 const onnx::TensorShapeProto &
 get_tensor_shape_proto(const onnx::ValueInfoProto &t);
@@ -352,7 +356,7 @@ bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
 std::vector<int> get_dims_from_value_info(const onnx::ValueInfoProto &v);
 std::vector<std::vector<int>> get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g);
 /* compare t1 and t2 */
-bool dtype_eq(int32_t t1, onnx::TensorProto_DataType t2);
+bool dtype_eq(int32_t t1, TPDT t2);
 
 inline int sa_odims_row(Op::ConvParams const &cp, const std::vector<int>& input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
@@ -400,7 +404,7 @@ class Model {
 public:
   void create_execution_order(void);
   void update_registers(void);
-  void deduce_types(const onnx::GraphProto &gproto);
+  void deduce_types();
 
   void save_graph_inputs(const onnx::ValueInfoProto &t);
   void save_graph_outputs(const onnx::ValueInfoProto &t);
@@ -443,16 +447,16 @@ class Parser {
   onnx::ModelProto *model_proto;
 
   /* Integer representing the type of a model */
-  onnx::TensorProto_DataType model_weight_type;
-  onnx::TensorProto_DataType model_input_type;
-  onnx::TensorProto_DataType model_output_type;
+  TPDT model_weight_type;
+  TPDT model_input_type;
+  TPDT model_output_type;
 
   void add_operator(onnx::NodeProto &node);
-  onnx::TensorProto_DataType
+  TPDT
   deduce_model_weight_type(const onnx::GraphProto &graph) const;
-  onnx::TensorProto_DataType
+  TPDT
   deduce_model_input_type(const onnx::GraphProto &graph) const;
-  onnx::TensorProto_DataType
+  TPDT
   deduce_model_output_type(const onnx::GraphProto &graph) const;
 
   void pass_save_graph_inputs(const onnx::GraphProto &graph);
@@ -467,9 +471,9 @@ public:
   void bare_summary(void) const;
   long time_estimate(int M, int N, int K) const;
   std::vector<LayerBase *> get_execution_order(void) const;
-  onnx::TensorProto_DataType get_model_weight_type(void) const;
-  onnx::TensorProto_DataType get_model_input_type(void) const;
-  onnx::TensorProto_DataType get_model_output_type(void) const;
+  TPDT get_model_weight_type(void) const;
+  TPDT get_model_input_type(void) const;
+  TPDT get_model_output_type(void) const;
   int get_total_registers(void) const;
   /* true if 'l' has an output that is also a graph_output */
   bool has_graph_output(Op::LayerBase *l) const;

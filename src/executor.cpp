@@ -50,11 +50,10 @@ void Executor::print_extra_info(const Op::LayerBase *l) {
 }
 
 Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
-  onnx::TensorProto_DataType weight_type = parser.get_model_weight_type();
-  onnx::TensorProto_DataType input_type = parser.get_model_input_type();
+  TPDT weight_type = parser.get_model_weight_type();
+  TPDT input_type = parser.get_model_input_type();
   /* TODO: fix this */
-  onnx::TensorProto_DataType output_type =
-      onnx::TensorProto_DataType_FLOAT; // parser.get_model_output_type();
+  TPDT output_type = parser.get_model_output_type();
 
   int total_regs = parser.get_total_registers() + 1;
   tensor_pool.resize(total_regs);

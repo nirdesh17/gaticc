@@ -47,6 +47,10 @@ void Op::LayerBase::infer_shape(const std::vector<std::vector<int>>& input_dims)
   log_fatal("Shape Inference Un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
+void Op::LayerBase::infer_type() {
+  log_fatal("Type inference un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+}
+
 /* Get a array of ints from attr and store into array */
 void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&
@@ -801,7 +805,7 @@ void Op::print_node(const LayerBase *node) {
             << Op::get_tensorproto_dtype_name(node->output_type) << '\n';
 }
 
-const char *Op::get_tensorproto_dtype_name(onnx::TensorProto_DataType type) {
+const char *Op::get_tensorproto_dtype_name(TPDT type) {
   switch (type) {
   case 0:
     return "UNDEFINED";
@@ -1000,7 +1004,31 @@ void Op::Model::deduce_shapes(const std::vector<int>& input_dims) {
 
 }
 
-void Op::Model::deduce_types(const onnx::GraphProto &gproto) {
+void Op::Model::deduce_types() {
+  std::queue<Op::Vertex> S;
+  Op::Graph gcopy = g;
+
+  auto vitr = boost::vertices(gcopy);
+  Op::Vertex v = *(vitr.first);
+  S.push(v);
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::LayerBase *l = gcopy[n];
+    l->infer_type();
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, gcopy);
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
+      boost::remove_edge(*itr, gcopy);
+      if (boost::in_degree(dest_vertex, gcopy) == 0) {
+        S.push(dest_vertex);
+      }
+    }
+  }
+#if 0
+  //TODO: remove this
   /* Iterate over all nodes, search for input and output
    * nodes that are not initializers, store their types
    * in LayerBase->*_type  */
@@ -1019,6 +1047,7 @@ void Op::Model::deduce_types(const onnx::GraphProto &gproto) {
                 l->name.c_str());
     }
   }
+#endif
 }
 
 void Op::Model::set_input_type(const onnx::NodeProto &node, Op::LayerBase *l) {
@@ -1067,7 +1096,7 @@ void Op::Model::set_output_type(const onnx::NodeProto &node, Op::LayerBase *l) {
   }
 }
 
-onnx::TensorProto_DataType
+TPDT
 Op::get_type_from_value_info(const onnx::ValueInfoProto &v) {
   if (!v.has_type()) {
     /* TODO: bug, last node's types are not being deduced */
@@ -1084,7 +1113,7 @@ Op::get_type_from_value_info(const onnx::ValueInfoProto &v) {
   if (!tensor.has_elem_type()) {
     log_fatal("tensor for graph's input does not have a elem_type");
   }
-  return static_cast<onnx::TensorProto_DataType>(tensor.elem_type());
+  return static_cast<TPDT>(tensor.elem_type());
 }
 
 const onnx::TensorShapeProto &
@@ -1162,8 +1191,8 @@ bool Op::is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
   return false;
 }
 
-bool Op::dtype_eq(int32_t t1, onnx::TensorProto_DataType t2) {
-    onnx::TensorProto_DataType ptr_dtype = static_cast<onnx::TensorProto_DataType>(t1);
+bool Op::dtype_eq(int32_t t1, TPDT t2) {
+    TPDT ptr_dtype = static_cast<TPDT>(t1);
     return ptr_dtype == t2;
 }
 
@@ -1256,7 +1285,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
 /* TODO: adding a TypeInfo to LayerBase would allow this to 
  * be much cleaner
  */
-onnx::TensorProto_DataType
+TPDT
 Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
   /* TODO: method of type deduction restricted to model that have atleast
    * one conv/gemm layer, make it generic. Try to find a sure fire way to
@@ -1269,21 +1298,21 @@ Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
       /* its a conv type, get the type of its initializer
        * Cast valid, as TensorProto_DataType is int32_t and
        * TensorProto::data_type() returns an int */
-      return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
+      return static_cast<TPDT>(cc->weights->data_type());
     } else if (dynamic_cast<Op::Layer::Gemm *>(i) != NULL) {
       Op::Layer::Gemm *cc = dynamic_cast<Op::Layer::Gemm *>(i);
-      return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
+      return static_cast<TPDT>(cc->weights->data_type());
     } else if (dynamic_cast<Op::Layer::MatMul *>(i) != NULL) {
       Op::Layer::MatMul *cc = dynamic_cast<Op::Layer::MatMul *>(i);
-      return static_cast<onnx::TensorProto_DataType>(cc->weights->data_type());
+      return static_cast<TPDT>(cc->weights->data_type());
     }
   }
   /* ideally shoudn't reach here */
   log_fatal("Could not deduce model type");
-  return static_cast<onnx::TensorProto_DataType>(0);
+  return static_cast<TPDT>(0);
 }
 
-onnx::TensorProto_DataType
+TPDT
 Op::Parser::deduce_model_input_type(const onnx::GraphProto &graph) const {
   // i is a RepeatedFieldPtr<ValueInfoProto>
   const auto &i = graph.input();
@@ -1301,13 +1330,13 @@ Op::Parser::deduce_model_input_type(const onnx::GraphProto &graph) const {
   if (!tensor.has_elem_type()) {
     log_fatal("tensor for graph's input does not have a elem_type");
   }
-  return static_cast<onnx::TensorProto_DataType>(
+  return static_cast<TPDT>(
       i.at(0).type().tensor_type().elem_type());
 }
 
-onnx::TensorProto_DataType
+TPDT
 Op::Parser::deduce_model_output_type(const onnx::GraphProto &graph) const {
-  return static_cast<onnx::TensorProto_DataType>(0);
+  return static_cast<TPDT>(0);
 }
 
 /* In onnx, all information relating to a node is not stored
@@ -1350,7 +1379,7 @@ Op::Parser::Parser(std::string const &filename) {
   this->model_input_type = deduce_model_input_type(m_graph);
   this->model_output_type = deduce_model_output_type(m_graph);
 
-  m_model.deduce_types(m_graph);
+  //m_model.deduce_types();
   /* first layer's input dims */
   std::vector<int> input_dims = get_dims_from_value_info(m_graph.input().at(0));
   m_model.deduce_shapes(input_dims);
@@ -1366,15 +1395,15 @@ std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const {
   return m_model.get_execution_order();
 }
 
-onnx::TensorProto_DataType Op::Parser::get_model_weight_type(void) const {
+TPDT Op::Parser::get_model_weight_type(void) const {
   return model_weight_type;
 }
 
-onnx::TensorProto_DataType Op::Parser::get_model_input_type(void) const {
+TPDT Op::Parser::get_model_input_type(void) const {
   return model_input_type;
 }
 
-onnx::TensorProto_DataType Op::Parser::get_model_output_type(void) const {
+TPDT Op::Parser::get_model_output_type(void) const {
   return model_output_type;
 }
 
