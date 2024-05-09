@@ -2,10 +2,13 @@ ROOT_DIR = .
 SRC_DIR = $(ROOT_DIR)/src
 OBJ_DIR = $(ROOT_DIR)/obj
 TEST_DIR = $(ROOT_DIR)/tests
+DEBUG = 1
 
 SRC_FILES = main.cpp sim.cpp ffi.cpp onnx_parser.cpp utils.cpp executor.cpp options.cpp tensor.cpp
 OBJ_FILES = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES)) $(OBJ_DIR)/onnx.pb.o
 LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
+
+REMOTE_COMPILE = 1
 
 PYTHON_VERSION=$(shell python3 -c 'import sys; vv = sys.version_info[:2]; sys.stdout.write(f"{vv[0]}.{vv[1]}")')
 
@@ -14,9 +17,17 @@ CXX = g++
 # Determine the operating system
 UNAME_S := $(shell uname -s)
 
-NUMPY_INSTALL_PATH = /usr/lib/python${PYTHON_VERSION}/site-packages/numpy/
+ifeq ($(REMOTE_COMPILE), 1)
+	NUMPY_INSTALL_PATH = /home/shreeyash/python/lib/python3.11/site-packages/numpy
+else
+	NUMPY_INSTALL_PATH = /usr/lib/python${PYTHON_VERSION}/site-packages/numpy/
+endif
 
-CXXFLAGS = -O3 -g -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
+ifeq ($(DEBUG), 1)
+	CXXFLAGS = -O3 -g -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
+else
+	CXXFLAGS = -O3 -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
+endif
 
 ifeq ($(UNAME_S),Darwin)
 	PROTOBUF_PATH_MAC = `brew info protobuf | grep -m 1 'Cellar' | cut -d " " -f 1`

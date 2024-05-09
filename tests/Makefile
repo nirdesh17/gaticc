@@ -7,8 +7,17 @@ TEST_TARGETS=3x3-3x3 5x3-3x3 1x1-1x1 5x7-7x7 10x10-10x10 \
 LIB_PATH=../libsim.a
 EXE_DIR=exe
 
+REMOTE_COMPILE = 1
+
 CXX = g++
-NUMPY_INSTALL_PATH = /usr/lib/python3.11/site-packages/numpy/
+
+ifeq ($(REMOTE_COMPILE), 1)
+	NUMPY_INSTALL_PATH = /home/shreeyash/python/lib/python3.11/site-packages/numpy
+else
+	NUMPY_INSTALL_PATH = /usr/lib/python${PYTHON_VERSION}/site-packages/numpy/
+endif
+
+NUMPY_INSTALL_PATH = /home/shreeyash/python/lib/python3.11/site-packages/numpy
 CXXFLAGS = -O3 -g -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
 PYTHONLIB = -lpython3.11
 PROTOLIB = -Wl,--copy-dt-needed-entries -lprotoc -lprotobuf -lpthread
