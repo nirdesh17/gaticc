@@ -830,9 +830,11 @@ void SA<inputT, outputT>::print_array() {
 template <typename T>
 void maxpool(Tensor<T> *input, Tensor<T> *output,
              const Op::MaxpoolParams &mp) {
-  int input_depth = input->dims_at(0);
-  int input_height = input->dims_at(1);
-  int input_width = input->dims_at(2);
+  int input_batch = input->dims_at(TENSOR_4D_BATCH);
+  int input_depth = input->dims_at(TENSOR_4D_CHANNELS);
+  int input_height = input->dims_at(TENSOR_4D_HEIGHT);
+  int input_width = input->dims_at(TENSOR_4D_WIDTH);
+  int output_batch = input_batch;
   int output_depth = input_depth;
   int output_height = mp_odims_row(mp, input->get_dims());
   int output_width = mp_odims_cols(mp, input->get_dims());
@@ -843,12 +845,12 @@ void maxpool(Tensor<T> *input, Tensor<T> *output,
         T max_val = std::numeric_limits<T>::min();
         for (int m = 0; m < mp.k[0]; ++m) {
           for (int n = 0; n < mp.k[1]; ++n) {
-            std::vector<int> at_itr ({d, i * mp.k[0] + m, j * mp.k[1] + n});
-            max_val = std::max(max_val, input->at(at_itr));
+            std::vector<int> in_index {input_batch-1, d, i * mp.k[0] + m, j * mp.k[1] + n};
+            max_val = std::max(max_val, input->at(in_index));
           }
-          std::vector<int> at_oitr ({d, i, j});
-          output->insert(at_oitr, max_val);
         }
+        std::vector<int> out_index {input_batch-1, d, i, j};
+        output->insert(out_index, max_val);
       }
     }
   }
@@ -859,109 +861,6 @@ void flatten(Tensor<T> *input, Tensor<T> *output) {
   std::vector<int> new_dims = {1, input->dims_iterator(-1)};
   *output = *input;
   output->set_dims(new_dims);
-}
-
-/* Vector Arrays 
- * Used by Gemm/Matmul routines */
-template <typename inputT, typename outputT> class VA {
-  int wrows;
-  int wcols;
-  int isize;
-  Tensor<inputT> *weights;
-  Tensor<inputT> *bias;
-  public:
-    VA(Op::Layer::Gemm &gp);
-    VA(Op::Layer::MatMul &gp);
-    void run(Tensor<inputT> *input, Tensor<outputT> *output);
-    ~VA() {
-      delete weights;
-      delete bias;
-    }
-};
-
-
-template <typename inputT, typename outputT>
-VA<inputT, outputT>::VA(Op::Layer::Gemm &gp) {
-  wrows = gp.m_cp.wr;
-  wcols = gp.m_cp.wc;
-  isize = gp.input_dims[TENSOR_2D_WIDTH];
-  weights = new TensorExtant<inputT>(gp.weights);
-  bias = new TensorExtant<inputT>(gp.bias);
-}
-
-template <typename inputT, typename outputT>
-VA<inputT, outputT>::VA(Op::Layer::MatMul &gp) {
-  wrows = gp.m_cp.wc;
-  wcols = gp.m_cp.wr;
-  isize = gp.input_dims[TENSOR_2D_WIDTH];
-  weights = new TensorExtant<inputT>(gp.weights);
-  bias = nullptr;
-}
-
-template <typename inputT, typename outputT>
-void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
-  assert(input->dims_size() == 2 && weights->dims_size() == 2);
-  //assert(input->dims_at(1) == weights->dims_at(0) && "non-matching matrix dimensions");
-
-  int N = input->dims_at(0);
-  int M = input->dims_at(1);
-  int K = weights->dims_at(1);
-  for (int i = 0; i < N; ++i) {
-    for (int j = 0; j < K; ++j) {
-      outputT dst = 0;
-      for (int k = 0; k < M; ++k) {
-        /* TODO: use Tensor->at that returns a reference and += operator
-         * part of tensor refactor
-         */
-        dst += input->at(i * M + k) * weights->at(k * K + j);
-      }
-      /* For gemm */
-      if (bias != nullptr) {
-        dst += bias->at(i*K + j);
-      }
-      output->set(i*K + j, dst);
-    }
-  }
-
-#if 0
-  for (int i = 0; i < wrows; ++i) {
-    outputT dst = 0;
-    for (int j = 0; j < wcols; ++j) {
-      dst += weights->at(i * wcols + j) * input->at(j);
-    }
-    if (bias != nullptr) {
-      dst += bias->at(i);
-    }
-    output->set(i, dst);
-  }
-#endif
-}
-
-/* Deduces and removes -1/0 from old_shape to return 
- * a correct new_shape.
- * See https://onnx.ai/onnx/operators/onnx__Reshape.html#reshape
- *
- * TODO: handle 0s in shape (does not do it presently)
- */
-inline std::vector<int64_t> deduce_new_shape(std::vector<int64_t> old_shape, int input_total_size) {
-  auto itr = std::find(old_shape.begin(), old_shape.end(), -1);
-  if (itr != old_shape.end()) {
-    int remaining_size = std::abs(prod(old_shape.begin(), old_shape.end(), 1));
-    assert(input_total_size % remaining_size == 0 && "unable to deduce new shape");
-    int remaining_dim = input_total_size / remaining_size;
-    *itr = remaining_dim; 
-  }
-  return old_shape;
-}
-
-template <typename T>
-void reshape(Tensor<T> *input, Tensor<T> *output, const std::vector<int64_t> &new_shape) {
-  /* atmost 1 dimension can be -1 */
-  std::vector<int64_t> deduced_shape = deduce_new_shape(new_shape, input->dims_iterator(-1));
-  *output = *input;
-  std::vector<int> dims (deduced_shape.size());
-  std::copy(deduced_shape.begin(), deduced_shape.end(), dims.begin());
-  output->set_dims(dims);
 }
 
 inline std::vector<int> permute(const std::vector<int> &v,
@@ -1032,19 +931,19 @@ template <typename T>
 void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
   // FIXME
   // i.e. the first dimension of input/output tensors are currently ignored.
-  if (perm.size() == input->dims_size() + 1) {
-    assert(perm.at(0) == 0);
-    /* Hack to turn the perm array to 3d
-     * because input tensors are 3d not 4d
-     * 1. remove first element (0th dimension)
-     * 2. subtract 1 from each dim */
-    perm.erase(perm.begin(), perm.begin() + 1);
-    for (int i = 0; i < perm.size(); ++i) {
-      perm.at(i) -= 1;
-    }
-  } else {
-    assert(input->dims_size() == perm.size());
-  }
+  //if (perm.size() == input->dims_size() + 1) {
+  //  assert(perm.at(0) == 0);
+  //  /* Hack to turn the perm array to 3d
+  //   * because input tensors are 3d not 4d
+  //   * 1. remove first element (0th dimension)
+  //   * 2. subtract 1 from each dim */
+  //  perm.erase(perm.begin(), perm.begin() + 1);
+  //  for (int i = 0; i < perm.size(); ++i) {
+  //    perm.at(i) -= 1;
+  //  }
+  //} else {
+  //  assert(input->dims_size() == perm.size());
+  //}
 
   output->set_dims(permute(input->get_dims(),  perm));
   std::valarray<int> ishape = vec2val(input->get_dims());
@@ -1068,6 +967,106 @@ void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
     increment_shape(ii, input->get_dims());
   }
 }
+
+/* Vector Arrays 
+ * Used by Gemm/Matmul routines */
+template <typename inputT, typename outputT> class VA {
+  int wrows;
+  int wcols;
+  int isize;
+  Tensor<inputT> *weights;
+  Tensor<inputT> *bias;
+  public:
+    VA(Op::Layer::Gemm &gp);
+    VA(Op::Layer::MatMul &gp);
+    void run(Tensor<inputT> *input, Tensor<outputT> *output);
+    ~VA() {
+      delete weights;
+      delete bias;
+    }
+};
+
+
+template <typename inputT, typename outputT>
+VA<inputT, outputT>::VA(Op::Layer::Gemm &gp) {
+  wrows = gp.m_cp.wr;
+  wcols = gp.m_cp.wc;
+  isize = gp.input_dims[TENSOR_2D_WIDTH];
+  if (gp.m_cp.transB) {
+    Tensor<inputT> *tmp = new TensorExtant<inputT>(gp.weights);
+    auto dims = tmp->get_dims();
+    std::vector<int> new_dims {dims[1], dims[0]};
+    weights = new TensorCreate<inputT>(new_dims);
+    transpose(tmp, weights, std::vector<int>{1, 0});
+    delete tmp;
+  } else {
+    weights = new TensorExtant<inputT>(gp.weights);
+  }
+  bias = new TensorExtant<inputT>(gp.bias);
+}
+
+template <typename inputT, typename outputT>
+VA<inputT, outputT>::VA(Op::Layer::MatMul &gp) {
+  wrows = gp.m_cp.wc;
+  wcols = gp.m_cp.wr;
+  isize = gp.input_dims[TENSOR_2D_WIDTH];
+  weights = new TensorExtant<inputT>(gp.weights);
+  bias = nullptr;
+}
+
+template <typename inputT, typename outputT>
+void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
+  assert(input->dims_size() == 2 && weights->dims_size() == 2);
+  //assert(input->dims_at(1) == weights->dims_at(0) && "non-matching matrix dimensions");
+
+  int N = input->dims_at(0);
+  int M = input->dims_at(1);
+  int K = weights->dims_at(1);
+  for (int i = 0; i < N; ++i) {
+    for (int j = 0; j < K; ++j) {
+      outputT dst = 0;
+      for (int k = 0; k < M; ++k) {
+        /* TODO: use Tensor->at that returns a reference and += operator
+         * part of tensor refactor
+         */
+        dst += input->at(i * M + k) * weights->at(k * K + j);
+      }
+      /* For gemm */
+      if (bias != nullptr) {
+        dst += bias->at(i*K + j);
+      }
+      output->set(i*K + j, dst);
+    }
+  }
+}
+
+/* Deduces and removes -1/0 from old_shape to return 
+ * a correct new_shape.
+ * See https://onnx.ai/onnx/operators/onnx__Reshape.html#reshape
+ *
+ * TODO: handle 0s in shape (does not do it presently)
+ */
+inline std::vector<int64_t> deduce_new_shape(std::vector<int64_t> old_shape, int input_total_size) {
+  auto itr = std::find(old_shape.begin(), old_shape.end(), -1);
+  if (itr != old_shape.end()) {
+    int remaining_size = std::abs(prod(old_shape.begin(), old_shape.end(), 1));
+    assert(input_total_size % remaining_size == 0 && "unable to deduce new shape");
+    int remaining_dim = input_total_size / remaining_size;
+    *itr = remaining_dim; 
+  }
+  return old_shape;
+}
+
+template <typename T>
+void reshape(Tensor<T> *input, Tensor<T> *output, const std::vector<int64_t> &new_shape) {
+  /* atmost 1 dimension can be -1 */
+  std::vector<int64_t> deduced_shape = deduce_new_shape(new_shape, input->dims_iterator(-1));
+  *output = *input;
+  std::vector<int> dims (deduced_shape.size());
+  std::copy(deduced_shape.begin(), deduced_shape.end(), dims.begin());
+  output->set_dims(dims);
+}
+
 
 
 /* Element wise tensor addition */
@@ -1108,6 +1107,8 @@ template <typename inputT, typename outputT> class ConvEngine {
   Tensor<inputT> *weights;
   Tensor<outputT> *bias;
 
+  void _kernel(int k, const Tensor<inputT> *input, Tensor<outputT> *output);
+
 public:
   ConvEngine(const Op::Layer::Conv *cc);
   ~ConvEngine();
@@ -1121,7 +1122,8 @@ ConvEngine<inputT, outputT>::ConvEngine(const Op::Layer::Conv *cc) : cc{cc} {
 }
 
 template <typename inputT, typename outputT>
-void ConvEngine<inputT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
+void ConvEngine<inputT, outputT>::_kernel(int k, const Tensor<inputT> *input,
+                                          Tensor<outputT> *output) {
   int kn = cc->m_cp.kn;
   int ic = input->dims_at(TENSOR_4D_CHANNELS);
   int oh = output->dims_at(TENSOR_4D_HEIGHT);
@@ -1129,39 +1131,48 @@ void ConvEngine<inputT, outputT>::run(const Tensor<inputT> *input, Tensor<output
   int kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
   int kw = cc->m_cp.k[TENSOR_2D_WIDTH];
 
-  const int *pad = cc->m_cp.pad;
-  std::vector<int> pad_vec{pad[0], pad[1], pad[2], pad[3]};
-  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec);
-
-  printf("k %d, ic %d, ohi,owi %d,%d, khi,kwi "
-         "%d,%d\n",
-         kn, ic, oh, ow, kh, kw);
-  for (int k = 0; k < kn; ++k) {
-    for (int ici = 0; ici < ic; ++ici) {
-      for (int ohi = 0; ohi < oh; ++ohi) {
-        for (int owi = 0; owi < ow; ++owi) {
-          for (int khi = 0; khi < kh; ++khi) {
-            for (int kwi = 0; kwi < kw; ++kwi) {
-              //printf("k %d, ici %d, ohi,owi %d,%d, ihi,iwi %d,%d, khi,kwi"
-              //       "%d,%d\n",
-              //       k, ici, ohi, owi, ohi + khi, owi + kwi, khi, kwi);
-              std::vector<int> out_index{0, k, ohi, owi};
-              std::vector<int> in_index{0, ici, ohi + khi, owi + kwi};
-              std::vector<int> w_index{k, ici, khi, kwi};
-              // print_vec("output dims", output->get_dims());
-              // print_vec("out_index", out_index);
-              outputT val = output->at(out_index);
-              // print_vec("input dims", input->get_dims());
-              // print_vec("in index", in_index);
-              //std::cout << "in : " <<  padded_input->at(in_index) << ' ' << "weigth " << weights->at(w_index) << '\n';
-              outputT val2 = padded_input->at(in_index) * weights->at(w_index);
-              //std::cout  << "v1 " << " v2 " << val << ' ' << val2 << '\n';
-              output->insert(out_index, val + val2);
-            }
+  for (int ici = 0; ici < ic; ++ici) {
+    for (int ohi = 0; ohi < oh; ++ohi) {
+      for (int owi = 0; owi < ow; ++owi) {
+        for (int khi = 0; khi < kh; ++khi) {
+          for (int kwi = 0; kwi < kw; ++kwi) {
+            // printf("k %d, ici %d, ohi,owi %d,%d, ihi,iwi %d,%d, khi,kwi"
+            //        "%d,%d\n",
+            //        k, ici, ohi, owi, ohi + khi, owi + kwi, khi, kwi);
+            std::vector<int> out_index{0, k, ohi, owi};
+            std::vector<int> in_index{0, ici, ohi + khi, owi + kwi};
+            std::vector<int> w_index{k, ici, khi, kwi};
+            // print_vec("output dims", output->get_dims());
+            // print_vec("out_index", out_index);
+            outputT val = output->at(out_index);
+            // print_vec("input dims", input->get_dims());
+            // print_vec("in index", in_index);
+            // std::cout << "in : " <<  padded_input->at(in_index) << ' ' <<
+            // "weigth " << weights->at(w_index) << '\n';
+            outputT val2 = input->at(in_index) * weights->at(w_index);
+            // std::cout  << "v1 " << " v2 " << val << ' ' << val2 << '\n';
+            output->insert(out_index, val + val2);
           }
         }
       }
     }
+  }
+}
+
+template <typename inputT, typename outputT>
+void ConvEngine<inputT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
+  int kn = cc->m_cp.kn;
+
+  const int *pad = cc->m_cp.pad;
+  std::vector<int> pad_vec{pad[0], pad[1], pad[2], pad[3]};
+  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec);
+
+  std::vector<std::thread> tc;
+  for (int k = 0; k < kn; ++k) {
+    tc.push_back(std::thread(&ConvEngine<inputT,outputT>::_kernel, this, k, padded_input, output));
+  }
+  for (int k = 0; k < kn; ++k) {
+    tc[k].join();
   }
 }
 

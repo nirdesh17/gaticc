@@ -7,6 +7,7 @@
 #include <vector>
 
 /* TODO: iterator mechanism for tensors
+ * TODO: destructors
  */
 
 /* A general purpose interface to an n-dimensional tensor
@@ -227,6 +228,7 @@ bool TensorExtant<T>::freeable() const {
 
 template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
+  std::vector<int> stride;
   std::vector<T> vec;
 public:
   TensorCreate() = delete;
@@ -234,20 +236,21 @@ public:
   TensorCreate(std::vector<T> const &v, std::vector<int> const &dim) {
     dims = dim;
     vec = v;
+    stride = get_stride_from_shape(dim);
   }
 
   TensorCreate(std::vector<int> const &dim) {
     dims = dim;
     vec.resize(dims_iterator(-1), 0);
+    stride = get_stride_from_shape(dim);
   }
 
   T at(std::vector<int> &at) const override {
     assert(at.size() == dims.size());
-
     int sum = 0;
     for (int i = 0; i < at.size(); i++) {
       assert(at[i] <= dims[i]);
-      sum = sum + at[i] * dims_iterator(i);
+      sum += at[i] * stride[i];
     }
     return vec.at(sum);
   }
@@ -274,7 +277,7 @@ public:
     int sum = 0;
     for (int i = 0; i < at.size(); i++) {
       assert(at[i] <= dims[i]);
-      sum = sum + at[i] * dims_iterator(i);
+      sum += at[i] * stride[i];
     }
     vec[sum] = data;
   }

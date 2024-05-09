@@ -11,15 +11,16 @@
 #include <iostream>
 #include <typeinfo>
 #include <vector>
+#include <cstring>
 
 void Executor::configure_dump_options() {
   dump_options.dump_all = false;
   dump_options.dump_none = false;
   if (gbl_args.has_option("dump-output")) {
     std::string arg = gbl_args["dump-output"].as<std::string>();
-    if (arg == "all") {
+    if (strcmp(arg.c_str(), "all") == 0) {
       dump_options.dump_all = true;
-    } else if (arg == "none") {
+    } else if (strcmp(arg.c_str(), "none") == 0) {
       dump_options.dump_none = true;
     } else {
       dump_options.dump_candidates = parse_csv_string<std::string>(arg);
@@ -98,7 +99,7 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   ConvEngine<inputT, outputT> cc_engine(cc);
   cc_engine.run(input, output);
   tt.stop();
-  output->print();
+  tt.report("Time taken: ");
 
   if (l->dump_output) {
     output->print();
@@ -166,16 +167,11 @@ void Op::Layer::Relu::run(TensorPool &tensor_pool) {
 template <typename T>
 void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Maxpool *cc = dynamic_cast<Op::Layer::Maxpool *>(l);
-
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
-
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-
-  std::vector<int> ofmap_dims{input->dims_at(0), input->dims_at(1) / 2,
-                              input->dims_at(2) / 2};
-  Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   maxpool<T>(input, output, cc->m_cp);
   if (l->dump_output) {
@@ -324,7 +320,7 @@ void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
 
-  Tensor<T> *output = new TensorCreate<T>(input->get_dims());
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
   int negative_ones =

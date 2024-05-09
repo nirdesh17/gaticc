@@ -69,7 +69,7 @@ Op::Layer::Conv::Conv() {
 
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
 const char *Op::Layer::Conv::params() const {
-  static char ret[128];
+  static char ret[256];
   sprintf(ret, "(IW,IH: %d,%d), (KN,IC,KW,KH: %d,%d,%d,%d), (S,P,D: %d,%d,%d)",
           this->input_dims[TENSOR_4D_WIDTH], this->input_dims[TENSOR_4D_HEIGHT],
           m_cp.kn, this->input_dims[TENSOR_4D_CHANNELS], m_cp.k[TENSOR_2D_WIDTH], m_cp.k[TENSOR_2D_HEIGHT],
@@ -176,7 +176,7 @@ Op::Layer::Gemm::Gemm() { m_cp = {};
 }
 const char *Op::Layer::Gemm::op_type() const { return m_optype; }
 const char *Op::Layer::Gemm::params() const {
-  static char ret[64];
+  static char ret[128];
   sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d alpha,beta,transA,transB: %f,%f,%d,%d",
           this->input_dims[TENSOR_2D_HEIGHT], this->input_dims[TENSOR_2D_WIDTH],
           m_cp.wr, m_cp.wc, m_cp.alpha, m_cp.beta, m_cp.transA, m_cp.transB);
@@ -231,20 +231,19 @@ void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
 
 void Op::Layer::Gemm::infer_shape(const std::vector<std::vector<int>> &input_dims) {
   assert(input_dims.size() >= 1);
-
   assert(input_dims[0].size() == 2);
   this->input_dims = input_dims[0];
-  /* TODO: this should be the same for all matmul types (should
-   * use this->m_cp.wr, different because vgg use transB = 1. fix
-   * this by creating a fake transpose over TensorExtant as it
-   * can't do real transpose (no writes) */
-  //print_vec("input_dims", input_dims[0]);
-  std::cout << this->params() << '\n';
-  assert(input_dims[0].at(1) == this->m_cp.wc &&
-         "Gemm, matrix dimensions do not match");
   this->output_dims.resize(2);
   this->output_dims.at(0) = input_dims[0].at(0);
-  this->output_dims.at(1) = this->m_cp.wr;
+  if (m_cp.transB) {
+    assert(input_dims[0].at(1) == this->m_cp.wc &&
+           "Gemm, matrix dimensions do not match");
+    this->output_dims.at(1) = this->m_cp.wr;
+  } else {
+    assert(input_dims[0].at(1) == this->m_cp.wr &&
+           "Gemm, matrix dimensions do not match");
+    this->output_dims.at(1) =this->m_cp.wc;
+  }
 }
 
 Op::Layer::Maxpool::Maxpool() {
@@ -990,11 +989,8 @@ void Op::Model::deduce_shapes(const std::vector<int>& input_dims) {
     auto out_edges = boost::out_edges(n, gcopy);
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
       Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      //print_vec("Input to layer ", l->input_dims);
-      std::cout << gcopy[dest_vertex]->name << '\n';
       auto in_dims = Op::get_dims_of_in_edges(dest_vertex, gcopy);
       gcopy[dest_vertex]->infer_shape(in_dims);
-      //print_vec("Input to layer ", l->input_dims);
       boost::remove_edge(*itr, gcopy);
       if (boost::in_degree(dest_vertex, gcopy) == 0) {
         S.push(dest_vertex);
@@ -1241,10 +1237,6 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "QuantizeLinear") {
     m_model.add(new Op::Layer::QuantizeLinear(), node);
   } else if (opt == "QLinearConv") {
-    /* TODO: get scale values and add QunatizeLinear nodes
-     * there
-     * better to not use Conv at all
-     */
     m_model.add(new Op::Layer::Conv(), node);
   } else if (opt == "DequantizeLinear") {
     m_model.add(new Op::Layer::DequantizeLinear(), node);
