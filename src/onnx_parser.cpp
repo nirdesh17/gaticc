@@ -196,19 +196,19 @@ void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
 void Op::Layer::Gemm::set_attributes(const onnx::NodeProto &node) {
   const auto &attribute = node.attribute();
   for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
-    if (itr->name() == std::string("alpha")) {
+    if (itr->name() == "alpha") {
       if (itr->has_f()) {
         m_cp.alpha = itr->f();
       }
-    } else if (itr->name() == std::string("beta")) {
+    } else if (itr->name() == "beta") {
       if (itr->has_f()) {
         m_cp.beta = itr->f();
       }
-    } else if (itr->name() == std::string("transA")) {
+    } else if (itr->name() == "transA") {
       if (itr->has_i()) {
         m_cp.transA = itr->i();
       }
-    } else if (itr->name() == std::string("transB")) {
+    } else if (itr->name() == "transB") {
       if (itr->has_i()) {
         m_cp.transB = itr->i();
       }
