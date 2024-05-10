@@ -327,6 +327,12 @@ void Op::Layer::Maxpool::infer_shape(const std::vector<std::vector<int>>& input_
   this->output_dims[3] = mp_odims_cols(this->m_cp, input_dims[0]);
 }
 
+void Op::Layer::Maxpool::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
 const char *Op::Layer::Flatten::op_type() const { return m_optype; }
 
 void Op::Layer::Flatten::infer_shape(const std::vector<std::vector<int>>& input_dims) {
@@ -336,6 +342,12 @@ void Op::Layer::Flatten::infer_shape(const std::vector<std::vector<int>>& input_
   this->output_dims.resize(2);
   this->output_dims.at(0) = 1;
   this->output_dims.at(1) = total_elements;
+}
+
+void Op::Layer::Flatten::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
 }
 
 Op::Layer::Dropout::Dropout() { drop = 0.f; }
@@ -797,6 +809,12 @@ void Op::Layer::QLinearMatMul::infer_shape(const std::vector<std::vector<int>>& 
   this->output_dims.at(1) =this->m_cp.wc;
 }
 
+void Op::Layer::QLinearMatMul::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
 const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
 
 void Op::Layer::QLinearAdd::set_initializer_params(int n, const onnx::TensorProto &t) {
@@ -817,6 +835,12 @@ void Op::Layer::QLinearAdd::infer_shape(const std::vector<std::vector<int>>& inp
   this->output_dims.resize(2);
   this->output_dims.at(0) = input_dims[0].at(0);
   this->output_dims.at(1) = input_dims[0].at(1);
+}
+
+void Op::Layer::QLinearAdd::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
 }
 
 const char *Op::Layer::Transpose::op_type() const { return m_optype; }
@@ -1267,12 +1291,14 @@ void Op::Model::deduce_shapes(const std::vector<int>& input_dims) {
 
 }
 
-void Op::Model::deduce_types() {
+void Op::Model::deduce_types(const std::vector<TPDT>& input_types) {
   std::queue<Op::Vertex> S;
   Op::Graph gcopy = g;
 
   auto vitr = boost::vertices(gcopy);
   Op::Vertex v = *(vitr.first);
+  /* set first layer's input dims */
+  gcopy[v]->infer_type(input_types);
   S.push(v);
 
   while (!S.empty()) {
@@ -1283,6 +1309,8 @@ void Op::Model::deduce_types() {
     auto out_edges = boost::out_edges(n, gcopy);
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
       Op::Vertex dest_vertex = boost::target(*itr, gcopy);
+      auto in_types = Op::get_types_of_in_edges(dest_vertex, gcopy);
+      gcopy[dest_vertex]->infer_type(in_types);
       boost::remove_edge(*itr, gcopy);
       if (boost::in_degree(dest_vertex, gcopy) == 0) {
         S.push(dest_vertex);
@@ -1418,11 +1446,17 @@ std::vector<std::vector<int>> Op::get_dims_of_in_edges(Op::Vertex v, const Op::G
   auto in_edges = boost::in_edges(v, g);
   for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
     Op::Vertex src_vertex = boost::source(*itr, g);
-    if (strcmp(g[v]->op_type(), "Add") == 0) {
-      std::cout << g[src_vertex]->name << '\n';
-      print_vec("output dims ", g[src_vertex]->output_dims);
-    }
     ret.push_back(g[src_vertex]->output_dims);
+  }
+  return ret;
+}
+
+std::vector<TPDT> Op::get_types_of_in_edges(Op::Vertex v, const Op::Graph &g) {
+  std::vector<TPDT> ret;
+  auto in_edges = boost::in_edges(v, g);
+  for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
+    Op::Vertex src_vertex = boost::source(*itr, g);
+    ret.push_back(g[src_vertex]->output_type);
   }
   return ret;
 }
@@ -1544,63 +1578,6 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   }
 }
 
-/* TODO: adding a TypeInfo to LayerBase would allow this to 
- * be much cleaner
- */
-TPDT
-Op::Parser::deduce_model_weight_type(const onnx::GraphProto &graph) const {
-  /* TODO: method of type deduction restricted to model that have atleast
-   * one conv/gemm layer, make it generic. Try to find a sure fire way to
-   * deduce an onnx model's type
-   */
-  auto order = this->get_execution_order();
-  for (Op::LayerBase *i : order) {
-    if (dynamic_cast<Op::Layer::Conv *>(i) != NULL) {
-      Op::Layer::Conv *cc = dynamic_cast<Op::Layer::Conv *>(i);
-      /* its a conv type, get the type of its initializer
-       * Cast valid, as TensorProto_DataType is int32_t and
-       * TensorProto::data_type() returns an int */
-      return static_cast<TPDT>(cc->weights->data_type());
-    } else if (dynamic_cast<Op::Layer::Gemm *>(i) != NULL) {
-      Op::Layer::Gemm *cc = dynamic_cast<Op::Layer::Gemm *>(i);
-      return static_cast<TPDT>(cc->weights->data_type());
-    } else if (dynamic_cast<Op::Layer::MatMul *>(i) != NULL) {
-      Op::Layer::MatMul *cc = dynamic_cast<Op::Layer::MatMul *>(i);
-      return static_cast<TPDT>(cc->weights->data_type());
-    }
-  }
-  /* ideally shoudn't reach here */
-  log_fatal("Could not deduce model type");
-  return static_cast<TPDT>(0);
-}
-
-TPDT
-Op::Parser::deduce_model_input_type(const onnx::GraphProto &graph) const {
-  // i is a RepeatedFieldPtr<ValueInfoProto>
-  const auto &i = graph.input();
-  if (i.size() < 1) {
-    log_fatal("graph has no inputs");
-  }
-  if (!i.at(0).has_type()) {
-    log_fatal("graph input's valueinfoproto does not have a data type");
-  }
-  const onnx::TypeProto &type = i.at(0).type();
-  if (!type.has_tensor_type()) {
-    log_fatal("input to the graph is not a a TensorType");
-  }
-  const onnx::TypeProto_Tensor &tensor = type.tensor_type();
-  if (!tensor.has_elem_type()) {
-    log_fatal("tensor for graph's input does not have a elem_type");
-  }
-  return static_cast<TPDT>(
-      i.at(0).type().tensor_type().elem_type());
-}
-
-TPDT
-Op::Parser::deduce_model_output_type(const onnx::GraphProto &graph) const {
-  return static_cast<TPDT>(0);
-}
-
 /* In onnx, all information relating to a node is not stored
  * in one place. Actual kernels are stored in initializers (TensorProto),
  * i/o shapes are stored in valueinfo, static shapes are stored in
@@ -1641,7 +1618,11 @@ Op::Parser::Parser(std::string const &filename) {
   //this->model_input_type = deduce_model_input_type(m_graph);
   //this->model_output_type = deduce_model_output_type(m_graph);
 
-  //m_model.deduce_types();
+  std::vector<TPDT> input_types;
+  for (const auto& i: m_graph.input()) {
+    input_types.push_back(get_type_from_value_info(i));
+  }
+  m_model.deduce_types(input_types);
   /* first layer's input dims */
   std::vector<int> input_dims = get_dims_from_value_info(m_graph.input().at(0));
   m_model.deduce_shapes(input_dims);
@@ -1657,16 +1638,14 @@ std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const {
   return m_model.get_execution_order();
 }
 
-TPDT Op::Parser::get_model_weight_type(void) const {
-  return model_weight_type;
-}
-
 TPDT Op::Parser::get_model_input_type(void) const {
-  return model_input_type;
+  std::vector<Op::LayerBase*> order = get_execution_order();
+  return order.at(0)->input_type;
 }
 
 TPDT Op::Parser::get_model_output_type(void) const {
-  return model_output_type;
+  std::vector<Op::LayerBase*> order = get_execution_order();
+  return order.at(order.size()-1)->output_type;
 }
 
 /* get the maximum register that was ever used in the

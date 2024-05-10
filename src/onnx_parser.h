@@ -201,6 +201,7 @@ struct Maxpool : public LayerBase {
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct Flatten : public LayerBase {
@@ -208,6 +209,7 @@ struct Flatten : public LayerBase {
   const char *op_type() const override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct Dropout : public LayerBase {
@@ -333,6 +335,7 @@ struct QLinearMatMul : public LayerBase {
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct QLinearAdd : public LayerBase {
@@ -341,6 +344,7 @@ struct QLinearAdd : public LayerBase {
   const char *op_type() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct Transpose : public LayerBase {
@@ -391,6 +395,7 @@ bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
                            int expected_dims);
 std::vector<int> get_dims_from_value_info(const onnx::ValueInfoProto &v);
 std::vector<std::vector<int>> get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g);
+std::vector<TPDT> get_types_of_in_edges(Op::Vertex v, const Op::Graph &g);
 /* compare t1 and t2 */
 bool dtype_eq(int32_t t1, TPDT t2);
 
@@ -440,7 +445,8 @@ class Model {
 public:
   void create_execution_order(void);
   void update_registers(void);
-  void deduce_types();
+  void deduce_types(const std::vector<TPDT>& input_types);
+  void deduce_shapes(const std::vector<int>& input_dims);
 
   void save_graph_inputs(const onnx::ValueInfoProto &t);
   void save_graph_outputs(const onnx::ValueInfoProto &t);
@@ -473,7 +479,6 @@ public:
   /* true if 'l' has an output that is also a graph_output */
   bool has_graph_output(Op::LayerBase *l) const;
   
-  void deduce_shapes(const std::vector<int>& input_dims);
 };
 
 class Parser {
@@ -482,19 +487,7 @@ class Parser {
   google::protobuf::Arena arena;
   onnx::ModelProto *model_proto;
 
-  /* Integer representing the type of a model */
-  TPDT model_weight_type;
-  TPDT model_input_type;
-  TPDT model_output_type;
-
   void add_operator(onnx::NodeProto &node);
-  TPDT
-  deduce_model_weight_type(const onnx::GraphProto &graph) const;
-  TPDT
-  deduce_model_input_type(const onnx::GraphProto &graph) const;
-  TPDT
-  deduce_model_output_type(const onnx::GraphProto &graph) const;
-
   void pass_save_graph_inputs(const onnx::GraphProto &graph);
   void pass_save_graph_outputs(const onnx::GraphProto &graph);
   void pass_save_value_infos(const onnx::GraphProto &graph);
@@ -507,7 +500,6 @@ public:
   void bare_summary(void) const;
   long time_estimate(int M, int N, int K) const;
   std::vector<LayerBase *> get_execution_order(void) const;
-  TPDT get_model_weight_type(void) const;
   TPDT get_model_input_type(void) const;
   TPDT get_model_output_type(void) const;
   int get_total_registers(void) const;

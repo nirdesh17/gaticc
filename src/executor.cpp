@@ -50,9 +50,7 @@ void Executor::print_extra_info(const Op::LayerBase *l) {
 }
 
 Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
-  TPDT weight_type = parser.get_model_weight_type();
   TPDT input_type = parser.get_model_input_type();
-  /* TODO: fix this */
   TPDT output_type = parser.get_model_output_type();
 
   int total_regs = parser.get_total_registers() + 1;
