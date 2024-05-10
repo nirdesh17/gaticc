@@ -37,7 +37,7 @@
 
 const char *Op::LayerBase::op_type() const { return "(null)"; }
 const char *Op::LayerBase::params() const { return "(null)"; }
-void Op::LayerBase::set_initializer_params(const onnx::TensorProto &t) {}
+void Op::LayerBase::set_initializer_params(int n, const onnx::TensorProto &t) {}
 void Op::LayerBase::set_value_info_params(const onnx::ValueInfoProto &t) {}
 void Op::LayerBase::run(TensorPool &tensor_pool) {
   log_fatal("No overrides present for this layer %s: %s", this->op_type(), name.c_str());
@@ -83,7 +83,7 @@ const char *Op::Layer::Conv::params() const {
   return ret;
 }
 
-void Op::Layer::Conv::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::Conv::set_initializer_params(int n, const onnx::TensorProto &t) {
   if (t.dims_size() == CONV_WEIGHT_TENSOR_DIMS) {
     m_cp.kn = t.dims()[0];
     m_cp.k[0] = t.dims()[2];
@@ -194,7 +194,7 @@ const char *Op::Layer::Gemm::params() const {
   return ret;
 }
 
-void Op::Layer::Gemm::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::Gemm::set_initializer_params(int n, const onnx::TensorProto &t) {
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
     m_cp.wc = t.dims()[1];
@@ -346,7 +346,7 @@ const char *Op::Layer::Dropout::params() const {
   return ret;
 }
 
-void Op::Layer::Dropout::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::Dropout::set_initializer_params(int n, const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     this->drop = t.float_data()[0];
   }
@@ -364,7 +364,7 @@ Op::Layer::Add::Add() {
 
 const char *Op::Layer::Add::op_type() const { return m_optype; }
 
-void Op::Layer::Add::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::Add::set_initializer_params(int n, const onnx::TensorProto &t) {
   addend = &t;
 }
 
@@ -422,7 +422,7 @@ const char *Op::Layer::Reshape::params() const {
   return ret;
 }
 
-void Op::Layer::Reshape::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::Reshape::set_initializer_params(int n, const onnx::TensorProto &t) {
   if (t.dims_size() != 1) {
     log_fatal("New shape expected to be a linear vector, got vector of size %d for"
         " tensor %s", t.dims_size(), t.name().c_str());
@@ -466,7 +466,7 @@ const char *Op::Layer::DequantizeLinear::params() const {
   return ret;
 }
 
-void Op::Layer::DequantizeLinear::set_initializer_params(
+void Op::Layer::DequantizeLinear::set_initializer_params(int n,
     const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
@@ -533,7 +533,7 @@ const char *Op::Layer::QuantizeLinear::params() const {
   return ret;
 }
 
-void Op::Layer::QuantizeLinear::set_initializer_params(
+void Op::Layer::QuantizeLinear::set_initializer_params(int n, 
     const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
@@ -606,6 +606,156 @@ void Op::Layer::QuantizeLinear::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
+Op::Layer::QLinearConv::QLinearConv() {
+  /* zero initialize */
+  m_cp = {};
+  /* overwrite with sane defaults */
+  m_cp.stride[TENSOR_2D_HEIGHT]   = 1;
+  m_cp.stride[TENSOR_2D_WIDTH]    = 1;
+  m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
+  m_cp.dilation[TENSOR_2D_WIDTH]  = 1;
+}
+
+const char *Op::Layer::QLinearConv::op_type() const { return m_optype; }
+const char *Op::Layer::QLinearConv::params() const {
+  static char ret[512];
+  std::memset(ret, '\0', 512);
+
+  std::stringstream ss;
+  ss << "(IW,IH: " << this->input_dims[TENSOR_4D_WIDTH] << ","
+     << this->input_dims[TENSOR_4D_HEIGHT] << ") "
+     << "(KN,IC,KH,KW: " << m_cp.kn << ","
+     << this->input_dims[TENSOR_4D_CHANNELS] << "," << m_cp.k[TENSOR_2D_WIDTH]
+     << "," << m_cp.k[TENSOR_2D_HEIGHT] << ") "
+     << "(S,P,D: " << m_cp.stride[TENSOR_2D_WIDTH] << "," << m_cp.pad[I_LEFT]
+     << "," << m_cp.dilation[TENSOR_2D_WIDTH] << ") ";
+
+  /* store scales */
+  ss << "x_scale: ";
+  for (int i = 0; i < x_scale.size(); ++i) {
+    if (i > 2) {
+      ss << "...";
+      break;
+    }
+    ss << x_scale[i] << ' ';
+  }
+  ss << "x_zero_point: ";
+  std::cout << "zp size " << x_zero_point.size() << (uint8_t) std::get<uint8_t>(x_zero_point[0]) << '\n';
+  for (int i = 0; i < x_zero_point.size(); ++i) {
+    if (i > 2) {
+      ss << "...";
+      break;
+    }
+    if (std::holds_alternative<int8_t>(x_zero_point[i])) {
+      ss << (int) std::get<int8_t>(x_zero_point[i]) << ' ';
+    } else if (std::holds_alternative<uint8_t>(x_zero_point[i])) {
+      ss << (int) std::get<uint8_t>(x_zero_point[i]) << ' ';
+    } else {
+      log_fatal("cant get type for x_zero_point");
+    }
+  }
+  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  return ret;
+}
+
+enum QLC_INITIALIZERS {
+  QLC_X_SCALE = 1,
+  QLC_X_ZERO_POINT = 2,
+  QLC_W = 3,
+  QLC_W_SCALE = 4,
+  QLC_W_ZERO_POINT = 5,
+  QLC_Y_SCALE = 6,
+  QLC_Y_ZERO_POINT = 7,
+  QLC_B = 8
+};
+
+void Op::Layer::QLinearConv::set_initializer_params(int n, const onnx::TensorProto &t) {
+  switch (n) {
+    case QLC_X_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        x_scale.push_back(i);
+      }
+      break;
+    case QLC_X_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        x_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        x_zero_point.push_back((int8_t) t.int32_data(0));
+      }
+      break;
+    case QLC_W:
+      m_cp.kn = t.dims()[0];
+      m_cp.k[0] = t.dims()[2];
+      m_cp.k[1] = t.dims()[3];
+      weights = &t;
+      break;
+    case QLC_W_SCALE:
+      /* TODO: store this too? */
+      break;
+    case QLC_W_ZERO_POINT:
+      /* TODO: store this too? */
+      break;
+    case QLC_Y_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        y_scale.push_back(i);
+      }
+      break;
+    case QLC_Y_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        y_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        y_zero_point.push_back((int8_t) t.int32_data(0));
+      }
+      break;
+    case QLC_B:
+      bias = &t;
+      break;
+    default:
+      log_fatal("unknown initializer for layer %s", this->name.c_str());
+      break;
+  }
+}
+
+void Op::Layer::QLinearConv::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "kernel_shape") {
+      assert(itr->ints().size() == 2 &&
+             "expected kernel shape to be 2 integers");
+      parse_onnx_ints(*itr, m_cp.k);
+    } else if (itr->name() == "strides") {
+      assert(itr->ints().size() == 2 &&
+             "expected strides shape to be 2 integers");
+      parse_onnx_ints(*itr, m_cp.stride);
+    } else if (itr->name() == "pads") {
+      assert(itr->ints().size() == 4 && "expected pads shape to be 4 integers");
+      parse_onnx_ints(*itr, m_cp.pad);
+    } else if (itr->name() == "dilations") {
+      assert(itr->ints().size() == 2 && "expected dilations to be 2 integers");
+      parse_onnx_ints(*itr, m_cp.dilation);
+    }
+  }
+}
+
+void Op::Layer::QLinearConv::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims[0];
+  assert(input_dims[0].size() == 4); // NCHW
+  this->output_dims.resize(4);
+  this->output_dims[0] = input_dims[0][0];
+  this->output_dims[1] = this->m_cp.kn;
+  this->output_dims[2] = sa_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[3] = sa_odims_cols(this->m_cp, input_dims[0]);
+}
+
+void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
 Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
 const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
 const char *Op::Layer::QLinearMatMul::params() const {
@@ -615,7 +765,7 @@ const char *Op::Layer::QLinearMatMul::params() const {
   return ret;
 }
 
-void Op::Layer::QLinearMatMul::set_initializer_params(
+void Op::Layer::QLinearMatMul::set_initializer_params(int n, 
     const onnx::TensorProto &t) {
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
@@ -649,7 +799,7 @@ void Op::Layer::QLinearMatMul::infer_shape(const std::vector<std::vector<int>>& 
 
 const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
 
-void Op::Layer::QLinearAdd::set_initializer_params(const onnx::TensorProto &t) {
+void Op::Layer::QLinearAdd::set_initializer_params(int n, const onnx::TensorProto &t) {
   if (t.dims_size() == BIAS_TENSOR_DIMS) {
     addend = &t;
   }
@@ -711,7 +861,7 @@ const char *Op::Layer::MatMul::params() const {
   return ret;
 }
 
-void Op::Layer::MatMul::set_initializer_params(
+void Op::Layer::MatMul::set_initializer_params(int n, 
     const onnx::TensorProto &t) {
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
@@ -762,18 +912,18 @@ void Op::Model::add(Op::LayerBase *layer, const onnx::NodeProto &node) {
 
   name_vertex_map.insert({node.name(), v});
 
-  for (auto i : node.input()) {
+  for (int i = 0; i < node.input().size(); ++i) {
     /* find value_info param for `i` */
-    auto itr2 = value_info_map.find(i);
+    auto itr2 = value_info_map.find(node.input(i));
     if (itr2 != value_info_map.end()) {
       layer->set_value_info_params(itr2->second);
     }
     /* find initializer for `i` */
-    auto itr3 = initializer_map.find(i);
+    auto itr3 = initializer_map.find(node.input(i));
     if (itr3 != initializer_map.end()) {
-      layer->set_initializer_params(itr3->second);
+      layer->set_initializer_params(i, itr3->second);
     }
-    auto itr4 = constant_pool.find(i);
+    auto itr4 = constant_pool.find(node.input(i));
     if (itr4 != constant_pool.end()) {
       layer->set_attributes(itr4->second);
     }
@@ -1378,7 +1528,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "QuantizeLinear") {
     m_model.add(new Op::Layer::QuantizeLinear(), node);
   } else if (opt == "QLinearConv") {
-    m_model.add(new Op::Layer::Conv(), node);
+    m_model.add(new Op::Layer::QLinearConv(), node);
   } else if (opt == "DequantizeLinear") {
     m_model.add(new Op::Layer::DequantizeLinear(), node);
   } else if (opt == "QLinearMatMul") {
@@ -1487,9 +1637,9 @@ Op::Parser::Parser(std::string const &filename) {
   m_model.create_execution_order();
   m_model.update_registers();
 
-  this->model_weight_type = deduce_model_weight_type(m_graph);
-  this->model_input_type = deduce_model_input_type(m_graph);
-  this->model_output_type = deduce_model_output_type(m_graph);
+  //this->model_weight_type = deduce_model_weight_type(m_graph);
+  //this->model_input_type = deduce_model_input_type(m_graph);
+  //this->model_output_type = deduce_model_output_type(m_graph);
 
   //m_model.deduce_types();
   /* first layer's input dims */
