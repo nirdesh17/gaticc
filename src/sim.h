@@ -1181,3 +1181,61 @@ ConvEngine<inputT, outputT>::~ConvEngine() {
   delete weights;
   delete bias;
 }
+
+template <typename inputT, typename outputT>
+inline outputT clip(inputT v, int min_lim, int max_lim) {
+  if (v < min_lim) {
+    return min_lim;
+  } else if (v > max_lim) {
+    return max_lim;
+  } else {
+    return v;
+  }
+}
+
+template <typename inputT, typename outputT>
+inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim, int max_lim) {
+  return clip<inputT, outputT>((outputT) ((v / scale) + zero_point), min_lim, max_lim);
+}
+
+template <typename inputT, typename outputT>
+void quantize(Tensor<inputT> *input, Tensor<outputT> *output, std::vector<float> scales, std::vector<int> zero_point) {
+  assert(input->dims_size() == 4);
+  if (scales.size() == 1) {
+    float scale_v = scales[0];
+    scales.resize(input->dims_at(TENSOR_4D_CHANNELS));
+    for (int i = 0; i < input->dims_at(TENSOR_4D_CHANNELS); ++i) {
+      scales[i] = scale_v;
+    }
+  }
+
+  if (zero_point.size() == 1) {
+    int zp_v = zero_point[0];
+    zero_point.resize(input->dims_at(TENSOR_4D_CHANNELS));
+    for (int i = 0; i < input->dims_at(TENSOR_4D_CHANNELS); ++i) {
+      zero_point[i] = zp_v;
+    }
+  }
+
+  int min_lim = 0;
+  int max_lim = 0;
+  if (typeid(outputT) == typeid(uint8_t)) {
+    min_lim = 0;
+    max_lim = 255;
+  } else {
+    log_fatal("cant find saturation values for quantization (unimplemented)");
+  }
+
+  for (int i = 0; i < input->dims_at(TENSOR_4D_BATCH); ++i) {
+    for (int j = 0; j < input->dims_at(TENSOR_4D_CHANNELS); ++j) {
+      for (int k = 0; k < input->dims_at(TENSOR_4D_HEIGHT); ++k) {
+        for (int l = 0; l < input->dims_at(TENSOR_4D_WIDTH); ++l) {
+          std::vector<int> in_index {i, j, k, l};
+          inputT val = input->at(in_index);
+          outputT new_val = quantize_fn<inputT, outputT>(val, scales[j], zero_point[j], min_lim, max_lim);
+          output->insert(in_index, new_val);
+        }
+      }
+    }
+  }
+}

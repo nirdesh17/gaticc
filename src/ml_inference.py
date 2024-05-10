@@ -222,7 +222,7 @@ def transpose_aux(arr, perm):
 
 
 def load_imagenet():
-    return preprocess("/home/shreeyash/images/ray.jpg").reshape(1, 3, 224, 224)
+    return preprocess("images/ray.jpg").reshape(1, 3, 224, 224)
 
 def post_imagenet(arr):
     print(arr)
