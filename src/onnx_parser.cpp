@@ -11,6 +11,7 @@
 #include <sstream>
 #include <typeinfo>
 #include <cstring>
+#include <variant>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -47,7 +48,7 @@ void Op::LayerBase::infer_shape(const std::vector<std::vector<int>>& input_dims)
   log_fatal("Shape Inference Un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
-void Op::LayerBase::infer_type() {
+void Op::LayerBase::infer_type(const std::vector<TPDT>& input_types) {
   log_fatal("Type inference un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
@@ -136,6 +137,12 @@ void Op::Layer::Conv::infer_shape(const std::vector<std::vector<int>>& input_dim
   this->output_dims[1] = this->m_cp.kn;
   this->output_dims[2] = sa_odims_row(this->m_cp, input_dims[0]);
   this->output_dims[3] = sa_odims_cols(this->m_cp, input_dims[0]);
+}
+
+void Op::Layer::Conv::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
 }
 
 /* TODO: set_value_info_params for RELU */
@@ -472,7 +479,13 @@ const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
 
 const char *Op::Layer::QuantizeLinear::params() const {
   static char ret[64];
-  sprintf(ret, "Scale: %f, Zero Point: %d", scale, zero_point);
+  if (std::holds_alternative<int8_t>(zero_point)) {
+    sprintf(ret, "Scale: %f, Zero Point: %d", scale, std::get<int8_t>(zero_point));
+  } else if (std::holds_alternative<uint8_t>(zero_point)) {
+    sprintf(ret, "Scale: %f, Zero Point: %d", scale, std::get<uint8_t>(zero_point));
+  } else {
+    log_fatal("cannot format zero point of unknown type for layer %s", this->name.c_str());
+  }
   return ret;
 }
 
@@ -482,11 +495,18 @@ void Op::Layer::QuantizeLinear::set_initializer_params(
     /* its a scale value */
     scale = t.float_data(0);
   } else if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
-    zero_point = t.int32_data(0);
+    zero_point = (uint8_t) t.int32_data(0);
+  } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+    zero_point = (int8_t) t.int32_data(0);
   } else {
     log_fatal("Could not find an initializer of expected types");
   }
 }
+
+
+Op::Layer::QuantizeLinear::QuantizeLinear()
+    : scale{1.0}, axis{0}, block_size{0}, output_dtype{0},
+      saturate{1} {}
 
 void Op::Layer::QuantizeLinear::infer_shape(const std::vector<std::vector<int>>& input_dims) { 
   assert(input_dims.size() >= 1);
@@ -494,6 +514,53 @@ void Op::Layer::QuantizeLinear::infer_shape(const std::vector<std::vector<int>>&
   this->output_dims = input_dims[0];
 }
 
+void Op::Layer::QuantizeLinear::infer_type(
+    const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types[0];
+  if (std::holds_alternative<int8_t>(this->zero_point)) {
+    this->output_type = onnx::TensorProto_DataType_INT8;
+  } else if (std::holds_alternative<uint8_t>(this->zero_point)) {
+    this->output_type = onnx::TensorProto_DataType_UINT8;
+  } else {
+    log_fatal("could not deduce output type for layer %s", this->name.c_str());
+  }
+}
+
+void Op::Layer::QuantizeLinear::set_attributes(const onnx::NodeProto &node) {
+  auto attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axis") {
+      if (itr->has_i()) {
+        if (itr->i() != 0) {
+          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+        }
+        axis = itr->i();
+      }
+    } else if (itr->name() == "block_size") {
+      if (itr->has_i()) {
+        if (itr->i() != 0) {
+          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+        }
+        block_size = itr->i();
+      }
+    } else if (itr->name() == "output_dtype") {
+      if (itr->has_i()) {
+        if (itr->i() != 0) {
+          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+        }
+        output_dtype = itr->i();
+      }
+    } else if (itr->name() == "saturate") {
+      if (itr->has_i()) {
+        if (itr->i() != 1) {
+          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+        }
+        saturate = itr->i();
+      }
+    }
+  }
+}
 
 Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
 const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
@@ -549,7 +616,9 @@ void Op::Layer::QLinearAdd::infer_shape(const std::vector<std::vector<int>>& inp
   if (!is_broadcastable(input_dims[0], weight_dims)) {
     log_fatal("input_dims and weight_dims can't be broadcasted for layer %s", this->name.c_str());
   }
-  assert(input_dims.size() == 2);
+  if (input_dims[0].size() != 2) {
+    log_fatal("cant infer shape for layer %s, dims.size() = %s != 2", this->name.c_str(), input_dims.size());
+  }
   this->input_dims = input_dims[0];
   this->output_dims.resize(2);
   this->output_dims.at(0) = input_dims[0].at(0);
@@ -1015,7 +1084,6 @@ void Op::Model::deduce_types() {
   while (!S.empty()) {
     Op::Vertex n = S.front();
     Op::LayerBase *l = gcopy[n];
-    l->infer_type();
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);

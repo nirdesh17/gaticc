@@ -109,7 +109,7 @@ struct LayerBase {
 
   virtual void infer_shape(const std::vector<std::vector<int>>& input_dims);
 
-  virtual void infer_type();
+  virtual void infer_type(const std::vector<TPDT>& input_types);
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -155,6 +155,7 @@ struct Conv : public LayerBase {
   void set_attributes(const onnx::NodeProto &node) override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct Relu : public LayerBase {
@@ -272,9 +273,17 @@ struct QuantizeLinear : public LayerBase {
   const char *op_type() const override;
   const char *params() const override;
   float scale;
-  int zero_point;
+  /* TODO: float8e etc types missing */
+  std::variant<uint8_t,int8_t,uint16_t,int16_t> zero_point;
+  int axis;
+  int block_size;
+  int output_dtype;
+  int saturate;
+  QuantizeLinear();
   void set_initializer_params(const onnx::TensorProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct DequantizeLinear : public LayerBase {
