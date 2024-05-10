@@ -449,11 +449,20 @@ void Op::Layer::Reshape::set_initializer_params(const onnx::TensorProto &t) {
 void Op::Layer::Reshape::infer_shape(const std::vector<std::vector<int>>& input_dims) {
 }
 
+Op::Layer::DequantizeLinear::DequantizeLinear():
+  scale {0.0}, zero_point {0}, axis {0}, block_size {0} {}
+
 const char *Op::Layer::DequantizeLinear::op_type() const { return m_optype; }
 
 const char *Op::Layer::DequantizeLinear::params() const {
   static char ret[64];
-  sprintf(ret, "Scale: %f, Zero Point: %d", scale, zero_point);
+  if (std::holds_alternative<float>(scale)) {
+    sprintf(ret, "Scale: %f, Zero Point: %d", std::get<float>(scale), zero_point);
+  } else if (std::holds_alternative<double>(scale)) {
+    sprintf(ret, "Scale: %f, Zero Point: %d", std::get<double>(scale), zero_point);
+  } else {
+    log_fatal("cannot format zero point of unknown type for layer %s", this->name.c_str());
+  }
   return ret;
 }
 
@@ -461,11 +470,46 @@ void Op::Layer::DequantizeLinear::set_initializer_params(
     const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
-    scale = t.float_data(0);
+    scale = (float) t.float_data(0);
+  } else if (t.data_type() == onnx::TensorProto_DataType_DOUBLE) {
+    scale = (double) t.float_data(0);
   } else if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
     zero_point = t.int32_data(0);
   } else {
     log_fatal("Could not find an initializer of expected types");
+  }
+}
+
+void Op::Layer::DequantizeLinear::set_attributes(const onnx::NodeProto &node) {
+  auto attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axis") {
+      if (itr->has_i()) {
+        if (itr->i() != 0) {
+          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+        }
+        axis = itr->i();
+      }
+    } else if (itr->name() == "block_size") {
+      if (itr->has_i()) {
+        if (itr->i() != 0) {
+          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+        }
+        block_size = itr->i();
+      }
+    }
+  }
+}
+
+void Op::Layer::DequantizeLinear::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types[0];
+  if (std::holds_alternative<float>(this->scale)) {
+    this->output_type = onnx::TensorProto_DataType_FLOAT;
+  } else if (std::holds_alternative<double>(this->scale)) {
+    this->output_type = onnx::TensorProto_DataType_DOUBLE;
+  } else {
+    log_fatal("could not deduce output type for layer %s", this->name.c_str());
   }
 }
 

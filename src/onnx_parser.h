@@ -290,10 +290,15 @@ struct DequantizeLinear : public LayerBase {
   const char *m_optype = "DequantizeLinear";
   const char *op_type() const override;
   const char *params() const override;
-  float scale;
+  std::variant<float,double> scale;
   int zero_point;
+  int axis;
+  int block_size;
+  DequantizeLinear();
   void set_initializer_params(const onnx::TensorProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct QLinearMatMul : public LayerBase {
