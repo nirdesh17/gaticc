@@ -228,26 +228,6 @@ void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
   std::cout << '\n';
 }
 
-/* any container that overloads std::begin and std::end and operator<< on 
- * its elements should be printable. the name has been kept for legacy
- * reasons, makes sense to use on linear containers.
- */
-template <typename Container> void print_vec(const char *s, Container const &v) {
-  printf("%s: ", s);
-  int newline_cnt = 0;
-  std::cout << std::setprecision(8) << std::fixed;
-  for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
-    /* print only 16 number on a single line */
-    if (newline_cnt >= 9) {
-      std::cout << '\n';
-      newline_cnt = 0;
-    }
-    std::cout << *itr << '\t';
-    newline_cnt++;
-  }
-  std::cout << '\n';
-}
-
 /* TODO: use type_traits here */
 /* Check if v belongs to the signed int family */
 template <typename T> inline bool is_int_like(T v) {
@@ -266,6 +246,31 @@ template <typename T> inline bool is_unsigned_int_like(T v) {
 template <typename T> inline bool is_float_like(T v) {
   return typeid(v) == typeid(float) || typeid(v) == typeid(double);
 }
+
+/* any container that overloads std::begin and std::end and operator<< on 
+ * its elements should be printable. the name has been kept for legacy
+ * reasons, makes sense to use on linear containers.
+ */
+template <typename Container> void print_vec(const char *s, Container const &v) {
+  printf("%s: ", s);
+  int newline_cnt = 0;
+  std::cout << std::setprecision(8) << std::fixed;
+  for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
+    /* print only 16 number on a single line */
+    if (newline_cnt >= 9) {
+      std::cout << '\n';
+      newline_cnt = 0;
+    }
+    if (is_int_like<decltype(*itr)>(*itr) || is_unsigned_int_like<decltype(*itr)>(*itr)) {
+      std::cout << (int) *itr << '\t';
+    } else {
+      std::cout << *itr << '\t';
+    }
+    newline_cnt++;
+  }
+  std::cout << '\n';
+}
+
 
 /* custom compare function to handle floats separately */
 template <typename T> bool xcmp(T a, T b) {
