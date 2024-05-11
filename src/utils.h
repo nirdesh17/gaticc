@@ -502,3 +502,17 @@ std::vector<vectorT> variant2vec(const std::vector<variantT> &var) {
   }
   return ret; 
 }
+
+template <typename T>
+std::vector<T> broadcast_vec(const std::vector<T> &in, int new_size) {
+  if (in.size() == 1) {
+    std::vector<T> ret(new_size);
+    for (int i = 0; i < new_size; ++i) {
+      ret[i] = in[0];
+    }
+    return ret;
+  } else {
+    assert(in.size() == new_size);
+    return in;
+  }
+}

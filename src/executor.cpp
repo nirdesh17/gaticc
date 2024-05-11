@@ -573,3 +573,45 @@ void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
               Op::get_tensorproto_dtype_name(output_type));
   }
 }
+
+template <typename inputT, typename outputT>
+void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::DequantizeLinear *cc = dynamic_cast<Op::Layer::DequantizeLinear *>(l);
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
+  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
+
+  /* TODO: make scale in quantize linear a vector by default */
+  std::vector<int> zero_point {cc->zero_point};
+
+  std::vector<float> scales;
+  if (std::holds_alternative<float>(cc->scale)) {
+    scales.push_back((float)std::get<float>(cc->scale));
+  } else if (std::holds_alternative<double>(cc->scale)) {
+    log_info("converting scale from double to float for layer %s", l->name.c_str());
+    scales.push_back((float)std::get<double>(cc->scale));
+  } else {
+    log_fatal("cant deduce zero point type for layer %s", l->name.c_str());
+  }
+  dequantize<inputT, outputT>(input, output, scales, zero_point);
+  if (l->dump_output) {
+    output->print();
+  }
+}
+
+void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+
+  if (input_type == onnx::TensorProto_DataType_UINT8 &&
+      output_type == onnx::TensorProto_DataType_FLOAT) {
+    run_dequantize_linear<uint8_t, float>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: %s, %s",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}

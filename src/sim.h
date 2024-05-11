@@ -1120,23 +1120,6 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim, i
 
 template <typename inputT, typename outputT>
 void quantize(Tensor<inputT> *input, Tensor<outputT> *output, std::vector<float> scales, std::vector<int> zero_point) {
-  assert(input->dims_size() == 4);
-  if (scales.size() == 1) {
-    float scale_v = scales[0];
-    scales.resize(input->dims_at(TENSOR_4D_CHANNELS));
-    for (int i = 0; i < input->dims_at(TENSOR_4D_CHANNELS); ++i) {
-      scales[i] = scale_v;
-    }
-  }
-
-  if (zero_point.size() == 1) {
-    int zp_v = zero_point[0];
-    zero_point.resize(input->dims_at(TENSOR_4D_CHANNELS));
-    for (int i = 0; i < input->dims_at(TENSOR_4D_CHANNELS); ++i) {
-      zero_point[i] = zp_v;
-    }
-  }
-
   int min_lim = 0;
   int max_lim = 0;
   if (typeid(outputT) == typeid(uint8_t)) {
@@ -1145,17 +1128,28 @@ void quantize(Tensor<inputT> *input, Tensor<outputT> *output, std::vector<float>
   } else {
     log_fatal("cant find saturation values for quantization (unimplemented)");
   }
-
-  for (int i = 0; i < input->dims_at(TENSOR_4D_BATCH); ++i) {
-    for (int j = 0; j < input->dims_at(TENSOR_4D_CHANNELS); ++j) {
-      for (int k = 0; k < input->dims_at(TENSOR_4D_HEIGHT); ++k) {
-        for (int l = 0; l < input->dims_at(TENSOR_4D_WIDTH); ++l) {
-          std::vector<int> in_index {i, j, k, l};
-          inputT val = input->at(in_index);
-          outputT new_val = quantize_fn<inputT, outputT>(val, scales[j], zero_point[j], min_lim, max_lim);
-          output->insert(in_index, new_val);
+  if (input->dims_size() == 4) {
+    auto bscales = broadcast_vec(scales, input->dims_at(TENSOR_4D_CHANNELS));
+    auto bzero_points = broadcast_vec(zero_point, input->dims_at(TENSOR_4D_CHANNELS));
+    for (int i = 0; i < input->dims_at(TENSOR_4D_BATCH); ++i) {
+      for (int j = 0; j < input->dims_at(TENSOR_4D_CHANNELS); ++j) {
+        for (int k = 0; k < input->dims_at(TENSOR_4D_HEIGHT); ++k) {
+          for (int l = 0; l < input->dims_at(TENSOR_4D_WIDTH); ++l) {
+            std::vector<int> in_index {i, j, k, l};
+            inputT val = input->at(in_index);
+            outputT new_val = quantize_fn<inputT, outputT>(val, bscales[j], bzero_points[j], min_lim, max_lim);
+            output->insert(in_index, new_val);
+          }
         }
       }
+    }
+  } else if (input->dims_size() == 2) {
+    assert(scales.size() == 1);
+    assert(zero_point.size() == 1);
+    for (int i = 0; i < input->dims_iterator(-1); ++i) {
+      inputT val = input->at(i);
+      outputT new_val = quantize_fn<inputT, outputT>(val, scales[0], zero_point[0], min_lim, max_lim);
+      output->set(i, new_val);
     }
   }
 }
@@ -1255,4 +1249,41 @@ template <typename inputT, typename weightT, typename outputT>
 ConvEngine<inputT, weightT, outputT>::~ConvEngine() {
   delete weights;
   delete bias;
+}
+
+template <typename inputT, typename outputT>
+inline outputT dequantize_fn(inputT v, float scale, int zero_point) {
+  //std::cout << "scale " << scale << ' ';
+  //std::cout << "input: " << (int) v << " output " << ((int) v * scale) << '\n';
+  return ((v * scale) + zero_point);
+}
+
+template <typename inputT, typename outputT>
+void dequantize(Tensor<inputT> *input, Tensor<outputT> *output, const std::vector<float> &scales, const std::vector<int> &zero_point) {
+  /* TODO: refactor this */
+  if (input->dims_size() == 4) {
+    auto bscales = broadcast_vec(scales, input->dims_at(TENSOR_4D_CHANNELS));
+    auto bzero_points = broadcast_vec(zero_point, input->dims_at(TENSOR_4D_CHANNELS));
+
+    for (int i = 0; i < input->dims_at(TENSOR_4D_BATCH); ++i) {
+      for (int j = 0; j < input->dims_at(TENSOR_4D_CHANNELS); ++j) {
+        for (int k = 0; k < input->dims_at(TENSOR_4D_HEIGHT); ++k) {
+          for (int l = 0; l < input->dims_at(TENSOR_4D_WIDTH); ++l) {
+            std::vector<int> in_index {i, j, k, l};
+            inputT val = input->at(in_index);
+            outputT new_val = dequantize_fn<inputT, outputT>(val, bscales[j], bzero_points[j]);
+            output->insert(in_index, new_val);
+          }
+        }
+      }
+    }
+  } else if (input->dims_size() == 2) {
+    assert(scales.size() == 1);
+    assert(zero_point.size() == 1);
+    for (int i = 0; i < input->dims_iterator(-1); ++i) {
+      inputT val = input->at(i);
+      outputT new_val = dequantize_fn<inputT, outputT>(val, scales[0], zero_point[0]);
+      output->set(i, new_val);
+    }
+  }
 }
