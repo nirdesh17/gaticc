@@ -1129,6 +1129,11 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim, i
 }
 
 template <typename inputT, typename outputT>
+inline outputT dequantize_fn(inputT v, float scale, int zero_point) {
+  return ((v * scale) + zero_point);
+}
+
+template <typename inputT, typename outputT>
 void quantize(Tensor<inputT> *input, Tensor<outputT> *output, std::vector<float> scales, std::vector<int> zero_point) {
   int min_lim = 0;
   int max_lim = 0;
@@ -1261,12 +1266,6 @@ ConvEngine<inputT, weightT, outputT>::~ConvEngine() {
   delete bias;
 }
 
-template <typename inputT, typename outputT>
-inline outputT dequantize_fn(inputT v, float scale, int zero_point) {
-  //std::cout << "scale " << scale << ' ';
-  //std::cout << "input: " << (int) v << " output " << ((int) v * scale) << '\n';
-  return ((v * scale) + zero_point);
-}
 
 template <typename inputT, typename outputT>
 void dequantize(Tensor<inputT> *input, Tensor<outputT> *output, const std::vector<float> &scales, const std::vector<int> &zero_point) {

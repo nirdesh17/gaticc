@@ -866,9 +866,47 @@ void Op::Layer::QLinearMatMul::infer_type(const std::vector<TPDT>& input_types) 
 
 const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
 
+enum QLA_INITIALIZERS {
+  QLA_SCALE = 1,
+  QLA_ZERO_POINT = 2,
+  QLA_B = 3,
+  QLA_B_SCALE = 4,
+  QLA_B_ZERO_POINT = 5,
+  QLA_C_SCALE = 6,
+  QLA_C_ZERO_POINT = 7
+};
+
 void Op::Layer::QLinearAdd::set_initializer_params(int n, const onnx::TensorProto &t) {
-  if (t.dims_size() == BIAS_TENSOR_DIMS) {
-    addend = &t;
+  switch (n) {
+    case QLA_SCALE:
+      break;
+    case QLA_ZERO_POINT:
+      break;
+    case QLA_B:
+      addend = &t;
+      break;
+    case QLA_B_SCALE:
+      break;
+    case QLA_B_ZERO_POINT:
+      break;
+    case QLA_C_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        scale.push_back(i);
+      }
+      break;
+    case QLA_C_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        zero_point.push_back((int8_t) t.int32_data(0));
+      } else {
+        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+      }
+      break;
+    default:
+        log_fatal("unknown inputs number %d for tensor %s", n, t.name().c_str());
+      break;
   }
 }
 

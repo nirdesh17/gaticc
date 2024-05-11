@@ -349,11 +349,14 @@ struct QLinearMatMul : public LayerBase {
 
 struct QLinearAdd : public LayerBase {
   const onnx::TensorProto *addend;
+  std::vector<float> scale;
+  std::vector<std::variant<int8_t, uint8_t>> zero_point;
   const char *m_optype = "QLinearAdd";
   const char *op_type() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct Transpose : public LayerBase {
