@@ -222,7 +222,11 @@ def transpose_aux(arr, perm):
 
 
 def load_imagenet():
-    return preprocess("images/dog.jpg").reshape(1, 3, 224, 224)
+    return preprocess("images/ray.jpg").reshape(1, 3, 224, 224)
+
+def post_imagenet(arr):
+    print(arr)
+    print(np.argmax(arr))
 
 def load_mnist():
     return quantize_ui8fp32(mnist_idx_image_load("images/t10k-images-idx3-ubyte", 3)).astype(np.float32)

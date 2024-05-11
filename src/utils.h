@@ -228,26 +228,6 @@ void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
   std::cout << '\n';
 }
 
-/* any container that overloads std::begin and std::end and operator<< on 
- * its elements should be printable. the name has been kept for legacy
- * reasons, makes sense to use on linear containers.
- */
-template <typename Container> void print_vec(const char *s, Container const &v) {
-  printf("%s: ", s);
-  int newline_cnt = 0;
-  std::cout << std::setprecision(8) << std::fixed;
-  for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
-    /* print only 16 number on a single line */
-    if (newline_cnt >= 9) {
-      std::cout << '\n';
-      newline_cnt = 0;
-    }
-    std::cout << *itr << '\t';
-    newline_cnt++;
-  }
-  std::cout << '\n';
-}
-
 /* TODO: use type_traits here */
 /* Check if v belongs to the signed int family */
 template <typename T> inline bool is_int_like(T v) {
@@ -266,6 +246,31 @@ template <typename T> inline bool is_unsigned_int_like(T v) {
 template <typename T> inline bool is_float_like(T v) {
   return typeid(v) == typeid(float) || typeid(v) == typeid(double);
 }
+
+/* any container that overloads std::begin and std::end and operator<< on 
+ * its elements should be printable. the name has been kept for legacy
+ * reasons, makes sense to use on linear containers.
+ */
+template <typename Container> void print_vec(const char *s, Container const &v) {
+  printf("%s: ", s);
+  int newline_cnt = 0;
+  std::cout << std::setprecision(8) << std::fixed;
+  for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
+    /* print only 16 number on a single line */
+    if (newline_cnt >= 9) {
+      std::cout << '\n';
+      newline_cnt = 0;
+    }
+    if (is_int_like<decltype(*itr)>(*itr) || is_unsigned_int_like<decltype(*itr)>(*itr)) {
+      std::cout << (int) *itr << '\t';
+    } else {
+      std::cout << *itr << '\t';
+    }
+    newline_cnt++;
+  }
+  std::cout << '\n';
+}
+
 
 /* custom compare function to handle floats separately */
 template <typename T> bool xcmp(T a, T b) {
@@ -474,4 +479,40 @@ inline Container get_stride_from_shape(const Container &shape) {
 template <typename Container>
 inline Container get_stride_from_shape(const Container &&shape) {
   return get_stride_from_shape(shape);
+}
+
+bool is_broadcastable(const std::vector<int> &shape1, const std::vector<int>& shape2);
+
+std::vector<int> get_dims_after_pad(std::vector<int> current_dims, const std::vector<int>& pad);
+
+/* return true if i,j lie in pad section of a 2d segment */
+bool islying(int i, int j, int rows, int cols, const std::vector<int> &pad);
+
+template <typename variantT, typename vectorT>
+std::vector<vectorT> variant2vec(const std::vector<variantT> &var) {
+  std::vector<vectorT> ret;
+  for (variantT i : var) {
+    if (std::holds_alternative<uint8_t>(i)) {
+      ret.push_back((vectorT) std::get<uint8_t>(i));
+    } else if (std::holds_alternative<int8_t>(i)) {
+      ret.push_back((vectorT) std::get<int8_t>(i));
+    } else {
+      log_fatal("cant deduce type for zero point");
+    }
+  }
+  return ret; 
+}
+
+template <typename T>
+std::vector<T> broadcast_vec(const std::vector<T> &in, int new_size) {
+  if (in.size() == 1) {
+    std::vector<T> ret(new_size);
+    for (int i = 0; i < new_size; ++i) {
+      ret[i] = in[0];
+    }
+    return ret;
+  } else {
+    assert(in.size() == new_size);
+    return in;
+  }
 }

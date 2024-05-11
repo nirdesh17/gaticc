@@ -54,3 +54,14 @@ TensorExtant<int8_t>::TensorExtant(const onnx::TensorProto *ptr) {
     log_fatal("Unable to deduce type for tensor or un-implemented: %s", ptr->name().c_str());
   }
 }
+
+template <>
+TensorExtant<uint8_t>::TensorExtant(const onnx::TensorProto *ptr) {
+  init_dims(ptr);
+  std::cout << "Exanta type " << Op::get_tensorproto_dtype_name((TPDT) ptr->data_type());
+  if (Op::dtype_eq(ptr->data_type(), onnx::TensorProto_DataType_UINT8)) {
+    data = (const uint8_t *) (ptr->raw_data().c_str());
+  } else {
+    log_fatal("Unable to deduce type for tensor or un-implemented: %s", ptr->name().c_str());
+  }
+}

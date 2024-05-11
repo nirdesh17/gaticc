@@ -15,12 +15,15 @@ elif [ "$1" = "-h" ]; then
   usage
 fi 
 LD_LIBRARY_PATH=/usr/local/lib protoc --cpp_out=${SRC_DIR} onnx.proto
+REMOTE_COMPILE_VAR=0
+
+echo "remote compile " ${REMOTE_COMPILE_VAR}
 mkdir tests/exe 2>/dev/null
 mkdir obj 2>/dev/null
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  make "$target_name" -j "$(nproc --all)" -B
+  make "$target_name" -j "$(nproc --all)" REMOTE_COMPILE=${REMOTE_COMPILE_VAR} -B
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-  make "$target_name" -j "$(sysctl -n hw.physicalcpu)" -B
+  make "$target_name" -j "$(sysctl -n hw.physicalcpu)" REMOTE_COMPILE=${REMOTE_COMPILE_VAR} -B
 else
   echo "Unsupported operating system: $OSTYPE"
   exit 1

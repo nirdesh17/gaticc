@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <vector>
 
+#if 0
 /* The transformer interface allows new transformations to be added in a
  * convenient manner. The interface is thus:
  *  The 'Transformer' base class should be inherited by any valid transformer.
@@ -552,3 +553,5 @@ ConvTransformer<inputT, outputT>::ConvTransformer(Op::ConvParams const &cp,
   std::memcpy(&m_cp, &cp, sizeof(Op::ConvParams));
   std::memcpy(&(this->sa_dims), &sa_dims, sizeof(SaDims));
 }
+
+#endif

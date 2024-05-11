@@ -17,6 +17,7 @@ fi
 argument="$1"
 shift 1
 
+
 tar -cvzf sysim.tar.gz --exclude='onnx.pb.*' src/*.{cpp,h,py} Makefile tests/*.cpp tests/Makefile *.proto *.sh
 ssh "$remote_user@$remote_host" "rm -rf $remote_folder && mkdir -p $remote_folder/ $remote_folder/tests/exe \
   $remote_folder/obj/ 2>/dev/null"

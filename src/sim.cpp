@@ -20,6 +20,7 @@ Point get_cartesian_cord(int index, int r, int c) {
   return Point(row_n, col_n);
 }
 
+#if 0
 void Tree::generate_btree(Mat<int> const &v, std::pair<int, int> xy) {
   int x = xy.first;
   int y = xy.second;
@@ -172,3 +173,5 @@ BatchNorm::BatchNorm(int mean, int sd, int gamma, int beta)
     : mean{mean}, sd{sd}, gamma{gamma}, beta{beta} {}
 
 int BatchNorm::exec(int x) { return (gamma * ((x - mean) / sd)) + beta; }
+
+#endif

@@ -7,6 +7,7 @@
 #include <vector>
 
 /* TODO: iterator mechanism for tensors
+ * TODO: destructors
  */
 
 /* A general purpose interface to an n-dimensional tensor
@@ -227,6 +228,7 @@ bool TensorExtant<T>::freeable() const {
 
 template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
+  std::vector<int> stride;
   std::vector<T> vec;
 public:
   TensorCreate() = delete;
@@ -234,20 +236,21 @@ public:
   TensorCreate(std::vector<T> const &v, std::vector<int> const &dim) {
     dims = dim;
     vec = v;
+    stride = get_stride_from_shape(dim);
   }
 
   TensorCreate(std::vector<int> const &dim) {
     dims = dim;
     vec.resize(dims_iterator(-1), 0);
+    stride = get_stride_from_shape(dim);
   }
 
   T at(std::vector<int> &at) const override {
     assert(at.size() == dims.size());
-
     int sum = 0;
     for (int i = 0; i < at.size(); i++) {
       assert(at[i] <= dims[i]);
-      sum = sum + at[i] * dims_iterator(i);
+      sum += at[i] * stride[i];
     }
     return vec.at(sum);
   }
@@ -274,7 +277,7 @@ public:
     int sum = 0;
     for (int i = 0; i < at.size(); i++) {
       assert(at[i] <= dims[i]);
-      sum = sum + at[i] * dims_iterator(i);
+      sum += at[i] * stride[i];
     }
     vec[sum] = data;
   }
@@ -455,4 +458,28 @@ void TensorSlice<T>::print() const {
 template <typename T>
 bool TensorSlice<T>::freeable() const {
   return false;
+}
+
+template <typename T>
+Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads) {
+  assert(input->dims_size() == 4 && "tensor_pad assumes 4d inputs");
+  std::vector<int> new_dims = get_dims_after_pad(input->get_dims(), pads);
+  print_vec("new dims ", new_dims);
+  Tensor<T> *output = new TensorCreate<T>(new_dims);
+  for (int i = 0; i < new_dims[0]; ++i) {
+    for (int j = 0; j < new_dims[1]; ++j) {
+      for (int k = 0; k < new_dims[2]; ++k) {
+        for (int l = 0; l < new_dims[3]; ++l) {
+          std::vector<int> out_index {i, j, k, l};
+          if (islying(k, l, input->dims_at(2), input->dims_at(3), pads)) {
+            output->insert(out_index, 0);
+          } else {
+            std::vector<int> in_index {i, j, k-pads[1], l-pads[0]};
+            output->insert(out_index, input->at(in_index));
+          }
+        }
+      }
+    }
+  }
+  return output;
 }
