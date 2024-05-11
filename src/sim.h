@@ -970,15 +970,16 @@ void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
 
 /* Vector Arrays 
  * Used by Gemm/Matmul routines */
-template <typename inputT, typename outputT> class VA {
+template <typename inputT, typename weightT, typename outputT> class VA {
   int wrows;
   int wcols;
   int isize;
-  Tensor<inputT> *weights;
-  Tensor<inputT> *bias;
+  Tensor<weightT> *weights;
+  Tensor<weightT> *bias;
   public:
     VA(Op::Layer::Gemm &gp);
     VA(Op::Layer::MatMul &gp);
+    VA(Op::Layer::QLinearMatMul &gp);
     void run(Tensor<inputT> *input, Tensor<outputT> *output);
     ~VA() {
       delete weights;
@@ -987,35 +988,44 @@ template <typename inputT, typename outputT> class VA {
 };
 
 
-template <typename inputT, typename outputT>
-VA<inputT, outputT>::VA(Op::Layer::Gemm &gp) {
+template <typename inputT, typename weightT, typename outputT>
+VA<inputT, weightT, outputT>::VA(Op::Layer::Gemm &gp) {
   wrows = gp.m_cp.wr;
   wcols = gp.m_cp.wc;
   isize = gp.input_dims[TENSOR_2D_WIDTH];
   if (gp.m_cp.transB) {
-    Tensor<inputT> *tmp = new TensorExtant<inputT>(gp.weights);
+    Tensor<weightT> *tmp = new TensorExtant<inputT>(gp.weights);
     auto dims = tmp->get_dims();
     std::vector<int> new_dims {dims[1], dims[0]};
-    weights = new TensorCreate<inputT>(new_dims);
+    weights = new TensorCreate<weightT>(new_dims);
     transpose(tmp, weights, std::vector<int>{1, 0});
     delete tmp;
   } else {
-    weights = new TensorExtant<inputT>(gp.weights);
+    weights = new TensorExtant<weightT>(gp.weights);
   }
-  bias = new TensorExtant<inputT>(gp.bias);
+  bias = new TensorExtant<weightT>(gp.bias);
 }
 
-template <typename inputT, typename outputT>
-VA<inputT, outputT>::VA(Op::Layer::MatMul &gp) {
+template <typename inputT, typename weightT, typename outputT>
+VA<inputT, weightT, outputT>::VA(Op::Layer::MatMul &gp) {
   wrows = gp.m_cp.wc;
   wcols = gp.m_cp.wr;
   isize = gp.input_dims[TENSOR_2D_WIDTH];
-  weights = new TensorExtant<inputT>(gp.weights);
+  weights = new TensorExtant<weightT>(gp.weights);
   bias = nullptr;
 }
 
-template <typename inputT, typename outputT>
-void VA<inputT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
+template <typename inputT, typename weightT, typename outputT>
+VA<inputT, weightT, outputT>::VA(Op::Layer::QLinearMatMul &gp) {
+  wrows = gp.m_cp.wc;
+  wcols = gp.m_cp.wr;
+  isize = gp.input_dims[TENSOR_2D_WIDTH];
+  weights = new TensorExtant<weightT>(gp.weights);
+  bias = nullptr;
+}
+
+template <typename inputT, typename weightT, typename outputT>
+void VA<inputT, weightT, outputT>::run(Tensor<inputT> *input, Tensor<outputT> *output) {
   assert(input->dims_size() == 2 && weights->dims_size() == 2);
   //assert(input->dims_at(1) == weights->dims_at(0) && "non-matching matrix dimensions");
 

@@ -766,6 +766,7 @@ void Op::Layer::QLinearConv::infer_shape(const std::vector<std::vector<int>>& in
 void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
+  /* TODO: get output type from y_zero_point */
   this->output_type = input_types[0];
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
@@ -773,14 +774,59 @@ void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT>& input_types) {
 Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
 const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
 const char *Op::Layer::QLinearMatMul::params() const {
-  static char ret[64];
-  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d", this->input_dims[TENSOR_2D_HEIGHT],
-          this->input_dims[TENSOR_2D_WIDTH], m_cp.wr, m_cp.wc);
+  static char ret[128];
+  /* TODO: refactor this */
+  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d, scale,zp %f", this->input_dims[TENSOR_2D_HEIGHT],
+          this->input_dims[TENSOR_2D_WIDTH], m_cp.wr, m_cp.wc, y_scale[0]);
   return ret;
 }
 
+enum QLMM_INITIALIZERS {
+  QLMM_A_SCALE = 1,
+  QLMM_A_ZERO_POINT = 2,
+  QLMM_B = 3,
+  QLMM_B_SCALE = 4,
+  QLMM_B_ZERO_POINT = 5,
+  QLMM_Y_SCALE = 6,
+  QLMM_Y_ZERO_POINT = 7
+};
+
 void Op::Layer::QLinearMatMul::set_initializer_params(int n, 
     const onnx::TensorProto &t) {
+  switch (n) {
+    case QLMM_A_SCALE:
+      break;
+    case QLMM_A_ZERO_POINT:
+      break;
+    case QLMM_B:
+      m_cp.wr = t.dims()[0];
+      m_cp.wc = t.dims()[1];
+      weights = &t;
+      break;
+    case QLMM_B_SCALE:
+      break;
+    case QLMM_B_ZERO_POINT:
+      break;
+    case QLMM_Y_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        y_scale.push_back(i);
+      }
+      break;
+    case QLMM_Y_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        y_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        y_zero_point.push_back((int8_t) t.int32_data(0));
+      } else {
+        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+      break;
+    default:
+        log_fatal("unknown inputs number %d for tensor %s", n, t.name().c_str());
+      break;
+  }
+}
+
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
     m_cp.wc = t.dims()[1];
@@ -815,6 +861,7 @@ void Op::Layer::QLinearMatMul::infer_type(const std::vector<TPDT>& input_types) 
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
   this->output_type = input_types[0];
+  this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
 const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }

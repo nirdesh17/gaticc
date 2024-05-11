@@ -333,14 +333,18 @@ struct QLinearConv : public LayerBase {
 struct QLinearMatMul : public LayerBase {
   const onnx::TensorProto *weights;
   const char *m_optype = "QLinearMatMul";
+  TPDT weight_type;
   GemmParams m_cp;
   QLinearMatMul();
+  std::vector<float> y_scale;
+  std::vector<std::variant<int8_t,uint8_t>> y_zero_point;
   const char *op_type() const override;
   const char *params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct QLinearAdd : public LayerBase {
