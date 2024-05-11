@@ -143,6 +143,7 @@ void Op::Layer::Conv::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
   this->output_type = input_types[0];
+  this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
 /* TODO: set_value_info_params for RELU */
@@ -766,6 +767,7 @@ void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
   this->output_type = input_types[0];
+  this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
 Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
@@ -1404,6 +1406,14 @@ Op::get_type_from_value_info(const onnx::ValueInfoProto &v) {
     log_fatal("tensor for graph's input does not have a elem_type");
   }
   return static_cast<TPDT>(tensor.elem_type());
+}
+
+TPDT Op::get_type_from_tensor_proto(const onnx::TensorProto &v) {
+  if (v.has_data_type()) {
+    return (TPDT) v.data_type();
+  } else {
+    log_fatal("could not deduce type for tensor %s", v.name().c_str());
+  }
 }
 
 const onnx::TensorShapeProto &

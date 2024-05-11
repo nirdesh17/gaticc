@@ -47,6 +47,11 @@ void TensorPool::free(int index) {
     if (dd->freeable()) {
       delete dd;
     }
+  } else if (v.type() == typeid(Tensor<uint8_t> *)) {
+    Tensor<uint8_t> *dd = std::any_cast<Tensor<uint8_t> *>(v);
+    if (dd->freeable()) {
+      delete dd;
+    }
   } else {
     log_fatal("Unknown type: %s, cannot free. Support has to be added",
               v.type().name());

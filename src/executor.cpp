@@ -12,6 +12,7 @@
 #include <typeinfo>
 #include <vector>
 #include <cstring>
+#include <memory>
 
 void Executor::configure_dump_options() {
   dump_options.dump_all = false;
@@ -73,7 +74,7 @@ Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
 
 
 /* helper function for Op::Layer::Conv::run() */
-template <typename inputT, typename outputT>
+template <typename inputT, typename weightT, typename outputT>
 void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Conv *cc = dynamic_cast<Op::Layer::Conv *>(l);
 
@@ -93,7 +94,7 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
-  ConvEngine<inputT, outputT> cc_engine(cc);
+  ConvEngine<inputT, weightT, outputT> cc_engine(cc);
   cc_engine.run(input, output);
   tt.stop();
   tt.report("Time taken: ");
@@ -110,9 +111,7 @@ void Op::Layer::Conv::run(TensorPool &tensor_pool) {
 
   if (input_type == onnx::TensorProto_DataType_FLOAT &&
       output_type == onnx::TensorProto_DataType_FLOAT) {
-    run_conv<float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
-    run_conv<int8_t, int>(this, tensor_pool);
+    run_conv<float, float, float>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
               Op::get_tensorproto_dtype_name(input_type),
@@ -186,6 +185,8 @@ void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
     run_maxpool<int8_t>(this, tensor_pool);
   } else if (input_type == onnx::TensorProto_DataType_INT32) {
     run_maxpool<int>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_UINT8) {
+    run_maxpool<uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
               Op::get_tensorproto_dtype_name(input_type),
@@ -510,6 +511,62 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
   if (input_type == onnx::TensorProto_DataType_FLOAT &&
       output_type == onnx::TensorProto_DataType_UINT8) {
     run_quantize_linear<float, uint8_t>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: %s, %s",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}
+
+template <typename inputT, typename weightT, typename intrT, typename outputT>
+void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
+
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+
+  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
+
+  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims)};
+  using variantT = std::variant<int8_t,uint8_t>;
+  std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
+
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
+  ConvEngine<inputT, weightT, intrT> cc_engine(cc);
+  cc_engine.run(input, intr_output.get());
+  quantize<intrT, outputT>(intr_output.get(), output, cc->y_scale, zero_points);
+  tt.stop();
+  tt.report("Time taken: ");
+
+  if (l->dump_output) {
+    output->print();
+    tt.report("Time taken: ");
+  }
+}
+
+
+
+void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT && 
+      weight_type == onnx::TensorProto_DataType_FLOAT) {
+    run_qconv<float, float, float, float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
+      weight_type == onnx::TensorProto_DataType_UINT8) {
+    run_qconv<uint8_t, uint8_t, int, uint8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+      weight_type == onnx::TensorProto_DataType_INT8) {
+    run_qconv<int8_t, int8_t, int, int8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
+      weight_type == onnx::TensorProto_DataType_INT8) {
+    std::cout << "this was chosen \n";
+    run_qconv<uint8_t, int8_t, int, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
               Op::get_tensorproto_dtype_name(input_type),

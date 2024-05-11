@@ -145,6 +145,7 @@ struct Conv : public LayerBase {
   const onnx::TensorProto *weights;
   const onnx::TensorProto *bias;
   const char *m_optype = "Conv";
+  TPDT weight_type;
 
   Conv();
   ConvParams m_cp;
@@ -307,6 +308,7 @@ struct DequantizeLinear : public LayerBase {
 struct QLinearConv : public LayerBase {
   const onnx::TensorProto *weights;
   const onnx::TensorProto *bias;
+  TPDT weight_type;
   const char *m_optype = "QLinearConv";
   QLinearConv();
   ConvParams m_cp;
@@ -323,6 +325,7 @@ struct QLinearConv : public LayerBase {
   //void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 
@@ -390,6 +393,7 @@ const char *get_tensorproto_dtype_name(TPDT type);
 std::vector<int> get_tensorproto_shape(const onnx::TensorProto &t);
 TPDT
 get_type_from_value_info(const onnx::ValueInfoProto &v);
+TPDT get_type_from_tensor_proto(const onnx::TensorProto &v);
 const onnx::TensorShapeProto &
 get_tensor_shape_proto(const onnx::ValueInfoProto &t);
 bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,

@@ -1102,86 +1102,6 @@ void tensor_vector_add(Tensor<outputT> *output, Tensor<inputT> *input_tensor, Te
   }
 }
 
-template <typename inputT, typename outputT> class ConvEngine {
-  const Op::Layer::Conv *cc;
-  Tensor<inputT> *weights;
-  Tensor<outputT> *bias;
-
-  void _kernel(int k, const Tensor<inputT> *input, Tensor<outputT> *output);
-
-public:
-  ConvEngine(const Op::Layer::Conv *cc);
-  ~ConvEngine();
-  void run(const Tensor<inputT> *input, Tensor<outputT> *output);
-};
-
-template <typename inputT, typename outputT>
-ConvEngine<inputT, outputT>::ConvEngine(const Op::Layer::Conv *cc) : cc{cc} {
-  weights = new TensorExtant<inputT>(cc->weights);
-  bias = new TensorExtant<outputT>(cc->bias);
-}
-
-template <typename inputT, typename outputT>
-void ConvEngine<inputT, outputT>::_kernel(int k, const Tensor<inputT> *input,
-                                          Tensor<outputT> *output) {
-  int kn = cc->m_cp.kn;
-  int ic = input->dims_at(TENSOR_4D_CHANNELS);
-  int oh = output->dims_at(TENSOR_4D_HEIGHT);
-  int ow = output->dims_at(TENSOR_4D_WIDTH);
-  int kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
-  int kw = cc->m_cp.k[TENSOR_2D_WIDTH];
-
-  for (int ici = 0; ici < ic; ++ici) {
-    for (int ohi = 0; ohi < oh; ++ohi) {
-      for (int owi = 0; owi < ow; ++owi) {
-        for (int khi = 0; khi < kh; ++khi) {
-          for (int kwi = 0; kwi < kw; ++kwi) {
-            // printf("k %d, ici %d, ohi,owi %d,%d, ihi,iwi %d,%d, khi,kwi"
-            //        "%d,%d\n",
-            //        k, ici, ohi, owi, ohi + khi, owi + kwi, khi, kwi);
-            std::vector<int> out_index{0, k, ohi, owi};
-            std::vector<int> in_index{0, ici, ohi + khi, owi + kwi};
-            std::vector<int> w_index{k, ici, khi, kwi};
-            // print_vec("output dims", output->get_dims());
-            // print_vec("out_index", out_index);
-            outputT val = output->at(out_index);
-            // print_vec("input dims", input->get_dims());
-            // print_vec("in index", in_index);
-            // std::cout << "in : " <<  padded_input->at(in_index) << ' ' <<
-            // "weigth " << weights->at(w_index) << '\n';
-            outputT val2 = input->at(in_index) * weights->at(w_index);
-            // std::cout  << "v1 " << " v2 " << val << ' ' << val2 << '\n';
-            output->insert(out_index, val + val2);
-          }
-        }
-      }
-    }
-  }
-}
-
-template <typename inputT, typename outputT>
-void ConvEngine<inputT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
-  int kn = cc->m_cp.kn;
-
-  const int *pad = cc->m_cp.pad;
-  std::vector<int> pad_vec{pad[0], pad[1], pad[2], pad[3]};
-  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec);
-
-  std::vector<std::thread> tc;
-  for (int k = 0; k < kn; ++k) {
-    tc.push_back(std::thread(&ConvEngine<inputT,outputT>::_kernel, this, k, padded_input, output));
-  }
-  for (int k = 0; k < kn; ++k) {
-    tc[k].join();
-  }
-}
-
-template <typename inputT, typename outputT>
-ConvEngine<inputT, outputT>::~ConvEngine() {
-  delete weights;
-  delete bias;
-}
-
 template <typename inputT, typename outputT>
 inline outputT clip(inputT v, int min_lim, int max_lim) {
   if (v < min_lim) {
@@ -1238,4 +1158,101 @@ void quantize(Tensor<inputT> *input, Tensor<outputT> *output, std::vector<float>
       }
     }
   }
+}
+
+template <typename inputT, typename weightT, typename outputT> class ConvEngine {
+  //const Op::Layer::Conv *cc;
+  Tensor<weightT> *weights;
+  Tensor<outputT> *bias;
+  int kn;
+  int kh;
+  int kw;
+  std::vector<int> pad_vec;
+
+  void _kernel(int k, const Tensor<inputT> *input, Tensor<outputT> *output);
+
+public:
+  ConvEngine(const Op::Layer::Conv *cc);
+  ConvEngine(const Op::Layer::QLinearConv *cc);
+  ~ConvEngine();
+  void run(const Tensor<inputT> *input, Tensor<outputT> *output);
+};
+
+template <typename inputT, typename weightT, typename outputT>
+ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::Conv *cc) {
+  weights = new TensorExtant<weightT>(cc->weights);
+  bias = new TensorExtant<outputT>(cc->bias);
+  kn = cc->m_cp.kn;
+  kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
+  kw = cc->m_cp.k[TENSOR_2D_WIDTH];
+  const int *pad = cc->m_cp.pad;
+  pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
+}
+
+template <typename inputT, typename weightT, typename outputT>
+ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::QLinearConv *cc) {
+  weights = new TensorExtant<weightT>(cc->weights);
+  bias = new TensorExtant<outputT>(cc->bias);
+  kn = cc->m_cp.kn;
+  kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
+  kw = cc->m_cp.k[TENSOR_2D_WIDTH];
+  const int *pad = cc->m_cp.pad;
+  pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
+}
+
+
+template <typename inputT, typename weightT, typename outputT>
+void ConvEngine<inputT, weightT, outputT>::_kernel(int k, const Tensor<inputT> *input,
+                                          Tensor<outputT> *output) {
+
+  /* TODO: add bias here */
+  int ic = input->dims_at(TENSOR_4D_CHANNELS);
+  int oh = output->dims_at(TENSOR_4D_HEIGHT);
+  int ow = output->dims_at(TENSOR_4D_WIDTH);
+
+  for (int ici = 0; ici < ic; ++ici) {
+    for (int ohi = 0; ohi < oh; ++ohi) {
+      for (int owi = 0; owi < ow; ++owi) {
+        for (int khi = 0; khi < kh; ++khi) {
+          for (int kwi = 0; kwi < kw; ++kwi) {
+            // printf("k %d, ici %d, ohi,owi %d,%d, ihi,iwi %d,%d, khi,kwi"
+            //        "%d,%d\n",
+            //        k, ici, ohi, owi, ohi + khi, owi + kwi, khi, kwi);
+            std::vector<int> out_index{0, k, ohi, owi};
+            std::vector<int> in_index{0, ici, ohi + khi, owi + kwi};
+            std::vector<int> w_index{k, ici, khi, kwi};
+            // print_vec("output dims", output->get_dims());
+            // print_vec("out_index", out_index);
+            outputT val = output->at(out_index);
+            // print_vec("input dims", input->get_dims());
+            // print_vec("in index", in_index);
+            // std::cout << "in : " <<  padded_input->at(in_index) << ' ' <<
+            // "weigth " << weights->at(w_index) << '\n';
+            outputT val2 = input->at(in_index) * weights->at(w_index);
+            // std::cout  << "v1 " << " v2 " << val << ' ' << val2 << '\n';
+            output->insert(out_index, val + val2);
+          }
+        }
+      }
+    }
+  }
+}
+
+template <typename inputT, typename weightT, typename outputT>
+void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
+  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec);
+
+  std::vector<std::thread> tc;
+  for (int k = 0; k < kn; ++k) {
+    tc.push_back(std::thread(&ConvEngine<inputT,weightT,outputT>::_kernel, this, k, padded_input, output));
+  }
+  for (int k = 0; k < kn; ++k) {
+    tc[k].join();
+  }
+}
+
+template <typename inputT, typename weightT, typename outputT>
+ConvEngine<inputT, weightT, outputT>::~ConvEngine() {
+  delete weights;
+  delete bias;
 }

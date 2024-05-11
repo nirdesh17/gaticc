@@ -487,3 +487,18 @@ std::vector<int> get_dims_after_pad(std::vector<int> current_dims, const std::ve
 
 /* return true if i,j lie in pad section of a 2d segment */
 bool islying(int i, int j, int rows, int cols, const std::vector<int> &pad);
+
+template <typename variantT, typename vectorT>
+std::vector<vectorT> variant2vec(const std::vector<variantT> &var) {
+  std::vector<vectorT> ret;
+  for (variantT i : var) {
+    if (std::holds_alternative<uint8_t>(i)) {
+      ret.push_back((vectorT) std::get<uint8_t>(i));
+    } else if (std::holds_alternative<int8_t>(i)) {
+      ret.push_back((vectorT) std::get<int8_t>(i));
+    } else {
+      log_fatal("cant deduce type for zero point");
+    }
+  }
+  return ret; 
+}
