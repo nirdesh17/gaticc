@@ -63,7 +63,7 @@ public:
   virtual void clear();
   virtual void shrink_to_fit();
   virtual void set(int index, T val);
-  virtual Tensor<T>& operator=(Tensor<T>& rhs);
+  virtual Tensor<T>& operator=(const Tensor<T>& rhs);
   virtual typename std::vector<T>::iterator begin();
   virtual typename std::vector<T>::iterator end();
 };
@@ -99,7 +99,7 @@ void Tensor<T>::set(int index, T val) {
 }
 
 template <typename T>
-Tensor<T>& Tensor<T>::operator=(Tensor<T>& rhs) {
+Tensor<T>& Tensor<T>::operator=(const Tensor<T>& rhs) {
   log_fatal("Un-implemented function");
 }
 
@@ -307,7 +307,7 @@ public:
 
   void set(int index, T val) override { vec.at(index) = val; }
 
-  virtual Tensor<T>& operator=(Tensor<T>& rhs) {
+  virtual Tensor<T>& operator=(const Tensor<T>& rhs) {
     this->dims = rhs.get_dims();
     this->vec = rhs.get();
     return *this;

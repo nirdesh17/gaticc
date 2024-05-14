@@ -201,7 +201,7 @@ void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
 
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
+  const Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
 
   std::vector<int> ofmap_dims{1, input->dims_iterator(-1)};
   Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
