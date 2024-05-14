@@ -52,6 +52,7 @@ public:
    * as it fully own the underlying Tensor
    * */
   virtual bool freeable() const = 0;
+  virtual ~Tensor() = 0;
 
   /* Write functions */
 
@@ -113,6 +114,10 @@ typename std::vector<T>::iterator Tensor<T>::end() {
   log_fatal("Un-implemented function");
 }
 
+template <typename T>
+Tensor<T>::~Tensor() {
+}
+
 /* TensorExtant - Wrapper around onnx::TensorProto
  *
  * TensorExtant deduces where actual data is stored
@@ -150,6 +155,7 @@ public:
    */
   std::vector<T> get() const override;
   void print() const override;
+  ~TensorExtant();
 };
 
 
@@ -224,6 +230,11 @@ template <typename T> std::vector<T> TensorExtant<T>::get() const {
 template <typename T>
 bool TensorExtant<T>::freeable() const {
   return false;
+}
+
+template <typename T>
+TensorExtant::~TensorExtant() {
+  // frees nothing as it owns nothing
 }
 
 template <typename T> class TensorCreate : public Tensor<T> {
@@ -327,7 +338,13 @@ public:
   bool freeable() const override {
     return true;
   }
+
+  ~TensorCreate();
 };
+
+template <typename T>
+TensorCreate::~TensorCreate() {
+}
 
 
 template <typename T> class TensorSlice : public Tensor<T> {
@@ -356,6 +373,7 @@ public:
   void print() const override;
   bool freeable() const override;
 
+  ~TensorSlice();
 
   /* Write functions */
 
@@ -458,6 +476,10 @@ void TensorSlice<T>::print() const {
 template <typename T>
 bool TensorSlice<T>::freeable() const {
   return false;
+}
+
+TensorSlice::~TensorSlice() {
+  // frees nothing as it owns nothing
 }
 
 template <typename T>
