@@ -133,7 +133,7 @@ Tensor<T> *Executor::read_model_input(PyEngine &engine) {
   if (!PyArray_CheckExact(input_object)) {
     log_fatal("function %s must return a numpy array", preprocfn.c_str());
   }
-  Tensor<T> *input = engine.np2t<T>(input_object);
+  Tensor<T> *input = np2t<T>(input_object);
   return input;
 }
 
@@ -141,7 +141,7 @@ template <typename T>
 void Executor::write_model_output(PyEngine &engine, Tensor<T> *out) {
   assert(gbl_args.has_option("postprocfn") && "post process function is required");
   std::string postprocfn = gbl_args["postprocfn"].as<std::string>();
-  PyObject *t = engine.t2np<T>(out);
+  PyObject *t = t2np<T>(out);
   PyObject *arr = Py_BuildValue("(O)", t);
   engine.call_func(postprocfn, arr);
 }
