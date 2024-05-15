@@ -164,6 +164,7 @@ struct Relu : public LayerBase {
   const char *op_type() const override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct Clip : public LayerBase {
@@ -181,6 +182,7 @@ struct Gemm : public LayerBase {
   const onnx::TensorProto *weights;
   const onnx::TensorProto *bias;
   const char *m_optype = "Gemm";
+  TPDT weight_type;
   GemmParams m_cp;
   Gemm();
   const char *op_type() const override;
@@ -189,6 +191,7 @@ struct Gemm : public LayerBase {
   void set_attributes(const onnx::NodeProto &node) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
 };
 
@@ -222,6 +225,7 @@ struct Dropout : public LayerBase {
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct Add : public LayerBase {
@@ -315,8 +319,8 @@ struct QLinearConv : public LayerBase {
   ConvParams m_cp;
   std::vector<float> x_scale;
   std::vector<std::variant<int8_t, uint8_t>> x_zero_point;
-  //std::vector<float> w_scale;
-  //std::vector<std::variant<int8_t, uint8_t>> w_zero_point;
+  std::vector<float> w_scale;
+  std::vector<std::variant<int8_t, uint8_t>> w_zero_point;
   std::vector<float> y_scale;
   std::vector<std::variant<int8_t,uint8_t>>  y_zero_point;
   const char *op_type() const override;
@@ -336,6 +340,8 @@ struct QLinearMatMul : public LayerBase {
   TPDT weight_type;
   GemmParams m_cp;
   QLinearMatMul();
+  std::vector<float> a_scale;
+  std::vector<float> b_scale;
   std::vector<float> y_scale;
   std::vector<std::variant<int8_t,uint8_t>> y_zero_point;
   const char *op_type() const override;

@@ -156,6 +156,12 @@ void Op::Layer::Relu::infer_shape(const std::vector<std::vector<int>>& input_dim
   this->output_dims = input_dims[0];
 }
 
+void Op::Layer::Relu::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
 Op::Layer::Clip::Clip() {
   /* defaults */
   m_min = INT_MIN;
@@ -256,6 +262,13 @@ void Op::Layer::Gemm::infer_shape(const std::vector<std::vector<int>> &input_dim
            "Gemm, matrix dimensions do not match");
     this->output_dims.at(1) =this->m_cp.wc;
   }
+}
+
+void Op::Layer::Gemm::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+  this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
 Op::Layer::Maxpool::Maxpool() {
@@ -369,6 +382,12 @@ void Op::Layer::Dropout::infer_shape(const std::vector<std::vector<int>> &input_
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims[0];
   this->output_dims = input_dims[0];
+}
+
+void Op::Layer::Dropout::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
 }
 
 Op::Layer::Add::Add() {
@@ -704,10 +723,17 @@ void Op::Layer::QLinearConv::set_initializer_params(int n, const onnx::TensorPro
       weights = &t;
       break;
     case QLC_W_SCALE:
-      /* TODO: store this too? */
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        w_scale.push_back(i);
+      }
       break;
     case QLC_W_ZERO_POINT:
-      /* TODO: store this too? */
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        w_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        w_zero_point.push_back((int8_t) t.int32_data(0));
+      }
       break;
     case QLC_Y_SCALE:
       assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
@@ -795,6 +821,10 @@ void Op::Layer::QLinearMatMul::set_initializer_params(int n,
     const onnx::TensorProto &t) {
   switch (n) {
     case QLMM_A_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        a_scale.push_back(i);
+      }
       break;
     case QLMM_A_ZERO_POINT:
       break;
@@ -804,6 +834,10 @@ void Op::Layer::QLinearMatMul::set_initializer_params(int n,
       weights = &t;
       break;
     case QLMM_B_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        b_scale.push_back(i);
+      }
       break;
     case QLMM_B_ZERO_POINT:
       break;
