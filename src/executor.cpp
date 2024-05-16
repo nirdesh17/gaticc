@@ -518,6 +518,8 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
   }
 }
 
+MinMaxCounter<int> minmaxcnt;
+
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
@@ -531,14 +533,21 @@ void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims)};
-  using variantT = std::variant<int8_t,uint8_t>;
-  std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   ConvEngine<inputT, weightT, intrT> cc_engine(cc);
   cc_engine.run(input, intr_output.get());
-  quantize<intrT, outputT>(intr_output.get(), output, cc->y_scale, zero_points);
+
+  //for (int i = 0; i < intr_output.get()->dims_iterator(-1); ++i) {
+  //  minmaxcnt.note(intr_output.get()->at(i));
+  //}
+  //minmaxcnt.report();
+
+  std::vector<float> scales = compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
+  using variantT = std::variant<int8_t,uint8_t>;
+  std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
+  quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
   tt.stop();
   tt.report("Time taken: ");
 
@@ -638,7 +647,8 @@ void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   va.run(input, intr_output.get());
-  quantize<intrT, outputT>(intr_output.get(), output, cc->y_scale, zero_points);
+  std::vector<float> scales = compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
+  quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
 
   tt.stop();
   if (l->dump_output) {

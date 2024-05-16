@@ -175,3 +175,14 @@ BatchNorm::BatchNorm(int mean, int sd, int gamma, int beta)
 int BatchNorm::exec(int x) { return (gamma * ((x - mean) / sd)) + beta; }
 
 #endif
+
+std::vector<float> compute_output_scale(const std::vector<float>& x_scale,
+    const std::vector<float>& w_scale, const std::vector<float>& y_scale) {
+  auto new_x_scale = broadcast_vec(x_scale, w_scale.size());
+  auto new_y_scale = broadcast_vec(y_scale, w_scale.size());
+  std::vector<float> ret(w_scale.size());
+  for (int i = 0; i < w_scale.size(); ++i) {
+    ret[i] = new_y_scale[i] / (new_x_scale[i] * w_scale[i] );
+  }
+  return ret;
+}

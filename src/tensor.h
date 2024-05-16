@@ -233,7 +233,7 @@ bool TensorExtant<T>::freeable() const {
 }
 
 template <typename T>
-TensorExtant::~TensorExtant() {
+TensorExtant<T>::~TensorExtant() {
   // frees nothing as it owns nothing
 }
 
@@ -343,7 +343,7 @@ public:
 };
 
 template <typename T>
-TensorCreate::~TensorCreate() {
+TensorCreate<T>::~TensorCreate() {
 }
 
 
@@ -478,9 +478,30 @@ bool TensorSlice<T>::freeable() const {
   return false;
 }
 
-TensorSlice::~TensorSlice() {
+template <typename T>
+TensorSlice<T>::~TensorSlice() {
   // frees nothing as it owns nothing
 }
+
+template <typename T>
+Tensor<T>* tensor_sub_zp(const Tensor<T> *input, const std::vector<int>& zp) {
+  assert(input->dims_size() == 4 && "tensor_pad assumes 4d inputs");
+  std::vector<int> new_dims = input->get_dims();
+  Tensor<T> *output = new TensorCreate<T>(new_dims);
+  for (int i = 0; i < new_dims[0]; ++i) {
+    for (int j = 0; j < new_dims[1]; ++j) {
+      for (int k = 0; k < new_dims[2]; ++k) {
+        for (int l = 0; l < new_dims[3]; ++l) {
+          std::vector<int> out_index {i, j, k, l};
+          T v = input->at(out_index) - zp[j];
+          output->insert(out_index, v);
+        }
+      }
+    }
+  }
+  return output;
+}
+
 
 template <typename T>
 Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads) {

@@ -1071,25 +1071,30 @@ void tensor_add(Tensor<outputT> *output, const Tensor<inputT> *input1, const Ten
  * vector is added to all elements of each channel
  * of the tensor
  *
- *  input_tensor.shape = (X, _, _)
- *  input_vector.shape = (X)
+ *  input_tensor.shape = (_, C, _, _)
+ *  input_vector.shape = (_, C)
  */
 template <typename inputT, typename outputT>
 void tensor_vector_add(Tensor<outputT> *output, const Tensor<inputT> *input_tensor, const Tensor<inputT> *input_vector) {
   assert(input_vector->dims_size() == 1);
-  assert(input_vector->dims_at(0) == input_tensor->dims_at(0));
-  assert(input_tensor->dims_size() == 3);
+  assert(input_vector->dims_at(0) == input_tensor->dims_at(TENSOR_4D_CHANNELS));
+  assert(input_tensor->dims_size() == 4);
 
-  for (int i = 0; i < input_tensor->dims_at(0); ++i) {
-    for (int j = 0; j < input_tensor->dims_at(1); ++j) {
-      for (int k = 0; k < input_tensor->dims_at(2); ++k) {
-        std::vector<int> index {i, j, k};
-        outputT t1 = input_tensor->at(index) + input_vector->at(i);
-        output->insert(index, t1);
+  for (int i = 0; i < output->dims_at(0); ++i) {
+    for (int j = 0; j < output->dims_at(1); ++j) {
+      for (int k = 0; k < output->dims_at(2); ++k) {
+        for (int l = 0; l < output->dims_at(3); ++l) {
+          std::vector<int> index {i, j, k, l};
+          outputT t1 = input_tensor->at(index) + input_vector->at(j);
+          output->insert(index, t1);
+        }
       }
     }
   }
 }
+
+std::vector<float> compute_output_scale(const std::vector<float>& x_scale,
+    const std::vector<float>& w_scale, const std::vector<float>& y_scale);
 
 template <typename inputT, typename outputT>
 inline outputT clip(inputT v, int min_lim, int max_lim) {
@@ -1104,7 +1109,8 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
 
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim, int max_lim) {
-  return clip<inputT, outputT>((outputT) ((v / scale) + zero_point), min_lim, max_lim);
+  outputT rounded = (outputT) std::round(((float) v / scale + zero_point);
+  return std::clamp(rounded, min_lim, max_lim);
 }
 
 template <typename inputT, typename outputT>
@@ -1123,6 +1129,7 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std::v
   } else {
     log_fatal("cant find saturation values for quantization (unimplemented)");
   }
+
   if (input->dims_size() == 4) {
     const auto bscales = broadcast_vec(scales, input->dims_at(TENSOR_4D_CHANNELS));
     const auto bzero_points = broadcast_vec(zero_point, input->dims_at(TENSOR_4D_CHANNELS));
@@ -1133,6 +1140,7 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std::v
             std::vector<int> in_index {i, j, k, l};
             inputT val = input->at(in_index);
             outputT new_val = quantize_fn<inputT, outputT>(val, bscales[j], bzero_points[j], min_lim, max_lim);
+              std::cout << "val " << val << " scale " << bscales[j] << " zp " << bzero_points[j] << " channel " << j << " new val " << (int) new_val << '\n';
             output->insert(in_index, new_val);
           }
         }
@@ -1158,6 +1166,9 @@ template <typename inputT, typename weightT, typename outputT> class ConvEngine 
   int kw;
   std::vector<int> pad_vec;
 
+  std::vector<int> w_zero_points;
+  std::vector<int> x_zero_points;
+
   void _kernel(int k, const Tensor<inputT> *input, Tensor<outputT> *output);
 
 public:
@@ -1176,6 +1187,8 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::Conv *cc) {
   kw = cc->m_cp.k[TENSOR_2D_WIDTH];
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
+  w_zero_points = std::vector<int>(cc->output_dims[TENSOR_4D_CHANNELS]);
+  x_zero_points = std::vector<int>(cc->output_dims[TENSOR_4D_CHANNELS]);
 }
 
 template <typename inputT, typename weightT, typename outputT>
@@ -1187,7 +1200,30 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::QLinearConv *c
   kw = cc->m_cp.k[TENSOR_2D_WIDTH];
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
+  using variantT = std::variant<int8_t,uint8_t>;
+  w_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->w_zero_point), cc->output_dims[TENSOR_4D_CHANNELS]);
+  x_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->x_zero_point), cc->output_dims[TENSOR_4D_CHANNELS]);
 }
+
+template <typename T>
+class MinMaxCounter {
+  T max;
+  T min;
+  public:
+  MinMaxCounter(): max{0}, min{0} {
+  }
+  void note(T v) {
+    if (v > max) {
+      max = v;
+    }
+    if (v < min) {
+      min = v;
+    }
+  }
+  void report() {
+    std::cout << "max " << max << " min " << min << '\n';
+  }
+};
 
 
 template <typename inputT, typename weightT, typename outputT>
@@ -1217,9 +1253,15 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k, const Tensor<inputT> *
             // print_vec("in index", in_index);
             // std::cout << "in : " <<  padded_input->at(in_index) << ' ' <<
             // "weigth " << weights->at(w_index) << '\n';
-            outputT val2 = input->at(in_index) * weights->at(w_index);
+            outputT val2 = input->at(in_index) * (weights->at(w_index) - w_zero_points[0]);
+            //std::cout << "mac " << val << " += " << (input->at(in_index) - x_zero_points[k]) << ' ' << (weights->at(w_index) - w_zero_points[0]) << " input " << (int) input->at(in_index) << " zp " << (int) x_zero_points[k] << " weight " << (int) weights->at(w_index) <<
+                //" wzp " << (int) w_zero_points[0] << '\n';
             // std::cout  << "v1 " << " v2 " << val << ' ' << val2 << '\n';
-            output->insert(out_index, val + val2);
+            outputT v = val + val2;
+            //if ((ici % 4 == 0) && (ici != 0) && (ici < (ic - 4))) {
+            //  v = clip<int,int>(v, -4194304, 4194303); // 2^21
+            //}
+            output->insert(out_index, v);
           }
         }
       }
@@ -1229,7 +1271,9 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k, const Tensor<inputT> *
 
 template <typename inputT, typename weightT, typename outputT>
 void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
-  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec);
+  /* TODO; free memory */
+  Tensor<inputT> *zp_input = tensor_sub_zp(input, x_zero_points);
+  Tensor<inputT> *padded_input = tensor_pad(zp_input, pad_vec);
 
   std::vector<std::thread> tc;
   for (int k = 0; k < kn; ++k) {
@@ -1238,6 +1282,7 @@ void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tens
   for (int k = 0; k < kn; ++k) {
     tc[k].join();
   }
+  tensor_vector_add(output, output, bias);
 }
 
 template <typename inputT, typename weightT, typename outputT>
