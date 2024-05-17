@@ -507,7 +507,6 @@ template <typename T>
 Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads) {
   assert(input->dims_size() == 4 && "tensor_pad assumes 4d inputs");
   std::vector<int> new_dims = get_dims_after_pad(input->get_dims(), pads);
-  print_vec("new dims ", new_dims);
   Tensor<T> *output = new TensorCreate<T>(new_dims);
   for (int i = 0; i < new_dims[0]; ++i) {
     for (int j = 0; j < new_dims[1]; ++j) {

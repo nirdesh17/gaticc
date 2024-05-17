@@ -97,7 +97,6 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   ConvEngine<inputT, weightT, outputT> cc_engine(cc);
   cc_engine.run(input, output);
   tt.stop();
-  tt.report("Time taken: ");
 
   if (l->dump_output) {
     output->print();
@@ -546,7 +545,6 @@ void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
   tt.stop();
-  tt.report("Time taken: ");
 
   if (l->dump_output) {
     output->print();
