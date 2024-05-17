@@ -507,6 +507,8 @@ void Op::Layer::DequantizeLinear::set_initializer_params(int n,
     scale = (double) t.float_data(0);
   } else if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
     zero_point = t.int32_data(0);
+  } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+    zero_point = t.int32_data(0);
   } else {
     log_fatal("Could not find an initializer of expected types");
   }
@@ -827,6 +829,13 @@ void Op::Layer::QLinearMatMul::set_initializer_params(int n,
       }
       break;
     case QLMM_A_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        a_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        a_zero_point.push_back((int8_t) t.int32_data(0));
+      } else {
+        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+      }
       break;
     case QLMM_B:
       m_cp.wr = t.dims()[0];
@@ -840,6 +849,13 @@ void Op::Layer::QLinearMatMul::set_initializer_params(int n,
       }
       break;
     case QLMM_B_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        b_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        b_zero_point.push_back((int8_t) t.int32_data(0));
+      } else {
+        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+      }
       break;
     case QLMM_Y_SCALE:
       assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
@@ -854,17 +870,11 @@ void Op::Layer::QLinearMatMul::set_initializer_params(int n,
         y_zero_point.push_back((int8_t) t.int32_data(0));
       } else {
         log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+      }
       break;
     default:
         log_fatal("unknown inputs number %d for tensor %s", n, t.name().c_str());
       break;
-  }
-}
-
-  if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
-    m_cp.wr = t.dims()[0];
-    m_cp.wc = t.dims()[1];
-    weights = &t;
   }
 }
 
@@ -913,20 +923,32 @@ enum QLA_INITIALIZERS {
 void Op::Layer::QLinearAdd::set_initializer_params(int n, const onnx::TensorProto &t) {
   switch (n) {
     case QLA_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        a_scale = i;
+      }
       break;
     case QLA_ZERO_POINT:
+      assert(t.int32_data_size() > 0);
+      a_zp = (int) t.int32_data(0);
       break;
     case QLA_B:
       addend = &t;
       break;
     case QLA_B_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        b_scale = i;
+      }
       break;
     case QLA_B_ZERO_POINT:
+      assert(t.int32_data_size() > 0);
+      b_zp = (int) t.int32_data(0);
       break;
     case QLA_C_SCALE:
       assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
       for (auto i: t.float_data()) {
-        scale.push_back(i);
+        o_scale.push_back(i);
       }
       break;
     case QLA_C_ZERO_POINT:
@@ -1027,7 +1049,140 @@ void Op::Layer::MatMul::set_value_info_params(
 #endif
 }
 
+Op::Layer::QGemm::QGemm() { m_cp = {};
+  m_cp.alpha = 1.0;
+  m_cp.beta = 1.0;
+  m_cp.transA = 0;
+  m_cp.transB = 0;
+}
+const char *Op::Layer::QGemm::op_type() const { return m_optype; }
+const char *Op::Layer::QGemm::params() const {
+  static char ret[128];
+  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d alpha,beta,transA,transB: %f,%f,%d,%d",
+          this->input_dims[TENSOR_2D_HEIGHT], this->input_dims[TENSOR_2D_WIDTH],
+          m_cp.wr, m_cp.wc, m_cp.alpha, m_cp.beta, m_cp.transA, m_cp.transB);
+  return ret;
+}
 
+enum QGEMM_INITIALIZERS {
+  QLG_A_SCALE = 1,
+  QLG_A_ZERO_POINT = 2,
+  QLG_B = 3,
+  QLG_B_SCALE = 4,
+  QLG_B_ZERO_POINT = 5,
+  QLG_C = 6,
+  QLG_Y_SCALE = 7,
+  QLG_Y_ZERO_POINT = 8
+};
+
+void Op::Layer::QGemm::set_initializer_params(int n, 
+    const onnx::TensorProto &t) {
+  switch (n) {
+    case QLG_A_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        a_scale.push_back(i);
+      }
+      break;
+    case QLG_A_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        a_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        a_zero_point.push_back((int8_t) t.int32_data(0));
+      } else {
+        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+      }
+      break;
+    case QLG_B:
+      m_cp.wr = t.dims()[0];
+      m_cp.wc = t.dims()[1];
+      weights = &t;
+      break;
+    case QLG_B_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        b_scale.push_back(i);
+      }
+      break;
+    case QLG_B_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        b_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        b_zero_point.push_back((int8_t) t.int32_data(0));
+      } else {
+        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+      }
+      break;
+    case QLG_C:
+      bias = &t;
+      break;
+    case QLG_Y_SCALE:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      for (auto i: t.float_data()) {
+        y_scale.push_back(i);
+      }
+      break;
+    case QLG_Y_ZERO_POINT:
+      if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+        y_zero_point.push_back((uint8_t) t.int32_data(0));
+      } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+        y_zero_point.push_back((int8_t) t.int32_data(0));
+      } else {
+        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+      }
+      break;
+    default:
+        log_fatal("unknown inputs number %d for tensor %s", n, t.name().c_str());
+      break;
+  }
+}
+
+void Op::Layer::QGemm::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "alpha") {
+      if (itr->has_f()) {
+        m_cp.alpha = itr->f();
+      }
+    } else if (itr->name() == "beta") {
+      if (itr->has_f()) {
+        m_cp.beta = itr->f();
+      }
+    } else if (itr->name() == "transA") {
+      if (itr->has_i()) {
+        m_cp.transA = itr->i();
+      }
+    } else if (itr->name() == "transB") {
+      if (itr->has_i()) {
+        m_cp.transB = itr->i();
+      }
+    }
+  }
+}
+
+void Op::Layer::QGemm::infer_shape(const std::vector<std::vector<int>> &input_dims) {
+  assert(input_dims.size() >= 1);
+  assert(input_dims[0].size() == 2);
+  this->input_dims = input_dims[0];
+  this->output_dims.resize(2);
+  this->output_dims.at(0) = input_dims[0].at(0);
+  if (m_cp.transB) {
+    assert(input_dims[0].at(1) == this->m_cp.wc &&
+           "QGemm, matrix dimensions do not match");
+    this->output_dims.at(1) = this->m_cp.wr;
+  } else {
+    assert(input_dims[0].at(1) == this->m_cp.wr &&
+           "QGemm, matrix dimensions do not match");
+    this->output_dims.at(1) =this->m_cp.wc;
+  }
+}
+
+void Op::Layer::QGemm::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+  this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
+}
 
 /* Auxillary Graph Functions */
 
@@ -1702,6 +1857,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Transpose(), node);
   } else if (opt == "MatMul") {
     m_model.add(new Op::Layer::MatMul(), node);
+  } else if (opt == "QGemm") {
+    m_model.add(new Op::Layer::QGemm(), node);
   } else {
     log_fatal("Unimplemented Operator: %s", opt.c_str());
   }

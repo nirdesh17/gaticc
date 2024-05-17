@@ -343,6 +343,8 @@ struct QLinearMatMul : public LayerBase {
   std::vector<float> a_scale;
   std::vector<float> b_scale;
   std::vector<float> y_scale;
+  std::vector<std::variant<int8_t,uint8_t>> a_zero_point;
+  std::vector<std::variant<int8_t,uint8_t>> b_zero_point;
   std::vector<std::variant<int8_t,uint8_t>> y_zero_point;
   const char *op_type() const override;
   const char *params() const override;
@@ -355,8 +357,13 @@ struct QLinearMatMul : public LayerBase {
 
 struct QLinearAdd : public LayerBase {
   const onnx::TensorProto *addend;
-  std::vector<float> scale;
+  float a_scale;
+  float b_scale;
+  int a_zp;
+  int b_zp;
+  std::vector<float> o_scale;
   std::vector<std::variant<int8_t, uint8_t>> zero_point;
+
   const char *m_optype = "QLinearAdd";
   const char *op_type() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
@@ -384,6 +391,28 @@ struct MatMul : public LayerBase {
   const char *params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
+  void run(TensorPool &tensor_pool) override;
+};
+
+struct QGemm : public LayerBase {
+  const onnx::TensorProto *weights;
+  const onnx::TensorProto *bias;
+  const char *m_optype = "QGemm";
+  TPDT weight_type;
+  GemmParams m_cp;
+  std::vector<float> a_scale;
+  std::vector<float> b_scale;
+  std::vector<float> y_scale;
+  std::vector<std::variant<int8_t,uint8_t>> a_zero_point;
+  std::vector<std::variant<int8_t,uint8_t>> b_zero_point;
+  std::vector<std::variant<int8_t,uint8_t>> y_zero_point;
+  QGemm();
+  const char *op_type() const override;
+  const char *params() const override;
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
 };
 
