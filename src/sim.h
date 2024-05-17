@@ -950,16 +950,21 @@ void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
 
 /* Vector Arrays 
  * Used by Gemm/Matmul routines */
-template <typename inputT, typename weightT, typename outputT> class VA {
+template <typename inputT, typename weightT, typename biasT, typename outputT> class VA {
   int wrows;
   int wcols;
   int isize;
   Tensor<weightT> *weights;
-  Tensor<weightT> *bias;
+  Tensor<biasT> *bias;
+
+  int a_zero_point;
+  int b_zero_point;
+
   public:
     VA(const Op::Layer::Gemm &gp);
     VA(const Op::Layer::MatMul &gp);
     VA(const Op::Layer::QLinearMatMul &gp);
+    VA(const Op::Layer::QGemm &gp);
     void run(const Tensor<inputT> *input, Tensor<outputT> *output);
     ~VA() {
       delete weights;
@@ -968,13 +973,13 @@ template <typename inputT, typename weightT, typename outputT> class VA {
 };
 
 
-template <typename inputT, typename weightT, typename outputT>
-VA<inputT, weightT, outputT>::VA(const Op::Layer::Gemm &gp) {
+template <typename inputT, typename weightT, typename biasT, typename outputT>
+VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::Gemm &gp) {
   wrows = gp.m_cp.wr;
   wcols = gp.m_cp.wc;
   isize = gp.input_dims[TENSOR_2D_WIDTH];
   if (gp.m_cp.transB) {
-    Tensor<weightT> *tmp = new TensorExtant<inputT>(gp.weights);
+    Tensor<weightT> *tmp = new TensorExtant<weightT>(gp.weights);
     auto dims = tmp->get_dims();
     std::vector<int> new_dims {dims[1], dims[0]};
     weights = new TensorCreate<weightT>(new_dims);
@@ -983,29 +988,66 @@ VA<inputT, weightT, outputT>::VA(const Op::Layer::Gemm &gp) {
   } else {
     weights = new TensorExtant<weightT>(gp.weights);
   }
-  bias = new TensorExtant<weightT>(gp.bias);
+  bias = new TensorExtant<biasT>(gp.bias);
+  a_zero_point = 0;
+  b_zero_point = 0;
+
 }
 
-template <typename inputT, typename weightT, typename outputT>
-VA<inputT, weightT, outputT>::VA(const Op::Layer::MatMul &gp) {
+template <typename inputT, typename weightT, typename biasT, typename outputT>
+VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::MatMul &gp) {
   wrows = gp.m_cp.wc;
   wcols = gp.m_cp.wr;
   isize = gp.input_dims[TENSOR_2D_WIDTH];
   weights = new TensorExtant<weightT>(gp.weights);
   bias = nullptr;
+  a_zero_point = 0;
+  b_zero_point = 0;
 }
 
-template <typename inputT, typename weightT, typename outputT>
-VA<inputT, weightT, outputT>::VA(const Op::Layer::QLinearMatMul &gp) {
+template <typename inputT, typename weightT, typename biasT, typename outputT>
+VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::QLinearMatMul &gp) {
   wrows = gp.m_cp.wc;
   wcols = gp.m_cp.wr;
   isize = gp.input_dims[TENSOR_2D_WIDTH];
   weights = new TensorExtant<weightT>(gp.weights);
   bias = nullptr;
+  using variantT = std::variant<int8_t,uint8_t>;
+  auto azps = variant2vec<variantT, int>(gp.a_zero_point);
+  auto bzps = variant2vec<variantT, int>(gp.b_zero_point);
+  assert(azps.size() == 1);
+  a_zero_point = azps[0];
+  assert(bzps.size() == 1);
+  b_zero_point = bzps[0];
 }
 
-template <typename inputT, typename weightT, typename outputT>
-void VA<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
+template <typename inputT, typename weightT, typename biasT, typename outputT>
+VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::QGemm &gp) {
+  wrows = gp.m_cp.wr;
+  wcols = gp.m_cp.wc;
+  isize = gp.input_dims[TENSOR_2D_WIDTH];
+  if (gp.m_cp.transB) {
+    Tensor<weightT> *tmp = new TensorExtant<weightT>(gp.weights);
+    auto dims = tmp->get_dims();
+    std::vector<int> new_dims {dims[1], dims[0]};
+    weights = new TensorCreate<weightT>(new_dims);
+    transpose(tmp, weights, std::vector<int>{1, 0});
+    delete tmp;
+  } else {
+    weights = new TensorExtant<weightT>(gp.weights);
+  }
+  bias = new TensorExtant<biasT>(gp.bias);
+  using variantT = std::variant<int8_t,uint8_t>;
+  auto azps = variant2vec<variantT, int>(gp.a_zero_point);
+  auto bzps = variant2vec<variantT, int>(gp.b_zero_point);
+  assert(azps.size() == 1);
+  a_zero_point = azps[0];
+  assert(bzps.size() == 1);
+  b_zero_point = bzps[0];
+}
+
+template <typename inputT, typename weightT, typename biasT, typename outputT>
+void VA<inputT, weightT, biasT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
   assert(input->dims_size() == 2 && weights->dims_size() == 2);
 
   int N = input->dims_at(0);
@@ -1018,7 +1060,7 @@ void VA<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tensor<outpu
         /* TODO: use Tensor->at that returns a reference and += operator
          * part of tensor refactor
          */
-        dst += input->at(i * M + k) * weights->at(k * K + j);
+        dst += (input->at(i * M + k) - a_zero_point) * (weights->at(k * K + j) - b_zero_point);
       }
       /* For gemm */
       if (bias != nullptr) {
@@ -1067,6 +1109,23 @@ void tensor_add(Tensor<outputT> *output, const Tensor<inputT> *input1, const Ten
   }
 }
 
+/* Element wise tensor addition with scales and zp 
+ *
+ * returns: (i1_scale * (i1[i] - i1_zp) + i2_scale * (i2[i] - i2_zp))
+ */
+
+template <typename inputT, typename outputT>
+void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
+                 const Tensor<inputT> *input2, float i1_scale, float i2_scale,
+                 int i1_zp, int i2_zp) {
+  assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
+  for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+    outputT v = (i1_scale * (input1->at(i) - i1_zp)) +
+                (i2_scale * (input2->at(i) - i2_zp));
+    output->set(i, input1->at(i) + input2->at(i));
+  }
+}
+
 /* Add a tensor and a vector. Each element of the
  * vector is added to all elements of each channel
  * of the tensor
@@ -1109,8 +1168,8 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
 
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim, int max_lim) {
-  outputT rounded = (outputT) std::round(((float) v / scale + zero_point);
-  return std::clamp(rounded, min_lim, max_lim);
+  inputT rounded = std::round(((float) v / scale + zero_point));
+  return (outputT) std::clamp<inputT>(rounded, min_lim, max_lim);
 }
 
 template <typename inputT, typename outputT>
@@ -1126,6 +1185,9 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std::v
   if (typeid(outputT) == typeid(uint8_t)) {
     min_lim = 0;
     max_lim = 255;
+  } else if (typeid(outputT) == typeid(int8_t)) {
+    min_lim = -128;
+    max_lim = 127;
   } else {
     log_fatal("cant find saturation values for quantization (unimplemented)");
   }
@@ -1140,7 +1202,6 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std::v
             std::vector<int> in_index {i, j, k, l};
             inputT val = input->at(in_index);
             outputT new_val = quantize_fn<inputT, outputT>(val, bscales[j], bzero_points[j], min_lim, max_lim);
-              std::cout << "val " << val << " scale " << bscales[j] << " zp " << bzero_points[j] << " channel " << j << " new val " << (int) new_val << '\n';
             output->insert(in_index, new_val);
           }
         }
@@ -1229,8 +1290,6 @@ class MinMaxCounter {
 template <typename inputT, typename weightT, typename outputT>
 void ConvEngine<inputT, weightT, outputT>::_kernel(int k, const Tensor<inputT> *input,
                                           Tensor<outputT> *output) {
-
-  /* TODO: add bias here */
   int ic = input->dims_at(TENSOR_4D_CHANNELS);
   int oh = output->dims_at(TENSOR_4D_HEIGHT);
   int ow = output->dims_at(TENSOR_4D_WIDTH);
@@ -1240,24 +1299,13 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k, const Tensor<inputT> *
       for (int owi = 0; owi < ow; ++owi) {
         for (int khi = 0; khi < kh; ++khi) {
           for (int kwi = 0; kwi < kw; ++kwi) {
-            // printf("k %d, ici %d, ohi,owi %d,%d, ihi,iwi %d,%d, khi,kwi"
-            //        "%d,%d\n",
-            //        k, ici, ohi, owi, ohi + khi, owi + kwi, khi, kwi);
             std::vector<int> out_index{0, k, ohi, owi};
             std::vector<int> in_index{0, ici, ohi + khi, owi + kwi};
             std::vector<int> w_index{k, ici, khi, kwi};
-            // print_vec("output dims", output->get_dims());
-            // print_vec("out_index", out_index);
             outputT val = output->at(out_index);
-            // print_vec("input dims", input->get_dims());
-            // print_vec("in index", in_index);
-            // std::cout << "in : " <<  padded_input->at(in_index) << ' ' <<
-            // "weigth " << weights->at(w_index) << '\n';
-            outputT val2 = input->at(in_index) * (weights->at(w_index) - w_zero_points[0]);
-            //std::cout << "mac " << val << " += " << (input->at(in_index) - x_zero_points[k]) << ' ' << (weights->at(w_index) - w_zero_points[0]) << " input " << (int) input->at(in_index) << " zp " << (int) x_zero_points[k] << " weight " << (int) weights->at(w_index) <<
-                //" wzp " << (int) w_zero_points[0] << '\n';
-            // std::cout  << "v1 " << " v2 " << val << ' ' << val2 << '\n';
+            outputT val2 = (outputT) (input->at(in_index)) * (outputT) (weights->at(w_index) - w_zero_points.at(k));
             outputT v = val + val2;
+
             //if ((ici % 4 == 0) && (ici != 0) && (ici < (ic - 4))) {
             //  v = clip<int,int>(v, -4194304, 4194303); // 2^21
             //}
@@ -1282,6 +1330,8 @@ void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tens
   for (int k = 0; k < kn; ++k) {
     tc[k].join();
   }
+  delete zp_input;
+  delete padded_input;
   tensor_vector_add(output, output, bias);
 }
 

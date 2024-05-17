@@ -243,7 +243,7 @@ void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  VA<inputT, inputT, outputT> va(*cc);
+  VA<inputT, inputT, inputT, outputT> va(*cc);
   /* TODO: get architecture size from gbl_args */
   Timer<std::chrono::milliseconds> tt;
   tt.start();
@@ -400,7 +400,7 @@ void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  VA<inputT, inputT, outputT> va(*cc);
+  VA<inputT, inputT, inputT, outputT> va(*cc);
   /* TODO: get architecture size from gbl_args */
   Timer<std::chrono::milliseconds> tt;
   tt.start();
@@ -487,7 +487,6 @@ void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  /* TODO: make scale in quantize linear a vector by default */
   std::vector<float> scales {cc->scale};
   std::vector<int> zero_point;
   if (std::holds_alternative<uint8_t>(cc->zero_point)) {
@@ -511,6 +510,9 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
   if (input_type == onnx::TensorProto_DataType_FLOAT &&
       output_type == onnx::TensorProto_DataType_UINT8) {
     run_quantize_linear<float, uint8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_FLOAT &&
+      output_type == onnx::TensorProto_DataType_INT8) {
+    run_quantize_linear<float, int8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
               Op::get_tensorproto_dtype_name(input_type),
@@ -538,11 +540,6 @@ void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   ConvEngine<inputT, weightT, intrT> cc_engine(cc);
   cc_engine.run(input, intr_output.get());
-
-  //for (int i = 0; i < intr_output.get()->dims_iterator(-1); ++i) {
-  //  minmaxcnt.note(intr_output.get()->at(i));
-  //}
-  //minmaxcnt.report();
 
   std::vector<float> scales = compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
   using variantT = std::variant<int8_t,uint8_t>;
@@ -618,6 +615,9 @@ void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
   if (input_type == onnx::TensorProto_DataType_UINT8 &&
       output_type == onnx::TensorProto_DataType_FLOAT) {
     run_dequantize_linear<uint8_t, float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+      output_type == onnx::TensorProto_DataType_FLOAT) {
+    run_dequantize_linear<int8_t, float>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
               Op::get_tensorproto_dtype_name(input_type),
@@ -642,7 +642,7 @@ void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   using variantT = std::variant<int8_t,uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
 
-  VA<inputT, weightT, intrT> va(*cc);
+  VA<inputT, weightT, weightT, intrT> va(*cc);
   /* TODO: get architecture size from gbl_args */
   Timer<std::chrono::milliseconds> tt;
   tt.start();
@@ -699,16 +699,16 @@ void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   if (cc->inputs.size() > 1) {
     // both inputs are non-initializers (i.e. available only at runtime)
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
-    tensor_add(intr_output.get(), input1, input2);
+    tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale, cc->a_zp, cc->b_zp);
   } else {
     // one of the inputs is an initializer (available statically)
     input2 = new TensorExtant<inputT>(cc->addend);
-    tensor_add(intr_output.get(), input1, input2);
+    tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale, cc->a_zp, cc->b_zp);
     delete input2;
   }
   using variantT = std::variant<int8_t,uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
-  quantize<intrT, outputT>(intr_output.get(), output, cc->scale, zero_points);
+  quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale, zero_points);
   if (l->dump_output) {
     output->print();
   }
@@ -725,6 +725,64 @@ void Op::Layer::QLinearAdd::run(TensorPool &tensor_pool) {
     run_qadd<int8_t, int, int8_t>(this, tensor_pool);
   } else if (input_type == onnx::TensorProto_DataType_UINT8) {
     run_qadd<uint8_t, int, uint8_t>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: %s, %s",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}
+
+template <typename inputT, typename weightT, typename intrT, typename outputT>
+void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(l);
+
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
+
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+
+  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims)};
+
+  using variantT = std::variant<int8_t,uint8_t>;
+  std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
+
+  VA<inputT, weightT, int32_t, intrT> va(*cc);
+  /* TODO: get architecture size from gbl_args */
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
+  va.run(input, intr_output.get());
+  std::vector<float> scales = compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
+  quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
+
+  tt.stop();
+  if (l->dump_output) {
+    output->print();
+    tt.report("Time taken: ");
+  }
+}
+
+void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT &&
+      output_type == onnx::TensorProto_DataType_FLOAT) {
+    run_qgemm<float, float, float, float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+             weight_type == onnx::TensorProto_DataType_INT8 &&
+             bias_type == onnx::TensorProto_DataType_INT32) {
+    run_qgemm<int8_t, int8_t, int, int8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+             weight_type == onnx::TensorProto_DataType_UINT8 &&
+             bias_type == onnx::TensorProto_DataType_INT8) {
+    run_qgemm<int8_t, uint8_t, int8_t, int8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
+             weight_type == onnx::TensorProto_DataType_INT8 &&
+             bias_type == onnx::TensorProto_DataType_INT8) {
+    run_qgemm<uint8_t, int8_t, int8_t, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
               Op::get_tensorproto_dtype_name(input_type),

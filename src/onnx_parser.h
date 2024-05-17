@@ -399,6 +399,7 @@ struct QGemm : public LayerBase {
   const onnx::TensorProto *bias;
   const char *m_optype = "QGemm";
   TPDT weight_type;
+  TPDT bias_type;
   GemmParams m_cp;
   std::vector<float> a_scale;
   std::vector<float> b_scale;

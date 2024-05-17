@@ -1182,6 +1182,7 @@ void Op::Layer::QGemm::infer_type(const std::vector<TPDT>& input_types) {
   this->input_type = input_types[0];
   this->output_type = input_types[0];
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
+  this->bias_type = Op::get_type_from_tensor_proto(*this->bias);
 }
 
 /* Auxillary Graph Functions */
