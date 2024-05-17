@@ -43,6 +43,8 @@ template <typename T> int deduce_npy_typenum() {
     return NPY_INT32;
   } else if (typeid(T) == typeid(int8_t)) {
     return NPY_INT8;
+  } else if (typeid(T) == typeid(uint8_t)) {
+    return NPY_UINT8;
   } else {
     log_fatal("Cannot deduce typenum or unimplemented");
   }
@@ -196,4 +198,13 @@ template <typename T> PyObject *t2np(const Tensor<T> *t) {
   Py_XDECREF(nparr);
   Py_XDECREF(shape);
   return ret;
+}
+
+template <typename T> void pickle_tensor(const Tensor<T> *t, std::string filename) {
+  PyObject *t_obj = t2np(t);
+  std::filesystem::path mod_path = "src";
+  PyEngine engine("ml_inference", mod_path);
+  PyObject *args = Py_BuildValue("(sO)", filename.c_str(), t_obj);
+  engine.call_func("save_tensor", args);
+  Py_XDECREF(t_obj);
 }
