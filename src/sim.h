@@ -1053,9 +1053,9 @@ void VA<inputT, weightT, biasT, outputT>::run(const Tensor<inputT> *input, Tenso
   int N = input->dims_at(0);
   int M = input->dims_at(1);
   int K = weights->dims_at(1);
+  outputT dst = 0;
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < K; ++j) {
-      outputT dst = 0;
       for (int k = 0; k < M; ++k) {
         /* TODO: use Tensor->at that returns a reference and += operator
          * part of tensor refactor
@@ -1067,6 +1067,7 @@ void VA<inputT, weightT, biasT, outputT>::run(const Tensor<inputT> *input, Tenso
         dst += bias->at(i*K + j);
       }
       output->set(i*K + j, dst);
+      dst = 0;
     }
   }
 }
@@ -1296,16 +1297,30 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
   int oh = output->dims_at(TENSOR_4D_HEIGHT);
   int ow = output->dims_at(TENSOR_4D_WIDTH);
 
+  std::vector<int> out_index(4);
+  std::vector<int> w_index(4);
+  std::vector<int> in_index(4);
   outputT w_zp = w_zero_points.at(k);
   for (int ibi = 0; ibi < nb; ++ibi) {
     for (int ici = 0; ici < ic; ++ici) {
       for (int ohi = 0; ohi < oh; ++ohi) {
         for (int owi = 0; owi < ow; ++owi) {
-          std::vector<int> out_index{ibi, k, ohi, owi};
+          out_index[0] = ibi;
+          out_index[1] = k;
+          out_index[2] = ohi;
+          out_index[3] = owi;
           for (int khi = 0; khi < kh; ++khi) {
             for (int kwi = 0; kwi < kw; ++kwi) {
-              std::vector<int> in_index{ibi, ici, ohi + khi, owi + kwi};
-              std::vector<int> w_index{k, ici, khi, kwi};
+              w_index[0] = k;
+              w_index[1] = ici;
+              w_index[2] = khi;
+              w_index[3] = kwi;
+
+              in_index[0] = ibi;
+              in_index[1] = ici;
+              in_index[2] = ohi + khi;
+              in_index[3] = owi + kwi;
+
               outputT val = output->at(out_index);
               outputT val2 =
                   (outputT)(input->at(in_index)) *

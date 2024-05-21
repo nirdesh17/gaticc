@@ -756,6 +756,7 @@ void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
 
   tt.stop();
+  tt.report("Time taken: ");
   if (l->dump_output) {
     output->print();
     tt.report("Time taken: ");
