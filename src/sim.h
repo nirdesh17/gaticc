@@ -1296,19 +1296,20 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
   int oh = output->dims_at(TENSOR_4D_HEIGHT);
   int ow = output->dims_at(TENSOR_4D_WIDTH);
 
+  outputT w_zp = w_zero_points.at(k);
   for (int ibi = 0; ibi < nb; ++ibi) {
     for (int ici = 0; ici < ic; ++ici) {
       for (int ohi = 0; ohi < oh; ++ohi) {
         for (int owi = 0; owi < ow; ++owi) {
+          std::vector<int> out_index{ibi, k, ohi, owi};
           for (int khi = 0; khi < kh; ++khi) {
             for (int kwi = 0; kwi < kw; ++kwi) {
-              std::vector<int> out_index{ibi, k, ohi, owi};
               std::vector<int> in_index{ibi, ici, ohi + khi, owi + kwi};
               std::vector<int> w_index{k, ici, khi, kwi};
               outputT val = output->at(out_index);
               outputT val2 =
                   (outputT)(input->at(in_index)) *
-                  (outputT)(weights->at(w_index) - w_zero_points.at(k));
+                  (outputT)(weights->at(w_index) - w_zp);
               outputT v = val + val2;
               //if ((ici % 4 == 0) && (ici != 0) && (ici < (ic - 4))) {
               //  v = clip<int, int>(v, -32768, 32767); // signed 2^24
