@@ -222,17 +222,22 @@ def transpose_aux(arr, perm):
 
 
 def load_imagenet():
-    return preprocess("images/ray.jpg").reshape(1, 3, 224, 224)
+    return preprocess("/home/shreeyash/images/pom.jpg").reshape(1, 3, 224, 224)
 
 def post_imagenet(arr):
-    print(arr)
-    print(np.argmax(arr))
+    label = np.argmax(arr)
+    return label
 
 def load_mnist():
     return quantize_ui8fp32(mnist_idx_image_load("images/t10k-images-idx3-ubyte", 3)).astype(np.float32)
 
 def post_mnist(arr):
     print("Inferred number: ", np.argmax(arr.flatten()))
+
+def save_tensor(filename, arr):
+    np.save(filename, arr)
+
+#print(preprocess("images/ray.jpg").reshape(1, 3, 224, 224))
 
 #images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)
 #labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)

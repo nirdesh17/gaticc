@@ -97,6 +97,7 @@ class Argparse {
         "Results from the inference engine would be handed to this function. Should expect (batch_size, ...) dimensional array"
         "\n\tArgs: [func_name]",
         1},
+       {"input_path", {"--inputpath"}, "specify input to model as a resident file path (one file at a time)", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"
