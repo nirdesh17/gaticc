@@ -1310,10 +1310,9 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
                   (outputT)(input->at(in_index)) *
                   (outputT)(weights->at(w_index) - w_zero_points.at(k));
               outputT v = val + val2;
-
-              if ((ici % 4 == 0) && (ici != 0) && (ici < (ic - 4))) {
-                v = clip<int, int>(v, -32768, 32767); // signed 2^24
-              }
+              //if ((ici % 4 == 0) && (ici != 0) && (ici < (ic - 4))) {
+              //  v = clip<int, int>(v, -32768, 32767); // signed 2^24
+              //}
               output->insert(out_index, v);
             }
           }

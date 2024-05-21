@@ -34,7 +34,6 @@
 template <typename T> class Tensor {
 public:
   /* Read functions */
-
   virtual T at(std::vector<int> &at) const = 0;
   virtual T at(std::vector<int> &&at) const = 0;
   virtual T at(int index) const = 0;
@@ -129,6 +128,7 @@ Tensor<T>::~Tensor() {
 template <typename T> class TensorExtant : public Tensor<T> {
 private:
   std::vector<int> dims;
+  std::vector<int> stride;
   const onnx::TensorProto *ptr;
   /* Where the actual data resides in memory */
   const T *data;
@@ -164,6 +164,7 @@ void TensorExtant<T>::init_dims(const onnx::TensorProto *ptr) {
   dims.resize(ptr->dims_size());
   std::copy(ptr->dims().begin(), ptr->dims().end(), dims.begin());
   this->ptr = ptr;
+  this->stride = get_stride_from_shape(dims);
 }
 
 template <typename T> T TensorExtant<T>::at(int index) const {
@@ -175,7 +176,8 @@ template <typename T> T TensorExtant<T>::at(std::vector<int> &index) const {
   assert(index.size() == dims.size());
   int sum = 0;
   for (int i = 0; i < index.size(); i++) {
-    sum = sum + index[i] * dims_iterator(i);
+    assert(index[i] <= dims[i]);
+    sum += index[i] * stride[i];
   }
   return at(sum);
 }
