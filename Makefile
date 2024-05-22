@@ -4,7 +4,7 @@ OBJ_DIR = $(ROOT_DIR)/obj
 TEST_DIR = $(ROOT_DIR)/tests
 DEBUG = 1
 
-SRC_FILES = main.cpp sim.cpp ffi.cpp onnx_parser.cpp utils.cpp executor.cpp options.cpp tensor.cpp
+SRC_FILES = main.cpp sim.cpp ffi.cpp onnx_parser.cpp utils.cpp executor.cpp options.cpp tensor.cpp instgen.cpp
 OBJ_FILES = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES)) $(OBJ_DIR)/onnx.pb.o
 LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 

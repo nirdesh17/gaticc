@@ -52,6 +52,10 @@ void Op::LayerBase::infer_type(const std::vector<TPDT>& input_types) {
   log_fatal("Type inference un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
+void Op::LayerBase::get_inst(InstBlob& insts) {
+  log_fatal("Instruction generation un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+}
+
 /* Get a array of ints from attr and store into array */
 void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&
@@ -674,7 +678,6 @@ const char *Op::Layer::QLinearConv::params() const {
     ss << x_scale[i] << ' ';
   }
   ss << "x_zero_point: ";
-  std::cout << "zp size " << x_zero_point.size() << (uint8_t) std::get<uint8_t>(x_zero_point[0]) << '\n';
   for (int i = 0; i < x_zero_point.size(); ++i) {
     if (i > 2) {
       ss << "...";
@@ -1345,7 +1348,6 @@ void Op::print_node(Op::Vertex v, const Op::Graph *g) {
     std::cout << (*g)[source_vertex]->name << ", ";
   }
   std::cout << ")\n";
-
   std::cout << '\n';
 }
 
@@ -1367,6 +1369,10 @@ void Op::print_node(const LayerBase *node) {
             << Op::get_tensorproto_dtype_name(node->input_type) << '\n';
   std::cout << "Output Type: "
             << Op::get_tensorproto_dtype_name(node->output_type) << '\n';
+  const char *device = (node->device == DEVICE_CPU) ? "CPU" : "FPGA";
+  std::cout << "Device " <<  device << '\n';
+  print_vec("Input dims", node->input_dims);
+  print_vec("Output dims", node->output_dims);
 }
 
 const char *Op::get_tensorproto_dtype_name(TPDT type) {
@@ -1889,10 +1895,6 @@ Op::Parser::Parser(std::string const &filename) {
   pass_save_initializers(m_graph);
   pass_save_nodes(m_graph);
 
-  // assert(graph_inputs.size() == 1 && "Expect graph to only have 1 input");
-  /* input dimensions to the first layer are stored in graph.input
-   * and needs special treatment
-   */
   /* TODO: remove this, requires i/o part of all *Params structs to
    * be removed from the struct and all its users must use LayerBase
    * io */
@@ -1900,10 +1902,6 @@ Op::Parser::Parser(std::string const &filename) {
 
   m_model.create_execution_order();
   m_model.update_registers();
-
-  //this->model_weight_type = deduce_model_weight_type(m_graph);
-  //this->model_input_type = deduce_model_input_type(m_graph);
-  //this->model_output_type = deduce_model_output_type(m_graph);
 
   std::vector<TPDT> input_types;
   for (const auto& i: m_graph.input()) {
@@ -1913,6 +1911,7 @@ Op::Parser::Parser(std::string const &filename) {
   /* first layer's input dims */
   std::vector<int> input_dims = get_dims_from_value_info(m_graph.input().at(0));
   m_model.deduce_shapes(input_dims);
+  pass_set_device(get_execution_order());
 }
 
 void Op::Parser::summary() const { m_model.summary(); }
@@ -2059,3 +2058,4 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
   }
   dst_node->outputs.push_back(acquire());
 }
+

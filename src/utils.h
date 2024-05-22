@@ -98,6 +98,7 @@ class Argparse {
         "\n\tArgs: [func_name]",
         1},
        {"input_path", {"--inputpath"}, "specify input to model as a resident file path (one file at a time)", 1},
+       {"instgen", {"--instgen"}, "generate and print config instructions for an onnx model", 0},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"

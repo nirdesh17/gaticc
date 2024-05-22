@@ -6,6 +6,7 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include "instgen.h"
 
 void dispatch_simulator(const Op::Parser &parser) {
   if (!gbl_args.has_option("loadpy")) {
@@ -40,6 +41,12 @@ void dispatch_timeest(const Op::Parser &parser) {
   parser.time_estimate(mnk.at(0), mnk.at(1), mnk.at(2));
 }
 
+void dispatch_instgen_ops(Op::Parser &parser) {
+  auto order = parser.get_execution_order();
+  InstGen generator(order);
+}
+
+
 void dispatch_onnx_ops() {
   std::string s = gbl_args["onnx"].as<std::string>();
   Op::Parser parser(s);
@@ -49,6 +56,8 @@ void dispatch_onnx_ops() {
     parser.bare_summary();
   } else if (gbl_args.has_option("sim")) {
     dispatch_simulator(parser);
+  } else if (gbl_args.has_option("instgen")) {
+    dispatch_instgen_ops(parser);
   } else {
     gbl_args.print_usage();
     log_fatal("Do not know what to do with --onnx, specify atleast one "

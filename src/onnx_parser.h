@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <bitset>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -41,7 +42,17 @@
 #define I_UP 1
 #define I_DOWN 3
 
+/* Total bits in an instruction */
+#define INST_SIZE_BITS 256
+
 using TPDT = onnx::TensorProto_DataType;
+using InstBlob = std::vector<std::bitset<INST_SIZE_BITS>>;
+
+enum DEVICES {
+  DEVICE_UNKNOWN,
+  DEVICE_CPU,
+  DEVICE_FPGA
+};
  
 /* Onnx Parser external interface */
 namespace Op {
@@ -111,6 +122,8 @@ struct LayerBase {
 
   virtual void infer_type(const std::vector<TPDT>& input_types);
 
+  virtual void get_inst(InstBlob& insts);
+
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
 
@@ -126,13 +139,10 @@ struct LayerBase {
   bool dump_output;
 
   /* Dimensions of the input feature map */
-  /* dim[0] -> height
-   * dim[1] -> width
-   * dim[2] -> channels
-   * dim[3] -> batch
-   */
   std::vector<int> input_dims;
   std::vector<int> output_dims;
+
+  int device;
 
   /* All nodes with a parameter should have a constructor to
    * initialize them. See conv for eg.
@@ -292,6 +302,7 @@ struct QuantizeLinear : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
+  void get_inst(InstBlob& blob) override;
 };
 
 struct DequantizeLinear : public LayerBase {
@@ -327,10 +338,10 @@ struct QLinearConv : public LayerBase {
   const char *params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  //void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
+  void get_inst(InstBlob& blob) override;
 };
 
 
@@ -542,6 +553,7 @@ class Parser {
   void pass_save_value_infos(const onnx::GraphProto &graph);
   void pass_save_initializers(const onnx::GraphProto &graph);
   void pass_save_nodes(const onnx::GraphProto &graph);
+  void pass_set_device(const std::vector<Op::LayerBase *> &order);
 
 public:
   Parser(std::string const &filename);
