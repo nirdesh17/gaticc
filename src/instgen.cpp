@@ -92,4 +92,57 @@ void Op::Layer::QuantizeLinear::get_inst(InstBlob &insts) {
 void Op::Layer::QLinearConv::get_inst(InstBlob &insts) {
   std::bitset<INST_SIZE_BITS> conv_inst;
 
+  std::bitset<Opcode_COUNT> opcode {OP_CONV};
+  bitset_range_set(conv_inst, opcode, Opcode_LOW, Opcode_HIGH);
+
+  std::bitset<IW_COUNT> iw {input_dims[TENSOR_4D_WIDTH]};
+  bitset_range_set(conv_inst, iw, IW_LOW, IW_HIGH);
+
+  std::bitset<IH_COUNT> ih {input_dims[TENSOR_4D_HEIGHT]};
+  bitset_range_set(conv_inst, ih, IH_LOW, IH_HIGH);
+
+  std::bitset<OW_COUNT> ow {output_dims[TENSOR_4D_WIDTH]};
+  bitset_range_set(conv_inst, ow, OW_LOW, OW_HIGH);
+
+  std::bitset<OH_COUNT> oh {output_dims[TENSOR_4D_HEIGHT]};
+  bitset_range_set(conv_inst, oh, OH_LOW, OH_HIGH);
+
+  std::bitset<IC_COUNT> ic {output_dims[TENSOR_4D_CHANNELS]};
+  bitset_range_set(conv_inst, ic, IC_LOW, IC_HIGH);
+
+  std::bitset<KN_COUNT> kn {m_cp.kn};
+  bitset_range_set(conv_inst, kn, KN_LOW, KN_HIGH);
+
+  std::bitset<KW_COUNT> kw {m_cp.k[TENSOR_2D_WIDTH]};
+  bitset_range_set(conv_inst, kw, KW_LOW, KW_HIGH);
+
+  std::bitset<KH_COUNT> kh {m_cp.k[TENSOR_2D_HEIGHT]};
+  bitset_range_set(conv_inst, kh, KH_LOW, KH_HIGH);
+
+  assert(m_cp.stride[TENSOR_2D_HEIGHT] == m_cp.stride[TENSOR_2D_WIDTH]);
+  std::bitset<Stride_COUNT> stride {m_cp.stride[TENSOR_2D_HEIGHT]};
+  bitset_range_set(conv_inst, stride, Stride_LOW, Stride_HIGH);
+
+  assert_all_equal(m_cp.pad, 4);
+  std::bitset<Pad_COUNT> pad {m_cp.pad[I_LEFT]};
+  bitset_range_set(conv_inst, pad, Pad_LOW, Pad_HIGH);
+
+  if (!gbl_args.has_option("sa_arch")) {
+    log_fatal("cant get architecture for sa, please use --sa_arch option");
+  }
+  std::string arch_list = gbl_args["sa_arch"].as<std::string>();
+  std::vector<int> mnk = parse_csv_string<int>(arch_list);
+  assert(mnk.size() != 0 && "Ill formatted dimension string to --sa_arch, "
+                            "expects string like 9,8,8");
+  assert(mnk.size() == 3 &&
+         "Systolic Array shape should be 3 dimensional M, N, K");
+  int channel_iterations = (int) std::floor((float)input_dims[TENSOR_4D_CHANNELS]/(float)mnk[2]);
+  std::bitset<ChannelItr_COUNT> citr {channel_iterations};
+  bitset_range_set(conv_inst, citr, ChannelItr_LOW, ChannelItr_HIGH);
+
+  int kernel_iterations = (int) std::floor((float)m_cp.kn/(float)mnk[1]);
+  std::bitset<KernelItr_COUNT> kitr {kernel_iterations};
+  bitset_range_set(conv_inst, kitr, KernelItr_LOW, KernelItr_HIGH);
+  std::cout << conv_inst << '\n';
+
 }

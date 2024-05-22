@@ -99,6 +99,7 @@ class Argparse {
         1},
        {"input_path", {"--inputpath"}, "specify input to model as a resident file path (one file at a time)", 1},
        {"instgen", {"--instgen"}, "generate and print config instructions for an onnx model", 0},
+       {"sa_arch", {"--sa-arch"}, "systolic array architecture. Args: [comma sep values]. accepts args like --timeest", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"
@@ -516,5 +517,28 @@ std::vector<T> broadcast_vec(const std::vector<T> &in, int new_size) {
   } else {
     assert(in.size() == new_size);
     return in;
+  }
+}
+
+/* example:
+ *  bitset_range_set(dest, src, 0, 3)
+ * will set the first 4 least significant bits of dest by copying first four lsb
+ * from src
+ */
+template <std::size_t b1N, std::size_t b2N>
+void bitset_range_set(std::bitset<b1N>& dest, const std::bitset<b2N>& src, int start, int stop) {
+  assert(stop - start + 1 == src.size());
+  for (int i = 0; i < src.size(); ++i) {
+    dest[start] = src[i];
+    start++;
+  }
+}
+
+template <typename T>
+void assert_all_equal(const T *arr, int size) {
+  assert(size > 0);
+  T a = arr[0];
+  for (int i = 0; i < size; ++i) {
+    assert(arr[i] == a);
   }
 }
