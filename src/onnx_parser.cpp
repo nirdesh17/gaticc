@@ -56,6 +56,10 @@ void Op::LayerBase::get_inst(InstBlob& insts) {
   log_fatal("Instruction generation un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
+void Op::LayerBase::get_opcodes(std::vector<int>& op_codes) {
+  log_fatal("Opcode generation un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+}
+
 /* Get a array of ints from attr and store into array */
 void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&
