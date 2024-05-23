@@ -23,10 +23,11 @@ else
 	NUMPY_INSTALL_PATH = /usr/lib/python${PYTHON_VERSION}/site-packages/numpy/
 endif
 
+CXXFLAGS_CORE = -O3 -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include -Wno-narrowing
 ifeq ($(DEBUG), 1)
-	CXXFLAGS = -O3 -g -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
+	CXXFLAGS = -g ${CXXFLAGS_CORE} 
 else
-	CXXFLAGS = -O3 -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include
+	CXXFLAGS = ${CXXFLAGS_CORE}
 endif
 
 ifeq ($(UNAME_S),Darwin)
