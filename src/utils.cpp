@@ -133,3 +133,16 @@ bool islying(int i, int j, int rows, int cols, const std::vector<int> &pad) {
     return false;
   }
 }
+
+int cmp_dims(const std::vector<int>& dim1, const std::vector<int>& dim2) {
+  int p1 = prod(dim1.begin(), dim1.end(), 1);
+  int p2 = prod(dim2.begin(), dim2.end(), 2);
+
+  if (p1 > p2) {
+    return 1;
+  } else if (p1 == p2) {
+    return 0;
+  } else {
+    return -1;
+  }
+}

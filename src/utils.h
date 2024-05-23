@@ -542,3 +542,5 @@ void assert_all_equal(const T *arr, int size) {
     assert(arr[i] == a);
   }
 }
+
+int cmp_dims(const std::vector<int>& dim1, const std::vector<int>& dim2);
