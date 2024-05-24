@@ -141,23 +141,43 @@ InstGen::InstGen(const std::vector<Op::LayerBase *> &order) {
   AddressGen generator(exec_order);
 
 #if 0
+  std::cout << "from alloc " << generator.alloc(27) << '\n';
+  std::cout << "from alloc " << generator.alloc(400) << '\n';
+  std::cout << "from alloc " << generator.alloc(747) << '\n';
+  std::cout << "from reg " << generator.addr_from_register(0) << '\n';
+  std::cout << "from reg " << generator.addr_from_register(1) << '\n';
+  std::cout << "from reg " << generator.addr_from_register(2) << '\n';
+  std::cout << "from reg " << generator.addr_from_register(3) << '\n';
   for (Op::LayerBase *l : exec_order) {
     Op::print_node(l);
   }
 #endif
 #if 1
   for (Op::LayerBase *l : exec_order) {
-    l->get_inst(instructions);
+    l->get_inst(instructions, generator);
   }
 #endif
 }
 
-void Op::Layer::QuantizeLinear::get_inst(InstBlob &insts) {
+void Op::Layer::QuantizeLinear::get_inst(InstBlob &insts, AddressGen& gen) {
   assert(this->device == DEVICE_CPU);
 }
 
+std::vector<int> get_sa_arch() {
+  if (!gbl_args.has_option("sa_arch")) {
+    log_fatal("cant get architecture for sa, please use --sa_arch option");
+  }
+  std::string arch_list = gbl_args["sa_arch"].as<std::string>();
+  std::vector<int> mnk = parse_csv_string<int>(arch_list);
+  assert(mnk.size() != 0 && "Ill formatted dimension string to --sa_arch, "
+                            "expects string like m,n,k");
+  assert(mnk.size() == 3 &&
+         "Systolic Array shape should be 3 dimensional M, N, K");
+  return mnk;
+}
 
-void Op::Layer::QLinearConv::get_inst(InstBlob &insts) {
+
+void Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen& gen) {
   std::bitset<INST_SIZE_BITS> conv_inst;
 
   std::bitset<CONV_Opcode_COUNT> opcode {OP_CONV};
@@ -195,23 +215,60 @@ void Op::Layer::QLinearConv::get_inst(InstBlob &insts) {
   std::bitset<CONV_Pad_COUNT> pad {m_cp.pad[I_LEFT]};
   bitset_range_set(conv_inst, pad, CONV_Pad_LOW, CONV_Pad_HIGH);
 
-  if (!gbl_args.has_option("sa_arch")) {
-    log_fatal("cant get architecture for sa, please use --sa_arch option");
-  }
-  std::string arch_list = gbl_args["sa_arch"].as<std::string>();
-  std::vector<int> mnk = parse_csv_string<int>(arch_list);
-  assert(mnk.size() != 0 && "Ill formatted dimension string to --sa_arch, "
-                            "expects string like 9,8,8");
-  assert(mnk.size() == 3 &&
-         "Systolic Array shape should be 3 dimensional M, N, K");
-  int channel_iterations = (int) std::floor((float)input_dims[TENSOR_4D_CHANNELS]/(float)mnk[2]);
+  std::vector<int> mnk = get_sa_arch();
+  int channel_iterations = (int) std::ceil((float)input_dims[TENSOR_4D_CHANNELS]/(float)mnk[2]);
   std::bitset<CONV_ChannelItr_COUNT> citr {channel_iterations};
   bitset_range_set(conv_inst, citr, CONV_ChannelItr_LOW, CONV_ChannelItr_HIGH);
 
-  int kernel_iterations = (int) std::floor((float)m_cp.kn/(float)mnk[1]);
+  int kernel_iterations = (int) std::ceil((float)m_cp.kn/(float)mnk[1]);
   std::bitset<CONV_KernelItr_COUNT> kitr {kernel_iterations};
   bitset_range_set(conv_inst, kitr, CONV_KernelItr_LOW, CONV_KernelItr_HIGH);
+
+  uint32_t input_addr_start = gen.addr_from_register(inputs.at(0));
+  uint32_t input_addr_end = ceil_mod(input_addr_start + gen.io_reg_size(), WORD_SIZE);
+
+  std::cout << "setting input_addr_start to " << input_addr_start << '\n';
+  std::cout << "setting input_addr_end to " << input_addr_end << '\n';
+
+  auto weight_dims = weights->dims();
+  uint32_t weight_bytes = prod(weight_dims.begin(), weight_dims.end(), 1);
+  uint32_t weight_addr_start = gen.alloc(weight_bytes);
+  uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
+  std::cout << "setting weight_addr_start to " << weight_addr_start << '\n';
+  std::cout << "setting weight_addr_end to " << weight_addr_end << '\n';
+
+  auto bias_dims = bias->dims();
+  uint32_t bias_bytes = prod(bias_dims.begin(), bias_dims.end(), 1);
+  uint32_t bias_addr_start = gen.alloc(bias_bytes);
+  uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
+  std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
+  std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
+
+  std::bitset<CONV_ImageStartAddress_COUNT> istart {input_addr_start};
+  bitset_range_set(conv_inst, istart, CONV_ImageStartAddress_LOW, CONV_ImageStartAddress_HIGH);
+
+  std::bitset<CONV_ImageEndAddress_COUNT> iend {input_addr_end};
+  bitset_range_set(conv_inst, iend, CONV_ImageEndAddress_LOW, CONV_ImageEndAddress_HIGH);
+
+  std::bitset<CONV_WeightStartAddress_COUNT> wstart {weight_addr_start};
+  bitset_range_set(conv_inst, wstart, CONV_WeightStartAddress_LOW, CONV_WeightStartAddress_HIGH);
+
+  std::bitset<CONV_WeightEndAddress_COUNT> wend {weight_addr_end};
+  bitset_range_set(conv_inst, wend, CONV_WeightEndAddress_LOW, CONV_WeightEndAddress_HIGH);
+
+  std::bitset<INST_SIZE_BITS> bias_inst;
+
+  std::bitset<TailBlock_Opcode_COUNT> tb_opcode {OP_TailBlock};
+  bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW, TailBlock_Opcode_HIGH);
+
+  std::bitset<TailBlock_BiasStartAddress_COUNT> bstart {bias_addr_start};
+  bitset_range_set(bias_inst, bstart, TailBlock_BiasStartAddress_LOW, TailBlock_BiasStartAddress_HIGH);
+
+  std::bitset<TailBlock_BiasEndAddress_COUNT> bend {bias_addr_end};
+  bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW, TailBlock_BiasEndAddress_HIGH);
+
   std::cout << conv_inst << '\n';
+  std::cout << bias_inst << '\n';
 }
 
 void Op::Layer::QuantizeLinear::get_opcodes(std::vector<int>& opcodes) {
@@ -254,10 +311,33 @@ void Op::Layer::QGemm::get_opcodes(std::vector<int>& opcodes) {
   opcodes.push_back(OP_TailBlock);
 }
 
-AddressGen::AddressGen(const std::vector<Op::LayerBase*> &order) {
+AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
+    : current_address{0} {
+  
+  if (!gbl_args.has_option("ramsize")) {
+    log_fatal("ramsize unknown, use option --ramsize to specify or see --help");
+  }
+  ram_size_max = gbl_args["ramsize"].as<int>() * 1024 * 1024;
+  ram_size_max = ceil_mod(ram_size_max, WORD_SIZE);
+
   int total_instructions = get_total_instructions(order);
-  inst_region_size = (total_instructions * (INST_SIZE_BITS/8)) / WORD_SIZE;
+  inst_region_size = (total_instructions * (INST_SIZE_BITS / 8)) / WORD_SIZE;
+  inst_region_size = ceil_mod(inst_region_size, WORD_SIZE);
+
   io_region_register_size = get_io_region_register_size(order);
+  io_region_register_size = ceil_mod(io_region_register_size, WORD_SIZE);
+
+  weight_region_size = get_weight_size(order);
+  weight_region_size = ceil_mod(weight_region_size, WORD_SIZE);
+
+  addr_incr(inst_region_size);
+
+  std::cout << "ramsize " << ram_size_max << '\n';
+  std::cout << "inst_region_size " << inst_region_size << '\n';
+  std::cout << "io_region_register_size " << io_region_register_size << '\n';
+  std::cout << "weight_region_size " << weight_region_size << '\n';
+  std::cout << "current_address " << current_address << '\n';
+
 }
 
 /* Calculate total instructions of size INST_SIZE_BITS
@@ -293,4 +373,37 @@ int AddressGen::get_io_region_register_size(const std::vector<Op::LayerBase*> &o
   }
   int size = prod(largest_dim.begin(), largest_dim.end(), 1);
   return size;
+}
+
+int AddressGen::get_weight_size(const std::vector<Op::LayerBase*> &order) {
+  int sum = 0;
+  for (Op::LayerBase *l: order) {
+    sum += l->get_weight_size(); 
+  }
+  return sum;
+}
+
+void AddressGen::addr_incr(uint32_t size) {
+  uint32_t i = ceil_mod(size, WORD_SIZE);
+  if (current_address + i > ram_size_max) {
+    log_fatal("OOM: cannot allocate memory of size %d, already occupied %d", 
+        size, current_address);
+  }
+  current_address += i;
+}
+
+uint32_t AddressGen::alloc(uint32_t size) {
+  uint32_t ret = current_address;
+  addr_incr(size);
+  return ret;
+}
+
+uint32_t AddressGen::addr_from_register(Op::VirtualAddress reg) {
+  uint32_t i = inst_region_size + weight_region_size + (reg * io_region_register_size);
+  uint32_t ret = std::ceil((float)i/(float)WORD_SIZE) * WORD_SIZE;
+  return ret;
+}
+
+int AddressGen::io_reg_size() {
+  return io_region_register_size;
 }

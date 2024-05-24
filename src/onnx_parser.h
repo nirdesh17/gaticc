@@ -53,6 +53,9 @@ enum DEVICES {
   DEVICE_CPU,
   DEVICE_FPGA
 };
+
+/* aot declaration, defines in instgen.h */
+class AddressGen;
  
 /* Onnx Parser external interface */
 namespace Op {
@@ -125,7 +128,7 @@ struct LayerBase {
   /* push one or more INST_SIZE_BITS instruction in `insts`, how many
    * are decided by the override
    */
-  virtual void get_inst(InstBlob& insts);
+  virtual void get_inst(InstBlob& insts, AddressGen& gen);
   /* push one or more opcodes corresponding to instructions
    * that this layer generates.
    * for example, Conv layer generates any where from 
@@ -134,6 +137,8 @@ struct LayerBase {
    * that shall be generated that layer
    */
   virtual void get_opcodes(std::vector<int>& op_codes);
+
+  virtual int get_weight_size();
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -187,6 +192,7 @@ struct Relu : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
+  int get_weight_size() override;
 };
 
 struct Clip : public LayerBase {
@@ -229,6 +235,7 @@ struct Maxpool : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
+  int get_weight_size() override;
 };
 
 struct Flatten : public LayerBase {
@@ -238,6 +245,7 @@ struct Flatten : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
+  int get_weight_size() override;
 };
 
 struct Dropout : public LayerBase {
@@ -316,8 +324,9 @@ struct QuantizeLinear : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
-  void get_inst(InstBlob& blob) override;
+  void get_inst(InstBlob& blob, AddressGen& gen) override;
   void get_opcodes(std::vector<int>& op_codes) override;
+  int get_weight_size() override;
 };
 
 struct DequantizeLinear : public LayerBase {
@@ -420,6 +429,7 @@ struct QGemm : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
   void get_opcodes(std::vector<int>& op_codes) override;
+  int get_weight_size() override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -442,8 +452,9 @@ struct QLinearConv : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
-  void get_inst(InstBlob& blob) override;
+  void get_inst(InstBlob& blob, AddressGen& gen) override;
   void get_opcodes(std::vector<int>& op_codes) override;
+  int get_weight_size() override;
 };
 
 } // namespace Layer

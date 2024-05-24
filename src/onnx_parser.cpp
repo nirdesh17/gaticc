@@ -52,12 +52,16 @@ void Op::LayerBase::infer_type(const std::vector<TPDT>& input_types) {
   log_fatal("Type inference un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
-void Op::LayerBase::get_inst(InstBlob& insts) {
+void Op::LayerBase::get_inst(InstBlob& insts, AddressGen& gen) {
   log_fatal("Instruction generation un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
 void Op::LayerBase::get_opcodes(std::vector<int>& op_codes) {
   log_fatal("Opcode generation un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+}
+
+int Op::LayerBase::get_weight_size() {
+  log_fatal("Weight size un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
 /* Get a array of ints from attr and store into array */
@@ -168,6 +172,10 @@ void Op::Layer::Relu::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
   this->output_type = input_types[0];
+}
+
+int Op::Layer::Relu::get_weight_size() {
+  return 0;
 }
 
 Op::Layer::Clip::Clip() {
@@ -355,6 +363,10 @@ void Op::Layer::Maxpool::infer_type(const std::vector<TPDT>& input_types) {
   this->output_type = input_types[0];
 }
 
+int Op::Layer::Maxpool::get_weight_size() {
+  return 0;
+}
+
 const char *Op::Layer::Flatten::op_type() const { return m_optype; }
 
 void Op::Layer::Flatten::infer_shape(const std::vector<std::vector<int>>& input_dims) {
@@ -370,6 +382,10 @@ void Op::Layer::Flatten::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
   this->output_type = input_types[0];
+}
+
+int Op::Layer::Flatten::get_weight_size() {
+  return 0;
 }
 
 Op::Layer::Dropout::Dropout() { drop = 0.f; }
@@ -648,6 +664,10 @@ void Op::Layer::QuantizeLinear::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
+int Op::Layer::QuantizeLinear::get_weight_size() {
+  return 0;
+}
+
 Op::Layer::QLinearConv::QLinearConv() {
   /* zero initialize */
   m_cp = {};
@@ -804,6 +824,14 @@ void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT>& input_types) {
   /* TODO: get output type from y_zero_point */
   this->output_type = input_types[0];
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
+}
+
+int Op::Layer::QLinearConv::get_weight_size() {
+  const auto &wdims = weights->dims();
+  int w = prod(wdims.begin(), wdims.end(), 1);
+  const auto &bdims = bias->dims();
+  int b = prod(bdims.begin(), bdims.end(), 1);
+  return w + b;
 }
 
 Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
@@ -1190,6 +1218,14 @@ void Op::Layer::QGemm::infer_type(const std::vector<TPDT>& input_types) {
   this->output_type = input_types[0];
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
   this->bias_type = Op::get_type_from_tensor_proto(*this->bias);
+}
+
+int Op::Layer::QGemm::get_weight_size() {
+  const auto &wdims = weights->dims();
+  int w = prod(wdims.begin(), wdims.end(), 1);
+  const auto &bdims = bias->dims();
+  int b = prod(bdims.begin(), bdims.end(), 1);
+  return w + b;
 }
 
 /* Auxillary Graph Functions */

@@ -100,6 +100,7 @@ class Argparse {
        {"input_path", {"--inputpath"}, "specify input to model as a resident file path (one file at a time)", 1},
        {"instgen", {"--instgen"}, "generate and print config instructions for an onnx model", 0},
        {"sa_arch", {"--sa-arch"}, "systolic array architecture. Args: [comma sep values]. accepts args like --timeest", 1},
+       {"ramsize", {"--ramsize"}, "ram size in MB. Args: int. For ex, --ramsize 512", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"
@@ -544,3 +545,8 @@ void assert_all_equal(const T *arr, int size) {
 }
 
 int cmp_dims(const std::vector<int>& dim1, const std::vector<int>& dim2);
+
+template <typename T>
+inline T ceil_mod(T i, int m) {
+  return (T) (std::ceil((float)i/(float)m) * m);
+}

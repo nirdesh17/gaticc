@@ -216,14 +216,25 @@ public:
 };
 
 class AddressGen {
-  std::vector<uint32_t> addr_space; 
+  /* pointer to the current address from which ram 
+   * addresses can be assigned
+   */
+  uint32_t current_address;
   /* Size (in words) occupied by inst region */
   int inst_region_size;
   int io_region_register_size;
+  int weight_region_size;
+
+  uint32_t ram_size_max;
+
+  void addr_incr(uint32_t size);
+
   int get_total_instructions(const std::vector<Op::LayerBase*> &order);
   int get_io_region_register_size(const std::vector<Op::LayerBase*> &order);
-  public:
+  int get_weight_size(const std::vector<Op::LayerBase*> &order);
+public:
   AddressGen(const std::vector<Op::LayerBase*> &order);
-  uint32_t alloc(int size);
+  uint32_t alloc(uint32_t size);
   uint32_t addr_from_register(Op::VirtualAddress reg);
+  int io_reg_size();
 };
