@@ -1792,6 +1792,64 @@ std::vector<TPDT> Op::get_types_of_in_edges(Op::Vertex v, const Op::Graph &g) {
   return ret;
 }
 
+int Op::tpdt_sizeof(TPDT v) {
+  int32_t dtype = (int32_t)v;
+  switch (dtype) {
+  case 0:
+    log_fatal("cannot calculate sizeof for type %d", dtype);
+    break;
+  case 1:
+    return sizeof(float);
+    break;
+  case 2:
+    return sizeof(uint8_t);
+    break;
+  case 3:
+    return sizeof(int8_t);
+    break;
+  case 4:
+    return sizeof(uint16_t);
+    break;
+  case 5:
+    return sizeof(int16_t);
+    break;
+  case 6:
+    return sizeof(int32_t);
+    break;
+  case 7:
+    return sizeof(int16_t);
+    break;
+  case 10:
+    /* 10 is FLOAT16, equal in size to uint16_t */
+    return sizeof(uint16_t);
+    break;
+  case 11:
+    return sizeof(double);
+    break;
+  case 12:
+    return sizeof(uint32_t);
+    break;
+  case 13:
+    return sizeof(uint64_t);
+    break;
+  default:
+    log_fatal("could not calculate sizeof() for type %d", dtype);
+    break;
+  }
+}
+
+int Op::tensorproto_sizeof(const onnx::TensorProto *t) {
+  if (!t->has_data_type()) {
+    log_fatal("could not deduce type for tensor %s", t->name().c_str());
+  }
+  TPDT dtype = (TPDT)t->data_type();
+  if (dtype == 0) {
+    log_fatal("cannot  calculate sizeof() for tensor: %s of type UNDEFINED",
+              t->name().c_str());
+  }
+  return tpdt_sizeof(dtype);
+}
+
 /* A tensor shape is valid if:
  *  1. it matches expected dims
  *  2. all but 0th dims are have a dim_value()

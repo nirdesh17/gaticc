@@ -203,6 +203,7 @@
 
 /* Corresponds to AXI_ADDR_WIDTH */
 #define WORD_SIZE 32
+#define ACC_SIZE 32
 
 bool is_megablock(const Op::LayerBase *l);
 bool is_miniblock(const Op::LayerBase *l);
@@ -224,6 +225,7 @@ class AddressGen {
   int inst_region_size;
   int io_region_register_size;
   int weight_region_size;
+  int max_io_reg;
 
   uint32_t ram_size_max;
 
@@ -232,9 +234,11 @@ class AddressGen {
   int get_total_instructions(const std::vector<Op::LayerBase*> &order);
   int get_io_region_register_size(const std::vector<Op::LayerBase*> &order);
   int get_weight_size(const std::vector<Op::LayerBase*> &order);
+  int get_max_io_reg(const std::vector<Op::LayerBase*> &order);
 public:
   AddressGen(const std::vector<Op::LayerBase*> &order);
   uint32_t alloc(uint32_t size);
-  uint32_t addr_from_register(Op::VirtualAddress reg);
+  uint32_t io_addr_from_register(Op::VirtualAddress reg);
+  uint32_t ps_addr_from_register(Op::VirtualAddress reg);
   int io_reg_size();
 };
