@@ -216,6 +216,31 @@ public:
   InstBlob get_blob();
 };
 
+/* 
+ * AddressGen generates addresses to be substituted in config instructions.
+ * It does this by separating the address space (ideally all of the available
+ * ram) in 4 distinct regions as shown below.
+ *
+ * +----------+---------------------+--------------------+--------------------+
+ * |          |                     |                    |                    |
+ * | Config   |  Weights & Biases   |    Input/Output    |    Accumulants     |
+ * |          |                     |                    |                    |
+ * +----------+---------------------+--------------------+--------------------+
+ * 0                                                                         MAX
+ *
+ * Config starts at address 0 and its size is known a priori. Same for weights
+ * and biases. Input/Output are final activations of layers i.e. intermidiate
+ * values of the model and are stored in I/O region. Accumulants are intermidiate
+ * values of a layer (as opposed to a model), they tend to be greater in width 
+ * than I/O (where I/O would be 8bit, Accumulants would be 32bits), are stored
+ * in the final segement. Data in config region is allocated all  at once, it
+ * fits all the instructions. Data is w/b region is allocated on a FCFS basis.
+ * As a result, weights/biases for first layer to be executed will come first
+ * in the ram. Data is I/O is allocated based on VirtualAddress registers assigned
+ * to each LayerBase by RegisterAllocator. Data is Accumulants is allocated
+ * in the same fashion as I/O but with a fixed offset and data width.
+ */
+
 class AddressGen {
   /* pointer to the current address from which ram 
    * addresses can be assigned
@@ -237,8 +262,11 @@ class AddressGen {
   int get_max_io_reg(const std::vector<Op::LayerBase*> &order);
 public:
   AddressGen(const std::vector<Op::LayerBase*> &order);
+  /* get a address in weights/bias region */
   uint32_t alloc(uint32_t size);
+  /* get a address in io region */
   uint32_t io_addr_from_register(Op::VirtualAddress reg);
+  /* get a address in accumulant region */
   uint32_t ps_addr_from_register(Op::VirtualAddress reg);
   int io_reg_size();
 };
