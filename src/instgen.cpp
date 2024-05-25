@@ -512,6 +512,10 @@ std::bitset<INST_SIZE_BITS> gen_quant_inst(const Op::Layer::QLinearConv *cc,
   std::bitset<TailBlock_QuantShift_COUNT> qshift {shift_val};
   bitset_range_set(quant_inst, qshift, TailBlock_QuantShift_LOW, TailBlock_QuantShift_HIGH);
 
+  /* enable quant, ofcourse */
+  std::bitset<TailBlock_QuantEn_COUNT> qen {1};
+  bitset_range_set(quant_inst, qen, TailBlock_QuantEn_LOW, TailBlock_QuantEn_HIGH);
+
   return quant_inst;
 }
 
