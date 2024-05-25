@@ -1,5 +1,6 @@
 #include "instgen.h"
 #include "onnx_parser.h"
+#include "sim.h"
 #include <set>
 #include <stack>
 #include <cstring>
@@ -353,14 +354,6 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc, Addr
   bitset_range_set(conv_inst, pad, CONV_Pad_LOW, CONV_Pad_HIGH);
 
   std::vector<int> mnk = get_sa_arch();
-  int channel_iterations =
-      (int)std::ceil((float)cc->input_dims[TENSOR_4D_CHANNELS] / (float)mnk[2]);
-  std::bitset<CONV_ChannelItr_COUNT> citr{channel_iterations};
-  bitset_range_set(conv_inst, citr, CONV_ChannelItr_LOW, CONV_ChannelItr_HIGH);
-
-  int kernel_iterations = (int)std::ceil((float)cc->m_cp.kn / (float)mnk[1]);
-  std::bitset<CONV_KernelItr_COUNT> kitr{kernel_iterations};
-  bitset_range_set(conv_inst, kitr, CONV_KernelItr_LOW, CONV_KernelItr_HIGH);
 
   assert(cc->inputs.size() == 1);
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
@@ -492,14 +485,74 @@ std::bitset<INST_SIZE_BITS> gen_output_inst(const Op::Layer::QLinearConv *cc,
   return output_inst;
 }
 
+std::bitset<INST_SIZE_BITS> gen_quant_inst(const Op::Layer::QLinearConv *cc,
+                                            AddressGen &gen) {
+  std::bitset<INST_SIZE_BITS> quant_inst;
+  std::vector<float> scales = compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
+  assert(scales.size() == 1 && "unsupported: per-channel quantization");
+  assert(scales[0] != 0);
+  using variantT = std::variant<int8_t,uint8_t>;
+  std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
+  auto assert_zero = [](int i) { assert(i == 0 && "unsupported: non zero points"); };
+  std::for_each(zero_points.begin(), zero_points.end(), assert_zero);
+   
+  std::bitset<TailBlock_Opcode_COUNT> opcode {OP_TailBlock};
+  bitset_range_set(quant_inst, opcode, TailBlock_Opcode_LOW, TailBlock_Opcode_HIGH);
+
+  /* TODO: deduce logically */
+  int shift_val = 16;
+  std::cout << "og scale " << scales[0] << '\n';
+  std::cout << "og scale inverted " << (1/scales[0]) << '\n';
+  int calib_scale = (int) ((1/scales[0]) * std::pow(2, shift_val));
+  std::cout << "calib_state " << calib_scale << '\n';
+
+  std::bitset<TailBlock_QuantScale_COUNT> qscale {calib_scale};
+  bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW, TailBlock_QuantScale_HIGH);
+
+  std::bitset<TailBlock_QuantShift_COUNT> qshift {shift_val};
+  bitset_range_set(quant_inst, qshift, TailBlock_QuantShift_LOW, TailBlock_QuantShift_HIGH);
+
+  return quant_inst;
+}
+
 void Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen) {
   auto conv_inst = gen_conv_inst(this, gen);
   auto output_inst = gen_output_inst(this, gen);
   auto bias_inst = gen_bias_inst(this, gen);
+  auto quant_inst = gen_quant_inst(this, gen);
+
+  insts.push_back(conv_inst);
+  insts.push_back(output_inst);
+  insts.push_back(bias_inst);
+  insts.push_back(quant_inst);
 
   std::cout << conv_inst << '\n';
   std::cout << output_inst << '\n';
+  std::cout << quant_inst << '\n';
   std::cout << bias_inst << '\n';
+}
+
+void Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &gen) {
+  std::bitset<INST_SIZE_BITS> relu_inst;
+
+  std::bitset<TailBlock_Opcode_COUNT> opcode {OP_TailBlock};
+  bitset_range_set(relu_inst, opcode, TailBlock_Opcode_LOW, TailBlock_Opcode_HIGH);
+
+  /* enable relu */
+  std::bitset<TailBlock_ActEn_COUNT> acten {1};
+  bitset_range_set(relu_inst, acten, TailBlock_ActEn_LOW, TailBlock_ActEn_HIGH);
+
+  std::bitset<TailBlock_ActType_COUNT> act_type {ACT_RELU};
+  bitset_range_set(relu_inst, act_type, TailBlock_ActType_LOW, TailBlock_ActType_HIGH);
+
+  /* relu, by default is a param less operation. Operations like
+   * ReLU6 are represented as Clip operation in onnx
+   */
+  std::bitset<TailBlock_ActParam_COUNT> act_param {0};
+  bitset_range_set(relu_inst, act_param, TailBlock_ActParam_LOW, TailBlock_ActParam_HIGH);
+
+  std::cout << relu_inst << '\n';
+  insts.push_back(relu_inst);
 }
 
 void Op::Layer::QuantizeLinear::get_opcodes(std::vector<int> &opcodes) {

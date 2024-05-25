@@ -43,26 +43,20 @@
 #define CONV_Pad_LOW 76
 #define CONV_Pad_HIGH 78
 #define CONV_Pad_COUNT 3
-#define CONV_ChannelItr_LOW 79
-#define CONV_ChannelItr_HIGH 90
-#define CONV_ChannelItr_COUNT 12
-#define CONV_KernelItr_LOW 91
-#define CONV_KernelItr_HIGH 102
-#define CONV_KernelItr_COUNT 12
-#define CONV_ImageStartAddress_LOW 103
-#define CONV_ImageStartAddress_HIGH 134
+#define CONV_ImageStartAddress_LOW 79
+#define CONV_ImageStartAddress_HIGH 110
 #define CONV_ImageStartAddress_COUNT 32
-#define CONV_ImageEndAddress_LOW 135
-#define CONV_ImageEndAddress_HIGH 166
+#define CONV_ImageEndAddress_LOW 111
+#define CONV_ImageEndAddress_HIGH 142
 #define CONV_ImageEndAddress_COUNT 32
-#define CONV_WeightStartAddress_LOW 167
-#define CONV_WeightStartAddress_HIGH 198
+#define CONV_WeightStartAddress_LOW 143
+#define CONV_WeightStartAddress_HIGH 174
 #define CONV_WeightStartAddress_COUNT 32
-#define CONV_WeightEndAddress_LOW 199
-#define CONV_WeightEndAddress_HIGH 230
+#define CONV_WeightEndAddress_LOW 175
+#define CONV_WeightEndAddress_HIGH 206
 #define CONV_WeightEndAddress_COUNT 32
 
-#define OP_FC 0x04
+#define OP_FC 0x03
 #define FC_Opcode_LOW 0
 #define FC_Opcode_HIGH 3
 #define FC_Opcode_COUNT 4
@@ -90,14 +84,11 @@
 #define FC_ImageEndAddr_LOW 113
 #define FC_ImageEndAddr_HIGH 144
 #define FC_ImageEndAddr_COUNT 32
-#define FC_KernelIteration_LOW 145
-#define FC_KernelIteration_HIGH 160
-#define FC_KernelIteration_COUNT 16
-#define FC_RWAddressCountFlatten_LOW 161
-#define FC_RWAddressCountFlatten_HIGH 176
+#define FC_RWAddressCountFlatten_LOW 145
+#define FC_RWAddressCountFlatten_HIGH 160
 #define FC_RWAddressCountFlatten_COUNT 16
 
-#define OP_OutputBlock 0x03
+#define OP_OutputBlock 0x02
 #define OutputBlock_Opcode_LOW 0
 #define OutputBlock_Opcode_HIGH 3
 #define OutputBlock_Opcode_COUNT 4
@@ -198,6 +189,11 @@
 #define TailBlock_BiasEndAddress_LOW 168
 #define TailBlock_BiasEndAddress_HIGH 199
 #define TailBlock_BiasEndAddress_COUNT 32
+
+#define ACT_RELU 0x00
+#define POOL_MAX 0x00
+#define POOL_AVERAGE 0x01
+#define POOL_GLOBAL_AVG 0x02
 
 /* ============ INST END ======================*/
 
