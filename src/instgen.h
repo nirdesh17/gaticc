@@ -212,7 +212,7 @@ class InstGen {
   InstBlob instructions;
   void set_device(const std::vector<Op::LayerBase *> &order);
 public:
-  InstGen(const std::vector<Op::LayerBase *> &order);
+  InstGen(Op::Parser &parser);
   InstBlob get_blob();
 };
 

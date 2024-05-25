@@ -344,6 +344,7 @@ struct DequantizeLinear : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
   void get_opcodes(std::vector<int>& op_codes) override;
+  int get_weight_size() override;
 };
 
 
@@ -439,6 +440,11 @@ struct QLinearConv : public LayerBase {
   const char *m_optype = "QLinearConv";
   QLinearConv();
   ConvParams m_cp;
+  /* Cases where maxpool follows convolution, the output
+   * dims are no longer what shape inference calculated,
+   * it is decided the final layer in the conv pipeline
+   */
+  std::vector<int> pipelined_output_dims;
   std::vector<float> x_scale;
   std::vector<std::variant<int8_t, uint8_t>> x_zero_point;
   std::vector<float> w_scale;
@@ -570,6 +576,7 @@ public:
   /* true if 'l' has an output that is also a graph_output */
   bool has_graph_output(Op::LayerBase *l) const;
 
+  Op::Graph get_graph() const;
 };
 
 class Parser {
@@ -584,7 +591,7 @@ class Parser {
   void pass_save_value_infos(const onnx::GraphProto &graph);
   void pass_save_initializers(const onnx::GraphProto &graph);
   void pass_save_nodes(const onnx::GraphProto &graph);
-  void pass_set_device(const std::vector<Op::LayerBase *> &order);
+  void pass_set_device(Op::Graph gcopy);
 
 public:
   Parser(std::string const &filename);
@@ -597,6 +604,7 @@ public:
   int get_total_registers(void) const;
   /* true if 'l' has an output that is also a graph_output */
   bool has_graph_output(Op::LayerBase *l) const;
+  Op::Graph get_graph() const;
   ~Parser();
 };
 
@@ -610,6 +618,7 @@ class RegisterAllocator {
   void traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target);
   VirtualAddress acquire(void);
   void relinquish(VirtualAddress a);
+  void clear_regs(Op::Graph g);
 
 public:
   RegisterAllocator(Op::Graph g);

@@ -42,8 +42,7 @@ void dispatch_timeest(const Op::Parser &parser) {
 }
 
 void dispatch_instgen_ops(Op::Parser &parser) {
-  auto order = parser.get_execution_order();
-  InstGen generator(order);
+  InstGen instgen(parser);
 }
 
 

@@ -2,6 +2,8 @@
 #include "onnx_parser.h"
 #include <set>
 #include <stack>
+#include <cstring>
+#include <queue>
 
 static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
                                            "QGemm", "Flatten"};
@@ -32,6 +34,10 @@ bool is_megablock_op_code(int i) {
     return true;
   }
   return false;
+}
+
+bool is_qlc(const Op::LayerBase *l) {
+  return std::strcmp(l->op_type(), "QLinearConv") == 0;
 }
 
 template <typename T> using CmpFunc = std::function<bool(T, T)>;
@@ -81,6 +87,7 @@ std::vector<T> insert_inst(const std::vector<T> &v, FlagFunc<T> func, T val) {
  * way, have the same types for input/output. for example, relu, maxpool,
  * flatten
  */
+#if 0
 std::vector<Op::LayerBase *>
 pass_remove_dqxq(const std::vector<Op::LayerBase *> &order) {
   std::vector<Op::LayerBase *> ret;
@@ -103,10 +110,133 @@ pass_remove_dqxq(const std::vector<Op::LayerBase *> &order) {
   }
   return ret;
 }
+#endif
 
-void Op::Parser::pass_set_device(
-    const std::vector<Op::LayerBase *> &exec_order) {
-  auto order = pass_remove_dqxq(exec_order);
+std::vector<Op::LayerBase*> crt_exec_order(Op::Graph gcopy) {
+  std::vector<Op::LayerBase*> execution_order;
+  std::queue<Op::Vertex> S;
+  S.push(Op::get_root_node(&gcopy));
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    execution_order.push_back(gcopy[n]);
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, gcopy);
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
+      if (!Op::are_equal_nodes(n, dest_vertex, &gcopy)) {
+        boost::remove_edge(*itr, gcopy);
+        if (boost::in_degree(dest_vertex, gcopy) == 0) {
+          S.push(dest_vertex);
+        }
+      }
+    }
+  }
+  return execution_order;
+}
+
+std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g) {
+  std::vector<Op::Vertex> ret;
+  auto edges = boost::in_edges(v, g);
+  for (auto itr = edges.first; itr != edges.second; ++itr) {
+    Op::Vertex src_v = boost::source(*itr, g);
+    ret.push_back(src_v);
+  }
+  return ret;
+}
+
+std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g) {
+  std::vector<Op::Vertex> ret;
+  auto edges = boost::out_edges(v, g);
+  for (auto itr = edges.first; itr != edges.second; ++itr) {
+    Op::Vertex src_v = boost::target(*itr, g);
+    ret.push_back(src_v);
+  }
+  return ret;
+}
+
+void connect_parents_to_children(const std::vector<Op::Vertex>& parents, 
+    const std::vector<Op::Vertex>& children, Op::Graph &g) {
+  for (Op::Vertex i: parents) {
+    for (Op::Vertex j: children) {
+      std::cout << "connecting " << g[i]->name << " to " << g[j]->name << '\n';
+      boost::add_edge(i, j, g);
+    }
+  }
+}
+
+/* remove a vertex but connect its parents to its children */
+void safe_remove_vertex(Op::Vertex v, Op::Graph &g) {
+  std::vector<Op::Vertex> src_vertices = get_parents(v, g);
+  std::vector<Op::Vertex> dest_vertices = get_children(v, g);
+  connect_parents_to_children(src_vertices, dest_vertices, g);
+  boost::clear_vertex(v, g);
+  boost::remove_vertex(v, g);
+}
+
+
+#if 1
+std::vector<Op::LayerBase *>
+pass_remove_dqxq(Op::Graph graph) {
+  Op::VertexIterator vi, vi_end, next;
+  std::tie(vi, vi_end) = boost::vertices(graph);
+  bool in_zone = false;
+  int cnt = 0;
+  int total = boost::num_vertices(graph);
+  
+  for (next = vi; vi != vi_end; vi = next, cnt++) {
+    next++;
+    Op::LayerBase *l = graph[*vi];
+    if (std::strcmp(l->op_type(), "DequantizeLinear") == 0 && l->device == DEVICE_UNKNOWN) {
+      in_zone = true;
+      safe_remove_vertex(*vi, graph);
+      continue;
+    }
+    if (in_zone) {
+      if (std::strcmp(l->op_type(), "QuantizeLinear") == 0 && l->device == DEVICE_UNKNOWN) {
+        in_zone = false;
+        safe_remove_vertex(*vi, graph);
+        continue;
+      }
+      if (l->input_type != l->output_type) {
+        log_fatal("could not remove layer %s", l->name.c_str());
+      }
+    }
+  }
+
+  Op::RegisterAllocator allocatr(graph);
+  return crt_exec_order(graph);
+}
+#endif
+
+/* Megablocks like convolution are followed by miniblocks
+ * like relu and/or maxpool in pipeline. relu does not change
+ * the shape of its outputs but maxpool does. in case, where
+ * maxpool is present in the pipeline, convolution's true
+ * output shape would be that of maxpool and not convolution
+ *
+ * this pass traverses a megablock's miniblock pipeline
+ * to calculate and store the true output dims
+ */
+std::vector<Op::LayerBase *>
+pass_extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
+  std::cout << " running pipe extract \n";
+  Op::Layer::QLinearConv *cc = nullptr;
+  for (Op::LayerBase *l : order) {
+    if (is_megablock(l) && is_qlc(l)) {
+      Op::Layer::QLinearConv *cc1 = dynamic_cast<Op::Layer::QLinearConv *>(l);
+      if (cc != nullptr) {
+        cc->pipelined_output_dims = cc1->input_dims;
+      }
+      cc = cc1;
+    }
+  }
+  return order;
+}
+
+void Op::Parser::pass_set_device(Op::Graph gcopy) {
+  auto order = crt_exec_order(gcopy);
   /* prologue */
   auto itr_frm_start = 0;
   for (; itr_frm_start < order.size(); ++itr_frm_start) {
@@ -121,22 +251,29 @@ void Op::Parser::pass_set_device(
     if (is_miniblock(order.at(itr_from_end))) {
       break;
     } else {
+      std::cout << "setting " << order.at(itr_from_end)->name << " to CPU " << '\n';
       order.at(itr_from_end)->device = DEVICE_CPU;
     }
   }
-  for (; itr_frm_start < itr_from_end; itr_frm_start++) {
-    if (!is_miniblock(order.at(itr_frm_start))) {
-      log_fatal("Can't execute non-minblock layer %s in the middle of "
-                "network",
-                order.at(itr_frm_start)->name.c_str());
+  for (auto itr = itr_frm_start; itr <= itr_from_end; ++itr) {
+    if (is_miniblock(order.at(itr))) {
+      order.at(itr)->device = DEVICE_FPGA;
+    } else {
+      order.at(itr)->device = DEVICE_UNKNOWN;
     }
-    order.at(itr_frm_start)->device = DEVICE_FPGA;
   }
 }
 
-InstGen::InstGen(const std::vector<Op::LayerBase *> &order) {
+InstGen::InstGen(Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
-  auto exec_order = pass_remove_dqxq(order);
+  Op::Graph graph = parser.get_graph();
+  auto o1 = pass_remove_dqxq(graph);
+
+  for (Op::LayerBase *l: o1) {
+    Op::print_node(l);
+  }
+
+  auto exec_order = pass_extract_conv_true_odims(o1);
   AddressGen generator(exec_order);
 
 #if 0
@@ -289,8 +426,6 @@ std::bitset<INST_SIZE_BITS> gen_bias_inst(const Op::Layer::QLinearConv *cc, Addr
 std::bitset<INST_SIZE_BITS> gen_output_inst(const Op::Layer::QLinearConv *cc,
                                             AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> output_inst;
-  std::cout << "ps address " << gen.ps_addr_from_register(cc->inputs.at(0))
-            << '\n';
 
   std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
   bitset_range_set(output_inst, ob_opcode, OutputBlock_Opcode_LOW,
@@ -303,28 +438,56 @@ std::bitset<INST_SIZE_BITS> gen_output_inst(const Op::Layer::QLinearConv *cc,
        sa_arch[1] * ACC_SIZE);
   uint32_t acc_addr_end = ceil_mod(acc_addr_start + acc_bytes, WORD_SIZE);
 
-  std::bitset<OutputBlock_AccumulantAddr_COUNT> accstart {acc_addr_start};
+  std::cout << "acc address " << acc_addr_start << '\n';
+
+  std::bitset<OutputBlock_AccumulantAddr_COUNT> accstart{acc_addr_start};
   bitset_range_set(output_inst, accstart, OutputBlock_AccumulantAddr_LOW,
                    OutputBlock_AccumulantAddr_HIGH);
 
   assert(cc->outputs.size() == 1);
   uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
-  uint32_t output_bytes = prod(cc->output_dims.begin(), cc->output_dims.end(), 1) *
-                         Op::tpdt_sizeof(cc->output_type);
-  uint32_t output_addr_end = ceil_mod(output_addr_start + output_bytes, WORD_SIZE);
+  uint32_t output_bytes =
+      prod(cc->output_dims.begin(), cc->output_dims.end(), 1) *
+      Op::tpdt_sizeof(cc->output_type);
+  uint32_t output_addr_end =
+      ceil_mod(output_addr_start + output_bytes, WORD_SIZE);
 
   std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
   bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
                    OutputBlock_OutputAddr_HIGH);
 
-  int channel_iterations =
-      (int)std::ceil((float)cc->input_dims[TENSOR_4D_CHANNELS] / (float)sa_arch[2]);
-  std::bitset<OutputBlock_ChannelItr_COUNT> citr{channel_iterations};
-  bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW, OutputBlock_ChannelItr_HIGH);
+  std::cout << "output address " << output_addr_start << '\n';
 
-  int kernel_iterations = (int)std::ceil((float)cc->m_cp.kn / (float)sa_arch[1]);
+  int channel_iterations = (int)std::ceil(
+      (float)cc->input_dims[TENSOR_4D_CHANNELS] / (float)sa_arch[2]);
+  std::bitset<OutputBlock_ChannelItr_COUNT> citr{channel_iterations};
+  bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
+                   OutputBlock_ChannelItr_HIGH);
+
+  std::cout << "channel iterations " << channel_iterations << '\n';
+
+  int kernel_iterations =
+      (int)std::ceil((float)cc->m_cp.kn / (float)sa_arch[1]);
   std::bitset<OutputBlock_KernelItr_COUNT> kitr{kernel_iterations};
-  bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW, OutputBlock_KernelItr_HIGH);
+  bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
+                   OutputBlock_KernelItr_HIGH);
+
+  std::cout << "kernel iterations " << kernel_iterations << '\n';
+
+  int image_dim_output = ceil_mod(cc->pipelined_output_dims[TENSOR_4D_WIDTH] *
+                        cc->pipelined_output_dims[TENSOR_4D_HEIGHT], WORD_SIZE);
+                         
+  int dim_acc = ceil_mod(cc->output_dims[TENSOR_4D_WIDTH] *
+                cc->output_dims[TENSOR_4D_HEIGHT], WORD_SIZE);
+
+  std::cout << "dim output " << image_dim_output << '\n';
+  std::cout << "dim_acc" << dim_acc << '\n';
+
+  std::bitset<OutputBlock_ImageDimOutput_COUNT> ido {image_dim_output};
+  bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW, OutputBlock_ImageDimOutput_HIGH);
+
+  std::bitset<OutputBlock_ImageDimAcc_COUNT> ida {dim_acc};
+  bitset_range_set(output_inst, ida, OutputBlock_ImageDimAcc_LOW, OutputBlock_ImageDimAcc_HIGH);
 
   return output_inst;
 }

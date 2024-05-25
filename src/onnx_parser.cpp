@@ -577,6 +577,10 @@ void Op::Layer::DequantizeLinear::infer_shape(const std::vector<std::vector<int>
   this->output_dims = input_dims[0];
 }
 
+int Op::Layer::DequantizeLinear::get_weight_size() {
+  return 0;
+}
+
 const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
 
 const char *Op::Layer::QuantizeLinear::params() const {
@@ -680,8 +684,8 @@ Op::Layer::QLinearConv::QLinearConv() {
 
 const char *Op::Layer::QLinearConv::op_type() const { return m_optype; }
 const char *Op::Layer::QLinearConv::params() const {
-  static char ret[512];
-  std::memset(ret, '\0', 512);
+  static char ret[768];
+  std::memset(ret, '\0', 768);
 
   std::stringstream ss;
   ss << "(IW,IH: " << this->input_dims[TENSOR_4D_WIDTH] << ","
@@ -714,6 +718,11 @@ const char *Op::Layer::QLinearConv::params() const {
     } else {
       log_fatal("cant get type for x_zero_point");
     }
+  }
+  ss << '\n';
+  ss << "Pipeline Odims: ";
+  for (int i : pipelined_output_dims) {
+    ss << i << ' ';
   }
   std::memcpy(ret, ss.str().c_str(), ss.str().size());
   return ret;
@@ -1410,6 +1419,19 @@ void Op::print_node(const LayerBase *node) {
   std::cout << "Output Type: "
             << Op::get_tensorproto_dtype_name(node->output_type) << '\n';
   const char *device = (node->device == DEVICE_CPU) ? "CPU" : "FPGA";
+  switch (node->device) {
+    case DEVICE_UNKNOWN:
+      device = "UNKNOWN";
+      break;
+    case DEVICE_FPGA:
+      device = "FPGA";
+      break;
+    case DEVICE_CPU:
+      device = "CPU";
+      break;
+    default:
+      log_fatal("illegal device number for layer %s", node->name.c_str());
+  }
   std::cout << "Device " <<  device << '\n';
   print_vec("Input dims", node->input_dims);
   print_vec("Output dims", node->output_dims);
@@ -1912,6 +1934,10 @@ void Op::Model::summary(void) const {
   }
 }
 
+Op::Graph Op::Model::get_graph() const {
+  return g;
+}
+
 Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
   return boost::adjacent_vertices(v, g);
 }
@@ -2009,10 +2035,10 @@ Op::Parser::Parser(std::string const &filename) {
   /* first layer's input dims */
   std::vector<int> input_dims = get_dims_from_value_info(m_graph.input().at(0));
   m_model.deduce_shapes(input_dims);
-  pass_set_device(get_execution_order());
+  pass_set_device(get_graph());
 }
 
-void Op::Parser::summary() const { m_model.summary(); }
+void Op::Parser::summary() const { m_model.bare_summary(); }
 void Op::Parser::bare_summary() const { m_model.bare_summary(); }
 long Op::Parser::time_estimate(int M, int N, int K) const {
   return m_model.time_estimate(M, N, K);
@@ -2020,6 +2046,10 @@ long Op::Parser::time_estimate(int M, int N, int K) const {
 
 std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const {
   return m_model.get_execution_order();
+}
+
+Op::Graph Op::Parser::get_graph() const {
+  return m_model.get_graph();
 }
 
 TPDT Op::Parser::get_model_input_type(void) const {
@@ -2102,6 +2132,7 @@ Op::Parser::~Parser() { loaded_model.close(); }
 
 Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
   register_set.resize(default_size, AVAILABLE);
+  clear_regs(g);
 
   std::queue<Op::Vertex> S;
   S.push(get_root_node(&g));
@@ -2157,3 +2188,24 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
   dst_node->outputs.push_back(acquire());
 }
 
+void Op::RegisterAllocator::clear_regs(Op::Graph g) {
+  std::queue<Op::Vertex> S;
+  S.push(get_root_node(&g));
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::LayerBase *node = g[n];
+    node->inputs.resize(0);
+    node->outputs.resize(0);
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, g);
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      Op::Vertex dest_vertex = boost::target(*itr, g);
+      boost::remove_edge(*itr, g);
+      if (boost::in_degree(dest_vertex, g) == 0) {
+        S.push(dest_vertex);
+      }
+    }
+  }
+}
