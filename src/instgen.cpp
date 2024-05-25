@@ -413,6 +413,11 @@ std::bitset<INST_SIZE_BITS> gen_bias_inst(const Op::Layer::QLinearConv *cc, Addr
   std::bitset<TailBlock_BiasEndAddress_COUNT> bend{bias_addr_end};
   bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
                    TailBlock_BiasEndAddress_HIGH);
+
+  std::bitset<TailBlock_BiasEn_COUNT> ben {1};
+  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW,
+                   TailBlock_BiasEn_HIGH);
+
   return bias_inst;
 }
 
