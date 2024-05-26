@@ -487,6 +487,12 @@ std::bitset<INST_SIZE_BITS> gen_output_inst(const Op::Layer::QLinearConv *cc,
   std::bitset<OutputBlock_ImageDimAcc_COUNT> ida {dim_acc};
   bitset_range_set(output_inst, ida, OutputBlock_ImageDimAcc_LOW, OutputBlock_ImageDimAcc_HIGH);
 
+  bool should_accumulate = true;
+  if (cc->input_dims[TENSOR_4D_CHANNELS] < sa_arch[2]) {
+    should_accumulate = false;
+  }
+  std::bitset<OutputBlock_AccEn_COUNT> accen {should_accumulate};
+  bitset_range_set(output_inst, accen, OutputBlock_AccEn_LOW, OutputBlock_AccEn_HIGH);
   return output_inst;
 }
 
