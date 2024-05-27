@@ -543,6 +543,7 @@ void Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen) {
   auto bias_inst = gen_bias_inst(this, gen);
   auto quant_inst = gen_quant_inst(this, gen);
 
+  /* order here matters */
   insts.push_back(conv_inst);
   insts.push_back(output_inst);
   insts.push_back(bias_inst);
@@ -606,6 +607,92 @@ void Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen) {
 
   std::cout << maxpool_inst << '\n';
   insts.push_back(maxpool_inst);
+}
+
+/* get true rows/cols 
+ * TODO: fix this in the parser directly */
+std::vector<int> get_true_rc_weights(const Op::Layer::QGemm* cc) {
+  std::vector<int> ret(2);
+  if (cc->m_cp.transB) {
+    ret[0] = cc->m_cp.wc;
+    ret[1] = cc->m_cp.wr;
+  } else {
+    ret[0] = cc->m_cp.wr;
+    ret[1] = cc->m_cp.wc;
+  }
+  return ret;
+}
+
+std::vector<int> get_true_rc_inputs(const Op::Layer::QGemm* cc) {
+  std::vector<int> ret(2);
+  if (cc->m_cp.transA) {
+    ret[0] = cc->input_dims[1];
+    ret[1] = cc->input_dims[0];
+  } else {
+    ret[0] = cc->input_dims[0];
+    ret[1] = cc->input_dims[1];
+  }
+  return ret;
+}
+
+std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc, AddressGen &gen) {
+  std::bitset<INST_SIZE_BITS> gemm_inst;
+
+  std::bitset<FC_Opcode_COUNT> opcode {OP_FC};
+  bitset_range_set(gemm_inst, opcode, FC_Opcode_LOW, FC_Opcode_HIGH);
+
+  std::vector<int> rows_cols = get_true_rc_weights(cc);
+  std::cout << "setting weight rows to " << rows_cols[0] << '\n';
+
+  std::bitset<FC_WeightRows_COUNT> fc_weight_rows {rows_cols[0]};
+  bitset_range_set(gemm_inst, fc_weight_rows, FC_WeightRows_LOW, FC_WeightRows_HIGH);
+
+  std::bitset<FC_WeightCols_COUNT> fc_weight_cols {rows_cols[1]};
+  bitset_range_set(gemm_inst, fc_weight_cols, FC_WeightCols_LOW, FC_WeightCols_HIGH);
+
+  std::vector<int> input_rows_cols = get_true_rc_inputs(cc);
+  std::bitset<FC_InputRows_COUNT> fc_input_rows {input_rows_cols[0]};
+  bitset_range_set(gemm_inst, fc_weight_cols, FC_InputRows_LOW, FC_InputRows_HIGH);
+
+  /* TODO: flatten pass */
+
+  uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
+  uint32_t input_bytes = prod(cc->input_dims.begin(), cc->input_dims.end(), 1) *
+                         Op::tpdt_sizeof(cc->input_type);
+  uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
+
+  std::bitset<FC_ImageStartAddress_COUNT> fc_image_start {input_addr_start};
+  bitset_range_set(gemm_inst, fc_image_start, FC_ImageStartAddress_LOW, FC_ImageStartAddress_HIGH);
+
+  std::bitset<FC_ImageEndAddr_COUNT> fc_image_end {input_addr_end};
+  bitset_range_set(gemm_inst, fc_image_end, FC_ImageEndAddr_LOW, FC_ImageEndAddr_HIGH);
+
+  const auto &weight_dims = cc->weights->dims();
+  uint32_t weight_bytes = prod(weight_dims.begin(), weight_dims.end(), 1) * Op::tpdt_sizeof(cc->input_type);
+  uint32_t weight_addr_start = gen.alloc(weight_bytes);
+  uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
+
+  std::bitset<FC_WeightStartAddress_COUNT> wstart {weight_addr_start};
+  bitset_range_set(gemm_inst, wstart, FC_WeightStartAddress_LOW, FC_WeightStartAddress_HIGH);
+
+  std::bitset<FC_WeightEndAddress_COUNT> wend {weight_addr_end};
+  bitset_range_set(gemm_inst, wend, FC_WeightEndAddress_LOW, FC_WeightEndAddress_HIGH);
+
+  return gemm_inst;
+}
+
+std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc, AddressGen &gen) {
+  std::bitset<INST_SIZE_BITS> out_inst {0};
+  return out_inst;
+}
+
+
+void Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen) {
+  std::bitset<INST_SIZE_BITS> fc_inst = gen_fc_inst(this, gen);
+  std::bitset<INST_SIZE_BITS> output_inst = gen_fc_output(this, gen);
+
+  insts.push_back(fc_inst);
+  insts.push_back(output_inst);
 }
 
 void Op::Layer::QuantizeLinear::get_opcodes(std::vector<int> &opcodes) {

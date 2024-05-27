@@ -432,6 +432,7 @@ struct QGemm : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   int get_weight_size() override;
+  void get_inst(InstBlob& blob, AddressGen& gen) override;
 };
 
 struct QLinearConv : public LayerBase {
