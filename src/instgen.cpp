@@ -574,7 +574,6 @@ void Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &gen) {
   std::bitset<TailBlock_ActParam_COUNT> act_param {0};
   bitset_range_set(relu_inst, act_param, TailBlock_ActParam_LOW, TailBlock_ActParam_HIGH);
 
-  std::cout << relu_inst << '\n';
   insts.push_back(relu_inst);
 }
 
@@ -635,24 +634,28 @@ std::vector<int> get_true_rc_inputs(const Op::Layer::QGemm* cc) {
   return ret;
 }
 
-std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc, AddressGen &gen) {
+std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
+                                        AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> gemm_inst;
 
-  std::bitset<FC_Opcode_COUNT> opcode {OP_FC};
+  std::bitset<FC_Opcode_COUNT> opcode{OP_FC};
   bitset_range_set(gemm_inst, opcode, FC_Opcode_LOW, FC_Opcode_HIGH);
 
   std::vector<int> rows_cols = get_true_rc_weights(cc);
   std::cout << "setting weight rows to " << rows_cols[0] << '\n';
 
-  std::bitset<FC_WeightRows_COUNT> fc_weight_rows {rows_cols[0]};
-  bitset_range_set(gemm_inst, fc_weight_rows, FC_WeightRows_LOW, FC_WeightRows_HIGH);
+  std::bitset<FC_WeightRows_COUNT> fc_weight_rows{rows_cols[0]};
+  bitset_range_set(gemm_inst, fc_weight_rows, FC_WeightRows_LOW,
+                   FC_WeightRows_HIGH);
 
-  std::bitset<FC_WeightCols_COUNT> fc_weight_cols {rows_cols[1]};
-  bitset_range_set(gemm_inst, fc_weight_cols, FC_WeightCols_LOW, FC_WeightCols_HIGH);
+  std::bitset<FC_WeightCols_COUNT> fc_weight_cols{rows_cols[1]};
+  bitset_range_set(gemm_inst, fc_weight_cols, FC_WeightCols_LOW,
+                   FC_WeightCols_HIGH);
 
   std::vector<int> input_rows_cols = get_true_rc_inputs(cc);
-  std::bitset<FC_InputRows_COUNT> fc_input_rows {input_rows_cols[0]};
-  bitset_range_set(gemm_inst, fc_weight_cols, FC_InputRows_LOW, FC_InputRows_HIGH);
+  std::bitset<FC_InputRows_COUNT> fc_input_rows{input_rows_cols[0]};
+  bitset_range_set(gemm_inst, fc_weight_cols, FC_InputRows_LOW,
+                   FC_InputRows_HIGH);
 
   /* TODO: flatten pass */
 
@@ -661,22 +664,31 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc, AddressGen &
                          Op::tpdt_sizeof(cc->input_type);
   uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
 
-  std::bitset<FC_ImageStartAddress_COUNT> fc_image_start {input_addr_start};
-  bitset_range_set(gemm_inst, fc_image_start, FC_ImageStartAddress_LOW, FC_ImageStartAddress_HIGH);
+  std::bitset<FC_ImageStartAddress_COUNT> fc_image_start{input_addr_start};
+  bitset_range_set(gemm_inst, fc_image_start, FC_ImageStartAddress_LOW,
+                   FC_ImageStartAddress_HIGH);
 
-  std::bitset<FC_ImageEndAddr_COUNT> fc_image_end {input_addr_end};
-  bitset_range_set(gemm_inst, fc_image_end, FC_ImageEndAddr_LOW, FC_ImageEndAddr_HIGH);
+  std::bitset<FC_ImageEndAddr_COUNT> fc_image_end{input_addr_end};
+  bitset_range_set(gemm_inst, fc_image_end, FC_ImageEndAddr_LOW,
+                   FC_ImageEndAddr_HIGH);
 
   const auto &weight_dims = cc->weights->dims();
-  uint32_t weight_bytes = prod(weight_dims.begin(), weight_dims.end(), 1) * Op::tpdt_sizeof(cc->input_type);
+  uint32_t weight_bytes = prod(weight_dims.begin(), weight_dims.end(), 1) *
+                          Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
-  uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
+  uint32_t weight_addr_end =
+      ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
 
-  std::bitset<FC_WeightStartAddress_COUNT> wstart {weight_addr_start};
-  bitset_range_set(gemm_inst, wstart, FC_WeightStartAddress_LOW, FC_WeightStartAddress_HIGH);
+  std::cout << "setting dense weight_start_addr " << weight_addr_start << '\n';
+  std::cout << "setting dense weight_end_addr " << weight_addr_end << '\n';
 
-  std::bitset<FC_WeightEndAddress_COUNT> wend {weight_addr_end};
-  bitset_range_set(gemm_inst, wend, FC_WeightEndAddress_LOW, FC_WeightEndAddress_HIGH);
+  std::bitset<FC_WeightStartAddress_COUNT> wstart{weight_addr_start};
+  bitset_range_set(gemm_inst, wstart, FC_WeightStartAddress_LOW,
+                   FC_WeightStartAddress_HIGH);
+
+  std::bitset<FC_WeightEndAddress_COUNT> wend{weight_addr_end};
+  bitset_range_set(gemm_inst, wend, FC_WeightEndAddress_LOW,
+                   FC_WeightEndAddress_HIGH);
 
   return gemm_inst;
 }
@@ -686,13 +698,55 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc, AddressGen
   return out_inst;
 }
 
+std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc, AddressGen &gen) {
+  /* emits bias and quant for fc */
+  std::bitset<INST_SIZE_BITS> bias_inst {0};
+
+  auto bias_dims = cc->bias->dims();
+  uint32_t bias_bytes = prod(bias_dims.begin(), bias_dims.end(), 1) *
+                        Op::tensorproto_sizeof(cc->bias);
+  uint32_t bias_addr_start = gen.alloc(bias_bytes);
+  uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
+  std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
+  std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
+
+  std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
+  bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
+                   TailBlock_Opcode_HIGH);
+
+  std::bitset<TailBlock_BiasStartAddress_COUNT> bstart{bias_addr_start};
+  bitset_range_set(bias_inst, bstart, TailBlock_BiasStartAddress_LOW,
+                   TailBlock_BiasStartAddress_HIGH);
+
+  std::bitset<TailBlock_BiasEndAddress_COUNT> bend{bias_addr_end};
+  bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
+                   TailBlock_BiasEndAddress_HIGH);
+
+  std::bitset<TailBlock_BiasEn_COUNT> ben {1};
+  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW,
+                   TailBlock_BiasEn_HIGH);
+
+  return bias_inst;
+}
+
 
 void Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> fc_inst = gen_fc_inst(this, gen);
   std::bitset<INST_SIZE_BITS> output_inst = gen_fc_output(this, gen);
+  std::bitset<INST_SIZE_BITS> bias_inst = gen_fc_bias(this, gen);
 
   insts.push_back(fc_inst);
   insts.push_back(output_inst);
+  insts.push_back(bias_inst);
+}
+
+void Op::Layer::Flatten::get_inst(InstBlob &insts, AddressGen &gen) {
+  // TODO: ideally, flatten should be removed completely from the 
+  // graph and this function should not be present at all 
+}
+
+void Op::Layer::DequantizeLinear::get_inst(InstBlob &insts, AddressGen &gen) {
+  assert(this->device == DEVICE_CPU);
 }
 
 void Op::Layer::QuantizeLinear::get_opcodes(std::vector<int> &opcodes) {
