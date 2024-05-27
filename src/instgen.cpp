@@ -37,8 +37,9 @@ bool is_megablock_op_code(int i) {
   return false;
 }
 
-bool is_qlc(const Op::LayerBase *l) {
-  return std::strcmp(l->op_type(), "QLinearConv") == 0;
+
+bool is_op_type(const Op::LayerBase *l, const char *op_type) {
+  return std::strcmp(l->op_type(), op_type) == 0;
 }
 
 template <typename T> using CmpFunc = std::function<bool(T, T)>;
@@ -222,15 +223,20 @@ pass_remove_dqxq(Op::Graph graph) {
  */
 std::vector<Op::LayerBase *>
 pass_extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
-  std::cout << " running pipe extract \n";
+  std::cout << "running pipe extract \n";
   Op::Layer::QLinearConv *cc = nullptr;
   for (Op::LayerBase *l : order) {
-    if (is_megablock(l) && is_qlc(l)) {
+    if (is_op_type(l, "QLinearConv")) {
       Op::Layer::QLinearConv *cc1 = dynamic_cast<Op::Layer::QLinearConv *>(l);
       if (cc != nullptr) {
         cc->pipelined_output_dims = cc1->input_dims;
       }
       cc = cc1;
+    } else if (is_op_type(l, "Flatten")) {
+      if (cc != nullptr) {
+        cc->pipelined_output_dims = l->input_dims;
+        break;
+      }
     }
   }
   return order;
@@ -269,12 +275,12 @@ InstGen::InstGen(Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
   auto o1 = pass_remove_dqxq(graph);
+  auto exec_order = pass_extract_conv_true_odims(o1);
 
   for (Op::LayerBase *l: o1) {
     Op::print_node(l);
   }
 
-  auto exec_order = pass_extract_conv_true_odims(o1);
   AddressGen generator(exec_order);
 
 #if 0
@@ -294,6 +300,7 @@ InstGen::InstGen(Op::Parser &parser) {
 #if 1
   for (Op::LayerBase *l : exec_order) {
     l->get_inst(instructions, generator);
+    std::cout << "generated for " << l->name << '\n';
   }
 #endif
 }
@@ -475,10 +482,10 @@ std::bitset<INST_SIZE_BITS> gen_output_inst(const Op::Layer::QLinearConv *cc,
   int image_dim_output = ceil_mod(cc->pipelined_output_dims[TENSOR_4D_WIDTH] *
                         cc->pipelined_output_dims[TENSOR_4D_HEIGHT], WORD_SIZE);
                          
-  int dim_acc = ceil_mod(cc->output_dims[TENSOR_4D_WIDTH] *
-                cc->output_dims[TENSOR_4D_HEIGHT], WORD_SIZE);
-
   std::cout << "dim output " << image_dim_output << '\n';
+  int dim_acc = ceil_mod(cc->output_dims.at(TENSOR_4D_WIDTH) *
+                cc->output_dims.at(TENSOR_4D_HEIGHT), WORD_SIZE);
+
   std::cout << "dim_acc" << dim_acc << '\n';
 
   std::bitset<OutputBlock_ImageDimOutput_COUNT> ido {image_dim_output};
@@ -568,6 +575,37 @@ void Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &gen) {
 
   std::cout << relu_inst << '\n';
   insts.push_back(relu_inst);
+}
+
+void Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen) {
+  std::bitset<INST_SIZE_BITS> maxpool_inst;
+
+  std::bitset<TailBlock_Opcode_COUNT> opcode {OP_TailBlock};
+  bitset_range_set(maxpool_inst, opcode, TailBlock_Opcode_LOW, TailBlock_Opcode_HIGH);
+
+  /* enable relu */
+  std::bitset<TailBlock_PoolEn_COUNT> poolen {1};
+  bitset_range_set(maxpool_inst, poolen, TailBlock_PoolEn_LOW, TailBlock_PoolEn_HIGH);
+
+  std::bitset<TailBlock_PoolType_COUNT> pool_type {POOL_MAX};
+  bitset_range_set(maxpool_inst, pool_type, TailBlock_PoolType_LOW, TailBlock_PoolType_HIGH);
+
+  std::bitset<TailBlock_PoolWidth_COUNT> pool_width {m_cp.k[TENSOR_2D_WIDTH]};
+  bitset_range_set(maxpool_inst, pool_width, TailBlock_PoolWidth_LOW, TailBlock_PoolWidth_HIGH);
+
+  std::bitset<TailBlock_PoolHeight_COUNT> pool_height {m_cp.k[TENSOR_2D_HEIGHT]};
+  bitset_range_set(maxpool_inst, pool_height, TailBlock_PoolHeight_LOW, TailBlock_PoolHeight_HIGH);
+
+  assert_all_equal(m_cp.stride, 2);
+  std::bitset<TailBlock_PoolStride_COUNT> pool_stride {m_cp.stride[TENSOR_2D_HEIGHT]};
+  bitset_range_set(maxpool_inst, pool_stride, TailBlock_PoolStride_LOW, TailBlock_PoolStride_HIGH);
+
+  assert_all_equal(m_cp.pad, 4);
+  std::bitset<TailBlock_PoolPadding_COUNT> pool_pad {m_cp.pad[I_LEFT]};
+  bitset_range_set(maxpool_inst, pool_pad, TailBlock_PoolPadding_LOW, TailBlock_PoolPadding_HIGH);
+
+  std::cout << maxpool_inst << '\n';
+  insts.push_back(maxpool_inst);
 }
 
 void Op::Layer::QuantizeLinear::get_opcodes(std::vector<int> &opcodes) {

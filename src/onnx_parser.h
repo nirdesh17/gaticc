@@ -4,7 +4,6 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <unordered_set>
 #include <bitset>
 
 #include <boost/graph/adjacency_list.hpp>
@@ -237,6 +236,7 @@ struct Maxpool : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   int get_weight_size() override;
+  void get_inst(InstBlob& blob, AddressGen& gen) override;
 };
 
 struct Flatten : public LayerBase {
