@@ -101,6 +101,7 @@ class Argparse {
        {"instgen", {"--instgen"}, "generate and print config instructions for an onnx model", 0},
        {"sa_arch", {"--sa-arch"}, "systolic array architecture. Args: [comma sep values]. accepts args like --timeest", 1},
        {"ramsize", {"--ramsize"}, "ram size in MB. Args: int. For ex, --ramsize 512", 1},
+       {"vasize", {"--vasize"}, "Vector Array size. Usually equivalent to per cycle DRAM bandwidth in bytes. Args: int. For ex, --vasize 32", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"

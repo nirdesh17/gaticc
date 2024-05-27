@@ -322,6 +322,42 @@ std::vector<int> get_sa_arch() {
   return mnk;
 }
 
+/* Generic gen_quant, used by conv and fc as their quantization routines
+ * are same
+ */
+std::bitset<INST_SIZE_BITS> gen_quant(const std::vector<float>& x_scale,
+    const std::vector<float>& w_scale, const std::vector<float>& y_scale, 
+    const std::vector<int>& zero_points) {
+  std::bitset<INST_SIZE_BITS> quant_inst;
+  std::vector<float> scales = compute_output_scale(x_scale, w_scale, y_scale);
+  assert(scales.size() == 1 && "unsupported: per-channel quantization");
+  assert(scales[0] != 0);
+  auto assert_zero = [](int i) { assert(i == 0 && "unsupported: non zero points"); };
+  std::for_each(zero_points.begin(), zero_points.end(), assert_zero);
+   
+  std::bitset<TailBlock_Opcode_COUNT> opcode {OP_TailBlock};
+  bitset_range_set(quant_inst, opcode, TailBlock_Opcode_LOW, TailBlock_Opcode_HIGH);
+
+  /* TODO: deduce logically */
+  int shift_val = 16;
+  std::cout << "og scale " << scales[0] << '\n';
+  std::cout << "og scale inverted " << (1/scales[0]) << '\n';
+  int calib_scale = (int) ((1/scales[0]) * std::pow(2, shift_val));
+  std::cout << "calib_state " << calib_scale << '\n';
+
+  std::bitset<TailBlock_QuantScale_COUNT> qscale {calib_scale};
+  bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW, TailBlock_QuantScale_HIGH);
+
+  std::bitset<TailBlock_QuantShift_COUNT> qshift {shift_val};
+  bitset_range_set(quant_inst, qshift, TailBlock_QuantShift_LOW, TailBlock_QuantShift_HIGH);
+
+  /* enable quant, ofcourse */
+  std::bitset<TailBlock_QuantEn_COUNT> qen {1};
+  bitset_range_set(quant_inst, qen, TailBlock_QuantEn_LOW, TailBlock_QuantEn_HIGH);
+
+  return quant_inst;
+}
+
 std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> conv_inst;
 
@@ -398,12 +434,12 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc, Addr
   return conv_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_bias_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
+std::bitset<INST_SIZE_BITS> gen_bias(const onnx::TensorProto *bias, AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> bias_inst;
 
-  auto bias_dims = cc->bias->dims();
+  auto bias_dims = bias->dims();
   uint32_t bias_bytes = prod(bias_dims.begin(), bias_dims.end(), 1) *
-                        Op::tensorproto_sizeof(cc->bias);
+                        Op::tensorproto_sizeof(bias);
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
   std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
@@ -428,7 +464,11 @@ std::bitset<INST_SIZE_BITS> gen_bias_inst(const Op::Layer::QLinearConv *cc, Addr
   return bias_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_output_inst(const Op::Layer::QLinearConv *cc,
+std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
+  return gen_bias(cc->bias, gen);
+}
+
+std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
                                             AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> output_inst;
 
@@ -503,45 +543,18 @@ std::bitset<INST_SIZE_BITS> gen_output_inst(const Op::Layer::QLinearConv *cc,
   return output_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_quant_inst(const Op::Layer::QLinearConv *cc,
+std::bitset<INST_SIZE_BITS> gen_conv_quant(const Op::Layer::QLinearConv *cc,
                                             AddressGen &gen) {
-  std::bitset<INST_SIZE_BITS> quant_inst;
-  std::vector<float> scales = compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
-  assert(scales.size() == 1 && "unsupported: per-channel quantization");
-  assert(scales[0] != 0);
   using variantT = std::variant<int8_t,uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
-  auto assert_zero = [](int i) { assert(i == 0 && "unsupported: non zero points"); };
-  std::for_each(zero_points.begin(), zero_points.end(), assert_zero);
-   
-  std::bitset<TailBlock_Opcode_COUNT> opcode {OP_TailBlock};
-  bitset_range_set(quant_inst, opcode, TailBlock_Opcode_LOW, TailBlock_Opcode_HIGH);
-
-  /* TODO: deduce logically */
-  int shift_val = 16;
-  std::cout << "og scale " << scales[0] << '\n';
-  std::cout << "og scale inverted " << (1/scales[0]) << '\n';
-  int calib_scale = (int) ((1/scales[0]) * std::pow(2, shift_val));
-  std::cout << "calib_state " << calib_scale << '\n';
-
-  std::bitset<TailBlock_QuantScale_COUNT> qscale {calib_scale};
-  bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW, TailBlock_QuantScale_HIGH);
-
-  std::bitset<TailBlock_QuantShift_COUNT> qshift {shift_val};
-  bitset_range_set(quant_inst, qshift, TailBlock_QuantShift_LOW, TailBlock_QuantShift_HIGH);
-
-  /* enable quant, ofcourse */
-  std::bitset<TailBlock_QuantEn_COUNT> qen {1};
-  bitset_range_set(quant_inst, qen, TailBlock_QuantEn_LOW, TailBlock_QuantEn_HIGH);
-
-  return quant_inst;
+  return gen_quant(cc->x_scale, cc->w_scale, cc->y_scale, zero_points);
 }
 
 void Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen) {
   auto conv_inst = gen_conv_inst(this, gen);
-  auto output_inst = gen_output_inst(this, gen);
-  auto bias_inst = gen_bias_inst(this, gen);
-  auto quant_inst = gen_quant_inst(this, gen);
+  auto output_inst = gen_conv_output(this, gen);
+  auto bias_inst = gen_conv_bias(this, gen);
+  auto quant_inst = gen_conv_quant(this, gen);
 
   /* order here matters */
   insts.push_back(conv_inst);
@@ -693,40 +706,59 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   return gemm_inst;
 }
 
+int get_va_size() {
+  if (!gbl_args.has_option("vasize")) {
+    log_fatal("can't deduce vector array size, use option --vasize to provide one");
+  }
+  int va_size = gbl_args["vasize"].as<int>();
+  return va_size;
+}
+
 std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc, AddressGen &gen) {
-  std::bitset<INST_SIZE_BITS> out_inst {0};
-  return out_inst;
+  std::bitset<INST_SIZE_BITS> output_inst;
+
+  std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
+  bitset_range_set(output_inst, ob_opcode, OutputBlock_Opcode_LOW,
+                   OutputBlock_Opcode_HIGH);
+
+  assert(cc->outputs.size() == 1);
+  uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
+  uint32_t output_bytes =
+      prod(cc->output_dims.begin(), cc->output_dims.end(), 1) *
+      Op::tpdt_sizeof(cc->output_type);
+  uint32_t output_addr_end =
+      ceil_mod(output_addr_start + output_bytes, WORD_SIZE);
+
+  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
+  bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
+                   OutputBlock_OutputAddr_HIGH);
+
+  std::cout << "output address " << output_addr_start << '\n';
+
+  std::bitset<OutputBlock_ChannelItr_COUNT> citr{1};
+  bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
+                   OutputBlock_ChannelItr_HIGH);
+
+  int va_size = get_va_size();
+  int kernel_iterations = (int)std::ceil((float)cc->m_cp.wc / (float)va_size);
+  std::bitset<OutputBlock_KernelItr_COUNT> kitr{kernel_iterations};
+  bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
+                   OutputBlock_KernelItr_HIGH);
+
+  std::cout << "kernel iterations " << kernel_iterations << '\n';
+
+  return output_inst;
 }
 
 std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc, AddressGen &gen) {
-  /* emits bias and quant for fc */
-  std::bitset<INST_SIZE_BITS> bias_inst {0};
+  return gen_bias(cc->bias, gen);
+}
 
-  auto bias_dims = cc->bias->dims();
-  uint32_t bias_bytes = prod(bias_dims.begin(), bias_dims.end(), 1) *
-                        Op::tensorproto_sizeof(cc->bias);
-  uint32_t bias_addr_start = gen.alloc(bias_bytes);
-  uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
-  std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
-
-  std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
-  bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
-                   TailBlock_Opcode_HIGH);
-
-  std::bitset<TailBlock_BiasStartAddress_COUNT> bstart{bias_addr_start};
-  bitset_range_set(bias_inst, bstart, TailBlock_BiasStartAddress_LOW,
-                   TailBlock_BiasStartAddress_HIGH);
-
-  std::bitset<TailBlock_BiasEndAddress_COUNT> bend{bias_addr_end};
-  bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
-                   TailBlock_BiasEndAddress_HIGH);
-
-  std::bitset<TailBlock_BiasEn_COUNT> ben {1};
-  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW,
-                   TailBlock_BiasEn_HIGH);
-
-  return bias_inst;
+std::bitset<INST_SIZE_BITS> gen_fc_quant(const Op::Layer::QGemm *cc,
+                                            AddressGen &gen) {
+  using variantT = std::variant<int8_t,uint8_t>;
+  std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
+  return gen_quant(cc->a_scale, cc->b_scale, cc->y_scale, zero_points);
 }
 
 
@@ -734,10 +766,12 @@ void Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> fc_inst = gen_fc_inst(this, gen);
   std::bitset<INST_SIZE_BITS> output_inst = gen_fc_output(this, gen);
   std::bitset<INST_SIZE_BITS> bias_inst = gen_fc_bias(this, gen);
+  std::bitset<INST_SIZE_BITS> quant_inst = gen_fc_quant(this, gen);
 
   insts.push_back(fc_inst);
   insts.push_back(output_inst);
   insts.push_back(bias_inst);
+  insts.push_back(quant_inst);
 }
 
 void Op::Layer::Flatten::get_inst(InstBlob &insts, AddressGen &gen) {
