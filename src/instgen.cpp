@@ -1,4 +1,5 @@
 #include "instgen.h"
+#include "utils.h"
 #include "onnx_parser.h"
 #include "sim.h"
 #include <cstring>
@@ -299,8 +300,9 @@ InstGen::InstGen(Op::Parser &parser) {
 #if 1
   for (Op::LayerBase *l : exec_order) {
     l->get_inst(instructions, generator);
-    std::cout << "generated for " << l->name << '\n';
   }
+
+  pretty_print(instructions);
 #endif
 }
 
@@ -998,4 +1000,42 @@ uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg) {
   uint32_t ret = std::ceil((float)i / (float)WORD_SIZE) * WORD_SIZE;
   ret += ceil_mod(max_io_reg * io_region_register_size, WORD_SIZE);
   return ret;
+}
+
+int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst) {
+#ifndef NDEBUG
+  /* assert if all opcodes are the same size */
+  std::vector<int> all_opcodes{CONV_Opcode_COUNT, START_Opcode_COUNT,
+                               FC_Opcode_COUNT, TailBlock_Opcode_COUNT,
+                               OutputBlock_Opcode_COUNT};
+  assert_all_equal(all_opcodes.data(), all_opcodes.size());
+#endif
+  return static_cast<int>(bitset_range_get<CONV_Opcode_COUNT, INST_SIZE_BITS>(
+      inst, CONV_Opcode_LOW, CONV_Opcode_HIGH));
+}
+
+void pretty_print(const InstBlob &blob) {
+  for (const std::bitset<INST_SIZE_BITS> &i : blob) {
+    int op_code = extract_opcode(i);
+    switch (op_code) {
+    case OP_CONV:
+      pretty_print_conv(i);
+      break;
+    case OP_START:
+      pretty_print_start(i);
+      break;
+    case OP_OutputBlock:
+      pretty_print_outputblock(i);
+      break;
+    case OP_TailBlock:
+      pretty_print_tailblock(i);
+      break;
+    case OP_FC:
+      pretty_print_fc(i);
+      break;
+    default:
+      log_fatal("can't pretty print instruction with opcode %d", op_code);
+      break;
+    }
+  }
 }

@@ -3,10 +3,11 @@
 #include "onnx_parser.h"
 #include <bitset>
 
-/* Instructions copied from
+/* Automatically generated code follows from
  * https://github.com/vicharak-in/Gati/blob/main/docs/source/instructions/inst.rst
  * DO NOT EDIT MANUALLY
  */
+
 /* ============ INST BEGIN ======================*/
 
 #define OP_CONV 0x00
@@ -201,6 +202,228 @@
 #define POOL_AVERAGE 0x01
 #define POOL_GLOBAL_AVG 0x02
 
+inline std::map<std::string, int>
+get_conv_table(const std::bitset<INST_SIZE_BITS> &inst) {
+  std::map<std::string, int> tbl;
+  tbl.insert({"Opcode", bitset_range_get<CONV_Opcode_COUNT, INST_SIZE_BITS>(
+                            inst, CONV_Opcode_LOW, CONV_Opcode_HIGH)});
+  tbl.insert({"IW", bitset_range_get<CONV_IW_COUNT, INST_SIZE_BITS>(
+                        inst, CONV_IW_LOW, CONV_IW_HIGH)});
+  tbl.insert({"IH", bitset_range_get<CONV_IH_COUNT, INST_SIZE_BITS>(
+                        inst, CONV_IH_LOW, CONV_IH_HIGH)});
+  tbl.insert({"OW", bitset_range_get<CONV_OW_COUNT, INST_SIZE_BITS>(
+                        inst, CONV_OW_LOW, CONV_OW_HIGH)});
+  tbl.insert({"OH", bitset_range_get<CONV_OH_COUNT, INST_SIZE_BITS>(
+                        inst, CONV_OH_LOW, CONV_OH_HIGH)});
+  tbl.insert({"IC", bitset_range_get<CONV_IC_COUNT, INST_SIZE_BITS>(
+                        inst, CONV_IC_LOW, CONV_IC_HIGH)});
+  tbl.insert({"KN", bitset_range_get<CONV_KN_COUNT, INST_SIZE_BITS>(
+                        inst, CONV_KN_LOW, CONV_KN_HIGH)});
+  tbl.insert({"KW", bitset_range_get<CONV_KW_COUNT, INST_SIZE_BITS>(
+                        inst, CONV_KW_LOW, CONV_KW_HIGH)});
+  tbl.insert({"KH", bitset_range_get<CONV_KH_COUNT, INST_SIZE_BITS>(
+                        inst, CONV_KH_LOW, CONV_KH_HIGH)});
+  tbl.insert({"Stride", bitset_range_get<CONV_Stride_COUNT, INST_SIZE_BITS>(
+                            inst, CONV_Stride_LOW, CONV_Stride_HIGH)});
+  tbl.insert({"Pad", bitset_range_get<CONV_Pad_COUNT, INST_SIZE_BITS>(
+                         inst, CONV_Pad_LOW, CONV_Pad_HIGH)});
+  tbl.insert(
+      {"ImageStartAddress",
+       bitset_range_get<CONV_ImageStartAddress_COUNT, INST_SIZE_BITS>(
+           inst, CONV_ImageStartAddress_LOW, CONV_ImageStartAddress_HIGH)});
+  tbl.insert({"ImageEndAddress",
+              bitset_range_get<CONV_ImageEndAddress_COUNT, INST_SIZE_BITS>(
+                  inst, CONV_ImageEndAddress_LOW, CONV_ImageEndAddress_HIGH)});
+  tbl.insert(
+      {"WeightStartAddress",
+       bitset_range_get<CONV_WeightStartAddress_COUNT, INST_SIZE_BITS>(
+           inst, CONV_WeightStartAddress_LOW, CONV_WeightStartAddress_HIGH)});
+  tbl.insert(
+      {"WeightEndAddress",
+       bitset_range_get<CONV_WeightEndAddress_COUNT, INST_SIZE_BITS>(
+           inst, CONV_WeightEndAddress_LOW, CONV_WeightEndAddress_HIGH)});
+  return tbl;
+}
+inline void pretty_print_conv(const std::bitset<INST_SIZE_BITS> &inst) {
+  auto tbl = get_conv_table(inst);
+  print_table(tbl);
+}
+inline std::map<std::string, int>
+get_fc_table(const std::bitset<INST_SIZE_BITS> &inst) {
+  std::map<std::string, int> tbl;
+  tbl.insert({"Opcode", bitset_range_get<FC_Opcode_COUNT, INST_SIZE_BITS>(
+                            inst, FC_Opcode_LOW, FC_Opcode_HIGH)});
+  tbl.insert(
+      {"WeightRows", bitset_range_get<FC_WeightRows_COUNT, INST_SIZE_BITS>(
+                         inst, FC_WeightRows_LOW, FC_WeightRows_HIGH)});
+  tbl.insert(
+      {"WeightCols", bitset_range_get<FC_WeightCols_COUNT, INST_SIZE_BITS>(
+                         inst, FC_WeightCols_LOW, FC_WeightCols_HIGH)});
+  tbl.insert({"InputRows", bitset_range_get<FC_InputRows_COUNT, INST_SIZE_BITS>(
+                               inst, FC_InputRows_LOW, FC_InputRows_HIGH)});
+  tbl.insert({"DropoutConstant",
+              bitset_range_get<FC_DropoutConstant_COUNT, INST_SIZE_BITS>(
+                  inst, FC_DropoutConstant_LOW, FC_DropoutConstant_HIGH)});
+  tbl.insert({"Flatten", bitset_range_get<FC_Flatten_COUNT, INST_SIZE_BITS>(
+                             inst, FC_Flatten_LOW, FC_Flatten_HIGH)});
+  tbl.insert({"ImageDim", bitset_range_get<FC_ImageDim_COUNT, INST_SIZE_BITS>(
+                              inst, FC_ImageDim_LOW, FC_ImageDim_HIGH)});
+  tbl.insert({"ImageStartAddress",
+              bitset_range_get<FC_ImageStartAddress_COUNT, INST_SIZE_BITS>(
+                  inst, FC_ImageStartAddress_LOW, FC_ImageStartAddress_HIGH)});
+  tbl.insert(
+      {"ImageEndAddr", bitset_range_get<FC_ImageEndAddr_COUNT, INST_SIZE_BITS>(
+                           inst, FC_ImageEndAddr_LOW, FC_ImageEndAddr_HIGH)});
+  tbl.insert(
+      {"WeightStartAddress",
+       bitset_range_get<FC_WeightStartAddress_COUNT, INST_SIZE_BITS>(
+           inst, FC_WeightStartAddress_LOW, FC_WeightStartAddress_HIGH)});
+  tbl.insert({"WeightEndAddress",
+              bitset_range_get<FC_WeightEndAddress_COUNT, INST_SIZE_BITS>(
+                  inst, FC_WeightEndAddress_LOW, FC_WeightEndAddress_HIGH)});
+  tbl.insert(
+      {"Vec2MatCols", bitset_range_get<FC_Vec2MatCols_COUNT, INST_SIZE_BITS>(
+                          inst, FC_Vec2MatCols_LOW, FC_Vec2MatCols_HIGH)});
+  return tbl;
+}
+inline void pretty_print_fc(const std::bitset<INST_SIZE_BITS> &inst) {
+  auto tbl = get_fc_table(inst);
+  print_table(tbl);
+}
+inline std::map<std::string, int>
+get_outputblock_table(const std::bitset<INST_SIZE_BITS> &inst) {
+  std::map<std::string, int> tbl;
+  tbl.insert(
+      {"Opcode", bitset_range_get<OutputBlock_Opcode_COUNT, INST_SIZE_BITS>(
+                     inst, OutputBlock_Opcode_LOW, OutputBlock_Opcode_HIGH)});
+  tbl.insert(
+      {"AccumulantAddr",
+       bitset_range_get<OutputBlock_AccumulantAddr_COUNT, INST_SIZE_BITS>(
+           inst, OutputBlock_AccumulantAddr_LOW,
+           OutputBlock_AccumulantAddr_HIGH)});
+  tbl.insert(
+      {"OutputAddr",
+       bitset_range_get<OutputBlock_OutputAddr_COUNT, INST_SIZE_BITS>(
+           inst, OutputBlock_OutputAddr_LOW, OutputBlock_OutputAddr_HIGH)});
+  tbl.insert(
+      {"ChannelItr",
+       bitset_range_get<OutputBlock_ChannelItr_COUNT, INST_SIZE_BITS>(
+           inst, OutputBlock_ChannelItr_LOW, OutputBlock_ChannelItr_HIGH)});
+  tbl.insert(
+      {"KernelItr",
+       bitset_range_get<OutputBlock_KernelItr_COUNT, INST_SIZE_BITS>(
+           inst, OutputBlock_KernelItr_LOW, OutputBlock_KernelItr_HIGH)});
+  tbl.insert(
+      {"ImageDimOutput",
+       bitset_range_get<OutputBlock_ImageDimOutput_COUNT, INST_SIZE_BITS>(
+           inst, OutputBlock_ImageDimOutput_LOW,
+           OutputBlock_ImageDimOutput_HIGH)});
+  tbl.insert(
+      {"ImageDimAcc",
+       bitset_range_get<OutputBlock_ImageDimAcc_COUNT, INST_SIZE_BITS>(
+           inst, OutputBlock_ImageDimAcc_LOW, OutputBlock_ImageDimAcc_HIGH)});
+  tbl.insert(
+      {"AccEn", bitset_range_get<OutputBlock_AccEn_COUNT, INST_SIZE_BITS>(
+                    inst, OutputBlock_AccEn_LOW, OutputBlock_AccEn_HIGH)});
+  return tbl;
+}
+inline void pretty_print_outputblock(const std::bitset<INST_SIZE_BITS> &inst) {
+  auto tbl = get_outputblock_table(inst);
+  print_table(tbl);
+}
+inline std::map<std::string, int>
+get_start_table(const std::bitset<INST_SIZE_BITS> &inst) {
+  std::map<std::string, int> tbl;
+  tbl.insert({"Opcode", bitset_range_get<START_Opcode_COUNT, INST_SIZE_BITS>(
+                            inst, START_Opcode_LOW, START_Opcode_HIGH)});
+  tbl.insert({"LayerNumber",
+              bitset_range_get<START_LayerNumber_COUNT, INST_SIZE_BITS>(
+                  inst, START_LayerNumber_LOW, START_LayerNumber_HIGH)});
+  tbl.insert({"TotalLayers",
+              bitset_range_get<START_TotalLayers_COUNT, INST_SIZE_BITS>(
+                  inst, START_TotalLayers_LOW, START_TotalLayers_HIGH)});
+  return tbl;
+}
+inline void pretty_print_start(const std::bitset<INST_SIZE_BITS> &inst) {
+  auto tbl = get_start_table(inst);
+  print_table(tbl);
+}
+inline std::map<std::string, int>
+get_tailblock_table(const std::bitset<INST_SIZE_BITS> &inst) {
+  std::map<std::string, int> tbl;
+  tbl.insert(
+      {"Opcode", bitset_range_get<TailBlock_Opcode_COUNT, INST_SIZE_BITS>(
+                     inst, TailBlock_Opcode_LOW, TailBlock_Opcode_HIGH)});
+  tbl.insert({"BNEn", bitset_range_get<TailBlock_BNEn_COUNT, INST_SIZE_BITS>(
+                          inst, TailBlock_BNEn_LOW, TailBlock_BNEn_HIGH)});
+  tbl.insert({"BNChannels",
+              bitset_range_get<TailBlock_BNChannels_COUNT, INST_SIZE_BITS>(
+                  inst, TailBlock_BNChannels_LOW, TailBlock_BNChannels_HIGH)});
+  tbl.insert(
+      {"BNStartAddress",
+       bitset_range_get<TailBlock_BNStartAddress_COUNT, INST_SIZE_BITS>(
+           inst, TailBlock_BNStartAddress_LOW, TailBlock_BNStartAddress_HIGH)});
+  tbl.insert(
+      {"BNEndAddress",
+       bitset_range_get<TailBlock_BNEndAddress_COUNT, INST_SIZE_BITS>(
+           inst, TailBlock_BNEndAddress_LOW, TailBlock_BNEndAddress_HIGH)});
+  tbl.insert({"ActEn", bitset_range_get<TailBlock_ActEn_COUNT, INST_SIZE_BITS>(
+                           inst, TailBlock_ActEn_LOW, TailBlock_ActEn_HIGH)});
+  tbl.insert(
+      {"ActType", bitset_range_get<TailBlock_ActType_COUNT, INST_SIZE_BITS>(
+                      inst, TailBlock_ActType_LOW, TailBlock_ActType_HIGH)});
+  tbl.insert(
+      {"ActParam", bitset_range_get<TailBlock_ActParam_COUNT, INST_SIZE_BITS>(
+                       inst, TailBlock_ActParam_LOW, TailBlock_ActParam_HIGH)});
+  tbl.insert(
+      {"QuantEn", bitset_range_get<TailBlock_QuantEn_COUNT, INST_SIZE_BITS>(
+                      inst, TailBlock_QuantEn_LOW, TailBlock_QuantEn_HIGH)});
+  tbl.insert({"QuantScale",
+              bitset_range_get<TailBlock_QuantScale_COUNT, INST_SIZE_BITS>(
+                  inst, TailBlock_QuantScale_LOW, TailBlock_QuantScale_HIGH)});
+  tbl.insert({"QuantShift",
+              bitset_range_get<TailBlock_QuantShift_COUNT, INST_SIZE_BITS>(
+                  inst, TailBlock_QuantShift_LOW, TailBlock_QuantShift_HIGH)});
+  tbl.insert(
+      {"PoolEn", bitset_range_get<TailBlock_PoolEn_COUNT, INST_SIZE_BITS>(
+                     inst, TailBlock_PoolEn_LOW, TailBlock_PoolEn_HIGH)});
+  tbl.insert(
+      {"PoolType", bitset_range_get<TailBlock_PoolType_COUNT, INST_SIZE_BITS>(
+                       inst, TailBlock_PoolType_LOW, TailBlock_PoolType_HIGH)});
+  tbl.insert({"PoolWidth",
+              bitset_range_get<TailBlock_PoolWidth_COUNT, INST_SIZE_BITS>(
+                  inst, TailBlock_PoolWidth_LOW, TailBlock_PoolWidth_HIGH)});
+  tbl.insert({"PoolHeight",
+              bitset_range_get<TailBlock_PoolHeight_COUNT, INST_SIZE_BITS>(
+                  inst, TailBlock_PoolHeight_LOW, TailBlock_PoolHeight_HIGH)});
+  tbl.insert({"PoolStride",
+              bitset_range_get<TailBlock_PoolStride_COUNT, INST_SIZE_BITS>(
+                  inst, TailBlock_PoolStride_LOW, TailBlock_PoolStride_HIGH)});
+  tbl.insert(
+      {"PoolPadding",
+       bitset_range_get<TailBlock_PoolPadding_COUNT, INST_SIZE_BITS>(
+           inst, TailBlock_PoolPadding_LOW, TailBlock_PoolPadding_HIGH)});
+  tbl.insert(
+      {"BiasEn", bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(
+                     inst, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH)});
+  tbl.insert(
+      {"FCBiasEn", bitset_range_get<TailBlock_FCBiasEn_COUNT, INST_SIZE_BITS>(
+                       inst, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH)});
+  tbl.insert(
+      {"BiasStartAddress",
+       bitset_range_get<TailBlock_BiasStartAddress_COUNT, INST_SIZE_BITS>(
+           inst, TailBlock_BiasStartAddress_LOW,
+           TailBlock_BiasStartAddress_HIGH)});
+  tbl.insert(
+      {"BiasEndAddress",
+       bitset_range_get<TailBlock_BiasEndAddress_COUNT, INST_SIZE_BITS>(
+           inst, TailBlock_BiasEndAddress_LOW, TailBlock_BiasEndAddress_HIGH)});
+  return tbl;
+}
+inline void pretty_print_tailblock(const std::bitset<INST_SIZE_BITS> &inst) {
+  auto tbl = get_tailblock_table(inst);
+  print_table(tbl);
+}
 
 /* ============ INST END ======================*/
 
@@ -214,12 +437,13 @@ bool is_miniblock(const Op::LayerBase *l);
 class InstGen {
   InstBlob instructions;
   void set_device(const std::vector<Op::LayerBase *> &order);
+
 public:
   InstGen(Op::Parser &parser);
   InstBlob get_blob();
 };
 
-/* 
+/*
  * AddressGen generates addresses to be substituted in config instructions.
  * It does this by separating the address space (ideally all of the available
  * ram) in 4 distinct regions as shown below.
@@ -233,19 +457,20 @@ public:
  *
  * Config starts at address 0 and its size is known a priori. Same for weights
  * and biases. Input/Output are final activations of layers i.e. intermidiate
- * values of the model and are stored in I/O region. Accumulants are intermidiate
- * values of a layer (as opposed to a model), they tend to be greater in width 
- * than I/O (where I/O would be 8bit, Accumulants would be 32bits), are stored
- * in the final segement. Data in config region is allocated all  at once, it
- * fits all the instructions. Data is w/b region is allocated on a FCFS basis.
- * As a result, weights/biases for first layer to be executed will come first
- * in the ram. Data is I/O is allocated based on VirtualAddress registers assigned
- * to each LayerBase by RegisterAllocator. Data is Accumulants is allocated
- * in the same fashion as I/O but with a fixed offset and data width.
+ * values of the model and are stored in I/O region. Accumulants are
+ * intermidiate values of a layer (as opposed to a model), they tend to be
+ * greater in width than I/O (where I/O would be 8bit, Accumulants would be
+ * 32bits), are stored in the final segement. Data in config region is allocated
+ * all  at once, it fits all the instructions. Data is w/b region is allocated
+ * on a FCFS basis. As a result, weights/biases for first layer to be executed
+ * will come first in the ram. Data is I/O is allocated based on VirtualAddress
+ * registers assigned to each LayerBase by RegisterAllocator. Data is
+ * Accumulants is allocated in the same fashion as I/O but with a fixed offset
+ * and data width.
  */
 
 class AddressGen {
-  /* pointer to the current address from which ram 
+  /* pointer to the current address from which ram
    * addresses can be assigned
    */
   uint32_t current_address;
@@ -259,12 +484,13 @@ class AddressGen {
 
   void addr_incr(uint32_t size);
 
-  int get_total_instructions(const std::vector<Op::LayerBase*> &order);
-  int get_io_region_register_size(const std::vector<Op::LayerBase*> &order);
-  int get_weight_size(const std::vector<Op::LayerBase*> &order);
-  int get_max_io_reg(const std::vector<Op::LayerBase*> &order);
+  int get_total_instructions(const std::vector<Op::LayerBase *> &order);
+  int get_io_region_register_size(const std::vector<Op::LayerBase *> &order);
+  int get_weight_size(const std::vector<Op::LayerBase *> &order);
+  int get_max_io_reg(const std::vector<Op::LayerBase *> &order);
+
 public:
-  AddressGen(const std::vector<Op::LayerBase*> &order);
+  AddressGen(const std::vector<Op::LayerBase *> &order);
   /* get a address in weights/bias region */
   uint32_t alloc(uint32_t size);
   /* get a address in io region */
@@ -273,3 +499,5 @@ public:
   uint32_t ps_addr_from_register(Op::VirtualAddress reg);
   int io_reg_size();
 };
+
+void pretty_print(const InstBlob &blob);

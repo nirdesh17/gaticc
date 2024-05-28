@@ -536,6 +536,15 @@ void bitset_range_set(std::bitset<b1N>& dest, const std::bitset<b2N>& src, int s
   }
 }
 
+template <std::size_t b1N, std::size_t b2N>
+unsigned long bitset_range_get(const std::bitset<b2N>& src, int start, int stop) {
+  std::bitset<b1N> ret;
+  for (int i = start, j = 0; i < stop + 1; ++i, ++j) {
+    ret[j] = src[i];
+  }
+  return ret.to_ulong();
+}
+
 template <typename T>
 void assert_all_equal(const T *arr, int size) {
   assert(size > 0);
@@ -551,3 +560,6 @@ template <typename T>
 inline T ceil_mod(T i, int m) {
   return (T) (std::ceil((float)i/(float)m) * m);
 }
+
+int count_digits(int a);
+void print_table(const std::map<std::string, int>& tbl);

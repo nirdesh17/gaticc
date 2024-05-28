@@ -65,16 +65,13 @@ void TensorPool::free() {
   }
 }
 
-
 bool TensorPool::has_value(int index) { return pool.at(index).has_value(); }
 
-void TensorPool::resize(int size) {
-  pool.resize(size);
-}
+void TensorPool::resize(int size) { pool.resize(size); }
 
-Point::Point(int a, int b): first {a}, second {b} {}
+Point::Point(int a, int b) : first{a}, second{b} {}
 
-std::ostream& operator<<(std::ostream &os, const Point& p) {
+std::ostream &operator<<(std::ostream &os, const Point &p) {
   os << p.first << ',' << p.second;
   return os;
 }
@@ -95,17 +92,18 @@ std::filesystem::path extract_dirname(const std::string &path) {
   return fs_path.remove_filename();
 }
 
-/* true if two shapes are broadcastable 
+/* true if two shapes are broadcastable
  * see https://numpy.org/doc/stable/user/basics.broadcasting.html
  */
-bool is_broadcastable(const std::vector<int> &shape1, const std::vector<int>& shape2) {
+bool is_broadcastable(const std::vector<int> &shape1,
+                      const std::vector<int> &shape2) {
   if (shape1.size() == 1 || shape2.size() == 1) {
     return true;
   }
 
   if (shape1.size() == shape2.size()) {
     /* iterate from rhs */
-    for (int i = shape1.size()-1; i > 0; --i) {
+    for (int i = shape1.size() - 1; i > 0; --i) {
       if (shape1[i] != shape2[i]) {
         return false;
       }
@@ -116,25 +114,28 @@ bool is_broadcastable(const std::vector<int> &shape1, const std::vector<int>& sh
   return false;
 }
 
-std::vector<int> get_dims_after_pad(std::vector<int> current_dims, const std::vector<int>& pad) {
+std::vector<int> get_dims_after_pad(std::vector<int> current_dims,
+                                    const std::vector<int> &pad) {
   auto last_dim = current_dims.rbegin();
   auto second_last_dim = current_dims.rbegin() + 1;
-  
+
   *second_last_dim = *second_last_dim + pad[I_UP] + pad[I_DOWN];
   *last_dim = *last_dim + pad[I_LEFT] + pad[I_RIGHT];
   return current_dims;
 }
 
 bool islying(int i, int j, int rows, int cols, const std::vector<int> &pad) {
-  if (((j >= 0 && j < pad[0]) || (j >= (cols + pad[0]) && j < (cols + pad[0] + pad[2]))) ||
-      ((i >= 0 && i < pad[1]) || (i >= (rows + pad[1]) && i < (rows + pad[1] + pad[3])))) {
+  if (((j >= 0 && j < pad[0]) ||
+       (j >= (cols + pad[0]) && j < (cols + pad[0] + pad[2]))) ||
+      ((i >= 0 && i < pad[1]) ||
+       (i >= (rows + pad[1]) && i < (rows + pad[1] + pad[3])))) {
     return true;
   } else {
     return false;
   }
 }
 
-int cmp_dims(const std::vector<int>& dim1, const std::vector<int>& dim2) {
+int cmp_dims(const std::vector<int> &dim1, const std::vector<int> &dim2) {
   int p1 = prod(dim1.begin(), dim1.end(), 1);
   int p2 = prod(dim2.begin(), dim2.end(), 2);
 
@@ -145,4 +146,43 @@ int cmp_dims(const std::vector<int>& dim1, const std::vector<int>& dim2) {
   } else {
     return -1;
   }
+}
+
+int count_digits(int a) {
+  int count = 0;
+  while (a > 0) {
+    a /= 10;
+    count++;
+  }
+  return count;
+}
+
+void print_table(const std::map<std::string, int> &tbl) {
+  std::map<std::string, int> maxes;
+  for (const auto &i : tbl) {
+    maxes.insert(
+        {i.first, std::max((int)i.first.size(), count_digits(i.second))});
+  }
+  for (const auto &elem : tbl) {
+    std::cout << elem.first;
+    int max = maxes[elem.first];
+    if (elem.first.size() < max) {
+      for (int i = 0; i < (max - elem.first.size()); ++i) {
+        std::cout << ' ';
+      }
+    }
+    std::cout << '\t';
+  }
+  std::cout << '\n';
+  for (const auto &elem : tbl) {
+    std::cout << elem.second;
+    int max = maxes[elem.first];
+    if (count_digits(elem.second) < max) {
+      for (int i = 0; i < (max - count_digits(elem.second)); ++i) {
+        std::cout << ' ';
+      }
+    }
+    std::cout << '\t';
+  }
+  std::cout << '\n';
 }
