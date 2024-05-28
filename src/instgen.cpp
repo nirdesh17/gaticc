@@ -274,6 +274,32 @@ void Op::Parser::pass_set_device(Op::Graph gcopy) {
   }
 }
 
+int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst) {
+#ifndef NDEBUG
+  /* assert if all opcodes are the same size */
+  std::vector<int> all_opcodes{CONV_Opcode_COUNT, START_Opcode_COUNT,
+                               FC_Opcode_COUNT, TailBlock_Opcode_COUNT,
+                               OutputBlock_Opcode_COUNT};
+  assert_all_equal(all_opcodes.data(), all_opcodes.size());
+#endif
+  return static_cast<int>(bitset_range_get<CONV_Opcode_COUNT, INST_SIZE_BITS>(
+      inst, CONV_Opcode_LOW, CONV_Opcode_HIGH));
+}
+
+bool cmp_opcodes(std::bitset<INST_SIZE_BITS> i1, 
+    std::bitset<INST_SIZE_BITS> i2) {
+  int op1 = extract_opcode(i1);
+  int op2 = extract_opcode(i2);
+  return op1 != op2;
+}
+
+/* OR two instructions together, return the result */
+std::bitset<INST_SIZE_BITS> or_inst(std::bitset<INST_SIZE_BITS> i1, 
+    std::bitset<INST_SIZE_BITS> i2) {
+  std::bitset<INST_SIZE_BITS> ret = i1 | i2;
+  return ret;
+}
+
 InstGen::InstGen(Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
@@ -302,7 +328,11 @@ InstGen::InstGen(Op::Parser &parser) {
     l->get_inst(instructions, generator);
   }
 
-  pretty_print(instructions);
+  CmpFunc<std::bitset<INST_SIZE_BITS>> cmp = cmp_opcodes;
+  CmpApplyFunc<std::bitset<INST_SIZE_BITS>> cmp_apply = or_inst; 
+  auto collapsed_insts = collapse_identical_adjacent(instructions, cmp, cmp_apply);
+
+  pretty_print(collapsed_insts);
 #endif
 }
 
@@ -385,7 +415,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   std::bitset<CONV_OH_COUNT> oh{cc->output_dims[TENSOR_4D_HEIGHT]};
   bitset_range_set(conv_inst, oh, CONV_OH_LOW, CONV_OH_HIGH);
 
-  std::bitset<CONV_IC_COUNT> ic{cc->output_dims[TENSOR_4D_CHANNELS]};
+  std::bitset<CONV_IC_COUNT> ic{cc->input_dims[TENSOR_4D_CHANNELS]};
   bitset_range_set(conv_inst, ic, CONV_IC_LOW, CONV_IC_HIGH);
 
   std::bitset<CONV_KN_COUNT> kn{cc->m_cp.kn};
@@ -716,6 +746,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   log_info("ignoring dropout constant while generating inst for QGemm");
 
   bool former_layer_conv = (cc->former_layer_dims.size() != 0);
+  std::cout << "former layer conv set to " << former_layer_conv << '\n';
   std::bitset<FC_Flatten_COUNT> flc{former_layer_conv};
   bitset_range_set(gemm_inst, flc, FC_Flatten_LOW, FC_Flatten_HIGH);
 
@@ -724,6 +755,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
     image_dims = cc->former_layer_dims[TENSOR_4D_WIDTH] *
                  cc->former_layer_dims[TENSOR_4D_HEIGHT];
   }
+  std::cout << "imagedims set  to " << image_dims << '\n';
   std::bitset<FC_ImageDim_COUNT> image_dims_set{image_dims};
   bitset_range_set(gemm_inst, image_dims_set, FC_ImageDim_LOW,
                    FC_ImageDim_HIGH);
@@ -734,6 +766,9 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   if (former_layer_conv) {
     vec2mat_cols = std::ceil(((float)input_rows_cols[1] / (float)vasize));
   }
+
+  std::bitset<FC_Vec2MatCols_COUNT> v2mc {vec2mat_cols};
+  bitset_range_set(gemm_inst, v2mc, FC_Vec2MatCols_LOW, FC_Vec2MatCols_HIGH);
 
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
   uint32_t input_bytes = prod(cc->input_dims.begin(), cc->input_dims.end(), 1) *
@@ -1002,40 +1037,35 @@ uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg) {
   return ret;
 }
 
-int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst) {
-#ifndef NDEBUG
-  /* assert if all opcodes are the same size */
-  std::vector<int> all_opcodes{CONV_Opcode_COUNT, START_Opcode_COUNT,
-                               FC_Opcode_COUNT, TailBlock_Opcode_COUNT,
-                               OutputBlock_Opcode_COUNT};
-  assert_all_equal(all_opcodes.data(), all_opcodes.size());
-#endif
-  return static_cast<int>(bitset_range_get<CONV_Opcode_COUNT, INST_SIZE_BITS>(
-      inst, CONV_Opcode_LOW, CONV_Opcode_HIGH));
+
+void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
+  int op_code = extract_opcode(inst);
+  switch (op_code) {
+  case OP_CONV:
+    pretty_print_conv(inst);
+    break;
+  case OP_START:
+    pretty_print_start(inst);
+    break;
+  case OP_OutputBlock:
+    pretty_print_outputblock(inst);
+    break;
+  case OP_TailBlock:
+    pretty_print_tailblock(inst);
+    break;
+  case OP_FC:
+    pretty_print_fc(inst);
+    break;
+  default:
+    log_fatal("can't pretty print instruction with opcode %d", op_code);
+    break;
+  }
 }
 
 void pretty_print(const InstBlob &blob) {
   for (const std::bitset<INST_SIZE_BITS> &i : blob) {
-    int op_code = extract_opcode(i);
-    switch (op_code) {
-    case OP_CONV:
-      pretty_print_conv(i);
-      break;
-    case OP_START:
-      pretty_print_start(i);
-      break;
-    case OP_OutputBlock:
-      pretty_print_outputblock(i);
-      break;
-    case OP_TailBlock:
-      pretty_print_tailblock(i);
-      break;
-    case OP_FC:
-      pretty_print_fc(i);
-      break;
-    default:
-      log_fatal("can't pretty print instruction with opcode %d", op_code);
-      break;
-    }
+    pretty_print(i);
+    std::cout << '\n';
   }
 }
+
