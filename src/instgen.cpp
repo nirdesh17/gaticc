@@ -89,31 +89,6 @@ std::vector<T> insert_inst(const std::vector<T> &v, FlagFunc<T> func, T val) {
  * way, have the same types for input/output. for example, relu, maxpool,
  * flatten
  */
-#if 0
-std::vector<Op::LayerBase *>
-pass_remove_dqxq(const std::vector<Op::LayerBase *> &order) {
-  std::vector<Op::LayerBase *> ret;
-  bool in_zone = false;
-  for (Op::LayerBase *l : order) {
-    if (std::strcmp(l->op_type(), "DequantizeLinear") == 0) {
-      in_zone = true;
-      continue;
-    }
-    if (in_zone) {
-      if (std::strcmp(l->op_type(), "QuantizeLinear") == 0) {
-        in_zone = false;
-        continue;
-      }
-      if (l->input_type != l->output_type) {
-        log_fatal("could not remove layer %s", l->name.c_str());
-      }
-    }
-    ret.push_back(l);
-  }
-  return ret;
-}
-#endif
-
 std::vector<Op::LayerBase*> crt_exec_order(Op::Graph gcopy) {
   std::vector<Op::LayerBase*> execution_order;
   std::queue<Op::Vertex> S;
@@ -178,7 +153,6 @@ void safe_remove_vertex(Op::Vertex v, Op::Graph &g) {
 }
 
 
-#if 1
 std::vector<Op::LayerBase *>
 pass_remove_dqxq(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
@@ -210,7 +184,6 @@ pass_remove_dqxq(Op::Graph graph) {
   Op::RegisterAllocator allocatr(graph);
   return crt_exec_order(graph);
 }
-#endif
 
 /* Megablocks like convolution are followed by miniblocks
  * like relu and/or maxpool in pipeline. relu does not change
