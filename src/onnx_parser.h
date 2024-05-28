@@ -418,6 +418,11 @@ struct QGemm : public LayerBase {
   TPDT weight_type;
   TPDT bias_type;
   GemmParams m_cp;
+  /* Occasionally, a conv follows a gemm, in such a case, the FPGA needs to 
+   * know this so convolution's output order can be transposed into a linear
+   * order that gemm expects
+   */
+  std::vector<int> former_layer_dims;
   std::vector<float> a_scale;
   std::vector<float> b_scale;
   std::vector<float> y_scale;

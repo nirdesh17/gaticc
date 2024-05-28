@@ -137,7 +137,6 @@ void connect_parents_to_children(const std::vector<Op::Vertex>& parents,
     const std::vector<Op::Vertex>& children, Op::Graph &g) {
   for (Op::Vertex i: parents) {
     for (Op::Vertex j: children) {
-      std::cout << "connecting " << g[i]->name << " to " << g[j]->name << '\n';
       boost::add_edge(i, j, g);
     }
   }
@@ -196,7 +195,6 @@ pass_remove_dqxq(Op::Graph graph) {
  */
 std::vector<Op::LayerBase *>
 pass_extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
-  std::cout << "running pipe extract \n";
   Op::Layer::QLinearConv *cc = nullptr;
   for (Op::LayerBase *l : order) {
     if (is_op_type(l, "QLinearConv")) {
@@ -211,6 +209,37 @@ pass_extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
         break;
       }
     }
+  }
+  return order;
+}
+
+/* Find the pattern of layers conv -> flatten -> gemm and marks gemm with details
+ * of conv
+ */
+std::vector<Op::LayerBase*> pass_mark_cfg(const std::vector<Op::LayerBase*>& order) {
+  bool flatten_pass = false;
+  std::vector<int> former_layer_dims;
+  for (Op::LayerBase *l : order) {
+    if (is_op_type(l, "Flatten")) {
+      std::cout << "inside flatten\n";
+      if (l->input_dims.size() == 4) {
+        flatten_pass = true;
+        former_layer_dims = l->input_dims;
+      } else {
+        flatten_pass = false;
+        former_layer_dims = std::vector<int>();
+      }
+    } else if (is_op_type(l, "QGemm")) { 
+        if (flatten_pass) {
+          Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(l);
+          cc->former_layer_dims = former_layer_dims;
+          print_vec("setting form lay dims from ", former_layer_dims);
+          print_vec("setting form lay dims as ", cc->former_layer_dims);
+        } else {
+          flatten_pass = false;
+          former_layer_dims = std::vector<int>();
+        }
+    } 
   }
   return order;
 }
@@ -231,7 +260,6 @@ void Op::Parser::pass_set_device(Op::Graph gcopy) {
     if (is_miniblock(order.at(itr_from_end))) {
       break;
     } else {
-      std::cout << "setting " << order.at(itr_from_end)->name << " to CPU " << '\n';
       order.at(itr_from_end)->device = DEVICE_CPU;
     }
   }
@@ -247,10 +275,11 @@ void Op::Parser::pass_set_device(Op::Graph gcopy) {
 InstGen::InstGen(Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
-  auto o1 = pass_remove_dqxq(graph);
-  auto exec_order = pass_extract_conv_true_odims(o1);
+  auto exec_order = pass_remove_dqxq(graph);
+  exec_order = pass_extract_conv_true_odims(exec_order);
+  exec_order = pass_mark_cfg(exec_order);
 
-  for (Op::LayerBase *l: o1) {
+  for (Op::LayerBase *l: exec_order) {
     Op::print_node(l);
   }
 
@@ -265,12 +294,12 @@ InstGen::InstGen(Op::Parser &parser) {
   std::cout << "from reg " << generator.addr_from_register(2) << '\n';
   std::cout << "from reg " << generator.addr_from_register(3) << '\n';
 #endif
-#if 0
+#if 1
   for (Op::LayerBase *l : exec_order) {
     Op::print_node(l);
   }
 #endif
-#if 1
+#if 0
   for (Op::LayerBase *l : exec_order) {
     l->get_inst(instructions, generator);
     std::cout << "generated for " << l->name << '\n';

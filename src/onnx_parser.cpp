@@ -1101,10 +1101,21 @@ Op::Layer::QGemm::QGemm() { m_cp = {};
 }
 const char *Op::Layer::QGemm::op_type() const { return m_optype; }
 const char *Op::Layer::QGemm::params() const {
-  static char ret[128];
-  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d alpha,beta,transA,transB: %f,%f,%d,%d",
-          this->input_dims[TENSOR_2D_HEIGHT], this->input_dims[TENSOR_2D_WIDTH],
-          m_cp.wr, m_cp.wc, m_cp.alpha, m_cp.beta, m_cp.transA, m_cp.transB);
+  static char ret[512];
+  std::memset(ret, '\0', 512);
+  std::stringstream ss;
+  ss << "IH,IW,WR,WC: " 
+  << this->input_dims[TENSOR_2D_HEIGHT] << ' ' << this->input_dims[TENSOR_2D_WIDTH] << ' '
+  << m_cp.wr << ' ' << m_cp.wc << ' ';
+
+  ss << "alpha,beta,transA,transB: " <<
+  m_cp.alpha << ' ' << m_cp.beta << ' ' << m_cp.transA << ' ' << m_cp.transB << '\n';
+
+  ss << "Former Dims ";
+  for (int i : former_layer_dims) {
+    ss << i << ' ';
+  }
+  std::memcpy(ret, ss.str().c_str(), ss.str().size());
   return ret;
 }
 
