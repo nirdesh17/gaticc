@@ -431,8 +431,58 @@ inline void pretty_print_tailblock(const std::bitset<INST_SIZE_BITS> &inst) {
 #define WORD_SIZE 32
 #define ACC_SIZE 32
 
+/* Megablock and Miniblock
+ *
+ * All operators, implemented or not, can be divided into two sects: Megablock
+ * and Miniblock
+ *
+ * Megablocks are a set of miniblocks that execute in a pipeline.  Input to a
+ * megablock comes from dram and output from a megablock is written back to
+ * dram. As miniblocks are arranged in a pipeline, input comes from a previous
+ * miniblock. A megablock opener is the first miniblock of a pipeline. Only one
+ * megablock can execute at a time. All miniblocks execute at the same time.
+ *
+ * Currently, (TODO: this should be updated later), there are two megablocks:
+ * conv and fc and many miniblocks: relu, maxpool, bias, quantizer,
+ * outputpipeline etc. When a convolution is happening, these miniblocks form a
+ * megablock: conv, bias, quantizer, relu, maxpool, output When a FC is
+ * happening, these miniblocks form a megablock: fc, bias, quantizer, relu,
+ * output
+ *
+ * Some miniblocks can be skipped, for example, maxpool is skipped if a maxpool
+ * op does not follow convolution.
+ */
+
 bool is_megablock(const Op::LayerBase *l);
 bool is_miniblock(const Op::LayerBase *l);
+
+/* InstGen generates according to the ISA
+ *
+ * It does this in multiple different passes passing over the execution order
+ * as returned by parser. Instructions in the isa are compact, for example, the
+ * tail instruction has information related to relu, quantization, batchnorm,
+ * bias etc. On the other hand, onnx represents these as separate layers or as
+ * a part of a layer corresponding to an entirely different instruction (for
+ * example, bias info can be found in conv nodes). To deal with this, InstGen
+ * generates the final instructions in a emit-merge strategy. Each node in onnx
+ * emits all the instructions it is capable of in a InstBlob, later a pass over
+ * InstBlob merges like instructions into one by ORing them together. 
+ *
+ * Example: If an onnx graph contains CONV -> RELU -> MAXPOOL -> FC -> RELU, 
+ *
+ * In the emit phase, these instructions will be generated (in order):
+ *
+ *  CONV, OutputBlock (from conv node), Tail (from bias), Tail (from relu), 
+ *  Tail (from maxpool) FC, OutputBlock (from fc node), Tail (from fc bias),
+ *  Tail (from relu)
+ *
+ * In the merge phase, like instructions will be combined thusly to result in
+ * these instructions:
+ *  
+ *  CONV, OutputBlock (from conv node), Tail (bias, relu, maxpool), 
+ *  FC, OutputBlock (from fc node), Tail (fc bias, relu)
+ *
+ */
 
 class InstGen {
   InstBlob instructions;
