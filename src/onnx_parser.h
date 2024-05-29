@@ -138,7 +138,20 @@ struct LayerBase {
    */
   virtual void get_opcodes(std::vector<int>& op_codes);
 
+  /* Return total elements present in weights and biases
+   * of each layer, aligned according to underlying
+   * implementation engines such as systolic arrays or vector
+   * arrays (FC). Used mostly by instruction generation routines
+   */
   virtual uint32_t get_weight_size();
+
+  /* aligned shapes are new shapes aligned with DRAM word
+   * size and SA/VA sizes that a layer will posess
+   * when executing on the fpga. Layers that do not 
+   * modify shape, will, for now, emit un-aligned dims
+   */
+  virtual uint32_t aligned_input();
+  virtual uint32_t aligned_output();
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -441,6 +454,8 @@ struct QGemm : public LayerBase {
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
   void get_inst(InstBlob& blob, AddressGen& gen) override;
+  uint32_t aligned_input() override;
+  uint32_t aligned_output() override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -471,6 +486,8 @@ struct QLinearConv : public LayerBase {
   void get_inst(InstBlob& blob, AddressGen& gen) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
+  uint32_t aligned_input() override;
+  uint32_t aligned_output() override;
 };
 
 } // namespace Layer

@@ -64,6 +64,7 @@ uint32_t Op::LayerBase::get_weight_size() {
   log_fatal("Weight size un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
+
 /* Get a array of ints from attr and store into array */
 void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&

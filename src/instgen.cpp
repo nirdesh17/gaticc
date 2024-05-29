@@ -971,6 +971,31 @@ uint32_t Op::Layer::QGemm::get_weight_size() {
   return w + b;
 }
 
+uint32_t Op::LayerBase::aligned_input() {
+  return prod(input_dims.begin(), input_dims.end(), 1);
+}
+
+uint32_t Op::LayerBase::aligned_output() {
+  return prod(output_dims.begin(), output_dims.end(), 1);
+}
+
+uint32_t Op::Layer::QLinearConv::aligned_input() {
+  return aligned_conv_input(input_dims) * Op::tpdt_sizeof(input_type);
+}
+
+uint32_t Op::Layer::QLinearConv::aligned_output() {
+  return aligned_conv_output(output_dims) * Op::tpdt_sizeof(output_type);
+}
+
+uint32_t Op::Layer::QGemm::aligned_input() {
+  return aligned_fc_io(input_dims) * Op::tpdt_sizeof(input_type);
+}
+
+uint32_t Op::Layer::QGemm::aligned_output() {
+  return aligned_fc_io(output_dims) * Op::tpdt_sizeof(output_type);
+}
+
+
 AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
     : current_address{0} {
 
@@ -1023,17 +1048,20 @@ int AddressGen::get_total_instructions(
 int AddressGen::get_io_region_register_size(
     const std::vector<Op::LayerBase *> &order) {
   /* get largest dim in network */
-  std::vector<int> largest_dim{0};
+  uint32_t largest_dim = 0;
   for (Op::LayerBase *l : order) {
-    if (cmp_dims(l->input_dims, largest_dim) == 1) {
-      largest_dim = l->input_dims;
+    uint32_t tmp_inp = l->aligned_input();
+    if (tmp_inp > largest_dim) {
+      largest_dim = tmp_inp;
+      std::cout << "setting largest dim " << largest_dim << " for " << l->name <<'\n';
     }
-    if (cmp_dims(l->output_dims, largest_dim) == 1) {
-      largest_dim = l->output_dims;
+    uint32_t tmp_outp = l->aligned_output();
+    if (tmp_outp > largest_dim) {
+      largest_dim = tmp_outp;
+      std::cout << "setting largest dim " << largest_dim << " for " << l->name <<'\n';
     }
   }
-  int size = prod(largest_dim.begin(), largest_dim.end(), 1);
-  return size;
+  return largest_dim;
 }
 
 int AddressGen::get_weight_size(const std::vector<Op::LayerBase *> &order) {
