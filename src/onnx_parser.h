@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <bitset>
+#include <tuple>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
@@ -137,7 +138,7 @@ struct LayerBase {
    */
   virtual void get_opcodes(std::vector<int>& op_codes);
 
-  virtual int get_weight_size();
+  virtual uint32_t get_weight_size();
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -191,7 +192,7 @@ struct Relu : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
-  int get_weight_size() override;
+  uint32_t get_weight_size() override;
   void get_inst(InstBlob& blob, AddressGen& gen) override;
 };
 
@@ -235,7 +236,7 @@ struct Maxpool : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
-  int get_weight_size() override;
+  uint32_t get_weight_size() override;
   void get_inst(InstBlob& blob, AddressGen& gen) override;
 };
 
@@ -246,7 +247,7 @@ struct Flatten : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
-  int get_weight_size() override;
+  uint32_t get_weight_size() override;
   void get_inst(InstBlob& blob, AddressGen& gen) override;
 };
 
@@ -328,7 +329,7 @@ struct QuantizeLinear : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void get_inst(InstBlob& blob, AddressGen& gen) override;
   void get_opcodes(std::vector<int>& op_codes) override;
-  int get_weight_size() override;
+  uint32_t get_weight_size() override;
 };
 
 struct DequantizeLinear : public LayerBase {
@@ -346,7 +347,7 @@ struct DequantizeLinear : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
   void get_opcodes(std::vector<int>& op_codes) override;
-  int get_weight_size() override;
+  uint32_t get_weight_size() override;
   void get_inst(InstBlob& blob, AddressGen& gen) override;
 };
 
@@ -438,7 +439,7 @@ struct QGemm : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
   void get_opcodes(std::vector<int>& op_codes) override;
-  int get_weight_size() override;
+  uint32_t get_weight_size() override;
   void get_inst(InstBlob& blob, AddressGen& gen) override;
 };
 
@@ -469,7 +470,7 @@ struct QLinearConv : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void get_inst(InstBlob& blob, AddressGen& gen) override;
   void get_opcodes(std::vector<int>& op_codes) override;
-  int get_weight_size() override;
+  uint32_t get_weight_size() override;
 };
 
 } // namespace Layer

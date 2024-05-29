@@ -1169,6 +1169,13 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
 
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim, int max_lim) {
+#if 0
+  /* fpga quantization */
+  float inverted = 1/scale;
+  int int_scale = (int) ((float) inverted * (float) 65536);
+  outputT ret = (outputT) (((int) v * int_scale + (1<<15)) >> 16);
+  return ret;
+#endif
   inputT rounded = std::round(((float) v / scale + zero_point));
   return (outputT) std::clamp<inputT>(rounded, min_lim, max_lim);
 }

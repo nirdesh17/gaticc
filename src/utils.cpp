@@ -186,3 +186,25 @@ void print_table(const std::map<std::string, int> &tbl) {
   }
   std::cout << '\n';
 }
+
+std::vector<int> get_sa_arch() {
+  if (!gbl_args.has_option("sa_arch")) {
+    log_fatal("cant get architecture for sa, please use --sa_arch option");
+  }
+  std::string arch_list = gbl_args["sa_arch"].as<std::string>();
+  std::vector<int> mnk = parse_csv_string<int>(arch_list);
+  assert(mnk.size() != 0 && "Ill formatted dimension string to --sa_arch, "
+                            "expects string like m,n,k");
+  assert(mnk.size() == 3 &&
+         "Systolic Array shape should be 3 dimensional M, N, K");
+  return mnk;
+}
+
+int get_va_size() {
+  if (!gbl_args.has_option("vasize")) {
+    log_fatal(
+        "can't deduce vector array size, use option --vasize to provide one");
+  }
+  int va_size = gbl_args["vasize"].as<int>();
+  return va_size;
+}

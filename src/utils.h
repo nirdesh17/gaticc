@@ -563,3 +563,7 @@ inline T ceil_mod(T i, int m) {
 
 int count_digits(int a);
 void print_table(const std::map<std::string, int>& tbl);
+
+std::vector<int> get_sa_arch();
+int get_va_size();
+

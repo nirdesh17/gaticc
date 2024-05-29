@@ -502,3 +502,69 @@ public:
 
 void pretty_print(const InstBlob &blob);
 void pretty_print(const std::bitset<INST_SIZE_BITS>& inst);
+
+template <typename T>
+uint32_t aligned_conv_weight(const T &wdims) {
+  assert(wdims.size() == 4);
+  auto w = wdims;
+  auto sa_arch = get_sa_arch();
+  w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[2]); 
+  w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[1]);
+  uint32_t ret = prod(w.begin(), w.end(), 1); 
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_conv_bias(const T &dims) {
+  assert(dims.size() == 1);
+  auto sa_arch = get_sa_arch();
+  uint32_t ret = ceil_mod(dims[0], sa_arch[2]);
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_conv_input(const T &dims) {
+  assert(dims.size() == 4);
+  auto sa_arch = get_sa_arch();
+  auto i = dims;
+  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[2]); 
+  int ret = prod(i.begin(), i.end(), 1); 
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_conv_output(const T &dims) {
+  assert(dims.size() == 4);
+  auto sa_arch = get_sa_arch();
+  auto i = dims;
+  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]); 
+  int ret = prod(i.begin(), i.end(), 1); 
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_fc_weight(const T &dims) {
+  assert(dims.size() == 2);
+  auto va_size = get_va_size();
+  auto w = dims;
+  w[0] = ceil_mod(w[0], WORD_SIZE);
+  w[1] = ceil_mod(w[1], va_size);
+  int ret = prod(w.begin(), w.end(), 1); 
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_fc_bias(const T &dims) {
+  assert(dims.size() == 1);
+  auto va_size = get_va_size();
+  uint32_t ret = ceil_mod(dims[0], va_size);
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_fc_io(const T &dims) {
+  assert(dims.size() == 2);
+  assert(dims[0] == 1);
+  uint32_t ret = ceil_mod(dims[1], WORD_SIZE);
+  return ret;
+}

@@ -340,19 +340,6 @@ void Op::Layer::QuantizeLinear::get_inst(InstBlob &insts, AddressGen &gen) {
   assert(this->device == DEVICE_CPU);
 }
 
-std::vector<int> get_sa_arch() {
-  if (!gbl_args.has_option("sa_arch")) {
-    log_fatal("cant get architecture for sa, please use --sa_arch option");
-  }
-  std::string arch_list = gbl_args["sa_arch"].as<std::string>();
-  std::vector<int> mnk = parse_csv_string<int>(arch_list);
-  assert(mnk.size() != 0 && "Ill formatted dimension string to --sa_arch, "
-                            "expects string like m,n,k");
-  assert(mnk.size() == 3 &&
-         "Systolic Array shape should be 3 dimensional M, N, K");
-  return mnk;
-}
-
 /* Generic gen_quant, used by conv and fc as their quantization routines
  * are same
  */
@@ -435,25 +422,24 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   std::bitset<CONV_Pad_COUNT> pad{cc->m_cp.pad[I_LEFT]};
   bitset_range_set(conv_inst, pad, CONV_Pad_LOW, CONV_Pad_HIGH);
 
-  std::vector<int> mnk = get_sa_arch();
-
   assert(cc->inputs.size() == 1);
+  auto sa_arch = get_sa_arch();
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
-  uint32_t input_bytes = prod(cc->input_dims.begin(), cc->input_dims.end(), 1) *
+  uint32_t input_bytes = aligned_conv_input(cc->input_dims) *
                          Op::tpdt_sizeof(cc->input_type);
   uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
 
   std::cout << "setting input_addr_start to " << input_addr_start << '\n';
   std::cout << "setting input_addr_end to " << input_addr_end << '\n';
+  std::cout << "setting input_bytes to " << input_bytes << '\n';
 
-  auto weight_dims = cc->weights->dims();
-  uint32_t weight_bytes = prod(weight_dims.begin(), weight_dims.end(), 1) *
-                          Op::tensorproto_sizeof(cc->weights);
+  uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims()) * Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
-  uint32_t weight_addr_end =
-      ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
+  uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
+
   std::cout << "setting weight_addr_start to " << weight_addr_start << '\n';
   std::cout << "setting weight_addr_end to " << weight_addr_end << '\n';
+  std::cout << "setting weight_bytes to " << weight_bytes << '\n';
 
   std::bitset<CONV_ImageStartAddress_COUNT> istart{input_addr_start};
   bitset_range_set(conv_inst, istart, CONV_ImageStartAddress_LOW,
@@ -479,6 +465,7 @@ std::bitset<INST_SIZE_BITS> gen_bias(const onnx::TensorProto *bias,
   std::bitset<INST_SIZE_BITS> bias_inst;
 
   auto bias_dims = bias->dims();
+  assert(bias_dims.size() == 1);
   uint32_t bias_bytes = prod(bias_dims.begin(), bias_dims.end(), 1) *
                         Op::tensorproto_sizeof(bias);
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
@@ -509,9 +496,33 @@ std::bitset<INST_SIZE_BITS> gen_bias(const onnx::TensorProto *bias,
 
 std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
                                           AddressGen &gen) {
-  int conv_bias = 1;
-  int fc_bias = 0;
-  return gen_bias(cc->bias, gen, conv_bias, fc_bias);
+  std::bitset<INST_SIZE_BITS> bias_inst;
+
+  auto sa_arch = get_sa_arch();
+  auto bias_dims = cc->bias->dims();
+  assert(bias_dims.size() == 1);
+  uint32_t bias_bytes = aligned_conv_bias(cc->bias->dims()) * Op::tensorproto_sizeof(cc->bias);
+  uint32_t bias_addr_start = gen.alloc(bias_bytes);
+  uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
+  std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
+  std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
+
+  std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
+  bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
+                   TailBlock_Opcode_HIGH);
+
+  std::bitset<TailBlock_BiasStartAddress_COUNT> bstart{bias_addr_start};
+  bitset_range_set(bias_inst, bstart, TailBlock_BiasStartAddress_LOW,
+                   TailBlock_BiasStartAddress_HIGH);
+
+  std::bitset<TailBlock_BiasEndAddress_COUNT> bend{bias_addr_end};
+  bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
+                   TailBlock_BiasEndAddress_HIGH);
+
+  std::bitset<TailBlock_BiasEn_COUNT> ben{1};
+  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+
+  return bias_inst;
 }
 
 std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
@@ -538,7 +549,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   assert(cc->outputs.size() == 1);
   uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
   uint32_t output_bytes =
-      prod(cc->output_dims.begin(), cc->output_dims.end(), 1) *
+      aligned_conv_output(cc->output_dims) *
       Op::tpdt_sizeof(cc->output_type);
   uint32_t output_addr_end =
       ceil_mod(output_addr_start + output_bytes, WORD_SIZE);
@@ -613,11 +624,6 @@ void Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen) {
   insts.push_back(output_inst);
   insts.push_back(bias_inst);
   insts.push_back(quant_inst);
-
-  std::cout << conv_inst << '\n';
-  std::cout << output_inst << '\n';
-  std::cout << quant_inst << '\n';
-  std::cout << bias_inst << '\n';
 }
 
 void Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &gen) {
@@ -680,7 +686,6 @@ void Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen) {
   bitset_range_set(maxpool_inst, pool_pad, TailBlock_PoolPadding_LOW,
                    TailBlock_PoolPadding_HIGH);
 
-  std::cout << maxpool_inst << '\n';
   insts.push_back(maxpool_inst);
 }
 
@@ -710,14 +715,6 @@ std::vector<int> get_true_rc_inputs(const Op::Layer::QGemm *cc) {
   return ret;
 }
 
-int get_va_size() {
-  if (!gbl_args.has_option("vasize")) {
-    log_fatal(
-        "can't deduce vector array size, use option --vasize to provide one");
-  }
-  int va_size = gbl_args["vasize"].as<int>();
-  return va_size;
-}
 
 std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
                                         AddressGen &gen) {
@@ -771,7 +768,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   bitset_range_set(gemm_inst, v2mc, FC_Vec2MatCols_LOW, FC_Vec2MatCols_HIGH);
 
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
-  uint32_t input_bytes = prod(cc->input_dims.begin(), cc->input_dims.end(), 1) *
+  uint32_t input_bytes = aligned_fc_io(cc->input_dims);
                          Op::tpdt_sizeof(cc->input_type);
   uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
 
@@ -783,15 +780,14 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   bitset_range_set(gemm_inst, fc_image_end, FC_ImageEndAddr_LOW,
                    FC_ImageEndAddr_HIGH);
 
-  const auto &weight_dims = cc->weights->dims();
-  uint32_t weight_bytes = prod(weight_dims.begin(), weight_dims.end(), 1) *
-                          Op::tensorproto_sizeof(cc->weights);
+  uint32_t weight_bytes = aligned_fc_weight(cc->weights->dims()) * Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
   uint32_t weight_addr_end =
       ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
 
   std::cout << "setting dense weight_start_addr " << weight_addr_start << '\n';
   std::cout << "setting dense weight_end_addr " << weight_addr_end << '\n';
+  std::cout << "setting weight bytes " << weight_bytes << '\n';
 
   std::bitset<FC_WeightStartAddress_COUNT> wstart{weight_addr_start};
   bitset_range_set(gemm_inst, wstart, FC_WeightStartAddress_LOW,
@@ -815,7 +811,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
   assert(cc->outputs.size() == 1);
   uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
   uint32_t output_bytes =
-      prod(cc->output_dims.begin(), cc->output_dims.end(), 1) *
+      aligned_fc_io(cc->output_dims) *
       Op::tpdt_sizeof(cc->output_type);
   uint32_t output_addr_end =
       ceil_mod(output_addr_start + output_bytes, WORD_SIZE);
@@ -843,9 +839,33 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
 
 std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
                                         AddressGen &gen) {
-  int conv_bias = 0;
-  int fc_bias = 1;
-  return gen_bias(cc->bias, gen, conv_bias, fc_bias);
+  std::bitset<INST_SIZE_BITS> bias_inst;
+
+  auto bias_dims = cc->bias->dims();
+  assert(bias_dims.size() == 1);
+  uint32_t bias_bytes = aligned_fc_bias(bias_dims) * Op::tensorproto_sizeof(cc->bias);
+  uint32_t bias_addr_start = gen.alloc(bias_bytes);
+  uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
+  std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
+  std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
+  std::cout << "setting bias_bytes to " << bias_bytes << '\n';
+
+  std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
+  bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
+                   TailBlock_Opcode_HIGH);
+
+  std::bitset<TailBlock_BiasStartAddress_COUNT> bstart{bias_addr_start};
+  bitset_range_set(bias_inst, bstart, TailBlock_BiasStartAddress_LOW,
+                   TailBlock_BiasStartAddress_HIGH);
+
+  std::bitset<TailBlock_BiasEndAddress_COUNT> bend{bias_addr_end};
+  bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
+                   TailBlock_BiasEndAddress_HIGH);
+
+  std::bitset<TailBlock_FCBiasEn_COUNT> fc_ben{1};
+  bitset_range_set(bias_inst, fc_ben, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
+
+  return bias_inst;
 }
 
 std::bitset<INST_SIZE_BITS> gen_fc_quant(const Op::Layer::QGemm *cc,
@@ -913,6 +933,42 @@ void Op::Layer::QGemm::get_opcodes(std::vector<int> &opcodes) {
   }
   /* for quantization */
   opcodes.push_back(OP_TailBlock);
+}
+
+uint32_t Op::Layer::Relu::get_weight_size() {
+  return 0;
+}
+
+uint32_t Op::Layer::Maxpool::get_weight_size() {
+  return 0;
+}
+
+uint32_t Op::Layer::Flatten::get_weight_size() {
+  return 0;
+}
+
+uint32_t Op::Layer::DequantizeLinear::get_weight_size() {
+  return 0;
+}
+
+uint32_t Op::Layer::QuantizeLinear::get_weight_size() {
+  return 0;
+}
+
+uint32_t Op::Layer::QLinearConv::get_weight_size() {
+  uint32_t w = aligned_conv_weight(weights->dims()) *
+               Op::tensorproto_sizeof(weights);
+  uint32_t b = aligned_conv_bias(bias->dims()) * 
+               Op::tensorproto_sizeof(bias);
+  return w + b;
+}
+
+uint32_t Op::Layer::QGemm::get_weight_size() {
+  uint32_t w = aligned_fc_weight(weights->dims()) *
+               Op::tensorproto_sizeof(weights);
+  uint32_t b = aligned_fc_bias(bias->dims()) * 
+               Op::tensorproto_sizeof(bias);
+  return w + b;
 }
 
 AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
