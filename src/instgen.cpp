@@ -300,6 +300,46 @@ std::bitset<INST_SIZE_BITS> or_inst(std::bitset<INST_SIZE_BITS> i1,
   return ret;
 }
 
+std::bitset<INST_SIZE_BITS> gen_start_inst(int layer_num, int total_layers) {
+  std::bitset<INST_SIZE_BITS> start_inst;
+
+  std::bitset<START_Opcode_COUNT> opcode {OP_START};
+  bitset_range_set(start_inst, opcode, START_Opcode_LOW, START_Opcode_HIGH);
+
+  std::bitset<START_LayerNumber_COUNT> lnum {layer_num};
+  bitset_range_set(start_inst, lnum, START_LayerNumber_LOW, START_LayerNumber_HIGH);
+
+  std::bitset<START_TotalLayers_COUNT> tnum {total_layers};
+  bitset_range_set(start_inst, tnum, START_TotalLayers_LOW, START_TotalLayers_HIGH);
+
+  return start_inst;
+}
+
+int count_total_megablocks(const InstBlob &insts) {
+  int cnt = 0;
+  for (const auto &i: insts) {
+    int opcode = extract_opcode(i);
+    if (is_megablock_op_code(opcode)) {
+      cnt++;
+    }
+  }
+  return cnt;
+}
+
+InstBlob pass_insert_start_inst(const InstBlob &insts) {
+  InstBlob ret;
+  int total_layers = count_total_megablocks(insts);
+  for (int i = 0; i < insts.size(); ++i) {
+    int op_code = extract_opcode(insts.at(i));
+    if (is_megablock_op_code(op_code) && i != 0) {
+      std::bitset<INST_SIZE_BITS> start_inst = gen_start_inst(i-1, total_layers-1);
+      ret.push_back(start_inst);
+    }
+    ret.push_back(insts.at(i));
+  }
+  return ret;
+}
+
 InstGen::InstGen(Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
@@ -331,8 +371,9 @@ InstGen::InstGen(Op::Parser &parser) {
   CmpFunc<std::bitset<INST_SIZE_BITS>> cmp = cmp_opcodes;
   CmpApplyFunc<std::bitset<INST_SIZE_BITS>> cmp_apply = or_inst; 
   auto collapsed_insts = collapse_identical_adjacent(instructions, cmp, cmp_apply);
+  auto amend_start = pass_insert_start_inst(collapsed_insts);
 
-  pretty_print(collapsed_insts);
+  pretty_print(amend_start);
 #endif
 }
 
@@ -1152,4 +1193,3 @@ void pretty_print(const InstBlob &blob) {
     std::cout << '\n';
   }
 }
-

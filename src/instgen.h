@@ -121,7 +121,7 @@
 #define OutputBlock_AccEn_HIGH 124
 #define OutputBlock_AccEn_COUNT 1
 
-#define OP_START 0xff
+#define OP_START 0xf
 #define START_Opcode_LOW 0
 #define START_Opcode_HIGH 3
 #define START_Opcode_COUNT 4
@@ -436,8 +436,6 @@ bool is_miniblock(const Op::LayerBase *l);
 
 class InstGen {
   InstBlob instructions;
-  void set_device(const std::vector<Op::LayerBase *> &order);
-
 public:
   InstGen(Op::Parser &parser);
   InstBlob get_blob();
