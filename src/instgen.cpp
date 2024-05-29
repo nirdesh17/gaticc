@@ -740,7 +740,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   std::vector<int> input_rows_cols = get_true_rc_inputs(cc);
   assert(input_rows_cols[0] == 1 && "input must be a vector");
   std::bitset<FC_InputRows_COUNT> fc_input_rows{input_rows_cols[1]};
-  bitset_range_set(gemm_inst, fc_weight_cols, FC_InputRows_LOW,
+  bitset_range_set(gemm_inst, fc_input_rows, FC_InputRows_LOW,
                    FC_InputRows_HIGH);
 
   log_info("ignoring dropout constant while generating inst for QGemm");
