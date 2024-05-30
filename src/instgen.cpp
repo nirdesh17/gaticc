@@ -329,14 +329,18 @@ int count_total_megablocks(const InstBlob &insts) {
 InstBlob pass_insert_start_inst(const InstBlob &insts) {
   InstBlob ret;
   int total_layers = count_total_megablocks(insts);
+  int layer_num = 0;
   for (int i = 0; i < insts.size(); ++i) {
     int op_code = extract_opcode(insts.at(i));
     if (is_megablock_op_code(op_code) && i != 0) {
-      std::bitset<INST_SIZE_BITS> start_inst = gen_start_inst(i-1, total_layers-1);
+      std::bitset<INST_SIZE_BITS> start_inst = gen_start_inst(layer_num, total_layers-1);
+      layer_num++;
       ret.push_back(start_inst);
     }
     ret.push_back(insts.at(i));
   }
+  std::bitset<INST_SIZE_BITS> last_start_inst = gen_start_inst(layer_num, total_layers-1);
+  ret.push_back(last_start_inst);
   return ret;
 }
 
