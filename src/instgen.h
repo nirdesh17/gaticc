@@ -1,5 +1,6 @@
 #pragma once
 
+#include "onnx.pb.h"
 #include "onnx_parser.h"
 #include <bitset>
 
@@ -616,3 +617,22 @@ uint32_t aligned_fc_io(const T &dims) {
   uint32_t ret = ceil_mod(dims[1], WORD_SIZE);
   return ret;
 }
+
+enum ENGINES {
+  ENGINE_UNKNOWN,
+  ENGINE_SA,
+  ENGINE_FC,
+  ENGINE_BIAS,
+};
+
+struct InitAddrRow {
+  uint32_t addr;
+  const onnx::TensorProto *data;
+  int engine;
+};
+
+class InitializerTable {
+  std::vector<InitAddrRow> tbl;
+  public:
+    void push_back(uint32_t addr, const onnx::TensorProto *data, int engine);
+};

@@ -54,8 +54,9 @@ enum DEVICES {
   DEVICE_FPGA
 };
 
-/* aot declaration, defines in instgen.h */
+/* aot declaration, definition in instgen.h */
 class AddressGen;
+class InitializerTable;
  
 /* Onnx Parser external interface */
 namespace Op {
@@ -128,7 +129,7 @@ struct LayerBase {
   /* push one or more INST_SIZE_BITS instruction in `insts`, how many
    * are decided by the override
    */
-  virtual void get_inst(InstBlob& insts, AddressGen& gen);
+  virtual void get_inst(InstBlob& insts, AddressGen& gen, InitializerTable &tbl);
   /* push one or more opcodes corresponding to instructions
    * that this layer generates.
    * for example, Conv layer generates any where from 
@@ -206,7 +207,7 @@ struct Relu : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
-  void get_inst(InstBlob& blob, AddressGen& gen) override;
+  void get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
 };
 
 struct Clip : public LayerBase {
@@ -250,7 +251,7 @@ struct Maxpool : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
-  void get_inst(InstBlob& blob, AddressGen& gen) override;
+  void get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
 };
 
 struct Flatten : public LayerBase {
@@ -261,7 +262,7 @@ struct Flatten : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
-  void get_inst(InstBlob& blob, AddressGen& gen) override;
+  void get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
 };
 
 struct Dropout : public LayerBase {
@@ -340,7 +341,7 @@ struct QuantizeLinear : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
-  void get_inst(InstBlob& blob, AddressGen& gen) override;
+  void get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
 };
@@ -361,7 +362,7 @@ struct DequantizeLinear : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
-  void get_inst(InstBlob& blob, AddressGen& gen) override;
+  void get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
 };
 
 
@@ -453,7 +454,7 @@ struct QGemm : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
-  void get_inst(InstBlob& blob, AddressGen& gen) override;
+  void get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
   uint32_t aligned_input() override;
   uint32_t aligned_output() override;
 };
@@ -483,7 +484,7 @@ struct QLinearConv : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
   void run(TensorPool &tensor_pool) override;
-  void get_inst(InstBlob& blob, AddressGen& gen) override;
+  void get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
   uint32_t aligned_input() override;

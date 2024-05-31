@@ -52,7 +52,7 @@ void Op::LayerBase::infer_type(const std::vector<TPDT>& input_types) {
   log_fatal("Type inference un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
-void Op::LayerBase::get_inst(InstBlob& insts, AddressGen& gen) {
+void Op::LayerBase::get_inst(InstBlob& insts, AddressGen& gen, InitializerTable &tbl) {
   log_fatal("Instruction generation un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
 }
 
