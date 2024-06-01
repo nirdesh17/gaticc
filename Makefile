@@ -50,7 +50,7 @@ else
 	$(error "Unknown OS: ${UNAME_S}")
 endif
 
-LDFLAGS += -lpython${PYTHON_VERSION} -lpthread -lprotobuf -lprotoc
+LDFLAGS += -lpython${PYTHON_VERSION} -lpthread -lprotobuf 
 LD_LIBRARY_PATH = /usr/local/lib
 
 all: a
