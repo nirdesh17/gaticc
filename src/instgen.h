@@ -636,3 +636,46 @@ class InitializerTable {
   public:
     void push_back(uint32_t addr, const onnx::TensorProto *data, int engine);
 };
+
+/* get nth byte (0 being LSB), of a */
+template <typename T> inline char get_byte(T a, int n) {
+  assert(n < sizeof(T) && n >= 0);
+  char c = (a >> (n * 8)) & 0xff;
+  return c;
+}
+
+class BinBlob {
+  char *m_data;
+  size_t m_size;
+  /* byte wise index into data */
+  size_t m_ptr;
+
+  template <typename T> void generic_append(T a) {
+    /* reverse iteration for big endian */
+    for (int i = sizeof(T) - 1; i >= 0; --i) {
+      char c = get_byte(a, i);
+      m_data[m_ptr++] = c;
+    }
+  }
+
+public:
+  BinBlob(char *data, size_t size);
+  void append(int a);
+  void append(uint8_t a);
+  void append(int8_t a);
+
+  template <typename T>
+  void append(const std::vector<T> &vec) {
+    assert(vec.size() > 0);
+    std::cout << "vec size " << vec.size() << '\n';
+    std::cout << "m_size - ptr " << m_size - m_ptr << '\n';
+    assert(vec.size() * sizeof(vec[0]) <= (m_size - m_ptr));
+    for (T i : vec) {
+      generic_append(i);
+    }
+  }
+  /* do not allow type that are not explicityly implemented */
+  template <typename T> void append(T i) = delete;
+  void print();
+};
+

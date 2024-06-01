@@ -363,7 +363,7 @@ InstGen::InstGen(Op::Parser &parser) {
   std::cout << "from reg " << generator.addr_from_register(2) << '\n';
   std::cout << "from reg " << generator.addr_from_register(3) << '\n';
 #endif
-#if 0
+#if 1
   for (Op::LayerBase *l : exec_order) {
     Op::print_node(l);
   }
@@ -378,8 +378,7 @@ InstGen::InstGen(Op::Parser &parser) {
   auto collapsed_insts = collapse_identical_adjacent(instructions, cmp, cmp_apply);
   auto amend_start = pass_insert_start_inst(collapsed_insts);
 
-  //pretty_print(amend_start);
-  tbl.print();
+  pretty_print(amend_start);
 #endif
 }
 
@@ -1209,4 +1208,32 @@ void pretty_print(const InstBlob &blob) {
 void InitializerTable::push_back(uint32_t addr, const onnx::TensorProto *data, int engine) {
   InitAddrRow row {.addr = addr, .data = data, .engine = engine};
   tbl.push_back(row);
+}
+
+BinBlob::BinBlob(char *data, size_t size) {
+  m_data = data;
+  m_size = size;
+  m_ptr = 0;
+}
+
+void BinBlob::print() {
+  for (int i = 0; i < m_ptr; ++i) {
+    std::cout << (int)m_data[i] << ' ';
+  }
+  std::cout << '\n';
+}
+
+void BinBlob::append(int a) {
+  assert(sizeof(a) < (m_size - m_ptr));
+  generic_append(a);
+}
+
+void BinBlob::append(uint8_t a) {
+  assert(sizeof(a) < (m_size - m_ptr));
+  generic_append(a);
+}
+
+void BinBlob::append(int8_t a) {
+  assert(sizeof(a) < (m_size - m_ptr));
+  generic_append(a);
 }
