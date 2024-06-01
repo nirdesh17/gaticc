@@ -7,13 +7,15 @@
 ### Arch
 
 ```
-sudo pacman -S boost boost-libs python3 protobuf python-numpy
+sudo pacman -S boost boost-libs python3 protobuf python-numpy pkg-config
+python-numpy
 ```
 
 ### Fedora
     
 ``` 
-sudo dnf install boost-devel python3-devel protobuf-compiler 
+sudo dnf install boost-devel python3-devel protobuf-compiler pkg-config
+python3-numpy
 ```
 
 ### Ubuntu/Debian
@@ -21,7 +23,9 @@ sudo dnf install boost-devel python3-devel protobuf-compiler
 ```
 sudo apt install libprotobuf{available_version} libprotobuf-dev \
     protobuf-compiler libboost{available_version}-all-dev \
-    python{available_version}-dev python{available_version}
+    python{available_version}-dev python{available_version} \
+  pkg-config python3-numpy
+
 ```
 
 `{available_version}` here is a version number of the packages available in
