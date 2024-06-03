@@ -6,6 +6,7 @@
 #include <queue>
 #include <set>
 #include <stack>
+#include <cstdlib>
 
 static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
                                            "QGemm", "Flatten"};
@@ -352,38 +353,41 @@ InstGen::InstGen(Op::Parser &parser) {
   exec_order = pass_mark_cfg(exec_order);
 
   AddressGen generator(exec_order);
+  total_model_size = generator.get_model_size();
+  /* Includes the instructions blob */
+  total_dwp_packets = 1;
   InitializerTable tbl;
 
-#if 0
-  std::cout << "from alloc " << generator.alloc(27) << '\n';
-  std::cout << "from alloc " << generator.alloc(400) << '\n';
-  std::cout << "from alloc " << generator.alloc(747) << '\n';
-  std::cout << "from reg " << generator.addr_from_register(0) << '\n';
-  std::cout << "from reg " << generator.addr_from_register(1) << '\n';
-  std::cout << "from reg " << generator.addr_from_register(2) << '\n';
-  std::cout << "from reg " << generator.addr_from_register(3) << '\n';
-#endif
-#if 1
+  InstBlob instructions;
   for (Op::LayerBase *l : exec_order) {
-    Op::print_node(l);
-  }
-#endif
-#if 1
-  for (Op::LayerBase *l : exec_order) {
-    l->get_inst(instructions, generator, tbl);
+    /* push generated instructions and initializers to 
+     * 'instructions' and 'tbl' respectively
+     */
+    total_dwp_packets += l->get_inst(instructions, generator, tbl);
   }
 
   CmpFunc<std::bitset<INST_SIZE_BITS>> cmp = cmp_opcodes;
   CmpApplyFunc<std::bitset<INST_SIZE_BITS>> cmp_apply = or_inst; 
   auto collapsed_insts = collapse_identical_adjacent(instructions, cmp, cmp_apply);
-  auto amend_start = pass_insert_start_inst(collapsed_insts);
-
-  pretty_print(amend_start);
-#endif
+  ret_inst = pass_insert_start_inst(collapsed_insts);
 }
 
-void Op::Layer::QuantizeLinear::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
+InstBlob InstGen::get_blob() {
+  pretty_print(ret_inst);
+  return ret_inst;
+}
+
+int InstGen::model_size() {
+  return total_model_size;
+}
+
+int InstGen::dwp_packets() {
+  return total_dwp_packets;
+}
+
+int Op::Layer::QuantizeLinear::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
   assert(this->device == DEVICE_CPU);
+  return 0;
 }
 
 /* Generic gen_quant, used by conv and fc as their quantization routines
@@ -662,20 +666,28 @@ std::bitset<INST_SIZE_BITS> gen_conv_quant(const Op::Layer::QLinearConv *cc,
   return gen_quant(cc->x_scale, cc->w_scale, cc->y_scale, zero_points);
 }
 
-void Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
+int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
   auto conv_inst = gen_conv_inst(this, gen, tbl);
+  /* there'll always be weights */
+  int dwp_packets = 1;
   auto output_inst = gen_conv_output(this, gen);
   auto bias_inst = gen_conv_bias(this, gen, tbl);
   auto quant_inst = gen_conv_quant(this, gen);
+
+  int has_bias = bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(bias_inst, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  if (has_bias) {
+    dwp_packets++;
+  }
 
   /* order here matters */
   insts.push_back(conv_inst);
   insts.push_back(output_inst);
   insts.push_back(bias_inst);
   insts.push_back(quant_inst);
+  return dwp_packets;
 }
 
-void Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
+int Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> relu_inst;
 
   std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
@@ -698,9 +710,10 @@ void Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &gen, InitializerTabl
                    TailBlock_ActParam_HIGH);
 
   insts.push_back(relu_inst);
+  return 0;
 }
 
-void Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
+int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> maxpool_inst;
 
   std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
@@ -736,6 +749,8 @@ void Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen, InitializerT
                    TailBlock_PoolPadding_HIGH);
 
   insts.push_back(maxpool_inst);
+
+  return 0;
 }
 
 /* get true rows/cols
@@ -927,25 +942,37 @@ std::bitset<INST_SIZE_BITS> gen_fc_quant(const Op::Layer::QGemm *cc,
   return gen_quant(cc->a_scale, cc->b_scale, cc->y_scale, zero_points);
 }
 
-void Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
+int Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen,
+                               InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> fc_inst = gen_fc_inst(this, gen, tbl);
+  int dwp_packets = 1;
   std::bitset<INST_SIZE_BITS> output_inst = gen_fc_output(this, gen);
   std::bitset<INST_SIZE_BITS> bias_inst = gen_fc_bias(this, gen, tbl);
   std::bitset<INST_SIZE_BITS> quant_inst = gen_fc_quant(this, gen);
+
+  int has_bias = bitset_range_get<TailBlock_FCBiasEn_COUNT, INST_SIZE_BITS>(
+      bias_inst, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
+  if (has_bias) {
+    dwp_packets++;
+  }
 
   insts.push_back(fc_inst);
   insts.push_back(output_inst);
   insts.push_back(bias_inst);
   insts.push_back(quant_inst);
+  return dwp_packets;
+  return dwp_packets;
 }
 
-void Op::Layer::Flatten::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
+int Op::Layer::Flatten::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
   // TODO: ideally, flatten should be removed completely from the
   // graph and this function should not be present at all
+  return 0;
 }
 
-void Op::Layer::DequantizeLinear::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
+int Op::Layer::DequantizeLinear::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) {
   assert(this->device == DEVICE_CPU);
+  return 0;
 }
 
 void Op::Layer::QuantizeLinear::get_opcodes(std::vector<int> &opcodes) {
@@ -1148,6 +1175,15 @@ uint32_t AddressGen::io_addr_from_register(Op::VirtualAddress reg) {
 
 int AddressGen::io_reg_size() { return io_region_register_size; }
 
+int AddressGen::get_model_size() {
+  int size = 0;
+  size += inst_region_size;
+  size += weight_region_size;
+  size += (max_io_reg * io_region_register_size);
+  size += io_region_register_size;
+  return size;
+}
+
 int AddressGen::get_max_io_reg(const std::vector<Op::LayerBase *> &order) {
   Op::VirtualAddress max_reg = 0;
   for (Op::LayerBase *l : order) {
@@ -1236,4 +1272,29 @@ void BinBlob::append(uint8_t a) {
 void BinBlob::append(int8_t a) {
   assert(sizeof(a) < (m_size - m_ptr));
   generic_append(a);
+}
+
+void BinBlob::append(const InstBlob& instblob, int page_num, uint32_t addr) {
+
+}
+
+GmlGen::GmlGen(uint32_t org): m_org {org} {
+}
+
+BinBlob GmlGen::generate_gml(Op::Parser &parser) {
+  InstGen instgen(parser);
+  uint32_t size = instgen.model_size();
+  std::cout << "total model size " << size << '\n';
+
+  int tdp = instgen.dwp_packets();
+  size += (tdp * DWP_HEADER_BYTES);
+  std::cout << "total dwp packets " << tdp << '\n';
+  char *data = (char *) malloc(sizeof(*data) * size);
+  BinBlob blob(data, size);
+  InstBlob instblob = instgen.get_blob();
+  blob.append(instblob, --tdp, m_org);
+
+  //InitializerTable tbl = instgen.init_tbl();
+  //blob.append(tbl);
+  return blob;
 }

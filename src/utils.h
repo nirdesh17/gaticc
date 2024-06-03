@@ -13,6 +13,10 @@
 #include <typeinfo>
 #include <unistd.h>
 #include <filesystem>
+#include <map>
+#include <cassert>
+#include <bitset>
+#include <variant>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
  */

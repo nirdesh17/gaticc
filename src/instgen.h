@@ -431,6 +431,9 @@ inline void pretty_print_tailblock(const std::bitset<INST_SIZE_BITS> &inst) {
 /* Corresponds to AXI_ADDR_WIDTH */
 #define WORD_SIZE 32
 #define ACC_SIZE 32
+/* What address do instructions start from */
+#define GATI_INST_ORG 0
+#define DWP_HEADER_BYTES 12
 
 /* Megablock and Miniblock
  *
@@ -485,11 +488,20 @@ bool is_miniblock(const Op::LayerBase *l);
  *
  */
 
+/* TODO: explain DWP */
+
 class InstGen {
-  InstBlob instructions;
+  InstBlob ret_inst;
+  /* Total bytes to be allocated including instructions, weights, io
+   * data, and partial sum data
+   */
+  int total_model_size;
+  int total_dwp_packets;
 public:
   InstGen(Op::Parser &parser);
   InstBlob get_blob();
+  int model_size();
+  int dwp_packets();
 };
 
 /*
@@ -547,6 +559,7 @@ public:
   /* get a address in accumulant region */
   uint32_t ps_addr_from_register(Op::VirtualAddress reg);
   int io_reg_size();
+  int get_model_size();
 };
 
 void pretty_print(const InstBlob &blob);
@@ -674,8 +687,21 @@ public:
       generic_append(i);
     }
   }
+  void append(const InstBlob& instblob, int page_num, uint32_t addr);
+  //void append(const InitializerTable &tbl);
   /* do not allow type that are not explicityly implemented */
   template <typename T> void append(T i) = delete;
   void print();
 };
 
+/* Prepares and optionally serializes gml model into
+ * gml files
+ */
+class GmlGen {
+  /* origin address */
+  uint32_t m_org;
+
+public:
+  GmlGen(uint32_t org);
+  BinBlob generate_gml(Op::Parser &parser);
+};
