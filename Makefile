@@ -5,7 +5,9 @@ TEST_DIR = $(ROOT_DIR)/tests
 DEBUG = 1
 
 SRC_FILES = main.cpp sim.cpp ffi.cpp onnx_parser.cpp utils.cpp executor.cpp options.cpp tensor.cpp instgen.cpp
+PCH_SOURCES = sim.h ffi.h onnx.pb.h utils.h executor.h instgen.h options.h onnx_parser.h
 OBJ_FILES = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES)) $(OBJ_DIR)/onnx.pb.o
+PCH_FILES = $(patsubst %.h,$(SRC_DIR)/%.h.gch,$(PCH_SOURCES))
 LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 
 REMOTE_COMPILE = 1
@@ -55,8 +57,11 @@ LD_LIBRARY_PATH = /usr/local/lib
 
 all: a
 
-a: $(OBJ_FILES)
-	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) $(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+a: $(PCH_FILES) $(OBJ_FILES)
+	LD_LIBRARY_PATH=$(LD_LIBRARY_PATH) $(CXX) $(CXXFLAGS) $(OBJ_FILES) -o $@ $(LDFLAGS)
+
+$(SRC_DIR)/%.h.gch: $(SRC_DIR)/%.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # main.cpp has no main.h (handled separately)
 $(OBJ_DIR)/main.o: ${SRC_DIR}/main.cpp ${SRC_DIR}/utils.h ${SRC_DIR}/sim.h ${SRC_DIR}/transformers.h
