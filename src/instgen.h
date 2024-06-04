@@ -434,6 +434,7 @@ inline void pretty_print_tailblock(const std::bitset<INST_SIZE_BITS> &inst) {
 /* What address do instructions start from */
 #define GATI_INST_ORG 0
 #define DWP_HEADER_BYTES 12
+#define DWP_SOP 0xffffffff
 
 /* Megablock and Miniblock
  *
@@ -657,10 +658,18 @@ template <typename T> inline char get_byte(T a, int n) {
   return c;
 }
 
+template <std::size_t sz> inline char get_byte(const std::bitset<sz>& a, int n) {
+  assert(n < (sz/8) && n >= 0);
+  std::bitset<sz> c = (a >> (n * 8)) & std::bitset<sz>{0xff};
+  return (char) c.to_ulong();
+}
+
+
 class BinBlob {
   char *m_data;
+  /* total capacity */
   size_t m_size;
-  /* byte wise index into data */
+  /* byte wise index into data (current ptr) */
   size_t m_ptr;
 
   template <typename T> void generic_append(T a) {
@@ -676,6 +685,7 @@ public:
   void append(int a);
   void append(uint8_t a);
   void append(int8_t a);
+  void append(uint32_t a);
 
   template <typename T>
   void append(const std::vector<T> &vec) {
@@ -687,11 +697,12 @@ public:
       generic_append(i);
     }
   }
-  void append(const InstBlob& instblob, int page_num, uint32_t addr);
+  void append(const InstBlob& instblob, uint32_t addr);
   //void append(const InitializerTable &tbl);
   /* do not allow type that are not explicityly implemented */
   template <typename T> void append(T i) = delete;
-  void print();
+  size_t size() const;
+  void print() const;
 };
 
 /* Prepares and optionally serializes gml model into

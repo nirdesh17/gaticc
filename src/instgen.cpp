@@ -1252,14 +1252,23 @@ BinBlob::BinBlob(char *data, size_t size) {
   m_ptr = 0;
 }
 
-void BinBlob::print() {
+void BinBlob::print() const {
   for (int i = 0; i < m_ptr; ++i) {
     std::cout << (int)m_data[i] << ' ';
   }
   std::cout << '\n';
 }
 
+size_t BinBlob::size() const {
+  return m_ptr;
+}
+
 void BinBlob::append(int a) {
+  assert(sizeof(a) < (m_size - m_ptr));
+  generic_append(a);
+}
+
+void BinBlob::append(uint32_t a) {
   assert(sizeof(a) < (m_size - m_ptr));
   generic_append(a);
 }
@@ -1274,8 +1283,14 @@ void BinBlob::append(int8_t a) {
   generic_append(a);
 }
 
-void BinBlob::append(const InstBlob& instblob, int page_num, uint32_t addr) {
-
+void BinBlob::append(const InstBlob& instblob, uint32_t addr) {
+  uint32_t payload_size = instblob.size() * (INST_SIZE_BITS/8);
+  append(DWP_SOP);
+  append(payload_size);
+  append(addr);
+  for (const auto& inst : instblob) {
+    generic_append(inst);
+  }
 }
 
 GmlGen::GmlGen(uint32_t org): m_org {org} {
@@ -1292,8 +1307,10 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   char *data = (char *) malloc(sizeof(*data) * size);
   BinBlob blob(data, size);
   InstBlob instblob = instgen.get_blob();
-  blob.append(instblob, --tdp, m_org);
+  blob.append(instblob, m_org);
 
+  std::cout << "blob size " << blob.size() << '\n';
+  blob.print();
   //InitializerTable tbl = instgen.init_tbl();
   //blob.append(tbl);
   return blob;
