@@ -7,6 +7,7 @@
 #include <set>
 #include <stack>
 #include <cstdlib>
+#include <memory>
 
 static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
                                            "QGemm", "Flatten"};
@@ -356,14 +357,13 @@ InstGen::InstGen(Op::Parser &parser) {
   total_model_size = generator.get_model_size();
   /* Includes the instructions blob */
   total_dwp_packets = 1;
-  InitializerTable tbl;
 
   InstBlob instructions;
   for (Op::LayerBase *l : exec_order) {
     /* push generated instructions and initializers to 
      * 'instructions' and 'tbl' respectively
      */
-    total_dwp_packets += l->get_inst(instructions, generator, tbl);
+    total_dwp_packets += l->get_inst(instructions, generator, init_tbl);
   }
 
   CmpFunc<std::bitset<INST_SIZE_BITS>> cmp = cmp_opcodes;
@@ -375,6 +375,10 @@ InstGen::InstGen(Op::Parser &parser) {
 InstBlob InstGen::get_blob() {
   pretty_print(ret_inst);
   return ret_inst;
+}
+
+InitializerTable InstGen::get_tbl() {
+  return init_tbl;
 }
 
 int InstGen::model_size() {
@@ -1246,6 +1250,13 @@ void InitializerTable::push_back(uint32_t addr, const onnx::TensorProto *data, i
   tbl.push_back(row);
 }
 
+auto InitializerTable::begin() const {
+  return tbl.begin();
+}
+auto InitializerTable::end() const {
+  return tbl.end();
+}
+
 BinBlob::BinBlob(char *data, size_t size) {
   m_data = data;
   m_size = size;
@@ -1254,9 +1265,16 @@ BinBlob::BinBlob(char *data, size_t size) {
 
 void BinBlob::print() const {
   for (int i = 0; i < m_ptr; ++i) {
-    std::cout << (int)m_data[i] << ' ';
+    printf("%.02x ", m_data[i]);
+    //std::cout << std::hex << m_data[i] << ' ';
   }
   std::cout << '\n';
+}
+
+void BinBlob::write(const std::string& filename) const {
+  std::ofstream of(filename, std::ios::binary);
+  of.write(m_data, m_ptr);
+  of.close();
 }
 
 size_t BinBlob::size() const {
@@ -1283,13 +1301,94 @@ void BinBlob::append(int8_t a) {
   generic_append(a);
 }
 
+void BinBlob::append_dwp_header(uint32_t addr, uint32_t size) {
+  uint32_t dwp_sop = DWP_SOP;
+  append(dwp_sop);
+  append(size);
+  append(addr);
+}
+
 void BinBlob::append(const InstBlob& instblob, uint32_t addr) {
   uint32_t payload_size = instblob.size() * (INST_SIZE_BITS/8);
-  append(DWP_SOP);
-  append(payload_size);
-  append(addr);
+  append_dwp_header(addr, payload_size);
+
+  assert(payload_size > 0);
+  assert(payload_size <= (m_size - m_ptr));
   for (const auto& inst : instblob) {
     generic_append(inst);
+  }
+}
+
+void BinBlob::append(const InitializerTable &tbl) {
+  for (const InitAddrRow &i : tbl) {
+    switch (i.engine) {
+    case ENGINE_UNKNOWN:
+      log_fatal("Unknown engine, can't align initializer tensor %s",
+                i.data->name().c_str());
+      break;
+    case ENGINE_SA: {
+      sa_align(i.data);
+      break;
+    }
+    case ENGINE_BIAS:
+      bias_align(i.data);
+      break;
+    case ENGINE_FC:
+      break;
+    default:
+      log_fatal(
+          "Uncatched aligner engine for tensor %s probably un-implemented",
+          i.data->name().c_str());
+    }
+  }
+}
+
+void BinBlob::sa_align(const onnx::TensorProto *tensor) {
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    sa_align_aux(t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    sa_align_aux(t1.get());
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type %s "
+              "for tensor %s",
+              Op::get_tensorproto_dtype_name((TPDT)type),
+              tensor->name().c_str());
+    break;
+  }
+}
+
+void BinBlob::bias_align(const onnx::TensorProto *tensor) {
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    bias_align_aux(t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    bias_align_aux(t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_INT32: {
+    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
+    bias_align_aux(t1.get());
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type %s "
+              "for tensor %s",
+              Op::get_tensorproto_dtype_name((TPDT)type),
+              tensor->name().c_str());
+    break;
   }
 }
 
@@ -1299,19 +1398,15 @@ GmlGen::GmlGen(uint32_t org): m_org {org} {
 BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   InstGen instgen(parser);
   uint32_t size = instgen.model_size();
-  std::cout << "total model size " << size << '\n';
-
   int tdp = instgen.dwp_packets();
   size += (tdp * DWP_HEADER_BYTES);
-  std::cout << "total dwp packets " << tdp << '\n';
   char *data = (char *) malloc(sizeof(*data) * size);
   BinBlob blob(data, size);
   InstBlob instblob = instgen.get_blob();
   blob.append(instblob, m_org);
-
+  InitializerTable tbl = instgen.get_tbl();
+  blob.append(tbl);
   std::cout << "blob size " << blob.size() << '\n';
-  blob.print();
-  //InitializerTable tbl = instgen.init_tbl();
-  //blob.append(tbl);
+  blob.write("blob.bin");
   return blob;
 }

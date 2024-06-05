@@ -2,6 +2,7 @@
 
 #include "onnx.pb.h"
 #include "onnx_parser.h"
+#include "tensor.h"
 #include <bitset>
 
 /* Automatically generated code follows from
@@ -436,6 +437,27 @@ inline void pretty_print_tailblock(const std::bitset<INST_SIZE_BITS> &inst) {
 #define DWP_HEADER_BYTES 12
 #define DWP_SOP 0xffffffff
 
+enum ENGINES {
+  ENGINE_UNKNOWN,
+  ENGINE_SA,
+  ENGINE_FC,
+  ENGINE_BIAS,
+};
+
+struct InitAddrRow {
+  uint32_t addr;
+  const onnx::TensorProto *data;
+  int engine;
+};
+
+class InitializerTable {
+  std::vector<InitAddrRow> tbl;
+  public:
+    void push_back(uint32_t addr, const onnx::TensorProto *data, int engine);
+    auto begin() const;
+    auto end() const;
+};
+
 /* Megablock and Miniblock
  *
  * All operators, implemented or not, can be divided into two sects: Megablock
@@ -493,6 +515,7 @@ bool is_miniblock(const Op::LayerBase *l);
 
 class InstGen {
   InstBlob ret_inst;
+  InitializerTable init_tbl;
   /* Total bytes to be allocated including instructions, weights, io
    * data, and partial sum data
    */
@@ -500,6 +523,7 @@ class InstGen {
   int total_dwp_packets;
 public:
   InstGen(Op::Parser &parser);
+  InitializerTable get_tbl();
   InstBlob get_blob();
   int model_size();
   int dwp_packets();
@@ -567,12 +591,20 @@ void pretty_print(const InstBlob &blob);
 void pretty_print(const std::bitset<INST_SIZE_BITS>& inst);
 
 template <typename T>
-uint32_t aligned_conv_weight(const T &wdims) {
+std::vector<int> aligned_conv_weight_dims(const T &wdims) {
   assert(wdims.size() == 4);
   auto w = wdims;
   auto sa_arch = get_sa_arch();
   w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[2]); 
   w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[1]);
+  std::vector<int> ret(wdims.size());
+  std::copy(w.begin(), w.end(), ret.begin());
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_conv_weight(const T &wdims) {
+  auto w = aligned_conv_weight_dims(wdims);
   uint32_t ret = prod(w.begin(), w.end(), 1); 
   return ret;
 }
@@ -632,24 +664,6 @@ uint32_t aligned_fc_io(const T &dims) {
   return ret;
 }
 
-enum ENGINES {
-  ENGINE_UNKNOWN,
-  ENGINE_SA,
-  ENGINE_FC,
-  ENGINE_BIAS,
-};
-
-struct InitAddrRow {
-  uint32_t addr;
-  const onnx::TensorProto *data;
-  int engine;
-};
-
-class InitializerTable {
-  std::vector<InitAddrRow> tbl;
-  public:
-    void push_back(uint32_t addr, const onnx::TensorProto *data, int engine);
-};
 
 /* get nth byte (0 being LSB), of a */
 template <typename T> inline char get_byte(T a, int n) {
@@ -664,6 +678,26 @@ template <std::size_t sz> inline char get_byte(const std::bitset<sz>& a, int n) 
   return (char) c.to_ulong();
 }
 
+template <typename T>
+inline bool is_pointwise_conv(const T &dims) {
+  if (dims[TENSOR_4D_HEIGHT] == 1 && dims[TENSOR_4D_WIDTH] == 1) {
+    return true;
+  }
+  return false;
+}
+
+/* true if any of dims exceeds limits */
+template <typename T>
+inline bool is_out_of_bounds(const T& dims, const T& limit) {
+  assert(dims.size() == limit.size() && "dims should be the same"
+      " size as limits");
+  for (int i = 0; i < dims.size(); ++i) {
+    if (dims[i] >= limit[i]) {
+      return true;
+    }
+  }
+  return false;
+}
 
 class BinBlob {
   char *m_data;
@@ -679,6 +713,65 @@ class BinBlob {
       m_data[m_ptr++] = c;
     }
   }
+  void sa_align(const onnx::TensorProto *tensor);
+
+  template <typename T> void sa_align_aux(const Tensor<T> *tensor) {
+    auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
+    assert(aligned_dims.size() == 4);
+    if (is_pointwise_conv(aligned_dims)) {
+      sa_align_aux_pointwise(tensor);
+    } else {
+      sa_align_aux_regular(tensor);
+    }
+  }
+
+  template <typename T> void sa_align_aux_regular(const Tensor<T> *tensor) {
+    auto dims = tensor->get_dims();
+    auto aligned_dims = aligned_conv_weight_dims(dims);
+    auto sa_arch = get_sa_arch();
+
+    T zero = 0;
+    int khkw = aligned_dims[2] * aligned_dims[3];
+    if (sa_arch[0] > khkw) {
+      int zero_slab_sz = (sa_arch[0] - khkw) * (sa_arch[1] * sa_arch[2]);
+      for (int i = 0; i < zero_slab_sz; ++i) {
+        append(zero);
+      }
+    }
+
+    int kernel_itr = std::ceil((float)aligned_dims[0] / (float)sa_arch[1]);
+    int channel_itr = std::ceil((float)aligned_dims[1] / (float)sa_arch[2]);
+
+    std::vector<int> rindex(4, 0);
+    for (int ki = 0; ki < kernel_itr; ++ki) {
+      for (int ci = 0; ci < channel_itr; ++ci) {
+        for (int kh = 0; kh < aligned_dims[2]; ++kh) {
+          for (int kw = 0; kw < aligned_dims[3]; ++kw) {
+            for (int k = 0; k < sa_arch[2]; ++k) {
+              for (int c = 0; c < sa_arch[1]; ++c) {
+                rindex[0] = ki * sa_arch[1] + c;
+                rindex[1] = ci * sa_arch[2] + k;
+                rindex[2] = aligned_dims[2] - 1 - kh; /* reverse kernels */
+                rindex[3] = aligned_dims[3] - 1 - kw; /* reverse kernels */
+                if (is_out_of_bounds(rindex, dims)) {
+                  append(zero);
+                } else {
+                  append(tensor->at(rindex));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  template <typename T> void sa_align_aux_pointwise(const Tensor<T> *tensor) {
+    log_fatal("shouldnt reach here");
+  }
+
+  template <typename T> void bias_align_aux(const Tensor<T> *tensor) {
+    return;
+  }
 
 public:
   BinBlob(char *data, size_t size);
@@ -686,23 +779,23 @@ public:
   void append(uint8_t a);
   void append(int8_t a);
   void append(uint32_t a);
+  void append_dwp_header(uint32_t addr, uint32_t size);
 
-  template <typename T>
-  void append(const std::vector<T> &vec) {
+  void append(const InstBlob &instblob, uint32_t addr);
+  void append(const InitializerTable &tbl);
+  /* do not allow type that are not explicityly implemented */
+  size_t size() const;
+  void print() const;
+  void write(const std::string &filename) const;
+
+  template <typename T> void append(const std::vector<T> &vec) {
     assert(vec.size() > 0);
-    std::cout << "vec size " << vec.size() << '\n';
-    std::cout << "m_size - ptr " << m_size - m_ptr << '\n';
     assert(vec.size() * sizeof(vec[0]) <= (m_size - m_ptr));
     for (T i : vec) {
       generic_append(i);
     }
   }
-  void append(const InstBlob& instblob, uint32_t addr);
-  //void append(const InitializerTable &tbl);
-  /* do not allow type that are not explicityly implemented */
   template <typename T> void append(T i) = delete;
-  size_t size() const;
-  void print() const;
 };
 
 /* Prepares and optionally serializes gml model into
@@ -716,3 +809,4 @@ public:
   GmlGen(uint32_t org);
   BinBlob generate_gml(Op::Parser &parser);
 };
+
