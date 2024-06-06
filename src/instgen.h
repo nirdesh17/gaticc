@@ -652,8 +652,11 @@ uint32_t aligned_fc_weight(const T &dims) {
 template <typename T>
 uint32_t aligned_fc_bias(const T &dims) {
   assert(dims.size() == 1);
-  auto va_size = get_va_size();
-  uint32_t ret = ceil_mod(dims[0], va_size);
+  auto sa_arch = get_sa_arch();
+  /* align fc to the number of tail block columns, which is 
+   * equal to sa_arch[SA_ARCH_COLS]
+   */
+  uint32_t ret = ceil_mod(dims[0], sa_arch[SA_ARCH_COLS]);
   return ret;
 }
 
@@ -716,6 +719,7 @@ class BinBlob {
   }
   void sa_align(const onnx::TensorProto *tensor);
   void conv_bias_align(const onnx::TensorProto *tensor);
+  void fc_bias_align(const onnx::TensorProto *tensor);
 
   template <typename T> void sa_align_aux(const Tensor<T> *tensor) {
     auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
@@ -786,6 +790,29 @@ class BinBlob {
     T zero = 0;
     for (size_t i = 0; i < (aligned_size - size); ++i) {
       append(zero);
+    }
+  }
+
+  template <typename T> void fc_bias_align_aux(const Tensor<T> *tensor) {
+    auto dims = tensor->get_dims();
+    assert(dims.size() == 1);
+    size_t size = dims[0];
+    size_t aligned_size = aligned_fc_bias(dims);
+    auto sa_arch = get_sa_arch();
+    int sa_cols = sa_arch[SA_ARCH_COLS];
+    int iterations = aligned_size / sa_cols;
+    T zero = 0;
+    for (int i = 0; i < iterations; ++i) {
+      for (int j = 0; j < sa_cols; ++j) {
+        for (int k = 0; k < sa_cols; ++k) {
+          int index = j + (k * sa_arch[1]) + (i * sa_arch[1] * sa_arch[1]);
+          if (index >= size) {
+            append(zero);
+          } else {
+            append(tensor->at(index));
+          }
+        }
+      }
     }
   }
 

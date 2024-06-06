@@ -1340,6 +1340,12 @@ void BinBlob::append(const InitializerTable &tbl) {
     }
     case ENGINE_FC:
       break;
+    case ENGINE_FC_BIAS: {
+      uint32_t aligned_sz = aligned_fc_bias(i.data->dims());
+      append_dwp_header(aligned_sz, i.addr);
+      fc_bias_align(i.data);
+      break;
+    }
     default:
       log_fatal(
           "Uncatched aligner engine for tensor %s probably un-implemented",
@@ -1386,6 +1392,33 @@ void BinBlob::conv_bias_align(const onnx::TensorProto *tensor) {
   case onnx::TensorProto_DataType_INT32: {
     std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
     conv_bias_align_aux(t1.get());
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type %s "
+              "for tensor %s",
+              Op::get_tensorproto_dtype_name((TPDT)type),
+              tensor->name().c_str());
+    break;
+  }
+}
+
+void BinBlob::fc_bias_align(const onnx::TensorProto *tensor) {
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    fc_bias_align_aux(t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    fc_bias_align_aux(t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_INT32: {
+    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
+    fc_bias_align_aux(t1.get());
     break;
   }
   default:
