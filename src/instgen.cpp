@@ -560,7 +560,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
   uint32_t bias_bytes = aligned_conv_bias(cc->bias->dims()) * Op::tensorproto_sizeof(cc->bias);
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  tbl.push_back(bias_addr_start, cc->bias, ENGINE_BIAS);
+  tbl.push_back(bias_addr_start, cc->bias, ENGINE_CONV_BIAS);
   std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
   std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
 
@@ -916,7 +916,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
   uint32_t bias_bytes = aligned_fc_bias(bias_dims) * Op::tensorproto_sizeof(cc->bias);
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  tbl.push_back(bias_addr_start, cc->bias, ENGINE_BIAS);
+  tbl.push_back(bias_addr_start, cc->bias, ENGINE_FC_BIAS);
   std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
   std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
   std::cout << "setting bias_bytes to " << bias_bytes << '\n';
@@ -1301,7 +1301,7 @@ void BinBlob::append(int8_t a) {
   generic_append(a);
 }
 
-void BinBlob::append_dwp_header(uint32_t addr, uint32_t size) {
+void BinBlob::append_dwp_header(uint32_t size, uint32_t addr) {
   uint32_t dwp_sop = DWP_SOP;
   append(dwp_sop);
   append(size);
@@ -1327,12 +1327,17 @@ void BinBlob::append(const InitializerTable &tbl) {
                 i.data->name().c_str());
       break;
     case ENGINE_SA: {
+      uint32_t aligned_sz = aligned_conv_weight(i.data->dims());
+      append_dwp_header(aligned_sz, i.addr);
       sa_align(i.data);
       break;
     }
-    case ENGINE_BIAS:
-      bias_align(i.data);
+    case ENGINE_CONV_BIAS: {
+      uint32_t aligned_sz = aligned_conv_bias(i.data->dims());
+      append_dwp_header(aligned_sz, i.addr);
+      conv_bias_align(i.data);
       break;
+    }
     case ENGINE_FC:
       break;
     default:
@@ -1365,22 +1370,22 @@ void BinBlob::sa_align(const onnx::TensorProto *tensor) {
   }
 }
 
-void BinBlob::bias_align(const onnx::TensorProto *tensor) {
+void BinBlob::conv_bias_align(const onnx::TensorProto *tensor) {
   int32_t type = tensor->data_type();
   switch (type) {
   case onnx::TensorProto_DataType_INT8: {
     std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
-    bias_align_aux(t1.get());
+    conv_bias_align_aux(t1.get());
     break;
   }
   case onnx::TensorProto_DataType_UINT8: {
     std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
-    bias_align_aux(t1.get());
+    conv_bias_align_aux(t1.get());
     break;
   }
   case onnx::TensorProto_DataType_INT32: {
     std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
-    bias_align_aux(t1.get());
+    conv_bias_align_aux(t1.get());
     break;
   }
   default:

@@ -32,6 +32,10 @@
 #define TENSOR_2D_HEIGHT 0
 #define TENSOR_2D_WIDTH 1
 
+#define SA_ARCH_ROW 0
+#define SA_ARCH_COLS 1
+#define SA_ARCH_N 2
+
 /*  onnx represents padding with 4 co-ordinates, these are
  *  stored in clock-wise manner in a array starting LEFT,
  *  UP, RIGHT, DOWN

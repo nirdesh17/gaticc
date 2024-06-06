@@ -441,7 +441,8 @@ enum ENGINES {
   ENGINE_UNKNOWN,
   ENGINE_SA,
   ENGINE_FC,
-  ENGINE_BIAS,
+  ENGINE_CONV_BIAS,
+  ENGINE_FC_BIAS
 };
 
 struct InitAddrRow {
@@ -613,7 +614,7 @@ template <typename T>
 uint32_t aligned_conv_bias(const T &dims) {
   assert(dims.size() == 1);
   auto sa_arch = get_sa_arch();
-  uint32_t ret = ceil_mod(dims[0], sa_arch[2]);
+  uint32_t ret = ceil_mod(dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
   return ret;
 }
 
@@ -714,6 +715,7 @@ class BinBlob {
     }
   }
   void sa_align(const onnx::TensorProto *tensor);
+  void conv_bias_align(const onnx::TensorProto *tensor);
 
   template <typename T> void sa_align_aux(const Tensor<T> *tensor) {
     auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
@@ -731,28 +733,31 @@ class BinBlob {
     auto sa_arch = get_sa_arch();
 
     T zero = 0;
-    int khkw = aligned_dims[2] * aligned_dims[3];
-    if (sa_arch[0] > khkw) {
-      int zero_slab_sz = (sa_arch[0] - khkw) * (sa_arch[1] * sa_arch[2]);
-      for (int i = 0; i < zero_slab_sz; ++i) {
-        append(zero);
-      }
-    }
+    int kheight = aligned_dims[TENSOR_4D_HEIGHT];
+    int kwidth = aligned_dims[TENSOR_4D_WIDTH]; 
+    int khkw = kheight * kwidth;
 
-    int kernel_itr = std::ceil((float)aligned_dims[0] / (float)sa_arch[1]);
-    int channel_itr = std::ceil((float)aligned_dims[1] / (float)sa_arch[2]);
+    int kernel_itr = std::ceil((float)aligned_dims[TENSOR_4D_BATCH] / (float)sa_arch[SA_ARCH_COLS]);
+    int channel_itr = std::ceil((float)aligned_dims[TENSOR_4D_CHANNELS] / (float)sa_arch[SA_ARCH_N]);
 
     std::vector<int> rindex(4, 0);
     for (int ki = 0; ki < kernel_itr; ++ki) {
       for (int ci = 0; ci < channel_itr; ++ci) {
-        for (int kh = 0; kh < aligned_dims[2]; ++kh) {
-          for (int kw = 0; kw < aligned_dims[3]; ++kw) {
-            for (int k = 0; k < sa_arch[2]; ++k) {
-              for (int c = 0; c < sa_arch[1]; ++c) {
-                rindex[0] = ki * sa_arch[1] + c;
-                rindex[1] = ci * sa_arch[2] + k;
-                rindex[2] = aligned_dims[2] - 1 - kh; /* reverse kernels */
-                rindex[3] = aligned_dims[3] - 1 - kw; /* reverse kernels */
+        if (sa_arch[SA_ARCH_ROW] > khkw) {
+          int total_cols_in_sa = (sa_arch[SA_ARCH_COLS] * sa_arch[SA_ARCH_N]);
+          int zero_slab_sz = (sa_arch[SA_ARCH_ROW] - khkw) * total_cols_in_sa;
+          for (int i = 0; i < zero_slab_sz; ++i) {
+            append(zero);
+          }
+        }
+        for (int kh = 0; kh < kheight; ++kh) {
+          for (int kw = 0; kw < kwidth; ++kw) {
+            for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
+              for (int c = 0; c < sa_arch[SA_ARCH_COLS]; ++c) {
+                rindex[0] = ki * sa_arch[SA_ARCH_COLS] + c;
+                rindex[1] = ci * sa_arch[SA_ARCH_N] + k;
+                rindex[2] = kheight - 1 - kh; /* reverse kernels */
+                rindex[3] = kwidth - 1 - kw; /* reverse kernels */
                 if (is_out_of_bounds(rindex, dims)) {
                   append(zero);
                 } else {
@@ -769,8 +774,19 @@ class BinBlob {
     log_fatal("shouldnt reach here");
   }
 
-  template <typename T> void bias_align_aux(const Tensor<T> *tensor) {
-    return;
+  template <typename T> void conv_bias_align_aux(const Tensor<T> *tensor) {
+    auto dims = tensor->get_dims();
+    assert(dims.size() == 1);
+    size_t size = dims[TENSOR_4D_BATCH];
+    size_t aligned_size = aligned_conv_bias(dims);
+    std::cout << "bias aligned size " << aligned_size << " for " << size << " type " << typeid(T).name() << '\n';
+    for (size_t i = 0; i < size; ++i) {
+      append(tensor->at(i));
+    }
+    T zero = 0;
+    for (size_t i = 0; i < (aligned_size - size); ++i) {
+      append(zero);
+    }
   }
 
 public:
@@ -779,7 +795,7 @@ public:
   void append(uint8_t a);
   void append(int8_t a);
   void append(uint32_t a);
-  void append_dwp_header(uint32_t addr, uint32_t size);
+  void append_dwp_header(uint32_t size, uint32_t addr);
 
   void append(const InstBlob &instblob, uint32_t addr);
   void append(const InitializerTable &tbl);
