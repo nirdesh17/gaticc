@@ -43,7 +43,7 @@ void dispatch_timeest(const Op::Parser &parser) {
 
 void dispatch_instgen_ops(Op::Parser &parser) {
   GmlGen gmlgen(GATI_INST_ORG);
-  gmlgen.generate_gml(parser);
+  BinBlob b {gmlgen.generate_gml(parser)};
 }
 
 

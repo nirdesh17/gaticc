@@ -571,3 +571,19 @@ void print_table(const std::map<std::string, int>& tbl);
 std::vector<int> get_sa_arch();
 int get_va_size();
 
+/* extract bytes from n to m and return them */
+template <typename T>
+T extract_byte(const char *data, size_t size, int n, int m) {
+  assert(n>=0);
+  assert(m>0);
+  assert(n <= m);
+  assert(m-n <= size);
+  assert(m-n == sizeof(T));
+  T ret = 0;
+  for (int i = n, j = (sizeof(T)-1); i < m; ++i, --j) {
+    T tmp = static_cast<T>(data[i]);
+    tmp <<= (j*8);
+    ret |= tmp;
+  }
+  return ret;
+}

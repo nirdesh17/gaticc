@@ -4,6 +4,7 @@
 #include "onnx_parser.h"
 #include "tensor.h"
 #include <bitset>
+#include <any>
 
 /* Automatically generated code follows from
  * https://github.com/vicharak-in/Gati/blob/main/docs/source/instructions/inst.rst
@@ -445,19 +446,33 @@ enum ENGINES {
   ENGINE_FC_BIAS
 };
 
+using MetadataMap = std::map<std::string, std::any>;
 struct InitAddrRow {
   uint32_t addr;
   const onnx::TensorProto *data;
   int engine;
+  /* optional metadata for each initializer */
+  MetadataMap metadata;
 };
 
 class InitializerTable {
   std::vector<InitAddrRow> tbl;
-  public:
-    void push_back(uint32_t addr, const onnx::TensorProto *data, int engine);
-    auto begin() const;
-    auto end() const;
+
+public:
+  void push_back(uint32_t addr, const onnx::TensorProto *data, int engine,
+                 MetadataMap metadata);
+  auto begin() const;
+  auto end() const;
 };
+
+template <typename T>
+T get_metadata(const MetadataMap& m, const std::string& key) {
+  auto itr = m.find(key);
+  if (itr == m.end()) {
+    log_fatal("could not find key %s in MetadataMap", key.c_str());
+  }
+  return static_cast<T>(std::any_cast<T>(itr->second));
+}
 
 /* Megablock and Miniblock
  *
@@ -520,13 +535,15 @@ class InstGen {
   /* Total bytes to be allocated including instructions, weights, io
    * data, and partial sum data
    */
-  int total_model_size;
+  int total_model_size_cpu;
+  int total_model_size_fpga;
   int total_dwp_packets;
 public:
   InstGen(Op::Parser &parser);
   InitializerTable get_tbl();
   InstBlob get_blob();
-  int model_size();
+  int model_size_cpu();
+  int model_size_fpga();
   int dwp_packets();
 };
 
@@ -585,8 +602,10 @@ public:
   /* get a address in accumulant region */
   uint32_t ps_addr_from_register(Op::VirtualAddress reg);
   int io_reg_size();
-  int get_model_size();
+  int get_model_size_cpu();
+  int get_model_size_fpga();
 };
+
 
 void pretty_print(const InstBlob &blob);
 void pretty_print(const std::bitset<INST_SIZE_BITS>& inst);
@@ -639,13 +658,22 @@ uint32_t aligned_conv_output(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_fc_weight(const T &dims) {
+std::vector<int> aligned_fc_weight_dims(const T &dims) {
   assert(dims.size() == 2);
   auto va_size = get_va_size();
   auto w = dims;
+  /* FIXME: introduce deduction transpose here */
   w[0] = ceil_mod(w[0], WORD_SIZE);
   w[1] = ceil_mod(w[1], va_size);
+  std::vector<int> ret {w[0], w[1]};
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_fc_weight(const T &dims) {
+  auto w = aligned_fc_weight_dims(dims);
   int ret = prod(w.begin(), w.end(), 1); 
+  ret = ceil_mod(ret, WORD_SIZE);
   return ret;
 }
 
@@ -653,10 +681,21 @@ template <typename T>
 uint32_t aligned_fc_bias(const T &dims) {
   assert(dims.size() == 1);
   auto sa_arch = get_sa_arch();
-  /* align fc to the number of tail block columns, which is 
-   * equal to sa_arch[SA_ARCH_COLS]
+  auto va_size = get_va_size();
+  /* total bias is equal to the number of columns in the FC matrix,
+   * so align first to va_size. since, bias addition is handled by
+   * bias add blocks connected to the SA, there would be sa_cols 
+   * number of bias adds i.e. at a time, sa_cols number of bias
+   * would be required. for example, a 9x6x6 architecture, there 
+   * biases will next be alinged to 6. now, since 6 alignement lead
+   * to data being un-aligned to AXI_ADDR_WIDTH, also align it to
+   * AXI_ADDR_WIDTH
+   *
+   * In total, there'll be 3 alignments: first wrt va_size, then wrt
+   * sa_cols, then wrt AXI_ADDR_WIDTH
    */
-  uint32_t ret = ceil_mod(dims[0], sa_arch[SA_ARCH_COLS]);
+  uint32_t ret = ceil_mod(dims[0], va_size);
+  ret = ceil_mod(ret, sa_arch[SA_ARCH_COLS]);
   return ret;
 }
 
@@ -720,6 +759,7 @@ class BinBlob {
   void sa_align(const onnx::TensorProto *tensor);
   void conv_bias_align(const onnx::TensorProto *tensor);
   void fc_bias_align(const onnx::TensorProto *tensor);
+  void fc_weight_align(const onnx::TensorProto *tensor, bool transpose);
 
   template <typename T> void sa_align_aux(const Tensor<T> *tensor) {
     auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
@@ -738,11 +778,18 @@ class BinBlob {
 
     T zero = 0;
     int kheight = aligned_dims[TENSOR_4D_HEIGHT];
-    int kwidth = aligned_dims[TENSOR_4D_WIDTH]; 
+    int kwidth = aligned_dims[TENSOR_4D_WIDTH];
     int khkw = kheight * kwidth;
+    if (khkw > sa_arch[SA_ARCH_ROW]) {
+      log_fatal(
+          "not enough rows in sa for this convolution of kernel size %d,%d",
+          kheight, kwidth);
+    }
 
-    int kernel_itr = std::ceil((float)aligned_dims[TENSOR_4D_BATCH] / (float)sa_arch[SA_ARCH_COLS]);
-    int channel_itr = std::ceil((float)aligned_dims[TENSOR_4D_CHANNELS] / (float)sa_arch[SA_ARCH_N]);
+    int kernel_itr = std::ceil((float)aligned_dims[TENSOR_4D_BATCH] /
+                               (float)sa_arch[SA_ARCH_COLS]);
+    int channel_itr = std::ceil((float)aligned_dims[TENSOR_4D_CHANNELS] /
+                                (float)sa_arch[SA_ARCH_N]);
 
     std::vector<int> rindex(4, 0);
     for (int ki = 0; ki < kernel_itr; ++ki) {
@@ -761,7 +808,7 @@ class BinBlob {
                 rindex[0] = ki * sa_arch[SA_ARCH_COLS] + c;
                 rindex[1] = ci * sa_arch[SA_ARCH_N] + k;
                 rindex[2] = kheight - 1 - kh; /* reverse kernels */
-                rindex[3] = kwidth - 1 - kw; /* reverse kernels */
+                rindex[3] = kwidth - 1 - kw;  /* reverse kernels */
                 if (is_out_of_bounds(rindex, dims)) {
                   append(zero);
                 } else {
@@ -775,7 +822,7 @@ class BinBlob {
     }
   }
   template <typename T> void sa_align_aux_pointwise(const Tensor<T> *tensor) {
-    log_fatal("shouldnt reach here");
+    log_fatal("shouldnt reach here, pointwise alignment un-implemented");
   }
 
   template <typename T> void conv_bias_align_aux(const Tensor<T> *tensor) {
@@ -783,7 +830,6 @@ class BinBlob {
     assert(dims.size() == 1);
     size_t size = dims[TENSOR_4D_BATCH];
     size_t aligned_size = aligned_conv_bias(dims);
-    std::cout << "bias aligned size " << aligned_size << " for " << size << " type " << typeid(T).name() << '\n';
     for (size_t i = 0; i < size; ++i) {
       append(tensor->at(i));
     }
@@ -798,15 +844,49 @@ class BinBlob {
     assert(dims.size() == 1);
     size_t size = dims[0];
     size_t aligned_size = aligned_fc_bias(dims);
+    std::cout << "aligned fc bias " << aligned_size << '\n';
     auto sa_arch = get_sa_arch();
     int sa_cols = sa_arch[SA_ARCH_COLS];
-    int iterations = aligned_size / sa_cols;
+    int iterations = aligned_size / (sa_cols * sa_cols);
     T zero = 0;
     for (int i = 0; i < iterations; ++i) {
       for (int j = 0; j < sa_cols; ++j) {
         for (int k = 0; k < sa_cols; ++k) {
           int index = j + (k * sa_arch[1]) + (i * sa_arch[1] * sa_arch[1]);
           if (index >= size) {
+            append(zero);
+          } else {
+            append(tensor->at(index));
+          }
+        }
+      }
+    }
+  }
+  template <typename T>
+  void fc_weight_align_aux(const Tensor<T> *tensor, bool transpose) {
+    auto dims = tensor->get_dims();
+    assert(dims.size() == 2);
+    auto aligned_dims = aligned_fc_weight_dims(dims);
+    int va_size = get_va_size();
+    int hiterations = 0;
+    int viterations = 0;
+    if (transpose) {
+      hiterations = std::ceil(aligned_dims[0] / va_size);
+      viterations = aligned_dims[1];
+    } else {
+      hiterations = std::ceil(aligned_dims[1] / va_size);
+      viterations = aligned_dims[0];
+    }
+    std::vector<int> index(2);
+    print_vec("fc weight aligned dims ", aligned_dims);
+    T zero = 0;
+    for (int i = 0; i < hiterations; ++i) {
+      for (int j = 0; j < viterations; ++j) {
+        for (int k = 0; k < va_size; ++k) {
+          index[0] = k + (i * va_size);
+          index[1] = j;
+          //std::cout << "index[0] " << index[0] << "index[1] " << index[1] << '\n';
+          if (is_out_of_bounds(index, dims)) {
             append(zero);
           } else {
             append(tensor->at(index));
@@ -829,6 +909,7 @@ public:
   /* do not allow type that are not explicityly implemented */
   size_t size() const;
   void print() const;
+  void pretty_print() const;
   void write(const std::string &filename) const;
 
   template <typename T> void append(const std::vector<T> &vec) {

@@ -8,6 +8,7 @@
 #include <stack>
 #include <cstdlib>
 #include <memory>
+#include <any>
 
 static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
                                            "QGemm", "Flatten"};
@@ -85,12 +86,6 @@ std::vector<T> insert_inst(const std::vector<T> &v, FlagFunc<T> func, T val) {
   return ret;
 }
 
-/* Take a subset of layers of the form 'dequantize -> x -> x -> ... -> *
- * quantize' from a model and remove dequantize and quantize from the top and
- * bottom x here are any layers that do not modify the data, or said another
- * way, have the same types for input/output. for example, relu, maxpool,
- * flatten
- */
 std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
   std::vector<Op::LayerBase *> execution_order;
   std::queue<Op::Vertex> S;
@@ -154,6 +149,12 @@ void safe_remove_vertex(Op::Vertex v, Op::Graph &g) {
   boost::remove_vertex(v, g);
 }
 
+/* Take a subset of layers of the form 'dequantize -> x -> x -> ... -> *
+ * quantize' from a model and remove dequantize and quantize from the top and
+ * bottom x here are any layers that do not modify the data, or said another
+ * way, have the same types for input/output. for example, relu, maxpool,
+ * flatten
+ */
 std::vector<Op::LayerBase *> pass_remove_dqxq(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
   std::tie(vi, vi_end) = boost::vertices(graph);
@@ -225,7 +226,6 @@ pass_mark_cfg(const std::vector<Op::LayerBase *> &order) {
   std::vector<int> former_layer_dims;
   for (Op::LayerBase *l : order) {
     if (is_op_type(l, "Flatten")) {
-      std::cout << "inside flatten\n";
       if (l->input_dims.size() == 4) {
         flatten_pass = true;
         former_layer_dims = l->input_dims;
@@ -237,8 +237,6 @@ pass_mark_cfg(const std::vector<Op::LayerBase *> &order) {
       if (flatten_pass) {
         Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(l);
         cc->former_layer_dims = former_layer_dims;
-        print_vec("setting form lay dims from ", former_layer_dims);
-        print_vec("setting form lay dims as ", cc->former_layer_dims);
       } else {
         flatten_pass = false;
         former_layer_dims = std::vector<int>();
@@ -354,7 +352,8 @@ InstGen::InstGen(Op::Parser &parser) {
   exec_order = pass_mark_cfg(exec_order);
 
   AddressGen generator(exec_order);
-  total_model_size = generator.get_model_size();
+  total_model_size_cpu = generator.get_model_size_cpu();
+  total_model_size_fpga = generator.get_model_size_fpga();
   /* Includes the instructions blob */
   total_dwp_packets = 1;
 
@@ -373,7 +372,6 @@ InstGen::InstGen(Op::Parser &parser) {
 }
 
 InstBlob InstGen::get_blob() {
-  pretty_print(ret_inst);
   return ret_inst;
 }
 
@@ -381,8 +379,12 @@ InitializerTable InstGen::get_tbl() {
   return init_tbl;
 }
 
-int InstGen::model_size() {
-  return total_model_size;
+int InstGen::model_size_cpu() {
+  return total_model_size_cpu;
+}
+
+int InstGen::model_size_fpga() {
+  return total_model_size_fpga;
 }
 
 int InstGen::dwp_packets() {
@@ -416,10 +418,7 @@ std::bitset<INST_SIZE_BITS> gen_quant(const std::vector<float> &x_scale,
 
   /* TODO: deduce logically */
   int shift_val = 16;
-  std::cout << "og scale " << scales[0] << '\n';
-  std::cout << "og scale inverted " << (1 / scales[0]) << '\n';
   int calib_scale = (int)((1 / scales[0]) * std::pow(2, shift_val));
-  std::cout << "calib_state " << calib_scale << '\n';
 
   std::bitset<TailBlock_QuantScale_COUNT> qscale{calib_scale};
   bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW,
@@ -483,19 +482,16 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
                          Op::tpdt_sizeof(cc->input_type);
   uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
 
-  std::cout << "setting input_addr_start to " << input_addr_start << '\n';
-  std::cout << "setting input_addr_end to " << input_addr_end << '\n';
-  std::cout << "setting input_bytes to " << input_bytes << '\n';
+  //std::cout << "setting input_addr_start to " << input_addr_start << '\n';
+  //std::cout << "setting input_addr_end to " << input_addr_end << '\n';
+  //std::cout << "setting input_bytes to " << input_bytes << '\n';
 
   uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims()) * Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
   uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
 
-  tbl.push_back(weight_addr_start, cc->weights, ENGINE_SA);
-
-  std::cout << "setting weight_addr_start to " << weight_addr_start << '\n';
-  std::cout << "setting weight_addr_end to " << weight_addr_end << '\n';
-  std::cout << "setting weight_bytes to " << weight_bytes << '\n';
+  std::map<std::string, std::any> empty_map;
+  tbl.push_back(weight_addr_start, cc->weights, ENGINE_SA, empty_map);
 
   std::bitset<CONV_ImageStartAddress_COUNT> istart{input_addr_start};
   bitset_range_set(conv_inst, istart, CONV_ImageStartAddress_LOW,
@@ -526,8 +522,8 @@ std::bitset<INST_SIZE_BITS> gen_bias(const onnx::TensorProto *bias,
                         Op::tensorproto_sizeof(bias);
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
-  std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
+  //std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
+  //std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
 
   std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
   bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
@@ -560,9 +556,10 @@ std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
   uint32_t bias_bytes = aligned_conv_bias(cc->bias->dims()) * Op::tensorproto_sizeof(cc->bias);
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  tbl.push_back(bias_addr_start, cc->bias, ENGINE_CONV_BIAS);
-  std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
-  std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
+  std::map<std::string, std::any> empty_map;
+  tbl.push_back(bias_addr_start, cc->bias, ENGINE_CONV_BIAS, empty_map);
+  //std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
+  //std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
 
   std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
   bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
@@ -597,7 +594,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
        sa_arch[1] * ACC_SIZE);
   uint32_t acc_addr_end = ceil_mod(acc_addr_start + acc_bytes, WORD_SIZE);
 
-  std::cout << "acc address " << acc_addr_start << '\n';
+  //std::cout << "acc address " << acc_addr_start << '\n';
 
   std::bitset<OutputBlock_AccumulantAddr_COUNT> accstart{acc_addr_start};
   bitset_range_set(output_inst, accstart, OutputBlock_AccumulantAddr_LOW,
@@ -615,7 +612,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
                    OutputBlock_OutputAddr_HIGH);
 
-  std::cout << "output address " << output_addr_start << '\n';
+  //std::cout << "output address " << output_addr_start << '\n';
 
   int channel_iterations = (int)std::ceil(
       (float)cc->input_dims[TENSOR_4D_CHANNELS] / (float)sa_arch[2]);
@@ -623,7 +620,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
                    OutputBlock_ChannelItr_HIGH);
 
-  std::cout << "channel iterations " << channel_iterations << '\n';
+  //std::cout << "channel iterations " << channel_iterations << '\n';
 
   int kernel_iterations =
       (int)std::ceil((float)cc->m_cp.kn / (float)sa_arch[1]);
@@ -631,19 +628,19 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
                    OutputBlock_KernelItr_HIGH);
 
-  std::cout << "kernel iterations " << kernel_iterations << '\n';
+  //std::cout << "kernel iterations " << kernel_iterations << '\n';
 
   int image_dim_output =
       ceil_mod(cc->pipelined_output_dims[TENSOR_4D_WIDTH] *
                    cc->pipelined_output_dims[TENSOR_4D_HEIGHT],
                WORD_SIZE);
 
-  std::cout << "dim output " << image_dim_output << '\n';
+  //std::cout << "dim output " << image_dim_output << '\n';
   int dim_acc = ceil_mod(cc->output_dims.at(TENSOR_4D_WIDTH) *
                              cc->output_dims.at(TENSOR_4D_HEIGHT),
                          WORD_SIZE);
 
-  std::cout << "dim_acc" << dim_acc << '\n';
+  //std::cout << "dim_acc" << dim_acc << '\n';
 
   std::bitset<OutputBlock_ImageDimOutput_COUNT> ido{image_dim_output};
   bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW,
@@ -792,7 +789,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   bitset_range_set(gemm_inst, opcode, FC_Opcode_LOW, FC_Opcode_HIGH);
 
   std::vector<int> rows_cols = get_true_rc_weights(cc);
-  std::cout << "setting weight rows to " << rows_cols[0] << '\n';
+  //std::cout << "setting weight rows to " << rows_cols[0] << '\n';
 
   std::bitset<FC_WeightRows_COUNT> fc_weight_rows{rows_cols[0]};
   bitset_range_set(gemm_inst, fc_weight_rows, FC_WeightRows_LOW,
@@ -811,7 +808,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   log_info("ignoring dropout constant while generating inst for QGemm");
 
   bool former_layer_conv = (cc->former_layer_dims.size() != 0);
-  std::cout << "former layer conv set to " << former_layer_conv << '\n';
+  //std::cout << "former layer conv set to " << former_layer_conv << '\n';
   std::bitset<FC_Flatten_COUNT> flc{former_layer_conv};
   bitset_range_set(gemm_inst, flc, FC_Flatten_LOW, FC_Flatten_HIGH);
 
@@ -820,7 +817,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
     image_dims = cc->former_layer_dims[TENSOR_4D_WIDTH] *
                  cc->former_layer_dims[TENSOR_4D_HEIGHT];
   }
-  std::cout << "imagedims set  to " << image_dims << '\n';
+  //std::cout << "imagedims set  to " << image_dims << '\n';
   std::bitset<FC_ImageDim_COUNT> image_dims_set{image_dims};
   bitset_range_set(gemm_inst, image_dims_set, FC_ImageDim_LOW,
                    FC_ImageDim_HIGH);
@@ -853,11 +850,15 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   uint32_t weight_addr_end =
       ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
 
-  tbl.push_back(weight_addr_start, cc->weights, ENGINE_FC);
+  std::map<std::string, std::any> metadata;
+  if (cc->m_cp.transB) {
+    metadata.insert({"transpose", true});
+  }
+  tbl.push_back(weight_addr_start, cc->weights, ENGINE_FC, metadata);
 
-  std::cout << "setting dense weight_start_addr " << weight_addr_start << '\n';
-  std::cout << "setting dense weight_end_addr " << weight_addr_end << '\n';
-  std::cout << "setting weight bytes " << weight_bytes << '\n';
+  //std::cout << "setting dense weight_start_addr " << weight_addr_start << '\n';
+  //std::cout << "setting dense weight_end_addr " << weight_addr_end << '\n';
+  //std::cout << "setting weight bytes " << weight_bytes << '\n';
 
   std::bitset<FC_WeightStartAddress_COUNT> wstart{weight_addr_start};
   bitset_range_set(gemm_inst, wstart, FC_WeightStartAddress_LOW,
@@ -890,7 +891,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
   bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
                    OutputBlock_OutputAddr_HIGH);
 
-  std::cout << "output address " << output_addr_start << '\n';
+  //std::cout << "output address " << output_addr_start << '\n';
 
   std::bitset<OutputBlock_ChannelItr_COUNT> citr{1};
   bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
@@ -902,7 +903,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
   bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
                    OutputBlock_KernelItr_HIGH);
 
-  std::cout << "kernel iterations " << kernel_iterations << '\n';
+  //std::cout << "kernel iterations " << kernel_iterations << '\n';
 
   return output_inst;
 }
@@ -916,10 +917,11 @@ std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
   uint32_t bias_bytes = aligned_fc_bias(bias_dims) * Op::tensorproto_sizeof(cc->bias);
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  tbl.push_back(bias_addr_start, cc->bias, ENGINE_FC_BIAS);
-  std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
-  std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
-  std::cout << "setting bias_bytes to " << bias_bytes << '\n';
+  std::map<std::string, std::any> metadata;
+  tbl.push_back(bias_addr_start, cc->bias, ENGINE_FC_BIAS, metadata);
+  //std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
+  //std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
+  //std::cout << "setting bias_bytes to " << bias_bytes << '\n';
 
   std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
   bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
@@ -1041,16 +1043,21 @@ uint32_t Op::Layer::QuantizeLinear::get_weight_size() {
 uint32_t Op::Layer::QLinearConv::get_weight_size() {
   uint32_t w = aligned_conv_weight(weights->dims()) *
                Op::tensorproto_sizeof(weights);
+  w = ceil_mod(w, WORD_SIZE);
   uint32_t b = aligned_conv_bias(bias->dims()) * 
                Op::tensorproto_sizeof(bias);
+  b = ceil_mod(b, WORD_SIZE);
   return w + b;
 }
 
 uint32_t Op::Layer::QGemm::get_weight_size() {
   uint32_t w = aligned_fc_weight(weights->dims()) *
                Op::tensorproto_sizeof(weights);
+  w = ceil_mod(w, WORD_SIZE);
+
   uint32_t b = aligned_fc_bias(bias->dims()) * 
                Op::tensorproto_sizeof(bias);
+  b = ceil_mod(b, WORD_SIZE);
   return w + b;
 }
 
@@ -1089,24 +1096,23 @@ AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
   ram_size_max = ceil_mod(ram_size_max, WORD_SIZE);
 
   int total_instructions = get_total_instructions(order);
-  inst_region_size = (total_instructions * (INST_SIZE_BITS / 8)) / WORD_SIZE;
-  inst_region_size = ceil_mod(inst_region_size, WORD_SIZE);
-
+  std::cout << "total instructions " << total_instructions << '\n';
+  /* size in bytes occupied by all instructions + one extra byte at the
+   * top
+   */
+  inst_region_size = (total_instructions * (INST_SIZE_BITS / 8)) + (INST_SIZE_BITS/8);
   io_region_register_size = get_io_region_register_size(order);
-  io_region_register_size = ceil_mod(io_region_register_size, WORD_SIZE);
-
   weight_region_size = get_weight_size(order);
-  weight_region_size = ceil_mod(weight_region_size, WORD_SIZE);
 
   max_io_reg = get_max_io_reg(order);
 
   addr_incr(inst_region_size);
 
-  std::cout << "ramsize " << ram_size_max << '\n';
+  //std::cout << "ramsize " << ram_size_max << '\n';
   std::cout << "inst_region_size " << inst_region_size << '\n';
-  std::cout << "io_region_register_size " << io_region_register_size << '\n';
-  std::cout << "weight_region_size " << weight_region_size << '\n';
-  std::cout << "current_address " << current_address << '\n';
+  //std::cout << "io_region_register_size " << io_region_register_size << '\n';
+  //std::cout << "weight_region_size " << weight_region_size << '\n';
+  //std::cout << "current_address " << current_address << '\n';
 }
 
 /* Calculate total instructions of size INST_SIZE_BITS
@@ -1136,12 +1142,10 @@ int AddressGen::get_io_region_register_size(
     uint32_t tmp_inp = l->aligned_input();
     if (tmp_inp > largest_dim) {
       largest_dim = tmp_inp;
-      std::cout << "setting largest dim " << largest_dim << " for " << l->name <<'\n';
     }
     uint32_t tmp_outp = l->aligned_output();
     if (tmp_outp > largest_dim) {
       largest_dim = tmp_outp;
-      std::cout << "setting largest dim " << largest_dim << " for " << l->name <<'\n';
     }
   }
   return largest_dim;
@@ -1179,10 +1183,23 @@ uint32_t AddressGen::io_addr_from_register(Op::VirtualAddress reg) {
 
 int AddressGen::io_reg_size() { return io_region_register_size; }
 
-int AddressGen::get_model_size() {
+/* size in bytes occipied by inst and weight statically 
+ * while the model is being allocated on the cpu
+ */
+int AddressGen::get_model_size_cpu() {
   int size = 0;
   size += inst_region_size;
   size += weight_region_size;
+  return size;
+}
+
+/* size occupied on fpga is the size on the cpu i.e. 
+ * static model size (weights and instructions) + 
+ * dynamic size required for intermidiate inputs
+ * and outputs
+ */
+int AddressGen::get_model_size_fpga() {
+  int size = get_model_size_cpu();
   size += (max_io_reg * io_region_register_size);
   size += io_region_register_size;
   return size;
@@ -1245,8 +1262,8 @@ void pretty_print(const InstBlob &blob) {
   }
 }
 
-void InitializerTable::push_back(uint32_t addr, const onnx::TensorProto *data, int engine) {
-  InitAddrRow row {.addr = addr, .data = data, .engine = engine};
+void InitializerTable::push_back(uint32_t addr, const onnx::TensorProto *data, int engine, std::map<std::string,std::any> metadata) {
+  InitAddrRow row {.addr {addr}, .data {data}, .engine {engine}, .metadata {metadata}};
   tbl.push_back(row);
 }
 
@@ -1271,6 +1288,40 @@ void BinBlob::print() const {
   std::cout << '\n';
 }
 
+void BinBlob::pretty_print() const {
+  /* atleast 1 DWP packet header must be present */
+  assert(m_ptr >= DWP_HEADER_BYTES);
+  for (int i = 0; i < m_ptr; ) {
+    if (m_ptr - i < DWP_HEADER_BYTES) {
+      log_fatal(
+          "ill-formed data, not enough bytes to form DWP_HEADER at index %d",
+          i);
+    }
+    uint32_t sop = extract_byte<uint32_t>(m_data, m_ptr, i, i + 4);
+    uint32_t ds = extract_byte<uint32_t>(m_data, m_ptr, i + 4, i + 8);
+    uint32_t addr = extract_byte<uint32_t>(m_data, m_ptr, i + 8, i + 12);
+    std::cout << "DS " << ds << '\n';
+    std::cout << "ADDR " << addr << '\n';
+    std::cout << "SOP " << std::hex << sop << std::dec << '\n';
+    if (sop != DWP_SOP) {
+      log_fatal("ill-formed data, expected SOP at index %d", i);
+    }
+    i += DWP_HEADER_BYTES;
+    for (int j = 0; j < ds; ++j) {
+      if (j % 30 == 0 && j != 0) {
+        std::cout << '\n';
+      }
+      std::cout << (int) m_data[i] << ' ';
+      if (j + 1 >= m_ptr) {
+        break;
+      } else {
+        ++i;
+      }
+    }
+    std::cout << '\n';
+  }
+}
+
 void BinBlob::write(const std::string& filename) const {
   std::ofstream of(filename, std::ios::binary);
   of.write(m_data, m_ptr);
@@ -1282,6 +1333,11 @@ size_t BinBlob::size() const {
 }
 
 void BinBlob::append(int a) {
+  //if (sizeof(a) >= (m_size - m_ptr)) {
+  //  std::cout << "m_size " << m_size << '\n';
+  //  std::cout << "m_ptr " << m_ptr << '\n';
+  //  log_fatal("current size %d", m_ptr);
+  //} 
   assert(sizeof(a) < (m_size - m_ptr));
   generic_append(a);
 }
@@ -1299,6 +1355,7 @@ void BinBlob::append(uint8_t a) {
 void BinBlob::append(int8_t a) {
   assert(sizeof(a) < (m_size - m_ptr));
   generic_append(a);
+  //assert(sizeof(a) <= (m_size - m_ptr));
 }
 
 void BinBlob::append_dwp_header(uint32_t size, uint32_t addr) {
@@ -1310,13 +1367,16 @@ void BinBlob::append_dwp_header(uint32_t size, uint32_t addr) {
 
 void BinBlob::append(const InstBlob& instblob, uint32_t addr) {
   uint32_t payload_size = instblob.size() * (INST_SIZE_BITS/8);
-  append_dwp_header(addr, payload_size);
+  std::cout << "instblob size " << instblob.size() << '\n';
+  append_dwp_header(payload_size, addr);
 
   assert(payload_size > 0);
   assert(payload_size <= (m_size - m_ptr));
+  std::cout << "m_ptr before " << m_ptr << '\n';
   for (const auto& inst : instblob) {
     generic_append(inst);
   }
+  std::cout << "m_ptr after " << m_ptr << '\n';
 }
 
 void BinBlob::append(const InitializerTable &tbl) {
@@ -1328,22 +1388,55 @@ void BinBlob::append(const InitializerTable &tbl) {
       break;
     case ENGINE_SA: {
       uint32_t aligned_sz = aligned_conv_weight(i.data->dims());
+      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
+      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
+      std::cout << "tensor " << i.data->name() << '\n';
+      print_vec("dims ", i.data->dims());
+      std::cout << "size " << aligned_sz << '\n';
+      std::cout << "m_ptr before " << m_ptr << '\n';
       sa_align(i.data);
+      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     case ENGINE_CONV_BIAS: {
       uint32_t aligned_sz = aligned_conv_bias(i.data->dims());
+      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
+      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
+      std::cout << "tensor " << i.data->name() << '\n';
+      print_vec("dims ", i.data->dims());
+      std::cout << "size " << aligned_sz << '\n';
+      std::cout << "m_ptr before " << m_ptr << '\n';
       conv_bias_align(i.data);
+      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
-    case ENGINE_FC:
+    case ENGINE_FC: {
+      uint32_t aligned_sz = aligned_fc_weight(i.data->dims());
+      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
+      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+      append_dwp_header(aligned_sz, i.addr);
+      std::cout << "tensor " << i.data->name() << '\n';
+      print_vec("dims ", i.data->dims());
+      std::cout << "size " << aligned_sz << '\n';
+      bool transpose = get_metadata<bool>(i.metadata, "transpose");
+      std::cout << "m_ptr before " << m_ptr << '\n';
+      fc_weight_align(i.data, transpose);
+      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
+    }
     case ENGINE_FC_BIAS: {
       uint32_t aligned_sz = aligned_fc_bias(i.data->dims());
+      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
+      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
+      std::cout << "tensor " << i.data->name() << '\n';
+      print_vec("dims ", i.data->dims());
+      std::cout << "size " << aligned_sz << '\n';
+      std::cout << "m_ptr before " << m_ptr << '\n';
       fc_bias_align(i.data);
+      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     default:
@@ -1430,21 +1523,55 @@ void BinBlob::fc_bias_align(const onnx::TensorProto *tensor) {
   }
 }
 
+void BinBlob::fc_weight_align(const onnx::TensorProto *tensor, bool transpose) {
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    fc_weight_align_aux(t1.get(), transpose);
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    fc_weight_align_aux(t1.get(), transpose);
+    break;
+  }
+  case onnx::TensorProto_DataType_INT32: {
+    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
+    fc_weight_align_aux(t1.get(), transpose);
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type %s "
+              "for tensor %s",
+              Op::get_tensorproto_dtype_name((TPDT)type),
+              tensor->name().c_str());
+    break;
+  }
+}
+
 GmlGen::GmlGen(uint32_t org): m_org {org} {
 }
 
 BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   InstGen instgen(parser);
-  uint32_t size = instgen.model_size();
-  int tdp = instgen.dwp_packets();
+  uint32_t size = instgen.model_size_cpu();
+  std::cout << "inst size " << size << '\n';
+  /* +1 for end packet */
+  int tdp = instgen.dwp_packets() + 1;
+  std::cout << "total tdp packets " << tdp << '\n';
   size += (tdp * DWP_HEADER_BYTES);
+  size += 1; /* extra byte for good luck */
+  std::cout << "malloc size " << size << '\n';
   char *data = (char *) malloc(sizeof(*data) * size);
   BinBlob blob(data, size);
   InstBlob instblob = instgen.get_blob();
   blob.append(instblob, m_org);
   InitializerTable tbl = instgen.get_tbl();
   blob.append(tbl);
+  blob.append_dwp_header(0, 0);
   std::cout << "blob size " << blob.size() << '\n';
-  blob.write("blob.bin");
+  blob.write("model.gml");
+  //blob.pretty_print();
   return blob;
 }
