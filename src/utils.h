@@ -106,6 +106,9 @@ class Argparse {
        {"sa_arch", {"--sa-arch"}, "systolic array architecture. Args: [comma sep values]. accepts args like --timeest", 1},
        {"ramsize", {"--ramsize"}, "ram size in MB. Args: int. For ex, --ramsize 512", 1},
        {"vasize", {"--vasize"}, "Vector Array size. Usually equivalent to per cycle DRAM bandwidth in bytes. Args: int. For ex, --vasize 32", 1},
+       {"pretty-print-blob", {"--pretty-print-blob"}, "pretty print entire blob", 0},
+       {"pretty-print-inst", {"--pretty-print-inst"}, "pretty print only instructions", 0},
+       {"output", {"--output", "-o"}, "write output to file. Args: filename. For ex, -o model.gml", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"

@@ -130,7 +130,7 @@
 #define OutputBlock_DispatchID_HIGH 157
 #define OutputBlock_DispatchID_COUNT 32
 
-#define OP_START 0xff
+#define OP_START 0xf
 #define START_Opcode_LOW 0
 #define START_Opcode_HIGH 3
 #define START_Opcode_COUNT 4

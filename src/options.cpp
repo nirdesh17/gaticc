@@ -43,7 +43,16 @@ void dispatch_timeest(const Op::Parser &parser) {
 
 void dispatch_instgen_ops(Op::Parser &parser) {
   GmlGen gmlgen(GATI_INST_ORG);
-  BinBlob b {gmlgen.generate_gml(parser)};
+  BinBlob binblob {gmlgen.generate_gml(parser)};
+
+  if (gbl_args.has_option("output")) {
+    auto filename = gbl_args["output"].as<std::string>();
+    binblob.write(filename);
+  }
+
+  if (gbl_args.has_option("pretty-print-blob")) {
+    binblob.pretty_print();
+  }
 }
 
 

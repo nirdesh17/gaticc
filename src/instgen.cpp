@@ -196,7 +196,6 @@ Op::Graph pass_reassign_registers(Op::Graph graph) {
   for (next = vi; vi != vi_end; vi = next) {
     next++;
     Op::LayerBase *l = graph[*vi];
-    std::cout << "At " << l->name << '\n';
     if (!is_megablock(l)) {
       safe_remove_vertex(*vi, graph);
     }
@@ -1591,22 +1590,20 @@ GmlGen::GmlGen(uint32_t org): m_org {org} {
 BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   InstGen instgen(parser);
   uint32_t size = instgen.model_size_cpu();
-  std::cout << "inst size " << size << '\n';
   /* +1 for end packet */
   int tdp = instgen.dwp_packets() + 1;
-  std::cout << "total tdp packets " << tdp << '\n';
   size += (tdp * DWP_HEADER_BYTES);
   size += 1; /* extra byte for good luck */
-  std::cout << "malloc size " << size << '\n';
   char *data = (char *) malloc(sizeof(*data) * size);
   BinBlob blob(data, size);
   InstBlob instblob = instgen.get_blob();
+  if (gbl_args.has_option("pretty-print-inst")) {
+    pretty_print(instblob);
+  }
   blob.append(instblob, m_org);
   InitializerTable tbl = instgen.get_tbl();
   blob.append(tbl);
   blob.append_dwp_header(0, 0);
-  std::cout << "blob size " << blob.size() << '\n';
   blob.write("model.gml");
-  //blob.pretty_print();
   return blob;
 }
