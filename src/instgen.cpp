@@ -183,9 +183,26 @@ std::vector<Op::LayerBase *> pass_remove_dqxq(Op::Graph graph) {
       }
     }
   }
-
-  Op::RegisterAllocator allocatr(graph);
   return crt_exec_order(graph);
+}
+
+/* addresses are only used by megablocks (i.e. blocks that directly 
+ * access dram). this pass calls the register allocator algorithm 
+ * on a modified graph that only contains megablocks
+ */
+Op::Graph pass_reassign_registers(Op::Graph graph) {
+  Op::VertexIterator vi, vi_end, next;
+  std::tie(vi, vi_end) = boost::vertices(graph);
+  for (next = vi; vi != vi_end; vi = next) {
+    next++;
+    Op::LayerBase *l = graph[*vi];
+    std::cout << "At " << l->name << '\n';
+    if (!is_megablock(l)) {
+      safe_remove_vertex(*vi, graph);
+    }
+  }
+  Op::RegisterAllocator allocatr(graph);
+  return graph;
 }
 
 /* Megablocks like convolution are followed by miniblocks
@@ -347,6 +364,12 @@ InstBlob pass_insert_start_inst(const InstBlob &insts) {
 InstGen::InstGen(Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
+  /* pass_reassign_registers is being called for its side-effect
+   * which is the modification of LayerBase->{inputs,outputs} registers.
+   * graph2 is a intentianally un-used object
+   * TODO: re-organize, clean, make it less clunky
+   */
+  Op::Graph graph2 = pass_reassign_registers(graph);
   auto exec_order = pass_remove_dqxq(graph);
   exec_order = pass_extract_conv_true_odims(exec_order);
   exec_order = pass_mark_cfg(exec_order);
