@@ -925,6 +925,11 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
   bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
                    OutputBlock_KernelItr_HIGH);
 
+  auto sa_arch = get_sa_arch();
+  int img_dim_output = va_size / sa_arch[SA_ARCH_COLS];
+  std::bitset<OutputBlock_ImageDimOutput_COUNT> ido {img_dim_output};
+  bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW, OutputBlock_ImageDimOutput_HIGH);
+
   //std::cout << "kernel iterations " << kernel_iterations << '\n';
 
   return output_inst;
