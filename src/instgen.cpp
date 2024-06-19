@@ -1131,7 +1131,8 @@ int AddressGen::get_total_instructions(
   auto cmp_apply = [](int a, int b) -> int { return a; };
   auto ret = collapse_identical_adjacent<int>(op_codes, cmp, cmp_apply);
   auto ret2 = insert_inst<int>(ret, is_megablock_op_code, OP_START);
-  return ret2.size();
+  /* +1 for the last start instruction */
+  return ret2.size() + 1;
 }
 
 int AddressGen::get_io_region_register_size(
@@ -1366,13 +1367,15 @@ void BinBlob::append_dwp_header(uint32_t size, uint32_t addr) {
 }
 
 void BinBlob::append(const InstBlob& instblob, uint32_t addr) {
-  uint32_t payload_size = instblob.size() * (INST_SIZE_BITS/8);
+  uint32_t payload_size = (instblob.size() + 1) * (INST_SIZE_BITS/8);
   std::cout << "instblob size " << instblob.size() << '\n';
+  std::cout << "payload size " << payload_size << '\n';
   append_dwp_header(payload_size, addr);
 
   assert(payload_size > 0);
   assert(payload_size <= (m_size - m_ptr));
   std::cout << "m_ptr before " << m_ptr << '\n';
+  append_zeroth_inst(GATI_INST_ORG, payload_size);
   for (const auto& inst : instblob) {
     generic_append(inst);
   }
@@ -1548,6 +1551,15 @@ void BinBlob::fc_weight_align(const onnx::TensorProto *tensor, bool transpose) {
               tensor->name().c_str());
     break;
   }
+}
+
+void BinBlob::append_zeroth_inst(uint32_t start_addr, uint32_t end_addr) {
+  std::bitset<INST_SIZE_BITS> inst {0};
+  std::bitset<WORD_SIZE> start_addr_bs {start_addr};
+  bitset_range_set(inst, start_addr_bs, ZerothStartAddress_LOW, ZerothStartAddress_HIGH);
+  std::bitset<WORD_SIZE> end_addr_bs {end_addr};
+  bitset_range_set(inst, end_addr_bs, ZerothEndAddress_LOW, ZerothEndAddress_HIGH);
+  generic_append(inst);
 }
 
 GmlGen::GmlGen(uint32_t org): m_org {org} {
