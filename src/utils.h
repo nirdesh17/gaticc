@@ -113,7 +113,9 @@ class Argparse {
 
     const char *usage_examples = "Examples:\n"
     "\tRun simulation over a model and inputs\n"
-    "\t./sysim --onnx path/to/model.onnx --sim --loadpy path/to/script.py --preprocfn \"preproc_func\" --postprocfn \"postprocfunc\" --venv-path path/to/venv/site-packages\n";
+    "\t./sysim --onnx path/to/model.onnx --sim --loadpy path/to/script.py --preprocfn \"preproc_func\" --postprocfn \"postprocfunc\" --venv-path path/to/venv/site-packages\n\n"
+    "\tCreate a GML model file from onnx\n"
+    "\t./a --onnx path/to/model.onnx --instgen --sa-arch 9,4,4 --ramsize 512 --vasize 32 -o model.gml\n";
 
 public:
   void parse(int argc, char *argv[]) {
