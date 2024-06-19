@@ -531,11 +531,22 @@ uint32_t aligned_conv_bias(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_conv_input(const T &dims) {
+std::vector<int> aligned_conv_input_dims(const T &dims) {
   assert(dims.size() == 4);
   auto sa_arch = get_sa_arch();
+  assert(ACC_SIZE >= 8);
+  int acc_width = ACC_SIZE/8;
   auto i = dims;
-  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[2]); 
+  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[2]);
+  i[TENSOR_4D_WIDTH] = ceil_mod(i[TENSOR_4D_WIDTH], acc_width);
+  std::vector<int> ret(dims.size());
+  std::copy(i.begin(), i.end(), ret.begin());
+  return i;
+}
+
+template <typename T>
+uint32_t aligned_conv_input(const T &dims) {
+  auto i = aligned_conv_input_dims(dims);
   int ret = prod(i.begin(), i.end(), 1); 
   return ret;
 }
@@ -789,6 +800,46 @@ class BinBlob {
     }
   }
 
+  template <typename T>
+  void sa_input_align(const Tensor<T> *tensor) {
+    //std::vector<int> input_tensor{1, 8, 224, 224};
+    //std::vector<int> sa_arch = {9, 4, 4};
+    assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
+    auto aligned_dims = aligned_conv_input_dims(tensor->get_dims());
+    auto sa_arch = get_sa_arch();
+    /* efee - elements for each engine (depends on sa_arch) */
+    int efee = sa_arch[SA_ARCH_N];
+    int acc_width = ACC_SIZE/8; /* In bytes */
+    int outer_channel_iterations = aligned_dims[TENSOR_4D_CHANNELS] / efee;
+    int width_iterations = aligned_dims[TENSOR_4D_WIDTH] / acc_width;
+    std::vector<int> index(4);
+    T zero = 0;
+    for (int n = 0; n < aligned_dims[TENSOR_4D_BATCH]; ++n) {
+      for (int i = 0; i < outer_channel_iterations; ++i) {
+        for (int j = 0; j < aligned_dims[TENSOR_4D_HEIGHT]; ++j) {
+          for (int m = 0; m < width_iterations; ++m) {
+            for (int k = 0; k < efee; ++k) {
+              for (int l = 0; l < acc_width; ++l) {
+                index[0] = n;
+                index[1] = (i * efee) + k;
+                index[2] = j;
+                index[3] = (m * acc_width) + l;
+                if (is_out_of_bounds(index, tensor->get_dims())) {
+                  append(zero);
+                } else {
+                  T val = tensor->at(index);
+                  append(val);
+                }
+                //std::cout << n << ' ' << (i * efee) + k << ' ' << j << ' '
+                //          << (m * acc_width) + l << ' ' << '\n';
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
 public:
   BinBlob(char *data, size_t size);
   void append(int a);
@@ -800,6 +851,8 @@ public:
   void append(const InstBlob &instblob, uint32_t addr);
   void append(const InitializerTable &tbl);
   void append_zeroth_inst(uint32_t start_addr, uint32_t end_addr);
+  /* every mega block ought to have a _input_append function */
+  void append_sa_input(uint32_t data_size, uint32_t addr, const onnx::TensorProto *tensor);
   /* do not allow type that are not explicityly implemented */
   size_t size() const;
   void print() const;

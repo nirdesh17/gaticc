@@ -1589,6 +1589,34 @@ void BinBlob::append_zeroth_inst(uint32_t start_addr, uint32_t end_addr) {
   generic_append(inst);
 }
 
+void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr, const onnx::TensorProto *tensor) {
+  append_dwp_header(data_size, addr);
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    sa_input_align(t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    sa_input_align(t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_INT32: {
+    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
+    sa_input_align(t1.get());
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type %s "
+              "for tensor %s",
+              Op::get_tensorproto_dtype_name((TPDT)type),
+              tensor->name().c_str());
+    break;
+  }
+}
+
 GmlGen::GmlGen(uint32_t org): m_org {org} {
 }
 
