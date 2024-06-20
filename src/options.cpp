@@ -41,7 +41,21 @@ void dispatch_timeest(const Op::Parser &parser) {
   parser.time_estimate(mnk.at(0), mnk.at(1), mnk.at(2));
 }
 
-void dispatch_instgen_ops(Op::Parser &parser) {
+void dispatch_info_ops() {
+  std::string s = gbl_args["info"].as<std::string>();
+  Op::Parser parser(s);
+  if (gbl_args.has_option("summary")) {
+    parser.bare_summary();
+  } 
+
+  if (gbl_args.has_option("timeest")) {
+    dispatch_timeest(parser);
+  }
+}
+
+void dispatch_compile_ops() {
+  std::string s = gbl_args["compile"].as<std::string>();
+  Op::Parser parser(s);
   GmlGen gmlgen(GATI_INST_ORG);
   BinBlob binblob {gmlgen.generate_gml(parser)};
 
@@ -55,22 +69,13 @@ void dispatch_instgen_ops(Op::Parser &parser) {
   }
 }
 
-
-void dispatch_onnx_ops() {
-  std::string s = gbl_args["onnx"].as<std::string>();
+void dispatch_sim_ops() {
+  std::string s = gbl_args["sim"].as<std::string>();
   Op::Parser parser(s);
-  if (gbl_args.has_option("timeest")) {
-    dispatch_timeest(parser);
-  } else if (gbl_args.has_option("summary")) {
-    parser.bare_summary();
-  } else if (gbl_args.has_option("sim")) {
-    dispatch_simulator(parser);
-  } else if (gbl_args.has_option("instgen")) {
-    dispatch_instgen_ops(parser);
-  } else {
-    gbl_args.print_usage();
-    log_fatal("Do not know what to do with --onnx, specify atleast one "
-              "operation like --summary or --timeest");
-  }
+  dispatch_simulator(parser);
 }
 
+void dispatch_run_ops() {
+  auto gml_file = gbl_args["run"].as<std::string>();
+  std::cout << "filename " << gml_file << '\n';
+}

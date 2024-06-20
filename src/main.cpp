@@ -23,10 +23,14 @@ int main(int argc, char *argv[]) {
 
   if (gbl_args.has_option("help")) {
     gbl_args.print_usage();
-    std::exit(EXIT_SUCCESS);
-  }
-
-  if (gbl_args.has_option("onnx")) {
-    dispatch_onnx_ops();
+    return 0;
+  } else if (gbl_args.has_option("info")) {
+    dispatch_info_ops();
+  } else if (gbl_args.has_option("compile")) {
+    dispatch_compile_ops();
+  } else if (gbl_args.has_option("sim")) {
+    dispatch_sim_ops();
+  } else if (gbl_args.has_option("run")) {
+    dispatch_run_ops();
   }
 }

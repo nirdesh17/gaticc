@@ -17,6 +17,8 @@
 #include <cassert>
 #include <bitset>
 #include <variant>
+#include <cstring>
+#include <cerrno>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
  */
@@ -48,6 +50,18 @@ inline void log_info_func(const char *file, int line, const char *func,
   fprintf(stderr, "\n");
 }
 
+inline void check_c_return_val(int val) {
+  if (val != 0) {
+    log_fatal("%s", strerror(errno));
+  }
+}
+
+inline void check_c_return_val(void* val) {
+  if (val == NULL) {
+    log_fatal("%s", strerror(errno));
+  }
+}
+
 struct SaDims {
   int rows;
   int cols;
@@ -64,7 +78,6 @@ class Argparse {
        *                                                       args */
       {{"help", {"-h", "--help"}, "print help and exit", 0},
        {"verbose", {"-v", "--v"}, "verbose", 0},
-       {"onnx", {"--onnx"}, "load onnx file", 1},
        {"timeest",
         {"--timeest"},
         "print estimated time that a model would take based on FLOP counts "
@@ -72,10 +85,11 @@ class Argparse {
         "\n\tArgs: [comma separated arch config]"
         "\n\tEx: --timeest 9,8,8",
         1},
+       {"info", {"-i", "--info"}, "Query information from model. Args: <onnx_model>", 1},
        {"sim",
-        {"--sim"},
+        {"-s", "--sim"},
         "Simulate inference on an input. Use options like --onnx, --loadpy, --preprocfn, --postprocfn to load weights/inputs to the simulator",
-        0},
+        1},
        {"dump-output",
         {"--dump-output"},
         "Dump Outputs produced by the "
@@ -109,13 +123,19 @@ class Argparse {
        {"pretty-print-blob", {"--pretty-print-blob"}, "pretty print entire blob", 0},
        {"pretty-print-inst", {"--pretty-print-inst"}, "pretty print only instructions", 0},
        {"output", {"--output", "-o"}, "write output to file. Args: filename. For ex, -o model.gml", 1},
+       {"run", {"-r", "--run"}, "run inference on model. Args: <gml_file>.", 1},
+       {"compile", {"-c", "--compile"}, "Compile onnx model into gml file. Args: <onnx_model>", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"
     "\tRun simulation over a model and inputs\n"
-    "\t./sysim --onnx path/to/model.onnx --sim --loadpy path/to/script.py --preprocfn \"preproc_func\" --postprocfn \"postprocfunc\" --venv-path path/to/venv/site-packages\n\n"
+    "\t./sysim -s model.onnx --inputpath image.jpg --loadpy src/ml_inference.py --preprocfn \"<pre_proc_fn>\""
+      " --postprocfn \"<post_proc_fn>\" --venv-path ~/path/to/lib/python3.12/site-packages/ -v\n\n"
     "\tCreate a GML model file from onnx\n"
-    "\t./a --onnx path/to/model.onnx --instgen --sa-arch 9,4,4 --ramsize 512 --vasize 32 -o model.gml\n";
+    "\t./sysim -c model.onnx -o model.gml --ramsize 512 --sa-arch 9,4,4 --vasize 32"
+    "\tGet layer wise inference time estimates\n"
+    "\t./sysim -i ~/dev/ort/ort-quantizer/vgg_quantized_activation_symmetric.onnx --timeest 9,4,4\n\n";
+
 
 public:
   void parse(int argc, char *argv[]) {
