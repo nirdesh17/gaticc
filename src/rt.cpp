@@ -5,21 +5,21 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <memory>
 
 Fstream::Fstream(std::string& filename) {
-  std::unique_ptr<FILE> fp {fopen(filename.c_str(), "r")};
-  check_c_return_val(fp.get());
+  FILE *fp = fopen(filename.c_str(), "rb");
+  check_c_return_val(fp, filename.c_str());
   struct stat sbuf;
   int err = stat(filename.c_str(), &sbuf);
-  check_c_return_val(err);
+  check_c_return_val(err, filename.c_str());
   m_size = sbuf.st_size;
   m_buf = (char *) malloc(sizeof(*m_buf) * m_size);
-  check_c_return_val(m_buf);
-  size_t size_read = fread(m_buf, m_size, sizeof(*m_buf), fp.get());
+  check_c_return_val(m_buf, "malloc");
+  size_t size_read = fread(m_buf, sizeof(*m_buf), m_size, fp);
   if (size_read != m_size) {
-    log_fatal("couldn't read all %ld bytes", m_size);
+    log_fatal("couldn't read all %ld bytes, %ld bytes read", m_size, size_read);
   }
+  fclose(fp);
 }
 
 Fstream::~Fstream() {

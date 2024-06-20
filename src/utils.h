@@ -50,15 +50,15 @@ inline void log_info_func(const char *file, int line, const char *func,
   fprintf(stderr, "\n");
 }
 
-inline void check_c_return_val(int val) {
+inline void check_c_return_val(int val, const char *err) {
   if (val != 0) {
-    log_fatal("%s", strerror(errno));
+    log_fatal("%s: %s", strerror(errno));
   }
 }
 
-inline void check_c_return_val(void* val) {
+inline void check_c_return_val(void* val, const char *err) {
   if (val == NULL) {
-    log_fatal("%s", strerror(errno));
+    log_fatal("%s: %s", strerror(errno));
   }
 }
 
