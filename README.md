@@ -109,33 +109,6 @@ sysim --onnx model.onnx --layer-input 'vgg0_conv2_fwd' -o layer_in.save
 sysim --compare layer.save layer2.save 
 ```
 
-# compiler/rt (speculative)
-
-## compiler
-
-### parser/instruction generator
-
-- parse an onnx model reliably
-- perform architecture agnostic optimizations
-- generate configuration instructions based on the architecture
-    - how to specify an architecture?
-    - how to represent configuration?
-
-### architecture designer/verilog generator
-
-- given an onnx model, determine what the best architecture for it is
-    - best in latency, resource usage, feasilbility
-- glue templated verilog files to create the architecture
-- additionally, synthesize and generate bitstreams for it
-    - could be local with files queried and stiched from an encrypted-db (like 
-      an encrypted IP store (efinix does not support ARM though)
-    - or cloud based synthesis
-
-## runtime
-
-- given a bitstream, program the fpga with it
-- feed image/video stream to the fpga and receive the results reliably
-- provide a way to add preprocess/postprocess on inputs/results (python ffi)
 
 # Contributing to sysim
 
