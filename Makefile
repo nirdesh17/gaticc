@@ -4,8 +4,10 @@ OBJ_DIR = $(ROOT_DIR)/obj
 TEST_DIR = $(ROOT_DIR)/tests
 DEBUG = 1
 
-SRC_FILES = main.cpp sim.cpp ffi.cpp onnx_parser.cpp utils.cpp executor.cpp options.cpp tensor.cpp instgen.cpp
-PCH_SOURCES = sim.h ffi.h onnx.pb.h utils.h executor.h instgen.h options.h onnx_parser.h
+SRC_FILES = main.cpp sim.cpp ffi.cpp onnx_parser.cpp utils.cpp executor.cpp \
+						options.cpp tensor.cpp instgen.cpp rt.cpp
+PCH_SOURCES = sim.h ffi.h onnx.pb.h utils.h executor.h instgen.h options.h \
+							onnx_parser.h rt.h
 OBJ_FILES = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES)) $(OBJ_DIR)/onnx.pb.o
 PCH_FILES = $(patsubst %.h,$(SRC_DIR)/%.h.gch,$(PCH_SOURCES))
 LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
@@ -37,15 +39,15 @@ ifeq ($(UNAME_S),Darwin)
 	ABSEIL_PATH_MAC = `brew info abseil | grep -m 1 'Cellar' | cut -d " " -f 1`
 	BOOST_PATH_MAC = `brew info boost | grep -m 1 'Cellar' | cut -d " " -f 1`
 	PYTHON_PATH_MAC = `brew info python | grep -m 1 'Cellar' | cut -d " " -f 1`
-	
-	ONEONE = $(shell echo "${PYTHON_PATH_MAC}")
 
-	CXXFLAGS += -I$(PROTOBUF_PATH_MAC)/include -I$(ABSEIL_PATH_MAC)/include
-	CXXFLAGS += -I$(BOOST_PATH_MAC)/include
-	LDFLAGS +=  -L$(PYTHON_PATH_MAC)/Frameworks/Python.framework/Versions/Current/lib 
-	# NOTNEEDED? same as -L?: -Wl,-rpath,/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
-	LDFLAGS +=  -Wl,-undefined,dynamic_lookup
-	LDFLAGS +=  -L${PROTOBUF_PATH_MAC}/lib 
+ONEONE = $(shell echo "${PYTHON_PATH_MAC}")
+
+CXXFLAGS += -I$(PROTOBUF_PATH_MAC)/include -I$(ABSEIL_PATH_MAC)/include
+CXXFLAGS += -I$(BOOST_PATH_MAC)/include
+LDFLAGS +=  -L$(PYTHON_PATH_MAC)/Frameworks/Python.framework/Versions/Current/lib 
+# NOTNEEDED? same as -L?: -Wl,-rpath,/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
+LDFLAGS +=  -Wl,-undefined,dynamic_lookup
+LDFLAGS +=  -L${PROTOBUF_PATH_MAC}/lib 
 else ifeq ($(UNAME_S),Linux)
 	LDFLAGS  +=  -Wl,--copy-dt-needed-entries
 else
