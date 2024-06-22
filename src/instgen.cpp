@@ -1402,7 +1402,9 @@ void BinBlob::append(const InstBlob& instblob, uint32_t addr) {
   assert(payload_size > 0);
   assert(payload_size <= (m_size - m_ptr));
   std::cout << "m_ptr before " << m_ptr << '\n';
-  append_zeroth_inst(GATI_INST_ORG, payload_size);
+  /* add the zeroth instruction itself */
+  uint32_t inst_start = GATI_INST_ORG + (INST_SIZE_BITS/8);
+  append_zeroth_inst(inst_start, payload_size);
   for (const auto& inst : instblob) {
     generic_append(inst);
   }
