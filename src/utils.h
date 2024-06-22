@@ -125,6 +125,7 @@ class Argparse {
        {"output", {"--output", "-o"}, "write output to file. Args: filename. For ex, -o model.gml", 1},
        {"run", {"-r", "--run"}, "run inference on model. Args: <gml_file>.", 1},
        {"compile", {"-c", "--compile"}, "Compile onnx model into gml file. Args: <onnx_model>", 1},
+       {"run_onnx", {"--run-onnx"}, "onnx model thorough which model.gml was generated. TODO: remove this", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"
