@@ -133,7 +133,7 @@ class Argparse {
     "\t./sysim -s model.onnx --inputpath image.jpg --loadpy src/ml_inference.py --preprocfn \"<pre_proc_fn>\""
       " --postprocfn \"<post_proc_fn>\" --venv-path ~/path/to/lib/python3.12/site-packages/ -v\n\n"
     "\tCreate a GML model file from onnx\n"
-    "\t./sysim -c model.onnx -o model.gml --ramsize 512 --sa-arch 9,4,4 --vasize 32"
+    "\t./sysim -c model.onnx -o model.gml --ramsize 512 --sa-arch 9,4,4 --vasize 32\n\n"
     "\tGet layer wise inference time estimates\n"
     "\t./sysim -i ~/dev/ort/ort-quantizer/vgg_quantized_activation_symmetric.onnx --timeest 9,4,4\n\n";
 

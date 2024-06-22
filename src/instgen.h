@@ -800,8 +800,36 @@ class BinBlob {
     }
   }
 
+
+public:
+  BinBlob(char *data, size_t size);
+  void append(int a);
+  void append(uint8_t a);
+  void append(int8_t a);
+  void append(uint32_t a);
+  void append_dwp_header(uint32_t size, uint32_t addr);
+
+  void append(const InstBlob &instblob, uint32_t addr);
+  void append(const InitializerTable &tbl);
+  void append_zeroth_inst(uint32_t start_addr, uint32_t end_addr);
+  /* do not allow type that are not explicityly implemented */
+  size_t size() const;
+  void print() const;
+  void pretty_print() const;
+  void write(const std::string &filename) const;
+
+  template <typename T> void append(const std::vector<T> &vec) {
+    assert(vec.size() > 0);
+    assert(vec.size() * sizeof(vec[0]) <= (m_size - m_ptr));
+    for (T i : vec) {
+      generic_append(i);
+    }
+  }
+
+  /* every mega block ought to have a _input_append function */
   template <typename T>
-  void sa_input_align(const Tensor<T> *tensor) {
+  void append_sa_input(uint32_t data_size, uint32_t addr, const Tensor<T> *tensor) {
+    append_dwp_header(data_size, addr);
     //std::vector<int> input_tensor{1, 8, 224, 224};
     //std::vector<int> sa_arch = {9, 4, 4};
     assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
@@ -837,33 +865,6 @@ class BinBlob {
           }
         }
       }
-    }
-  }
-
-public:
-  BinBlob(char *data, size_t size);
-  void append(int a);
-  void append(uint8_t a);
-  void append(int8_t a);
-  void append(uint32_t a);
-  void append_dwp_header(uint32_t size, uint32_t addr);
-
-  void append(const InstBlob &instblob, uint32_t addr);
-  void append(const InitializerTable &tbl);
-  void append_zeroth_inst(uint32_t start_addr, uint32_t end_addr);
-  /* every mega block ought to have a _input_append function */
-  void append_sa_input(uint32_t data_size, uint32_t addr, const onnx::TensorProto *tensor);
-  /* do not allow type that are not explicityly implemented */
-  size_t size() const;
-  void print() const;
-  void pretty_print() const;
-  void write(const std::string &filename) const;
-
-  template <typename T> void append(const std::vector<T> &vec) {
-    assert(vec.size() > 0);
-    assert(vec.size() * sizeof(vec[0]) <= (m_size - m_ptr));
-    for (T i : vec) {
-      generic_append(i);
     }
   }
   template <typename T> void append(T i) = delete;

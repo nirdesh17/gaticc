@@ -51,9 +51,6 @@ class Executor {
   void execute(PyEngine &engine, const Op::Parser &parser);
 
   template <typename T>
-  Tensor<T> *read_model_input(PyEngine &engine);
-
-  template <typename T>
   void write_model_output(PyEngine &engine, Tensor<T> *out);
 
   /* Sets dump_options based on parameters from gbl_args for dump_options */
@@ -66,6 +63,36 @@ class Executor {
 public:
   Executor(PyEngine &engine, const Op::Parser &parser);
 };
+
+template <typename T>
+Tensor<T> *read_model_input(PyEngine &engine) {
+  PyObject *input_object;
+  if (gbl_args.has_option("input_path")) {
+    std::string image_path = gbl_args["input_path"].as<std::string>();
+    PyObject *args = Py_BuildValue("(s)", image_path.c_str());
+    if (!gbl_args.has_option("preprocfn")) {
+      log_fatal("Need --preprocfn \"proc_name\" with --input_path");
+    }
+    std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
+    input_object = engine.call_func(preprocfn.c_str(), args);
+  }
+  else {
+    PyObject *no_args = PyTuple_New(0);
+    std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
+    input_object = engine.call_func(preprocfn, no_args);
+
+    if (PyErr_Occurred()) {
+      PyErr_Print();
+      log_fatal("function %s erred", preprocfn.c_str());
+    }
+    
+    if (!PyArray_CheckExact(input_object)) {
+      log_fatal("function %s must return a numpy array", preprocfn.c_str());
+    }
+  }
+  Tensor<T> *input = np2t<T>(input_object);
+  return input;
+}
 
 template <typename inputT, typename outputT>
 void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
@@ -125,35 +152,6 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
 #endif
 }
 
-template <typename T>
-Tensor<T> *Executor::read_model_input(PyEngine &engine) {
-  PyObject *input_object;
-  if (gbl_args.has_option("input_path")) {
-    std::string image_path = gbl_args["input_path"].as<std::string>();
-    PyObject *args = Py_BuildValue("(s)", image_path.c_str());
-    if (!gbl_args.has_option("preprocfn")) {
-      log_fatal("Need --preprocfn \"proc_name\" with --input_path");
-    }
-    std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
-    input_object = engine.call_func(preprocfn.c_str(), args);
-  }
-  else {
-    PyObject *no_args = PyTuple_New(0);
-    std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
-    input_object = engine.call_func(preprocfn, no_args);
-
-    if (PyErr_Occurred()) {
-      PyErr_Print();
-      log_fatal("function %s erred", preprocfn.c_str());
-    }
-    
-    if (!PyArray_CheckExact(input_object)) {
-      log_fatal("function %s must return a numpy array", preprocfn.c_str());
-    }
-  }
-  Tensor<T> *input = np2t<T>(input_object);
-  return input;
-}
 
 template <typename T>
 void Executor::write_model_output(PyEngine &engine, Tensor<T> *out) {
