@@ -52,13 +52,13 @@ inline void log_info_func(const char *file, int line, const char *func,
 
 inline void check_c_return_val(int val, const char *err) {
   if (val != 0) {
-    log_fatal("%s: %s", strerror(errno));
+    log_fatal("%s: %s", err, strerror(errno));
   }
 }
 
 inline void check_c_return_val(void* val, const char *err) {
   if (val == NULL) {
-    log_fatal("%s: %s", strerror(errno));
+    log_fatal("%s: %s", err, strerror(errno));
   }
 }
 
