@@ -16,20 +16,23 @@
 
 #include <vector>
 
+class DispatchTable {
+  bool dump_all;
+  bool dump_none;
+  std::vector<std::string> tbl;
+  public:
+  DispatchTable();
+  /* all nodes with no out-edges directly quality for dispatch */
+  DispatchTable(Op::Graph graph);
+  /* True if l's outputs need to be dumped */
+  bool should_dispatch(const Op::LayerBase *l);
+  void print();
+};
+
 /* Executor iterates over layers one by one, executing each one of them
  *
- * TODO: update comment
- * Design Choices:
- * 1. This is not the best design for this task. For once, all Op::Layer
- * classes can be extended with another virutal function such as `void
- * run(Op::LayerBase *l)` like the run_* functions below. run needs to
- * be templated, and templated virtual functions are not allowed in cpp.
- * A workaround can be thought of, perhaps with type-erasure. I am not
- * considering that, maybe in the future.
- *
- * 2. Current design is chosen for its mundane-ness. I am aware that
- * dynamic_cast of a base into child is a code smell. I am letting this
- * one in.
+ * I am aware that dynamic_cast of a base into child is a code smell. I am
+ * letting this one in.
  */
 
 class Executor {
@@ -38,11 +41,7 @@ class Executor {
    */
   TensorPool tensor_pool;
 
-  struct DumpOptions {
-    bool dump_all;
-    bool dump_none;
-    std::vector<std::string> dump_candidates;
-  } dump_options;
+  DispatchTable dispatch_table;
 
   /* inputT: input type of the entire model 
    * outputT: output type of the entire model
@@ -52,11 +51,6 @@ class Executor {
 
   template <typename T>
   void write_model_output(PyEngine &engine, Tensor<T> *out);
-
-  /* Sets dump_options based on parameters from gbl_args for dump_options */
-  void configure_dump_options();
-  /* True if l's outputs need to be dumped */
-  bool should_dump(const Op::LayerBase *l);
 
   void print_extra_info(const Op::LayerBase *l);
 
@@ -111,7 +105,7 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
   tt.start();
   for (Op::LayerBase *l : order) {
     print_extra_info(l);
-    l->dump_output = should_dump(l);
+    l->dispatch = dispatch_table.should_dispatch(l);
     l->run(tensor_pool);
 
     if (parser.has_graph_output(l)) {

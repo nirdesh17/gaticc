@@ -147,3 +147,7 @@ void Runner::fake_exec(Op::LayerBase *l) {
     tensor_pool.free(l->outputs.at(0));
   }
 }
+
+DispatchTable Runner::get_dispatch_table() {
+  return DispatchTable();
+}

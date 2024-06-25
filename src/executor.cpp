@@ -13,32 +13,62 @@
 #include <vector>
 #include <cstring>
 #include <memory>
+#include <queue>
 
-void Executor::configure_dump_options() {
-  dump_options.dump_all = false;
-  dump_options.dump_none = false;
-  if (gbl_args.has_option("dump-output")) {
-    std::string arg = gbl_args["dump-output"].as<std::string>();
+DispatchTable::DispatchTable() {
+  dump_all = false;
+  dump_none = false;
+  if (gbl_args.has_option("dispatch")) {
+    std::string arg = gbl_args["dispatch"].as<std::string>();
     if (strcmp(arg.c_str(), "all") == 0) {
-      dump_options.dump_all = true;
+      dump_all = true;
     } else if (strcmp(arg.c_str(), "none") == 0) {
-      dump_options.dump_none = true;
+      dump_none = true;
     } else {
-      dump_options.dump_candidates = parse_csv_string<std::string>(arg);
+      tbl = parse_csv_string<std::string>(arg);
     }
   }
 }
 
-bool Executor::should_dump(const Op::LayerBase *l) {
-  if (dump_options.dump_all) {
+DispatchTable::DispatchTable(Op::Graph graph) {
+  /* TODO: DRY in the constructor above */
+  dump_all = false;
+  dump_none = false;
+  if (gbl_args.has_option("dispatch")) {
+    std::string arg = gbl_args["dispatch"].as<std::string>();
+    if (strcmp(arg.c_str(), "all") == 0) {
+      dump_all = true;
+    } else if (strcmp(arg.c_str(), "none") == 0) {
+      dump_none = true;
+    } else {
+      tbl = parse_csv_string<std::string>(arg);
+    }
+  }
+  auto vitr = boost::vertices(graph);
+  for (auto itr = vitr.first; itr != vitr.second; ++itr) {
+    if (boost::out_degree(*itr, graph) == 0) {
+      tbl.push_back(graph[*itr]->name);
+    }
+  }
+}
+
+bool DispatchTable::should_dispatch(const Op::LayerBase *l) {
+  if (dump_all) {
     return true;
-  } else if (dump_options.dump_none) {
+  } else if (dump_none) {
     return false;
   } else {
-    auto start = dump_options.dump_candidates.begin();
-    auto stop = dump_options.dump_candidates.end();
+    auto start = tbl.begin();
+    auto stop = tbl.end();
     auto itr = std::find(start, stop, l->name);
     return (itr != stop) ? true : false;
+  }
+}
+
+void DispatchTable::print() {
+  std::cout << "Dispatch Table: \n";
+  for (auto i : tbl) {
+    std::cout << i << '\n';
   }
 }
 
@@ -57,7 +87,7 @@ Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
   int total_regs = parser.get_total_registers() + 1;
   tensor_pool.resize(total_regs);
 
-  configure_dump_options();
+  dispatch_table = DispatchTable();
 
   if (input_type == onnx::TensorProto_DataType_FLOAT &&
       output_type == onnx::TensorProto_DataType_FLOAT) {
@@ -98,7 +128,7 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   cc_engine.run(input, output);
   tt.stop();
 
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
     tt.report("Time taken: ");
   }
@@ -135,7 +165,7 @@ template <typename T> void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Relu<T> relu;
   relu.exec(input, output);
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -168,7 +198,7 @@ void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   maxpool<T>(input, output, cc->m_cp);
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -206,7 +236,7 @@ void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   flatten<T>(input, output);
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -248,7 +278,7 @@ void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   va.run(input, output);
   tt.stop();
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
     tt.report("Time taken: ");
   }
@@ -284,7 +314,7 @@ void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   /* TODO: implement dropout correctly */
   *output = *input;
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -326,7 +356,7 @@ void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
               l->name.c_str());
   }
   reshape<T>(input, output, cc->new_shape);
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -361,7 +391,7 @@ void run_transpose(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *output = new TensorCreate<T>(input->get_dims());
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   transpose<T>(input, output, cc->perm);
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -405,7 +435,7 @@ void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   va.run(input, output);
   tt.stop();
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
     tt.report("Time taken: ");
   }
@@ -454,7 +484,7 @@ void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
     delete input2;
   }
 
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -496,7 +526,7 @@ void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
     log_fatal("cant deduce zero point type for layer %s", l->name.c_str());
   }
   quantize<inputT, outputT>(input, output, scales, zero_point);
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -546,7 +576,7 @@ void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
   tt.stop();
 
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
     tt.report("Time taken: ");
   }
@@ -601,7 +631,7 @@ void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
     log_fatal("cant deduce zero point type for layer %s", l->name.c_str());
   }
   dequantize<inputT, outputT>(input, output, scales, zero_point);
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -649,7 +679,7 @@ void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
 
   tt.stop();
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
     tt.report("Time taken: ");
   }
@@ -707,7 +737,7 @@ void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   using variantT = std::variant<int8_t,uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
   quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale, zero_points);
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
   }
 }
@@ -757,7 +787,7 @@ void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   tt.stop();
   tt.report("Time taken: ");
-  if (l->dump_output) {
+  if (l->dispatch) {
     output->print();
     tt.report("Time taken: ");
   }

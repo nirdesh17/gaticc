@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "onnx_parser.h"
 #include "sim.h"
+#include "executor.h"
 #include <cstring>
 #include <queue>
 #include <set>
@@ -186,11 +187,9 @@ std::vector<Op::LayerBase *> Pass::remove_dqxq(Op::Graph graph) {
   return crt_exec_order(graph);
 }
 
-/* addresses are only used by megablocks (i.e. blocks that directly 
- * access dram). this pass calls the register allocator algorithm 
- * on a modified graph that only contains megablocks
- */
-Op::Graph Pass::reassign_registers(Op::Graph graph) {
+
+/* creates a graph with only megablocks connected to each other */
+Op::Graph Pass::create_megablock_graph(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
   std::tie(vi, vi_end) = boost::vertices(graph);
   for (next = vi; vi != vi_end; vi = next) {
@@ -200,8 +199,17 @@ Op::Graph Pass::reassign_registers(Op::Graph graph) {
       safe_remove_vertex(*vi, graph);
     }
   }
-  Op::RegisterAllocator allocatr(graph);
   return graph;
+}
+
+/* addresses are only used by megablocks (i.e. blocks that directly 
+ * access dram). this pass calls the register allocator algorithm 
+ * on a modified graph that only contains megablocks
+ */
+Op::Graph Pass::reassign_registers(Op::Graph graph) {
+  Op::Graph megablock_graph = create_megablock_graph(graph);
+  Op::RegisterAllocator allocatr(megablock_graph);
+  return megablock_graph;
 }
 
 /* Megablocks like convolution are followed by miniblocks
@@ -360,13 +368,13 @@ InstBlob Pass::insert_start_inst(const InstBlob &insts) {
   return ret;
 }
 
+
 InstGen::InstGen(Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
   /* pass_reassign_registers is being called for its side-effect
    * which is the modification of LayerBase->{inputs,outputs} registers.
    * graph2 is a intentianally un-used object
-   * TODO: re-organize, clean, make it less clunky
    */
   Op::Graph graph2 = Pass::reassign_registers(graph);
   AddressGen generator(graph);
@@ -376,11 +384,15 @@ InstGen::InstGen(Op::Parser &parser) {
   /* Includes the instructions blob */
   total_dwp_packets = 1;
 
+  Op::Graph megablock_graph = Pass::create_megablock_graph(graph);
+  DispatchTable dispatch_table(megablock_graph);
+
   InstBlob instructions;
   for (Op::LayerBase *l : exec_order) {
     /* push generated instructions and initializers to 
      * 'instructions' and 'tbl' respectively
      */
+    l->dispatch = dispatch_table.should_dispatch(l);
     total_dwp_packets += l->get_inst(instructions, generator, init_tbl);
   }
 
@@ -676,6 +688,17 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   std::bitset<OutputBlock_AccEn_COUNT> accen{should_accumulate};
   bitset_range_set(output_inst, accen, OutputBlock_AccEn_LOW,
                    OutputBlock_AccEn_HIGH);
+
+  if (cc->dispatch) {
+    std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en {1};
+    bitset_range_set(output_inst, dispatch_en, OutputBlock_DispatchEn_LOW,
+        OutputBlock_DispatchEn_HIGH);
+
+    std::bitset<OutputBlock_DispatchID_COUNT> dispatch_id {string_hash(cc->name)};
+    bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
+        OutputBlock_DispatchID_HIGH);
+  }
+
   return output_inst;
 }
 
@@ -926,6 +949,16 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
   int img_dim_output = va_size / sa_arch[SA_ARCH_COLS];
   std::bitset<OutputBlock_ImageDimOutput_COUNT> ido {img_dim_output};
   bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW, OutputBlock_ImageDimOutput_HIGH);
+
+  if (cc->dispatch) {
+    std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en {1};
+    bitset_range_set(output_inst, dispatch_en, OutputBlock_DispatchEn_LOW,
+        OutputBlock_DispatchEn_HIGH);
+
+    std::bitset<OutputBlock_DispatchID_COUNT> dispatch_id {string_hash(cc->name)};
+    bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
+        OutputBlock_DispatchID_HIGH);
+  }
 
   //std::cout << "kernel iterations " << kernel_iterations << '\n';
 
@@ -1401,20 +1434,16 @@ void BinBlob::append_dwp_header(uint32_t size, uint32_t addr) {
 
 void BinBlob::append(const InstBlob& instblob, uint32_t addr) {
   uint32_t payload_size = (instblob.size() + 1) * (INST_SIZE_BITS/8);
-  std::cout << "instblob size " << instblob.size() << '\n';
-  std::cout << "payload size " << payload_size << '\n';
   append_dwp_header(payload_size, addr);
 
   assert(payload_size > 0);
   assert(payload_size <= (m_size - m_ptr));
-  std::cout << "m_ptr before " << m_ptr << '\n';
   /* add the zeroth instruction itself */
   uint32_t inst_start = GATI_INST_ORG + (INST_SIZE_BITS/8);
   append_zeroth_inst(inst_start, payload_size);
   for (const auto& inst : instblob) {
     generic_append(inst);
   }
-  std::cout << "m_ptr after " << m_ptr << '\n';
 }
 
 void BinBlob::append(const InitializerTable &tbl) {
@@ -1429,12 +1458,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
-      std::cout << "tensor " << i.data->name() << '\n';
-      print_vec("dims ", i.data->dims());
-      std::cout << "size " << aligned_sz << '\n';
-      std::cout << "m_ptr before " << m_ptr << '\n';
       sa_align(i.data);
-      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     case ENGINE_CONV_BIAS: {
@@ -1442,12 +1466,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
-      std::cout << "tensor " << i.data->name() << '\n';
-      print_vec("dims ", i.data->dims());
-      std::cout << "size " << aligned_sz << '\n';
-      std::cout << "m_ptr before " << m_ptr << '\n';
       conv_bias_align(i.data);
-      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     case ENGINE_FC: {
@@ -1455,13 +1474,8 @@ void BinBlob::append(const InitializerTable &tbl) {
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
-      std::cout << "tensor " << i.data->name() << '\n';
-      print_vec("dims ", i.data->dims());
-      std::cout << "size " << aligned_sz << '\n';
       bool transpose = get_metadata<bool>(i.metadata, "transpose");
-      std::cout << "m_ptr before " << m_ptr << '\n';
       fc_weight_align(i.data, transpose);
-      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     case ENGINE_FC_BIAS: {
@@ -1469,12 +1483,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
-      std::cout << "tensor " << i.data->name() << '\n';
-      print_vec("dims ", i.data->dims());
-      std::cout << "size " << aligned_sz << '\n';
-      std::cout << "m_ptr before " << m_ptr << '\n';
       fc_bias_align(i.data);
-      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     default:

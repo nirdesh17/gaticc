@@ -47,6 +47,7 @@ class Runner {
   void tensor_pool_init(const Op::Parser &parser);
   PyEngine create_pyengine();
   std::string get_run_arg();
+  DispatchTable get_dispatch_table();
 
   template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
             typename OutputT>
@@ -94,14 +95,15 @@ void Runner::run(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
   auto graph = parser.get_graph();
   auto order = parser.get_execution_order();
   AddressGen generator(graph);
+  DispatchTable dispatch_table = get_dispatch_table();
 
   tensor_pool.set<Tensor<inputT> *>(0, input_image);
 
   bool sent = false;
   for (Op::LayerBase *l : order) {
-    l->dump_output = false;
     assert(l->device != DEVICE_UNKNOWN);
 
+    l->dispatch = dispatch_table.should_dispatch(l);
     log_info("Running layer %s on %s", l->name.c_str(),
                get_device_name(l->device));
     if (l->device == DEVICE_CPU && sent == false) {
@@ -112,6 +114,7 @@ void Runner::run(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
       uint32_t addr = generator.io_addr_from_register(l->inputs.at(0));
       send_input<CpuOutputT>(rah, out, addr);
       sent = true;
+      exit(1);
     } else if (l->device == DEVICE_FPGA && sent == true) {
       fake_exec(l);
     } else if (l->device == DEVICE_CPU && sent == true) {
@@ -125,8 +128,7 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
   auto dims = tensor->get_dims();
   /* start and end DWP_HEADER */
   uint32_t aligned_size = aligned_conv_input(dims) + (DWP_HEADER_BYTES * 2) + 1;
-  char *aligned_data = (char *)malloc(aligned_size * sizeof(char));
-  BinBlob blob(aligned_data, aligned_size);
+  BinBlob blob(aligned_size);
   blob.append_sa_input<T>(aligned_size, addr, tensor);
   blob.append_dwp_header(0, 0);
   log_info("start writing images to FPGA");

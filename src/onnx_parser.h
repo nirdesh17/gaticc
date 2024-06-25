@@ -185,20 +185,21 @@ struct LayerBase {
   TPDT input_type;
   TPDT output_type;
 
-  /* Used by executor, decides whether current layer's output
-   * should be dumped. Set by Executor::executor
-   */
-  bool dump_output;
-
   /* Dimensions of the input feature map */
   std::vector<int> input_dims;
   std::vector<int> output_dims;
 
+  /* Device on which this node would be executed */
   int device;
 
   /* All nodes with a parameter should have a constructor to
    * initialize them. See conv for eg.
    */
+
+  /* 1 if current node's outputs need to be received from the FPGA or
+   * dumped by the simulator
+   */
+  bool dispatch;
 };
 
 namespace Layer {

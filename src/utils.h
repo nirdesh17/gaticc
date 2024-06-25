@@ -18,6 +18,7 @@
 #include <bitset>
 #include <variant>
 #include <cstring>
+#include <numeric>
 #include <cerrno>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
@@ -90,11 +91,6 @@ class Argparse {
         {"-s", "--sim"},
         "Simulate inference on an input. Use options like --onnx, --loadpy, --preprocfn, --postprocfn to load weights/inputs to the simulator",
         1},
-       {"dump-output",
-        {"--dump-output"},
-        "Dump Outputs produced by the "
-        "simulator. Args: [all | none | comma separated layer names]",
-        1},
        {"venv-path",
         {"--venv-path"},
         "Append venv-path to sys.path while loading the interpreter. Args: [ : "
@@ -126,6 +122,8 @@ class Argparse {
        {"run", {"-r", "--run"}, "run inference on model. Args: <gml_file>.", 1},
        {"compile", {"-c", "--compile"}, "Compile onnx model into gml file. Args: <onnx_model>", 1},
        {"run_onnx", {"--run-onnx"}, "onnx model thorough which model.gml was generated. TODO: remove this", 1},
+       {"dispatch", {"--dispatch"}, "comma separated list of layers for which outputs are required. Args: [all | none | comma separated layer names]", 1},
+       {"dispatch_fn", {"--dispatch-fn"}, "python function that'll be passed tensors returned by dipatchable nodes", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"
@@ -612,4 +610,8 @@ T extract_byte(const char *data, size_t size, int n, int m) {
     ret |= tmp;
   }
   return ret;
+}
+
+inline int string_hash(const std::string& s) {
+  return std::accumulate(s.begin(), s.end(), 0);
 }
