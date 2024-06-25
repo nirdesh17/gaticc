@@ -1309,8 +1309,8 @@ auto InitializerTable::end() const {
   return tbl.end();
 }
 
-BinBlob::BinBlob(char *data, size_t size) {
-  m_data = data;
+BinBlob::BinBlob(size_t size) {
+  m_data = new char[size];
   m_size = size;
   m_ptr = 0;
 }
@@ -1607,8 +1607,7 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   int tdp = instgen.dwp_packets() + 1;
   size += (tdp * DWP_HEADER_BYTES);
   size += 1; /* extra byte for good luck */
-  char *data = (char *) malloc(sizeof(*data) * size);
-  BinBlob blob(data, size);
+  BinBlob blob(size);
   InstBlob instblob = instgen.get_blob();
   if (gbl_args.has_option("pretty-print-inst")) {
     pretty_print(instblob);

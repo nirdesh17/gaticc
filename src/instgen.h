@@ -804,7 +804,7 @@ class BinBlob {
 
 
 public:
-  BinBlob(char *data, size_t size);
+  BinBlob(size_t size);
   ~BinBlob();
   void append(int a);
   void append(uint8_t a);
