@@ -141,3 +141,9 @@ void Runner::infer_loop(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
   /* TODO: deduce the types dynamically */
   run<inputT, outputT, int8_t, float>(rah, engine, parser);
 }
+
+void Runner::fake_exec(Op::LayerBase *l) {
+  if (tensor_pool.has_value(l->outputs.at(0))) {
+    tensor_pool.free(l->outputs.at(0));
+  }
+}

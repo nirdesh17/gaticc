@@ -48,10 +48,16 @@ class Runner {
   PyEngine create_pyengine();
   std::string get_run_arg();
 
-  template <typename inputT, typename CpuOutputT, typename DeviceOutputT, typename OutputT>
+  template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
+            typename OutputT>
   void run(Rah &rah, PyEngine &engine, const Op::Parser &parser);
 
-template <typename T> void send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
+  template <typename T>
+  void send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
+  template <typename T>
+  void receive_output(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
+
+  void fake_exec(Op::LayerBase *l);
 
 public:
   Runner(const Op::Parser &parser);
@@ -84,15 +90,14 @@ template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
 void Runner::run(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
   Tensor<inputT> *input_image = read_model_input<inputT>(engine);
   log_info("preprocess finish");
-  auto order = parser.get_execution_order();
+  //auto order = parser.get_execution_order();
   auto graph = parser.get_graph();
-
+  auto order = parser.get_execution_order();
   AddressGen generator(graph);
 
   tensor_pool.set<Tensor<inputT> *>(0, input_image);
 
   bool sent = false;
-  bool cont = false;
   for (Op::LayerBase *l : order) {
     l->dump_output = false;
     assert(l->device != DEVICE_UNKNOWN);
@@ -107,14 +112,11 @@ void Runner::run(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
       uint32_t addr = generator.io_addr_from_register(l->inputs.at(0));
       send_input<CpuOutputT>(rah, out, addr);
       sent = true;
-      std::exit(1);
     } else if (l->device == DEVICE_FPGA && sent == true) {
-      // fake exec
+      fake_exec(l);
     } else if (l->device == DEVICE_CPU && sent == true) {
       // receive output - rah read stuff
-      cont = true;
-    } else if (l->device == DEVICE_CPU && sent == true && cont == true) {
-      l->run(tensor_pool); // TODO: maybe loop this back to the first state
+      sent = false;
     }
   }
 }
@@ -130,4 +132,8 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
   log_info("start writing images to FPGA");
   // rah.write(aligned_data, aligned_size);
   log_info("finish writing images to FPGA");
+}
+
+template <typename T> void Runner::receive_output(Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
+
 }
