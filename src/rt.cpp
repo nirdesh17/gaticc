@@ -40,12 +40,12 @@ const size_t Fstream::get_size() const {
 }
 
 Rah::Rah() {
-  m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
-  check_c_return_val(m_handle, dlerror());
+  //m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
+  //check_c_return_val(m_handle, dlerror());
 }
 
 Rah::~Rah() {
-  dlclose(m_handle);
+  //dlclose(m_handle);
 }
 
 int Rah::write(const char *data, size_t size) {
@@ -87,7 +87,7 @@ void Runner::tensor_pool_init(const Op::Parser &parser) {
   tensor_pool.free();
 }
 
-PyEngine create_pyengine() {
+PyEngine Runner::create_pyengine() {
   log_info("starting PyEngine");
   std::string mod_arg = gbl_args["loadpy"].as<std::string>();
   std::string mod_name = extract_basename(mod_arg).stem().string();
@@ -139,5 +139,5 @@ void Runner::infer_loop(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
   log_info("reading input");
   log_info("running preprocess on inputs");
   /* TODO: deduce the types dynamically */
-  run<inputT, outputT>(rah, engine, parser);
+  run<inputT, outputT, int8_t, float>(rah, engine, parser);
 }

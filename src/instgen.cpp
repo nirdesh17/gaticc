@@ -155,7 +155,7 @@ void safe_remove_vertex(Op::Vertex v, Op::Graph &g) {
  * way, have the same types for input/output. for example, relu, maxpool,
  * flatten
  */
-std::vector<Op::LayerBase *> pass_remove_dqxq(Op::Graph graph) {
+std::vector<Op::LayerBase *> Pass::remove_dqxq(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
   std::tie(vi, vi_end) = boost::vertices(graph);
   bool in_zone = false;
@@ -190,7 +190,7 @@ std::vector<Op::LayerBase *> pass_remove_dqxq(Op::Graph graph) {
  * access dram). this pass calls the register allocator algorithm 
  * on a modified graph that only contains megablocks
  */
-Op::Graph pass_reassign_registers(Op::Graph graph) {
+Op::Graph Pass::reassign_registers(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
   std::tie(vi, vi_end) = boost::vertices(graph);
   for (next = vi; vi != vi_end; vi = next) {
@@ -214,7 +214,7 @@ Op::Graph pass_reassign_registers(Op::Graph graph) {
  * to calculate and store the true output dims
  */
 std::vector<Op::LayerBase *>
-pass_extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
+Pass::extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
   Op::Layer::QLinearConv *cc = nullptr;
   for (Op::LayerBase *l : order) {
     if (is_op_type(l, "QLinearConv")) {
@@ -237,7 +237,7 @@ pass_extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
  * details of conv
  */
 std::vector<Op::LayerBase *>
-pass_mark_cfg(const std::vector<Op::LayerBase *> &order) {
+Pass::mark_cfg(const std::vector<Op::LayerBase *> &order) {
   bool flatten_pass = false;
   std::vector<int> former_layer_dims;
   for (Op::LayerBase *l : order) {
@@ -342,7 +342,7 @@ int count_total_megablocks(const InstBlob &insts) {
   return cnt;
 }
 
-InstBlob pass_insert_start_inst(const InstBlob &insts) {
+InstBlob Pass::insert_start_inst(const InstBlob &insts) {
   InstBlob ret;
   int total_layers = count_total_megablocks(insts);
   int layer_num = 0;
@@ -368,12 +368,9 @@ InstGen::InstGen(Op::Parser &parser) {
    * graph2 is a intentianally un-used object
    * TODO: re-organize, clean, make it less clunky
    */
-  Op::Graph graph2 = pass_reassign_registers(graph);
-  auto exec_order = pass_remove_dqxq(graph);
-  exec_order = pass_extract_conv_true_odims(exec_order);
-  exec_order = pass_mark_cfg(exec_order);
-
-  AddressGen generator(exec_order);
+  Op::Graph graph2 = Pass::reassign_registers(graph);
+  AddressGen generator(graph);
+  auto exec_order = generator.get_exec_order();
   total_model_size_cpu = generator.get_model_size_cpu();
   total_model_size_fpga = generator.get_model_size_fpga();
   /* Includes the instructions blob */
@@ -390,7 +387,7 @@ InstGen::InstGen(Op::Parser &parser) {
   CmpFunc<std::bitset<INST_SIZE_BITS>> cmp = cmp_opcodes;
   CmpApplyFunc<std::bitset<INST_SIZE_BITS>> cmp_apply = or_inst; 
   auto collapsed_insts = collapse_identical_adjacent(instructions, cmp, cmp_apply);
-  ret_inst = pass_insert_start_inst(collapsed_insts);
+  ret_inst = Pass::insert_start_inst(collapsed_insts);
 }
 
 InstBlob InstGen::get_blob() {
@@ -1113,8 +1110,14 @@ uint32_t Op::Layer::QGemm::aligned_output() {
 }
 
 
-AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
+AddressGen::AddressGen(Op::Graph graph)
     : current_address{0} {
+
+  auto order = Pass::remove_dqxq(graph);
+  order = Pass::extract_conv_true_odims(order);
+  order = Pass::mark_cfg(order);
+
+  m_exec_order = order;
 
   if (!gbl_args.has_option("ramsize")) {
     log_fatal("ramsize unknown, use option --ramsize to specify or see --help");
@@ -1123,7 +1126,7 @@ AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
   ram_size_max = ceil_mod(ram_size_max, WORD_SIZE);
 
   int total_instructions = get_total_instructions(order);
-  std::cout << "total instructions " << total_instructions << '\n';
+  //std::cout << "total instructions " << total_instructions << '\n';
   /* size in bytes occupied by all instructions + one extra byte at the
    * top
    */
@@ -1136,7 +1139,7 @@ AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
   addr_incr(inst_region_size);
 
   //std::cout << "ramsize " << ram_size_max << '\n';
-  std::cout << "inst_region_size " << inst_region_size << '\n';
+  //std::cout << "inst_region_size " << inst_region_size << '\n';
   //std::cout << "io_region_register_size " << io_region_register_size << '\n';
   //std::cout << "weight_region_size " << weight_region_size << '\n';
   //std::cout << "current_address " << current_address << '\n';
@@ -1209,12 +1212,12 @@ uint32_t AddressGen::io_addr_from_register(Op::VirtualAddress reg) {
   return ret;
 }
 
-int AddressGen::io_reg_size() { return io_region_register_size; }
+int AddressGen::io_reg_size() const { return io_region_register_size; }
 
 /* size in bytes occipied by inst and weight statically 
  * while the model is being allocated on the cpu
  */
-int AddressGen::get_model_size_cpu() {
+int AddressGen::get_model_size_cpu() const {
   int size = 0;
   size += inst_region_size;
   size += weight_region_size;
@@ -1226,11 +1229,15 @@ int AddressGen::get_model_size_cpu() {
  * dynamic size required for intermidiate inputs
  * and outputs
  */
-int AddressGen::get_model_size_fpga() {
+int AddressGen::get_model_size_fpga() const {
   int size = get_model_size_cpu();
   size += (max_io_reg * io_region_register_size);
   size += io_region_register_size;
   return size;
+}
+
+std::vector<Op::LayerBase *> AddressGen::get_exec_order() const {
+  return m_exec_order;
 }
 
 int AddressGen::get_max_io_reg(const std::vector<Op::LayerBase *> &order) {

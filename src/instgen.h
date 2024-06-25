@@ -476,6 +476,7 @@ class AddressGen {
   int io_region_register_size;
   int weight_region_size;
   int max_io_reg;
+  std::vector<Op::LayerBase *> m_exec_order;
 
   uint32_t ram_size_max;
 
@@ -487,16 +488,17 @@ class AddressGen {
   int get_max_io_reg(const std::vector<Op::LayerBase *> &order);
 
 public:
-  AddressGen(const std::vector<Op::LayerBase *> &order);
+  AddressGen(Op::Graph graph);
   /* get a address in weights/bias region */
   uint32_t alloc(uint32_t size);
   /* get a address in io region */
   uint32_t io_addr_from_register(Op::VirtualAddress reg);
   /* get a address in accumulant region */
   uint32_t ps_addr_from_register(Op::VirtualAddress reg);
-  int io_reg_size();
-  int get_model_size_cpu();
-  int get_model_size_fpga();
+  int io_reg_size() const;
+  int get_model_size_cpu() const;
+  int get_model_size_fpga() const;
+  std::vector<Op::LayerBase *> get_exec_order() const;
 };
 
 
@@ -882,3 +884,16 @@ public:
   BinBlob generate_gml(Op::Parser &parser);
 };
 
+namespace Pass {
+
+std::vector<Op::LayerBase *> remove_dqxq(Op::Graph graph);
+Op::Graph reassign_registers(Op::Graph graph);
+
+std::vector<Op::LayerBase *>
+extract_conv_true_odims(const std::vector<Op::LayerBase *> &order);
+
+std::vector<Op::LayerBase *>
+mark_cfg(const std::vector<Op::LayerBase *> &order);
+
+InstBlob insert_start_inst(const InstBlob &insts);
+}; // namespace Pass

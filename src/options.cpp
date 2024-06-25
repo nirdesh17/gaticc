@@ -80,11 +80,7 @@ void dispatch_run_ops() {
   if (!gbl_args.has_option("run_onnx")) {
     log_fatal("couldn't find onnx file. Use --run-onnx to provide one or see help");
   }
-  auto gml_file = gbl_args["run"].as<std::string>();
   auto onnx_file = gbl_args["run_onnx"].as<std::string>();
   Op::Parser parser(onnx_file);
-  Runner runner;
-  runner.run(parser, gml_file);
-  std::cout << "filename " << gml_file << '\n';
-  std::cout << "filename " << onnx_file << '\n';
+  Runner runner(parser);
 }

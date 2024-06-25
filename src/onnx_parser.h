@@ -58,6 +58,23 @@ enum DEVICES {
   DEVICE_FPGA
 };
 
+inline const char *get_device_name(int device) {
+  switch (device) {
+    case DEVICE_UNKNOWN:
+      return "DEVICE_UNKNOWN";
+      break;
+    case DEVICE_CPU:
+      return "DEVICE_CPU";
+      break;
+    case DEVICE_FPGA:
+      return "DEVICE_FPGA";
+      break;
+    default:
+      log_fatal("unknown device enum %d, can't get name", device);
+      break;
+  }
+}
+
 /* aot declaration, definition in instgen.h */
 class AddressGen;
 class InitializerTable;

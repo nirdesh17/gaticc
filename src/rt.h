@@ -5,6 +5,7 @@
 #include "tensor.h"
 #include <cstddef>
 #include <string>
+#include "instgen.h"
 
 #define RAH_SO_STRING "librah.so"
 #define RAH_APP_ID 1
@@ -48,9 +49,9 @@ class Runner {
   std::string get_run_arg();
 
   template <typename inputT, typename CpuOutputT, typename DeviceOutputT, typename OutputT>
-  void run(PyEngine &engine, const Op::Parser &parser);
+  void run(Rah &rah, PyEngine &engine, const Op::Parser &parser);
 
-template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
+template <typename T> void send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
 
 public:
   Runner(const Op::Parser &parser);
@@ -78,26 +79,33 @@ public:
  *    on CPU normally, at the end, the final output is to be sent
  *    to the pre-processing pipeline.
  */
-template <typename inputT, typename CpuOutputT, typename DeviceOutputT, typename OutputT>
+template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
+          typename OutputT>
 void Runner::run(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
   Tensor<inputT> *input_image = read_model_input<inputT>(engine);
   log_info("preprocess finish");
   auto order = parser.get_execution_order();
-  AddressGen generator(order);
+  auto graph = parser.get_graph();
+
+  AddressGen generator(graph);
+
+  tensor_pool.set<Tensor<inputT> *>(0, input_image);
+
   bool sent = false;
   bool cont = false;
   for (Op::LayerBase *l : order) {
-    log_info("Running layer %s", l->name.c_str());
     l->dump_output = false;
     assert(l->device != DEVICE_UNKNOWN);
 
+    log_info("Running layer %s on %s", l->name.c_str(),
+               get_device_name(l->device));
     if (l->device == DEVICE_CPU && sent == false) {
       l->run(tensor_pool);
     } else if (l->device == DEVICE_FPGA && sent == false) {
       using TT = Tensor<CpuOutputT>;
       TT *out = tensor_pool.get<TT *>(l->inputs.at(0));
       uint32_t addr = generator.io_addr_from_register(l->inputs.at(0));
-      send_input(rah, out, addr);
+      send_input<CpuOutputT>(rah, out, addr);
       sent = true;
       std::exit(1);
     } else if (l->device == DEVICE_FPGA && sent == true) {
@@ -117,7 +125,7 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
   uint32_t aligned_size = aligned_conv_input(dims) + (DWP_HEADER_BYTES * 2) + 1;
   char *aligned_data = (char *)malloc(aligned_size * sizeof(char));
   BinBlob blob(aligned_data, aligned_size);
-  blob.append_sa_input<outputT>(aligned_size, addr, tensor);
+  blob.append_sa_input<T>(aligned_size, addr, tensor);
   blob.append_dwp_header(0, 0);
   log_info("start writing images to FPGA");
   // rah.write(aligned_data, aligned_size);
