@@ -1308,6 +1308,10 @@ BinBlob::BinBlob(char *data, size_t size) {
   m_ptr = 0;
 }
 
+BinBlob::~BinBlob() {
+  delete[] m_data;
+}
+
 void BinBlob::print() const {
   for (int i = 0; i < m_ptr; ++i) {
     printf("%.02x ", m_data[i]);
@@ -1361,11 +1365,6 @@ size_t BinBlob::size() const {
 }
 
 void BinBlob::append(int a) {
-  //if (sizeof(a) >= (m_size - m_ptr)) {
-  //  std::cout << "m_size " << m_size << '\n';
-  //  std::cout << "m_ptr " << m_ptr << '\n';
-  //  log_fatal("current size %d", m_ptr);
-  //} 
   assert(sizeof(a) < (m_size - m_ptr));
   generic_append(a);
 }
@@ -1610,7 +1609,6 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   blob.append(instblob, m_org);
   InitializerTable tbl = instgen.get_tbl();
   blob.append(tbl);
-  blob.append_dwp_header(0, 0);
-  blob.write("model.gml");
+  /* enfore NRVO at call site */
   return blob;
 }

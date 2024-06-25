@@ -803,6 +803,7 @@ class BinBlob {
 
 public:
   BinBlob(char *data, size_t size);
+  ~BinBlob();
   void append(int a);
   void append(uint8_t a);
   void append(int8_t a);
@@ -858,8 +859,6 @@ public:
                   T val = tensor->at(index);
                   append(val);
                 }
-                //std::cout << n << ' ' << (i * efee) + k << ' ' << j << ' '
-                //          << (m * acc_width) + l << ' ' << '\n';
               }
             }
           }
