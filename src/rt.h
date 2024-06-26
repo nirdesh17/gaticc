@@ -25,7 +25,7 @@ public:
   Fstream(const std::string &filename);
   ~Fstream();
   const char *get_data() const;
-  const size_t get_size() const;
+  size_t get_size() const;
 };
 
 class Rah {
@@ -37,27 +37,36 @@ public:
   int write(const char *data, size_t size);
 };
 
+/* Like dispatch table, but reads binarized instructions and creates a table
+ * of hashed values. Used by Runner that has access to the graph, to match hashed
+ * values with names from which the hash was generated.
+ */
+class HashedDispatchTable {
+  std::vector<int> tbl;
+  public:
+  HashedDispatchTable(const Fstream &fp);
+  bool should_dispatch(const Op::LayerBase *l) const;
+};
+
 class Runner {
   TensorPool tensor_pool;
   void scan();
   void device_init();
-  void load_model(Rah &rah, const std::string &gml_file);
-  void infer_loop(Rah &rah, PyEngine &engine, const Op::Parser &parser);
+  void load_model(Rah &rah, const Fstream &fp);
+  void infer_loop(Rah &rah, const Fstream &fp, PyEngine &engine, const Op::Parser &parser);
   void check_args();
   void tensor_pool_init(const Op::Parser &parser);
   PyEngine create_pyengine();
   std::string get_run_arg();
-  DispatchTable get_dispatch_table();
 
   template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
             typename OutputT>
-  void run(Rah &rah, PyEngine &engine, const Op::Parser &parser);
+  void run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op::Parser &parser);
 
   template <typename T>
   void send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
   template <typename T>
   void receive_output(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
-
   void fake_exec(Op::LayerBase *l);
 
 public:
@@ -88,14 +97,13 @@ public:
  */
 template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
           typename OutputT>
-void Runner::run(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
+void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op::Parser &parser) {
   Tensor<inputT> *input_image = read_model_input<inputT>(engine);
   log_info("preprocess finish");
-  //auto order = parser.get_execution_order();
+
   auto graph = parser.get_graph();
-  auto order = parser.get_execution_order();
+  auto order = Pass::remove_dqxq(graph);
   AddressGen generator(graph);
-  DispatchTable dispatch_table = get_dispatch_table();
 
   tensor_pool.set<Tensor<inputT> *>(0, input_image);
 
@@ -103,9 +111,12 @@ void Runner::run(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
   for (Op::LayerBase *l : order) {
     assert(l->device != DEVICE_UNKNOWN);
 
-    l->dispatch = dispatch_table.should_dispatch(l);
+    l->dispatch = hdt.should_dispatch(l);
+    std::cout << "dispatch for " << l->name << ' ' << l->dispatch << '\n';
+
     log_info("Running layer %s on %s", l->name.c_str(),
                get_device_name(l->device));
+#if 0
     if (l->device == DEVICE_CPU && sent == false) {
       l->run(tensor_pool);
     } else if (l->device == DEVICE_FPGA && sent == false) {
@@ -121,6 +132,7 @@ void Runner::run(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
       // receive output - rah read stuff
       sent = false;
     }
+#endif
   }
 }
 
@@ -139,3 +151,4 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
 template <typename T> void Runner::receive_output(Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
 
 }
+

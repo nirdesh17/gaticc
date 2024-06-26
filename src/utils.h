@@ -596,8 +596,8 @@ std::vector<int> get_sa_arch();
 int get_va_size();
 
 /* extract bytes from n to m and return them */
-template <typename T>
-T extract_byte(const char *data, size_t size, int n, int m) {
+template <typename T, typename FromT>
+T extract_byte(const FromT *data, size_t size, int n, int m) {
   assert(n>=0);
   assert(m>0);
   assert(n <= m);
@@ -615,3 +615,17 @@ T extract_byte(const char *data, size_t size, int n, int m) {
 inline int string_hash(const std::string& s) {
   return std::accumulate(s.begin(), s.end(), 0);
 }
+
+template <size_t sz, typename T>
+std::bitset<sz> extract_bitset(const T *data, size_t size, int n, int m) {
+  assert(m - n == (sz/8));
+  assert(m - n < size);
+  std::bitset<sz> ret {0};
+  for (int i = n, j = ((sz/8)-1); i < m; ++i, --j) {
+    std::bitset<sz> tmp {data[i]};
+    tmp <<= (j*8);
+    ret |= tmp;
+  }
+  return ret;
+}
+

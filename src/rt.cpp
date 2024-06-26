@@ -35,7 +35,7 @@ Fstream::~Fstream() {
 const char *Fstream::get_data() const {
   return m_buf;
 }
-const size_t Fstream::get_size() const {
+size_t Fstream::get_size() const {
   return m_size;
 }
 
@@ -107,8 +107,9 @@ Runner::Runner(const Op::Parser &parser) {
   Rah rah;
   PyEngine engine = create_pyengine();
   std::string gml_file = get_run_arg();
-  load_model(rah, gml_file);
-  infer_loop(rah, engine, parser);
+  Fstream fp(gml_file);
+  load_model(rah, fp);
+  infer_loop(rah, fp, engine, parser);
 }
 
 /* make sure correct bitstream is loaded & rah.service
@@ -119,9 +120,8 @@ void Runner::scan() {
 }
 
 /* Loads aligned and padded weights to the FPGA's DRAM */
-void Runner::load_model(Rah& rah, const std::string& gml_file) {
+void Runner::load_model(Rah& rah, const Fstream &fp) {
   scan();
-  Fstream fp(gml_file);
   const char *data = fp.get_data();
   size_t size = fp.get_size();
   log_info("writing model weights to FPGA dram");
@@ -133,13 +133,14 @@ void Runner::load_model(Rah& rah, const std::string& gml_file) {
 }
 
 
-void Runner::infer_loop(Rah &rah, PyEngine &engine, const Op::Parser &parser) {
+void Runner::infer_loop(Rah &rah, const Fstream &fp, PyEngine &engine, const Op::Parser &parser) {
   using inputT = float;
   using outputT = int8_t;
   log_info("reading input");
   log_info("running preprocess on inputs");
+  HashedDispatchTable hdt(fp);
   /* TODO: deduce the types dynamically */
-  run<inputT, outputT, int8_t, float>(rah, engine, parser);
+  run<inputT, outputT, int8_t, float>(rah, hdt, engine, parser);
 }
 
 void Runner::fake_exec(Op::LayerBase *l) {
@@ -148,6 +149,43 @@ void Runner::fake_exec(Op::LayerBase *l) {
   }
 }
 
-DispatchTable Runner::get_dispatch_table() {
-  return DispatchTable();
+HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
+  const unsigned char *data = (const unsigned char *)fp.get_data();
+  size_t size = fp.get_size();
+  assert(size > DWP_HEADER_BYTES);
+  uint32_t dwp_header = extract_byte<uint32_t>(data, size, 0, 4);
+  uint32_t ds = extract_byte<uint32_t>(data, size, 4, 8); /* in bytes */
+  uint32_t addr = extract_byte<uint32_t>(data, size, 8, 12);
+  assert(dwp_header == DWP_SOP);
+  int total_instructions = (ds / (INST_SIZE_BITS / 8));
+  /* i starts at 1 to skip the zeroth instruction */
+  int inst_bytes = (INST_SIZE_BITS / 8);
+  assert(size >= (DWP_HEADER_BYTES + (total_instructions * inst_bytes)));
+  int ptr = DWP_HEADER_BYTES + inst_bytes;
+  for (int i = 1; i < total_instructions; ++i) {
+    std::bitset<INST_SIZE_BITS> inst =
+        extract_bitset<INST_SIZE_BITS>(data, size, ptr,
+                                                      ptr + inst_bytes);
+    int opcode = extract_opcode(inst);
+    if (opcode == OP_OutputBlock) {
+      int dispatch_en = bitset_range_get<OutputBlock_DispatchEn_COUNT>(
+          inst, OutputBlock_DispatchEn_LOW, OutputBlock_DispatchEn_HIGH);
+      if (dispatch_en) {
+        int dispatch_id = bitset_range_get<OutputBlock_DispatchID_COUNT>(
+            inst, OutputBlock_DispatchID_LOW, OutputBlock_DispatchID_HIGH);
+        std::cout << " dispatch id " << dispatch_id << '\n';
+        tbl.push_back(dispatch_id);
+      }
+    }
+    ptr = ptr + inst_bytes;
+  }
+}
+
+bool HashedDispatchTable::should_dispatch(const Op::LayerBase *l) const {
+  int hashed = string_hash(l->name); 
+  auto itr = std::find(tbl.begin(), tbl.end(), hashed); 
+  if (itr != tbl.end()) {
+    return true;
+  }
+  return false;
 }

@@ -30,6 +30,23 @@ DispatchTable::DispatchTable() {
   }
 }
 
+void check_dispatch_table_validity(const std::vector<std::string> &tbl,
+                                   const Op::Graph &graph) {
+  std::vector<std::string> graph_nodes;
+  auto vitr = boost::vertices(graph);
+  for (auto itr = vitr.first; itr != vitr.second; ++itr) {
+    graph_nodes.push_back(graph[*itr]->name);
+  }
+  for (const auto& i : tbl) {
+    auto itr = std::find(graph_nodes.begin(), graph_nodes.end(), i);
+    if (itr == graph_nodes.end()) {
+      log_fatal("Could not find layer %s in modified execution graph: either "
+          "its not possible to dump this layer's contents or this layer "
+          "does not exist in the graph (check netron graph for correct names)", i.c_str());
+    }
+  }
+}
+
 DispatchTable::DispatchTable(Op::Graph graph) {
   /* TODO: DRY in the constructor above */
   dump_all = false;
@@ -41,7 +58,8 @@ DispatchTable::DispatchTable(Op::Graph graph) {
     } else if (strcmp(arg.c_str(), "none") == 0) {
       dump_none = true;
     } else {
-      tbl = parse_csv_string<std::string>(arg);
+       tbl = parse_csv_string<std::string>(arg);
+       check_dispatch_table_validity(tbl, graph);
     }
   }
   auto vitr = boost::vertices(graph);

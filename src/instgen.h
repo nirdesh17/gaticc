@@ -911,3 +911,5 @@ InstBlob insert_start_inst(const InstBlob &insts);
 Op::Graph create_megablock_graph(Op::Graph graph);
 
 }; // namespace Pass
+
+int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst);
