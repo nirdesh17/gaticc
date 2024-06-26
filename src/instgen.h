@@ -543,7 +543,7 @@ std::vector<int> aligned_conv_input_dims(const T &dims) {
   i[TENSOR_4D_WIDTH] = ceil_mod(i[TENSOR_4D_WIDTH], acc_width);
   std::vector<int> ret(dims.size());
   std::copy(i.begin(), i.end(), ret.begin());
-  return i;
+  return ret;
 }
 
 template <typename T>
@@ -554,11 +554,22 @@ uint32_t aligned_conv_input(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_conv_output(const T &dims) {
+std::vector<int> aligned_conv_output_dims(const T &dims) {
   assert(dims.size() == 4);
   auto sa_arch = get_sa_arch();
+  assert(ACC_SIZE >= 8);
+  int acc_width = ACC_SIZE/8;
   auto i = dims;
-  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]); 
+  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]);
+  i[TENSOR_4D_WIDTH] = ceil_mod(i[TENSOR_4D_WIDTH], acc_width);
+  std::vector<int> ret(dims.size());
+  std::copy(i.begin(), i.end(), ret.begin());
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_conv_output(const T &dims) {
+  auto i = aligned_conv_output_dims(dims);
   int ret = prod(i.begin(), i.end(), 1); 
   return ret;
 }
@@ -606,11 +617,17 @@ uint32_t aligned_fc_bias(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_fc_io(const T &dims) {
+std::vector<int> aligned_fc_io_dims(const T &dims) {
   assert(dims.size() == 2);
   assert(dims[0] == 1);
   uint32_t ret = ceil_mod(dims[1], WORD_SIZE);
-  return ret;
+  return std::vector<int>{1, ret};
+}
+
+template <typename T>
+uint32_t aligned_fc_io(const T &dims) {
+  auto ret = aligned_fc_io_dims(dims);
+  return ret[1];
 }
 
 
@@ -686,6 +703,7 @@ public:
   void pretty_print() const;
   void write(const std::string &filename) const;
 
+  char *get_data();
   template <typename T> void append(const std::vector<T> &vec);
   /* every mega block ought to have a _input_append function */
   template <typename T>

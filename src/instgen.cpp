@@ -1118,28 +1118,28 @@ uint32_t Op::Layer::QGemm::get_weight_size() {
   return w + b;
 }
 
-uint32_t Op::LayerBase::aligned_input() {
-  return prod(input_dims.begin(), input_dims.end(), 1);
+std::vector<int> Op::LayerBase::aligned_input() {
+  return input_dims;
 }
 
-uint32_t Op::LayerBase::aligned_output() {
-  return prod(output_dims.begin(), output_dims.end(), 1);
+std::vector<int>  Op::LayerBase::aligned_output() {
+  return output_dims;
 }
 
-uint32_t Op::Layer::QLinearConv::aligned_input() {
-  return aligned_conv_input(input_dims) * Op::tpdt_sizeof(input_type);
+std::vector<int> Op::Layer::QLinearConv::aligned_input() {
+  return aligned_conv_input_dims(input_dims);
 }
 
-uint32_t Op::Layer::QLinearConv::aligned_output() {
-  return aligned_conv_output(output_dims) * Op::tpdt_sizeof(output_type);
+std::vector<int>  Op::Layer::QLinearConv::aligned_output() {
+  return aligned_conv_output_dims(output_dims);
 }
 
-uint32_t Op::Layer::QGemm::aligned_input() {
-  return aligned_fc_io(input_dims) * Op::tpdt_sizeof(input_type);
+std::vector<int> Op::Layer::QGemm::aligned_input() {
+  return aligned_fc_io_dims(input_dims);
 }
 
-uint32_t Op::Layer::QGemm::aligned_output() {
-  return aligned_fc_io(output_dims) * Op::tpdt_sizeof(output_type);
+std::vector<int> Op::Layer::QGemm::aligned_output() {
+  return aligned_fc_io_dims(output_dims);
 }
 
 
@@ -1203,11 +1203,13 @@ int AddressGen::get_io_region_register_size(
   /* get largest dim in network */
   uint32_t largest_dim = 0;
   for (Op::LayerBase *l : order) {
-    uint32_t tmp_inp = l->aligned_input();
+    auto inp_dims = l->aligned_input();
+    uint32_t tmp_inp = prod(inp_dims.begin(), inp_dims.end(), 1) * Op::tpdt_sizeof(l->input_type);
     if (tmp_inp > largest_dim) {
       largest_dim = tmp_inp;
     }
-    uint32_t tmp_outp = l->aligned_output();
+    auto outp_dims = l->aligned_output();
+    uint32_t tmp_outp = prod(outp_dims.begin(), outp_dims.end(), 1) * Op::tpdt_sizeof(l->output_type);
     if (tmp_outp > largest_dim) {
       largest_dim = tmp_outp;
     }
@@ -1595,6 +1597,10 @@ void BinBlob::fc_weight_align(const onnx::TensorProto *tensor, bool transpose) {
               tensor->name().c_str());
     break;
   }
+}
+
+char *BinBlob::get_data() {
+  return m_data;
 }
 
 void BinBlob::append_zeroth_inst(uint32_t start_addr, uint32_t end_addr) {

@@ -35,6 +35,7 @@ public:
   Rah();
   ~Rah();
   int write(const char *data, size_t size);
+  int read(char *data, size_t size);
 };
 
 /* Like dispatch table, but reads binarized instructions and creates a table
@@ -65,8 +66,7 @@ class Runner {
 
   template <typename T>
   void send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
-  template <typename T>
-  void receive_output(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
+  void receive_output(Rah &rah, Op::LayerBase *l);
   void fake_exec(Op::LayerBase *l);
 
 public:
@@ -112,11 +112,8 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
     assert(l->device != DEVICE_UNKNOWN);
 
     l->dispatch = hdt.should_dispatch(l);
-    std::cout << "dispatch for " << l->name << ' ' << l->dispatch << '\n';
-
     log_info("Running layer %s on %s", l->name.c_str(),
                get_device_name(l->device));
-#if 0
     if (l->device == DEVICE_CPU && sent == false) {
       l->run(tensor_pool);
     } else if (l->device == DEVICE_FPGA && sent == false) {
@@ -127,12 +124,15 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
       sent = true;
       exit(1);
     } else if (l->device == DEVICE_FPGA && sent == true) {
-      fake_exec(l);
+      if (l->dispatch == true) {
+        receive_output(rah, l);
+      } else {
+        fake_exec(l);
+      }
     } else if (l->device == DEVICE_CPU && sent == true) {
       // receive output - rah read stuff
       sent = false;
     }
-#endif
   }
 }
 
@@ -146,9 +146,5 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
   log_info("start writing images to FPGA");
   // rah.write(aligned_data, aligned_size);
   log_info("finish writing images to FPGA");
-}
-
-template <typename T> void Runner::receive_output(Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
-
 }
 

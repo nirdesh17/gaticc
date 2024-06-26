@@ -173,8 +173,8 @@ struct LayerBase {
    * when executing on the fpga. Layers that do not 
    * modify shape, will, for now, emit un-aligned dims
    */
-  virtual uint32_t aligned_input();
-  virtual uint32_t aligned_output();
+  virtual std::vector<int> aligned_input();
+  virtual std::vector<int> aligned_output();
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -478,8 +478,8 @@ struct QGemm : public LayerBase {
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
-  uint32_t aligned_input() override;
-  uint32_t aligned_output() override;
+  std::vector<int> aligned_input() override;
+  std::vector<int> aligned_output() override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -510,8 +510,8 @@ struct QLinearConv : public LayerBase {
   int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
-  uint32_t aligned_input() override;
-  uint32_t aligned_output() override;
+  std::vector<int> aligned_input() override;
+  std::vector<int> aligned_output() override;
 };
 
 } // namespace Layer

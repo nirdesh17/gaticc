@@ -61,6 +61,20 @@ int Rah::write(const char *data, size_t size) {
   return (*write_fn)(RAH_APP_ID, data, size);
 }
 
+int Rah::read(char *data, size_t size) {
+  typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
+
+  read_fn_t read_fn;
+  read_fn = (read_fn_t) dlsym(m_handle, "rah_read");
+  char *error = dlerror();
+  if (error != NULL) {
+    log_fatal("%s", error);
+  }
+
+  return (*read_fn)(RAH_APP_ID, data, size);
+
+}
+
 void Runner::check_args() {
   if (!gbl_args.has_option("input_path")) {
     log_fatal("No input file provided");
@@ -149,6 +163,35 @@ void Runner::fake_exec(Op::LayerBase *l) {
   }
 }
 
+void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
+  int expected_hash = string_hash(l->name);
+  auto expected_dims = l->aligned_output();
+  uint32_t expected_size = prod(expected_dims.begin(), expected_dims.end(), 1);
+  BinBlob blob(expected_size + DWP_HEADER_BYTES);
+
+  rah.read(blob.get_data(), expected_size + DWP_HEADER_BYTES);
+
+  const unsigned char *data = (const unsigned char *) blob.get_data();
+  uint32_t sop = extract_byte<uint32_t>(data, expected_size, 0, 4);
+  uint32_t ds = extract_byte<uint32_t>(data, expected_size, 4, 8);
+  uint32_t hash = extract_byte<uint32_t>(data, expected_size, 8, 12);
+
+  if (sop != DWP_SOP) {
+    log_fatal("expected DWP_SOP, got %d from FPGA", sop);
+  }
+  if (ds != expected_size) {
+    log_fatal("expected data of size %d, got %d from FPGA", ds);
+  }
+  if (hash != expected_hash) {
+    log_fatal("expected reception hash %d, got %d from FPGA", ds);
+  }
+
+  /* FIXME: this */
+  std::vector<int> dim = {1, 1000};
+  //std::unique_ptr<Tensor<T>> tensor {new TensorCreate(data + DWP_HEADER_BYTES, dim)};
+}
+
+
 HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
   const unsigned char *data = (const unsigned char *)fp.get_data();
   size_t size = fp.get_size();
@@ -173,7 +216,6 @@ HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
       if (dispatch_en) {
         int dispatch_id = bitset_range_get<OutputBlock_DispatchID_COUNT>(
             inst, OutputBlock_DispatchID_LOW, OutputBlock_DispatchID_HIGH);
-        std::cout << " dispatch id " << dispatch_id << '\n';
         tbl.push_back(dispatch_id);
       }
     }
