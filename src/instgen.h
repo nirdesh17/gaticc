@@ -476,6 +476,7 @@ class AddressGen {
   int io_region_register_size;
   int weight_region_size;
   int max_io_reg;
+  std::vector<Op::LayerBase *> m_exec_order;
 
   uint32_t ram_size_max;
 
@@ -487,16 +488,17 @@ class AddressGen {
   int get_max_io_reg(const std::vector<Op::LayerBase *> &order);
 
 public:
-  AddressGen(const std::vector<Op::LayerBase *> &order);
+  AddressGen(Op::Graph graph);
   /* get a address in weights/bias region */
   uint32_t alloc(uint32_t size);
   /* get a address in io region */
   uint32_t io_addr_from_register(Op::VirtualAddress reg);
   /* get a address in accumulant region */
   uint32_t ps_addr_from_register(Op::VirtualAddress reg);
-  int io_reg_size();
-  int get_model_size_cpu();
-  int get_model_size_fpga();
+  int io_reg_size() const;
+  int get_model_size_cpu() const;
+  int get_model_size_fpga() const;
+  std::vector<Op::LayerBase *> get_exec_order() const;
 };
 
 
@@ -541,7 +543,7 @@ std::vector<int> aligned_conv_input_dims(const T &dims) {
   i[TENSOR_4D_WIDTH] = ceil_mod(i[TENSOR_4D_WIDTH], acc_width);
   std::vector<int> ret(dims.size());
   std::copy(i.begin(), i.end(), ret.begin());
-  return i;
+  return ret;
 }
 
 template <typename T>
@@ -552,11 +554,22 @@ uint32_t aligned_conv_input(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_conv_output(const T &dims) {
+std::vector<int> aligned_conv_output_dims(const T &dims) {
   assert(dims.size() == 4);
   auto sa_arch = get_sa_arch();
+  assert(ACC_SIZE >= 8);
+  int acc_width = ACC_SIZE/8;
   auto i = dims;
-  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]); 
+  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]);
+  i[TENSOR_4D_WIDTH] = ceil_mod(i[TENSOR_4D_WIDTH], acc_width);
+  std::vector<int> ret(dims.size());
+  std::copy(i.begin(), i.end(), ret.begin());
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_conv_output(const T &dims) {
+  auto i = aligned_conv_output_dims(dims);
   int ret = prod(i.begin(), i.end(), 1); 
   return ret;
 }
@@ -604,11 +617,17 @@ uint32_t aligned_fc_bias(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_fc_io(const T &dims) {
+std::vector<int> aligned_fc_io_dims(const T &dims) {
   assert(dims.size() == 2);
   assert(dims[0] == 1);
   uint32_t ret = ceil_mod(dims[1], WORD_SIZE);
-  return ret;
+  return std::vector<int>{1, ret};
+}
+
+template <typename T>
+uint32_t aligned_fc_io(const T &dims) {
+  auto ret = aligned_fc_io_dims(dims);
+  return ret[1];
 }
 
 
@@ -653,195 +672,22 @@ class BinBlob {
   /* byte wise index into data (current ptr) */
   size_t m_ptr;
 
-  template <typename T> void generic_append(T a) {
-    /* reverse iteration for big endian */
-    for (int i = sizeof(T) - 1; i >= 0; --i) {
-      char c = get_byte(a, i);
-      m_data[m_ptr++] = c;
-    }
-  }
+  template <typename T> void generic_append(T a);
   void sa_align(const onnx::TensorProto *tensor);
   void conv_bias_align(const onnx::TensorProto *tensor);
   void fc_bias_align(const onnx::TensorProto *tensor);
   void fc_weight_align(const onnx::TensorProto *tensor, bool transpose);
 
-  template <typename T> void sa_align_aux(const Tensor<T> *tensor) {
-    auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
-    assert(aligned_dims.size() == 4);
-    if (is_pointwise_conv(aligned_dims)) {
-      sa_align_aux_pointwise(tensor);
-    } else {
-      sa_align_aux_regular(tensor);
-    }
-  }
-
-  template <typename T> void sa_align_aux_regular(const Tensor<T> *tensor) {
-    auto dims = tensor->get_dims();
-    auto aligned_dims = aligned_conv_weight_dims(dims);
-    auto sa_arch = get_sa_arch();
-
-    T zero = 0;
-    int kheight = aligned_dims[TENSOR_4D_HEIGHT];
-    int kwidth = aligned_dims[TENSOR_4D_WIDTH];
-    int khkw = kheight * kwidth;
-    if (khkw > sa_arch[SA_ARCH_ROW]) {
-      log_fatal(
-          "not enough rows in sa for this convolution of kernel size %d,%d",
-          kheight, kwidth);
-    }
-
-    int kernel_itr = std::ceil((float)aligned_dims[TENSOR_4D_BATCH] /
-                               (float)sa_arch[SA_ARCH_COLS]);
-    int channel_itr = std::ceil((float)aligned_dims[TENSOR_4D_CHANNELS] /
-                                (float)sa_arch[SA_ARCH_N]);
-
-    std::vector<int> rindex(4, 0);
-    for (int ki = 0; ki < kernel_itr; ++ki) {
-      for (int ci = 0; ci < channel_itr; ++ci) {
-        if (sa_arch[SA_ARCH_ROW] > khkw) {
-          int total_cols_in_sa = (sa_arch[SA_ARCH_COLS] * sa_arch[SA_ARCH_N]);
-          int zero_slab_sz = (sa_arch[SA_ARCH_ROW] - khkw) * total_cols_in_sa;
-          for (int i = 0; i < zero_slab_sz; ++i) {
-            append(zero);
-          }
-        }
-        for (int kh = 0; kh < kheight; ++kh) {
-          for (int kw = 0; kw < kwidth; ++kw) {
-            for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
-              for (int c = 0; c < sa_arch[SA_ARCH_COLS]; ++c) {
-                rindex[0] = ki * sa_arch[SA_ARCH_COLS] + c;
-                rindex[1] = ci * sa_arch[SA_ARCH_N] + k;
-                rindex[2] = kheight - 1 - kh; /* reverse kernels */
-                rindex[3] = kwidth - 1 - kw;  /* reverse kernels */
-                if (is_out_of_bounds(rindex, dims)) {
-                  append(zero);
-                } else {
-                  append(tensor->at(rindex));
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  template <typename T> void sa_align_aux_pointwise(const Tensor<T> *tensor) {
-    log_fatal("shouldnt reach here, pointwise alignment un-implemented");
-  }
-
-  template <typename T> void conv_bias_align_aux(const Tensor<T> *tensor) {
-    auto dims = tensor->get_dims();
-    assert(dims.size() == 1);
-    size_t size = dims[TENSOR_4D_BATCH];
-    size_t aligned_size = aligned_conv_bias(dims);
-    for (size_t i = 0; i < size; ++i) {
-      append(tensor->at(i));
-    }
-    T zero = 0;
-    for (size_t i = 0; i < (aligned_size - size); ++i) {
-      append(zero);
-    }
-  }
-
-  template <typename T> void fc_bias_align_aux(const Tensor<T> *tensor) {
-    auto dims = tensor->get_dims();
-    assert(dims.size() == 1);
-    size_t size = dims[0];
-    size_t aligned_size = aligned_fc_bias(dims);
-    std::cout << "aligned fc bias " << aligned_size << '\n';
-    auto sa_arch = get_sa_arch();
-    int sa_cols = sa_arch[SA_ARCH_COLS];
-    int iterations = aligned_size / (sa_cols * sa_cols);
-    T zero = 0;
-    for (int i = 0; i < iterations; ++i) {
-      for (int j = 0; j < sa_cols; ++j) {
-        for (int k = 0; k < sa_cols; ++k) {
-          int index = j + (k * sa_arch[1]) + (i * sa_arch[1] * sa_arch[1]);
-          if (index >= size) {
-            append(zero);
-          } else {
-            append(tensor->at(index));
-          }
-        }
-      }
-    }
-  }
-  template <typename T>
-  void fc_weight_align_aux(const Tensor<T> *tensor, bool transpose) {
-    auto dims = tensor->get_dims();
-    assert(dims.size() == 2);
-    auto aligned_dims = aligned_fc_weight_dims(dims);
-    int va_size = get_va_size();
-    int hiterations = 0;
-    int viterations = 0;
-    if (transpose) {
-      hiterations = std::ceil(aligned_dims[0] / va_size);
-      viterations = aligned_dims[1];
-    } else {
-      hiterations = std::ceil(aligned_dims[1] / va_size);
-      viterations = aligned_dims[0];
-    }
-    std::vector<int> index(2);
-    print_vec("fc weight aligned dims ", aligned_dims);
-    T zero = 0;
-    for (int i = 0; i < hiterations; ++i) {
-      for (int j = 0; j < viterations; ++j) {
-        for (int k = 0; k < va_size; ++k) {
-          index[0] = k + (i * va_size);
-          index[1] = j;
-          //std::cout << "index[0] " << index[0] << "index[1] " << index[1] << '\n';
-          if (is_out_of_bounds(index, dims)) {
-            append(zero);
-          } else {
-            append(tensor->at(index));
-          }
-        }
-      }
-    }
-  }
-
-  template <typename T>
-  void sa_input_align(const Tensor<T> *tensor) {
-    //std::vector<int> input_tensor{1, 8, 224, 224};
-    //std::vector<int> sa_arch = {9, 4, 4};
-    assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
-    auto aligned_dims = aligned_conv_input_dims(tensor->get_dims());
-    auto sa_arch = get_sa_arch();
-    /* efee - elements for each engine (depends on sa_arch) */
-    int efee = sa_arch[SA_ARCH_N];
-    int acc_width = ACC_SIZE/8; /* In bytes */
-    int outer_channel_iterations = aligned_dims[TENSOR_4D_CHANNELS] / efee;
-    int width_iterations = aligned_dims[TENSOR_4D_WIDTH] / acc_width;
-    std::vector<int> index(4);
-    T zero = 0;
-    for (int n = 0; n < aligned_dims[TENSOR_4D_BATCH]; ++n) {
-      for (int i = 0; i < outer_channel_iterations; ++i) {
-        for (int j = 0; j < aligned_dims[TENSOR_4D_HEIGHT]; ++j) {
-          for (int m = 0; m < width_iterations; ++m) {
-            for (int k = 0; k < efee; ++k) {
-              for (int l = 0; l < acc_width; ++l) {
-                index[0] = n;
-                index[1] = (i * efee) + k;
-                index[2] = j;
-                index[3] = (m * acc_width) + l;
-                if (is_out_of_bounds(index, tensor->get_dims())) {
-                  append(zero);
-                } else {
-                  T val = tensor->at(index);
-                  append(val);
-                }
-                //std::cout << n << ' ' << (i * efee) + k << ' ' << j << ' '
-                //          << (m * acc_width) + l << ' ' << '\n';
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  template <typename T> void sa_align_aux(const Tensor<T> *tensor);
+  template <typename T> void sa_align_aux_regular(const Tensor<T> *tensor);
+  template <typename T> void sa_align_aux_pointwise(const Tensor<T> *tensor);
+  template <typename T> void conv_bias_align_aux(const Tensor<T> *tensor);
+  template <typename T> void fc_bias_align_aux(const Tensor<T> *tensor);
+  template <typename T> void fc_weight_align_aux(const Tensor<T> *tensor, bool transpose);
 
 public:
-  BinBlob(char *data, size_t size);
+  BinBlob(size_t size);
+  ~BinBlob();
   void append(int a);
   void append(uint8_t a);
   void append(int8_t a);
@@ -851,23 +697,208 @@ public:
   void append(const InstBlob &instblob, uint32_t addr);
   void append(const InitializerTable &tbl);
   void append_zeroth_inst(uint32_t start_addr, uint32_t end_addr);
-  /* every mega block ought to have a _input_append function */
-  void append_sa_input(uint32_t data_size, uint32_t addr, const onnx::TensorProto *tensor);
   /* do not allow type that are not explicityly implemented */
   size_t size() const;
   void print() const;
   void pretty_print() const;
   void write(const std::string &filename) const;
 
-  template <typename T> void append(const std::vector<T> &vec) {
-    assert(vec.size() > 0);
-    assert(vec.size() * sizeof(vec[0]) <= (m_size - m_ptr));
-    for (T i : vec) {
-      generic_append(i);
-    }
-  }
+  char *get_data();
+  template <typename T> void append(const std::vector<T> &vec);
+  /* every mega block ought to have a _input_append function */
+  template <typename T>
+  void append_sa_input(uint32_t data_size, uint32_t addr, const Tensor<T> *tensor);
   template <typename T> void append(T i) = delete;
 };
+
+template <typename T> void BinBlob::generic_append(T a) {
+  /* reverse iteration for big endian */
+  for (int i = sizeof(T) - 1; i >= 0; --i) {
+    char c = get_byte(a, i);
+    m_data[m_ptr++] = c;
+  }
+}
+
+template <typename T> void BinBlob::append(const std::vector<T> &vec) {
+  assert(vec.size() > 0);
+  assert(vec.size() * sizeof(vec[0]) <= (m_size - m_ptr));
+  for (T i : vec) {
+    generic_append(i);
+  }
+}
+
+template <typename T> void BinBlob::sa_align_aux(const Tensor<T> *tensor) {
+  auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
+  assert(aligned_dims.size() == 4);
+  if (is_pointwise_conv(aligned_dims)) {
+    sa_align_aux_pointwise(tensor);
+  } else {
+    sa_align_aux_regular(tensor);
+  }
+}
+
+template <typename T> void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  auto aligned_dims = aligned_conv_weight_dims(dims);
+  auto sa_arch = get_sa_arch();
+
+  T zero = 0;
+  int kheight = aligned_dims[TENSOR_4D_HEIGHT];
+  int kwidth = aligned_dims[TENSOR_4D_WIDTH];
+  int khkw = kheight * kwidth;
+  if (khkw > sa_arch[SA_ARCH_ROW]) {
+    log_fatal(
+        "not enough rows in sa for this convolution of kernel size %d,%d",
+        kheight, kwidth);
+  }
+
+  int kernel_itr = std::ceil((float)aligned_dims[TENSOR_4D_BATCH] /
+                             (float)sa_arch[SA_ARCH_COLS]);
+  int channel_itr = std::ceil((float)aligned_dims[TENSOR_4D_CHANNELS] /
+                              (float)sa_arch[SA_ARCH_N]);
+
+  std::vector<int> rindex(4, 0);
+  for (int ki = 0; ki < kernel_itr; ++ki) {
+    for (int ci = 0; ci < channel_itr; ++ci) {
+      if (sa_arch[SA_ARCH_ROW] > khkw) {
+        int total_cols_in_sa = (sa_arch[SA_ARCH_COLS] * sa_arch[SA_ARCH_N]);
+        int zero_slab_sz = (sa_arch[SA_ARCH_ROW] - khkw) * total_cols_in_sa;
+        for (int i = 0; i < zero_slab_sz; ++i) {
+          append(zero);
+        }
+      }
+      for (int kh = 0; kh < kheight; ++kh) {
+        for (int kw = 0; kw < kwidth; ++kw) {
+          for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
+            for (int c = 0; c < sa_arch[SA_ARCH_COLS]; ++c) {
+              rindex[0] = ki * sa_arch[SA_ARCH_COLS] + c;
+              rindex[1] = ci * sa_arch[SA_ARCH_N] + k;
+              rindex[2] = kheight - 1 - kh; /* reverse kernels */
+              rindex[3] = kwidth - 1 - kw;  /* reverse kernels */
+              if (is_out_of_bounds(rindex, dims)) {
+                append(zero);
+              } else {
+                append(tensor->at(rindex));
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+template <typename T> void BinBlob::sa_align_aux_pointwise(const Tensor<T> *tensor) {
+  log_fatal("shouldnt reach here, pointwise alignment un-implemented");
+}
+
+template <typename T> void BinBlob::conv_bias_align_aux(const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  assert(dims.size() == 1);
+  size_t size = dims[TENSOR_4D_BATCH];
+  size_t aligned_size = aligned_conv_bias(dims);
+  for (size_t i = 0; i < size; ++i) {
+    append(tensor->at(i));
+  }
+  T zero = 0;
+  for (size_t i = 0; i < (aligned_size - size); ++i) {
+    append(zero);
+  }
+}
+
+template <typename T> void BinBlob::fc_bias_align_aux(const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  assert(dims.size() == 1);
+  size_t size = dims[0];
+  size_t aligned_size = aligned_fc_bias(dims);
+  auto sa_arch = get_sa_arch();
+  int sa_cols = sa_arch[SA_ARCH_COLS];
+  int iterations = aligned_size / (sa_cols * sa_cols);
+  T zero = 0;
+  for (int i = 0; i < iterations; ++i) {
+    for (int j = 0; j < sa_cols; ++j) {
+      for (int k = 0; k < sa_cols; ++k) {
+        int index = j + (k * sa_arch[1]) + (i * sa_arch[1] * sa_arch[1]);
+        if (index >= size) {
+          append(zero);
+        } else {
+          append(tensor->at(index));
+        }
+      }
+    }
+  }
+}
+template <typename T>
+void BinBlob::fc_weight_align_aux(const Tensor<T> *tensor, bool transpose) {
+  auto dims = tensor->get_dims();
+  assert(dims.size() == 2);
+  auto aligned_dims = aligned_fc_weight_dims(dims);
+  int va_size = get_va_size();
+  int hiterations = 0;
+  int viterations = 0;
+  if (transpose) {
+    hiterations = std::ceil(aligned_dims[0] / va_size);
+    viterations = aligned_dims[1];
+  } else {
+    hiterations = std::ceil(aligned_dims[1] / va_size);
+    viterations = aligned_dims[0];
+  }
+  std::vector<int> index(2);
+  T zero = 0;
+  for (int i = 0; i < hiterations; ++i) {
+    for (int j = 0; j < viterations; ++j) {
+      for (int k = 0; k < va_size; ++k) {
+        index[0] = k + (i * va_size);
+        index[1] = j;
+        //std::cout << "index[0] " << index[0] << "index[1] " << index[1] << '\n';
+        if (is_out_of_bounds(index, dims)) {
+          append(zero);
+        } else {
+          append(tensor->at(index));
+        }
+      }
+    }
+  }
+}
+
+/* every mega block ought to have a _input_append function */
+template <typename T>
+void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr, const Tensor<T> *tensor) {
+  append_dwp_header(data_size, addr);
+  //std::vector<int> input_tensor{1, 8, 224, 224};
+  //std::vector<int> sa_arch = {9, 4, 4};
+  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
+  auto aligned_dims = aligned_conv_input_dims(tensor->get_dims());
+  auto sa_arch = get_sa_arch();
+  /* efee - elements for each engine (depends on sa_arch) */
+  int efee = sa_arch[SA_ARCH_N];
+  int acc_width = ACC_SIZE/8; /* In bytes */
+  int outer_channel_iterations = aligned_dims[TENSOR_4D_CHANNELS] / efee;
+  int width_iterations = aligned_dims[TENSOR_4D_WIDTH] / acc_width;
+  std::vector<int> index(4);
+  T zero = 0;
+  for (int n = 0; n < aligned_dims[TENSOR_4D_BATCH]; ++n) {
+    for (int i = 0; i < outer_channel_iterations; ++i) {
+      for (int j = 0; j < aligned_dims[TENSOR_4D_HEIGHT]; ++j) {
+        for (int m = 0; m < width_iterations; ++m) {
+          for (int k = 0; k < efee; ++k) {
+            for (int l = 0; l < acc_width; ++l) {
+              index[0] = n;
+              index[1] = (i * efee) + k;
+              index[2] = j;
+              index[3] = (m * acc_width) + l;
+              if (is_out_of_bounds(index, tensor->get_dims())) {
+                append(zero);
+              } else {
+                T val = tensor->at(index);
+                append(val);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
 
 /* Prepares and optionally serializes gml model into
  * gml files
@@ -882,3 +913,46 @@ public:
   BinBlob generate_gml(Op::Parser &parser);
 };
 
+namespace Pass {
+
+std::vector<Op::LayerBase *> remove_dqxq(Op::Graph graph);
+Op::Graph reassign_registers(Op::Graph graph);
+
+std::vector<Op::LayerBase *>
+extract_conv_true_odims(const std::vector<Op::LayerBase *> &order);
+
+std::vector<Op::LayerBase *>
+mark_cfg(const std::vector<Op::LayerBase *> &order);
+
+InstBlob insert_start_inst(const InstBlob &insts);
+
+Op::Graph create_megablock_graph(Op::Graph graph);
+
+}; // namespace Pass
+
+int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst);
+
+/* all input/output tensors (this excludes weights+instructions packet)
+ * have a DWP_HEADER as a start and a DWP_HEADER as end packet
+ */
+inline size_t io_tensor_packet_size(size_t tensor_size) {
+  return tensor_size + (DWP_HEADER_BYTES * 2);
+}
+
+template <typename T>
+void check_dwp_header(const T* data, size_t size, uint32_t expected_ds, uint32_t expected_addr) {
+  assert(size >= DWP_HEADER_BYTES);
+  uint32_t sop = extract_byte<uint32_t>(data, size, 0, 4);
+  uint32_t ds = extract_byte<uint32_t>(data, size, 4, 8);
+  uint32_t hash = extract_byte<uint32_t>(data, size, 8, 12);
+
+  if (sop != DWP_SOP) {
+    log_fatal("expected DWP_SOP, got %d from FPGA", sop);
+  }
+  if (ds != expected_ds) {
+    log_fatal("expected data of size %d, got %d from FPGA", ds);
+  }
+  if (hash != expected_addr) {
+    log_fatal("expected reception hash %d, got %d from FPGA", ds);
+  }
+}

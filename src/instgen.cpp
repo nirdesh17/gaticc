@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "onnx_parser.h"
 #include "sim.h"
+#include "executor.h"
 #include <cstring>
 #include <queue>
 #include <set>
@@ -155,7 +156,7 @@ void safe_remove_vertex(Op::Vertex v, Op::Graph &g) {
  * way, have the same types for input/output. for example, relu, maxpool,
  * flatten
  */
-std::vector<Op::LayerBase *> pass_remove_dqxq(Op::Graph graph) {
+std::vector<Op::LayerBase *> Pass::remove_dqxq(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
   std::tie(vi, vi_end) = boost::vertices(graph);
   bool in_zone = false;
@@ -186,11 +187,9 @@ std::vector<Op::LayerBase *> pass_remove_dqxq(Op::Graph graph) {
   return crt_exec_order(graph);
 }
 
-/* addresses are only used by megablocks (i.e. blocks that directly 
- * access dram). this pass calls the register allocator algorithm 
- * on a modified graph that only contains megablocks
- */
-Op::Graph pass_reassign_registers(Op::Graph graph) {
+
+/* creates a graph with only megablocks connected to each other */
+Op::Graph Pass::create_megablock_graph(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
   std::tie(vi, vi_end) = boost::vertices(graph);
   for (next = vi; vi != vi_end; vi = next) {
@@ -200,8 +199,17 @@ Op::Graph pass_reassign_registers(Op::Graph graph) {
       safe_remove_vertex(*vi, graph);
     }
   }
-  Op::RegisterAllocator allocatr(graph);
   return graph;
+}
+
+/* addresses are only used by megablocks (i.e. blocks that directly 
+ * access dram). this pass calls the register allocator algorithm 
+ * on a modified graph that only contains megablocks
+ */
+Op::Graph Pass::reassign_registers(Op::Graph graph) {
+  Op::Graph megablock_graph = create_megablock_graph(graph);
+  Op::RegisterAllocator allocatr(megablock_graph);
+  return megablock_graph;
 }
 
 /* Megablocks like convolution are followed by miniblocks
@@ -214,7 +222,7 @@ Op::Graph pass_reassign_registers(Op::Graph graph) {
  * to calculate and store the true output dims
  */
 std::vector<Op::LayerBase *>
-pass_extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
+Pass::extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
   Op::Layer::QLinearConv *cc = nullptr;
   for (Op::LayerBase *l : order) {
     if (is_op_type(l, "QLinearConv")) {
@@ -237,7 +245,7 @@ pass_extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
  * details of conv
  */
 std::vector<Op::LayerBase *>
-pass_mark_cfg(const std::vector<Op::LayerBase *> &order) {
+Pass::mark_cfg(const std::vector<Op::LayerBase *> &order) {
   bool flatten_pass = false;
   std::vector<int> former_layer_dims;
   for (Op::LayerBase *l : order) {
@@ -342,7 +350,7 @@ int count_total_megablocks(const InstBlob &insts) {
   return cnt;
 }
 
-InstBlob pass_insert_start_inst(const InstBlob &insts) {
+InstBlob Pass::insert_start_inst(const InstBlob &insts) {
   InstBlob ret;
   int total_layers = count_total_megablocks(insts);
   int layer_num = 0;
@@ -360,37 +368,38 @@ InstBlob pass_insert_start_inst(const InstBlob &insts) {
   return ret;
 }
 
+
 InstGen::InstGen(Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
   /* pass_reassign_registers is being called for its side-effect
    * which is the modification of LayerBase->{inputs,outputs} registers.
    * graph2 is a intentianally un-used object
-   * TODO: re-organize, clean, make it less clunky
    */
-  Op::Graph graph2 = pass_reassign_registers(graph);
-  auto exec_order = pass_remove_dqxq(graph);
-  exec_order = pass_extract_conv_true_odims(exec_order);
-  exec_order = pass_mark_cfg(exec_order);
-
-  AddressGen generator(exec_order);
+  Op::Graph graph2 = Pass::reassign_registers(graph);
+  AddressGen generator(graph);
+  auto exec_order = generator.get_exec_order();
   total_model_size_cpu = generator.get_model_size_cpu();
   total_model_size_fpga = generator.get_model_size_fpga();
   /* Includes the instructions blob */
   total_dwp_packets = 1;
+
+  Op::Graph megablock_graph = Pass::create_megablock_graph(graph);
+  DispatchTable dispatch_table(megablock_graph);
 
   InstBlob instructions;
   for (Op::LayerBase *l : exec_order) {
     /* push generated instructions and initializers to 
      * 'instructions' and 'tbl' respectively
      */
+    l->dispatch = dispatch_table.should_dispatch(l);
     total_dwp_packets += l->get_inst(instructions, generator, init_tbl);
   }
 
   CmpFunc<std::bitset<INST_SIZE_BITS>> cmp = cmp_opcodes;
   CmpApplyFunc<std::bitset<INST_SIZE_BITS>> cmp_apply = or_inst; 
   auto collapsed_insts = collapse_identical_adjacent(instructions, cmp, cmp_apply);
-  ret_inst = pass_insert_start_inst(collapsed_insts);
+  ret_inst = Pass::insert_start_inst(collapsed_insts);
 }
 
 InstBlob InstGen::get_blob() {
@@ -679,6 +688,17 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   std::bitset<OutputBlock_AccEn_COUNT> accen{should_accumulate};
   bitset_range_set(output_inst, accen, OutputBlock_AccEn_LOW,
                    OutputBlock_AccEn_HIGH);
+
+  if (cc->dispatch) {
+    std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en {1};
+    bitset_range_set(output_inst, dispatch_en, OutputBlock_DispatchEn_LOW,
+        OutputBlock_DispatchEn_HIGH);
+
+    std::bitset<OutputBlock_DispatchID_COUNT> dispatch_id {string_hash(cc->name)};
+    bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
+        OutputBlock_DispatchID_HIGH);
+  }
+
   return output_inst;
 }
 
@@ -930,6 +950,16 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
   std::bitset<OutputBlock_ImageDimOutput_COUNT> ido {img_dim_output};
   bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW, OutputBlock_ImageDimOutput_HIGH);
 
+  if (cc->dispatch) {
+    std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en {1};
+    bitset_range_set(output_inst, dispatch_en, OutputBlock_DispatchEn_LOW,
+        OutputBlock_DispatchEn_HIGH);
+
+    std::bitset<OutputBlock_DispatchID_COUNT> dispatch_id {string_hash(cc->name)};
+    bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
+        OutputBlock_DispatchID_HIGH);
+  }
+
   //std::cout << "kernel iterations " << kernel_iterations << '\n';
 
   return output_inst;
@@ -1088,33 +1118,39 @@ uint32_t Op::Layer::QGemm::get_weight_size() {
   return w + b;
 }
 
-uint32_t Op::LayerBase::aligned_input() {
-  return prod(input_dims.begin(), input_dims.end(), 1);
+std::vector<int> Op::LayerBase::aligned_input() {
+  return input_dims;
 }
 
-uint32_t Op::LayerBase::aligned_output() {
-  return prod(output_dims.begin(), output_dims.end(), 1);
+std::vector<int>  Op::LayerBase::aligned_output() {
+  return output_dims;
 }
 
-uint32_t Op::Layer::QLinearConv::aligned_input() {
-  return aligned_conv_input(input_dims) * Op::tpdt_sizeof(input_type);
+std::vector<int> Op::Layer::QLinearConv::aligned_input() {
+  return aligned_conv_input_dims(input_dims);
 }
 
-uint32_t Op::Layer::QLinearConv::aligned_output() {
-  return aligned_conv_output(output_dims) * Op::tpdt_sizeof(output_type);
+std::vector<int>  Op::Layer::QLinearConv::aligned_output() {
+  return aligned_conv_output_dims(output_dims);
 }
 
-uint32_t Op::Layer::QGemm::aligned_input() {
-  return aligned_fc_io(input_dims) * Op::tpdt_sizeof(input_type);
+std::vector<int> Op::Layer::QGemm::aligned_input() {
+  return aligned_fc_io_dims(input_dims);
 }
 
-uint32_t Op::Layer::QGemm::aligned_output() {
-  return aligned_fc_io(output_dims) * Op::tpdt_sizeof(output_type);
+std::vector<int> Op::Layer::QGemm::aligned_output() {
+  return aligned_fc_io_dims(output_dims);
 }
 
 
-AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
+AddressGen::AddressGen(Op::Graph graph)
     : current_address{0} {
+
+  auto order = Pass::remove_dqxq(graph);
+  order = Pass::extract_conv_true_odims(order);
+  order = Pass::mark_cfg(order);
+
+  m_exec_order = order;
 
   if (!gbl_args.has_option("ramsize")) {
     log_fatal("ramsize unknown, use option --ramsize to specify or see --help");
@@ -1123,7 +1159,7 @@ AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
   ram_size_max = ceil_mod(ram_size_max, WORD_SIZE);
 
   int total_instructions = get_total_instructions(order);
-  std::cout << "total instructions " << total_instructions << '\n';
+  //std::cout << "total instructions " << total_instructions << '\n';
   /* size in bytes occupied by all instructions + one extra byte at the
    * top
    */
@@ -1136,7 +1172,7 @@ AddressGen::AddressGen(const std::vector<Op::LayerBase *> &order)
   addr_incr(inst_region_size);
 
   //std::cout << "ramsize " << ram_size_max << '\n';
-  std::cout << "inst_region_size " << inst_region_size << '\n';
+  //std::cout << "inst_region_size " << inst_region_size << '\n';
   //std::cout << "io_region_register_size " << io_region_register_size << '\n';
   //std::cout << "weight_region_size " << weight_region_size << '\n';
   //std::cout << "current_address " << current_address << '\n';
@@ -1167,11 +1203,13 @@ int AddressGen::get_io_region_register_size(
   /* get largest dim in network */
   uint32_t largest_dim = 0;
   for (Op::LayerBase *l : order) {
-    uint32_t tmp_inp = l->aligned_input();
+    auto inp_dims = l->aligned_input();
+    uint32_t tmp_inp = prod(inp_dims.begin(), inp_dims.end(), 1) * Op::tpdt_sizeof(l->input_type);
     if (tmp_inp > largest_dim) {
       largest_dim = tmp_inp;
     }
-    uint32_t tmp_outp = l->aligned_output();
+    auto outp_dims = l->aligned_output();
+    uint32_t tmp_outp = prod(outp_dims.begin(), outp_dims.end(), 1) * Op::tpdt_sizeof(l->output_type);
     if (tmp_outp > largest_dim) {
       largest_dim = tmp_outp;
     }
@@ -1209,12 +1247,12 @@ uint32_t AddressGen::io_addr_from_register(Op::VirtualAddress reg) {
   return ret;
 }
 
-int AddressGen::io_reg_size() { return io_region_register_size; }
+int AddressGen::io_reg_size() const { return io_region_register_size; }
 
 /* size in bytes occipied by inst and weight statically 
  * while the model is being allocated on the cpu
  */
-int AddressGen::get_model_size_cpu() {
+int AddressGen::get_model_size_cpu() const {
   int size = 0;
   size += inst_region_size;
   size += weight_region_size;
@@ -1226,11 +1264,15 @@ int AddressGen::get_model_size_cpu() {
  * dynamic size required for intermidiate inputs
  * and outputs
  */
-int AddressGen::get_model_size_fpga() {
+int AddressGen::get_model_size_fpga() const {
   int size = get_model_size_cpu();
   size += (max_io_reg * io_region_register_size);
   size += io_region_register_size;
   return size;
+}
+
+std::vector<Op::LayerBase *> AddressGen::get_exec_order() const {
+  return m_exec_order;
 }
 
 int AddressGen::get_max_io_reg(const std::vector<Op::LayerBase *> &order) {
@@ -1302,10 +1344,14 @@ auto InitializerTable::end() const {
   return tbl.end();
 }
 
-BinBlob::BinBlob(char *data, size_t size) {
-  m_data = data;
+BinBlob::BinBlob(size_t size) {
+  m_data = new char[size];
   m_size = size;
   m_ptr = 0;
+}
+
+BinBlob::~BinBlob() {
+  delete[] m_data;
 }
 
 void BinBlob::print() const {
@@ -1361,11 +1407,6 @@ size_t BinBlob::size() const {
 }
 
 void BinBlob::append(int a) {
-  //if (sizeof(a) >= (m_size - m_ptr)) {
-  //  std::cout << "m_size " << m_size << '\n';
-  //  std::cout << "m_ptr " << m_ptr << '\n';
-  //  log_fatal("current size %d", m_ptr);
-  //} 
   assert(sizeof(a) < (m_size - m_ptr));
   generic_append(a);
 }
@@ -1395,18 +1436,16 @@ void BinBlob::append_dwp_header(uint32_t size, uint32_t addr) {
 
 void BinBlob::append(const InstBlob& instblob, uint32_t addr) {
   uint32_t payload_size = (instblob.size() + 1) * (INST_SIZE_BITS/8);
-  std::cout << "instblob size " << instblob.size() << '\n';
-  std::cout << "payload size " << payload_size << '\n';
   append_dwp_header(payload_size, addr);
 
   assert(payload_size > 0);
   assert(payload_size <= (m_size - m_ptr));
-  std::cout << "m_ptr before " << m_ptr << '\n';
-  append_zeroth_inst(GATI_INST_ORG, payload_size);
+  /* add the zeroth instruction itself */
+  uint32_t inst_start = GATI_INST_ORG + (INST_SIZE_BITS/8);
+  append_zeroth_inst(inst_start, payload_size);
   for (const auto& inst : instblob) {
     generic_append(inst);
   }
-  std::cout << "m_ptr after " << m_ptr << '\n';
 }
 
 void BinBlob::append(const InitializerTable &tbl) {
@@ -1421,12 +1460,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
-      std::cout << "tensor " << i.data->name() << '\n';
-      print_vec("dims ", i.data->dims());
-      std::cout << "size " << aligned_sz << '\n';
-      std::cout << "m_ptr before " << m_ptr << '\n';
       sa_align(i.data);
-      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     case ENGINE_CONV_BIAS: {
@@ -1434,12 +1468,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
-      std::cout << "tensor " << i.data->name() << '\n';
-      print_vec("dims ", i.data->dims());
-      std::cout << "size " << aligned_sz << '\n';
-      std::cout << "m_ptr before " << m_ptr << '\n';
       conv_bias_align(i.data);
-      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     case ENGINE_FC: {
@@ -1447,13 +1476,8 @@ void BinBlob::append(const InitializerTable &tbl) {
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
-      std::cout << "tensor " << i.data->name() << '\n';
-      print_vec("dims ", i.data->dims());
-      std::cout << "size " << aligned_sz << '\n';
       bool transpose = get_metadata<bool>(i.metadata, "transpose");
-      std::cout << "m_ptr before " << m_ptr << '\n';
       fc_weight_align(i.data, transpose);
-      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     case ENGINE_FC_BIAS: {
@@ -1461,12 +1485,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
       append_dwp_header(aligned_sz, i.addr);
-      std::cout << "tensor " << i.data->name() << '\n';
-      print_vec("dims ", i.data->dims());
-      std::cout << "size " << aligned_sz << '\n';
-      std::cout << "m_ptr before " << m_ptr << '\n';
       fc_bias_align(i.data);
-      std::cout << "m_ptr after " << m_ptr << '\n';
       break;
     }
     default:
@@ -1580,6 +1599,10 @@ void BinBlob::fc_weight_align(const onnx::TensorProto *tensor, bool transpose) {
   }
 }
 
+char *BinBlob::get_data() {
+  return m_data;
+}
+
 void BinBlob::append_zeroth_inst(uint32_t start_addr, uint32_t end_addr) {
   std::bitset<INST_SIZE_BITS> inst {0};
   std::bitset<WORD_SIZE> start_addr_bs {start_addr};
@@ -1587,34 +1610,6 @@ void BinBlob::append_zeroth_inst(uint32_t start_addr, uint32_t end_addr) {
   std::bitset<WORD_SIZE> end_addr_bs {end_addr};
   bitset_range_set(inst, end_addr_bs, ZerothEndAddress_LOW, ZerothEndAddress_HIGH);
   generic_append(inst);
-}
-
-void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr, const onnx::TensorProto *tensor) {
-  append_dwp_header(data_size, addr);
-  int32_t type = tensor->data_type();
-  switch (type) {
-  case onnx::TensorProto_DataType_INT8: {
-    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
-    sa_input_align(t1.get());
-    break;
-  }
-  case onnx::TensorProto_DataType_UINT8: {
-    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
-    sa_input_align(t1.get());
-    break;
-  }
-  case onnx::TensorProto_DataType_INT32: {
-    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
-    sa_input_align(t1.get());
-    break;
-  }
-  default:
-    log_fatal("Cant generate weight blob, unsupported data type %s "
-              "for tensor %s",
-              Op::get_tensorproto_dtype_name((TPDT)type),
-              tensor->name().c_str());
-    break;
-  }
 }
 
 GmlGen::GmlGen(uint32_t org): m_org {org} {
@@ -1627,8 +1622,7 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   int tdp = instgen.dwp_packets() + 1;
   size += (tdp * DWP_HEADER_BYTES);
   size += 1; /* extra byte for good luck */
-  char *data = (char *) malloc(sizeof(*data) * size);
-  BinBlob blob(data, size);
+  BinBlob blob(size);
   InstBlob instblob = instgen.get_blob();
   if (gbl_args.has_option("pretty-print-inst")) {
     pretty_print(instblob);
@@ -1636,7 +1630,6 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   blob.append(instblob, m_org);
   InitializerTable tbl = instgen.get_tbl();
   blob.append(tbl);
-  blob.append_dwp_header(0, 0);
-  blob.write("model.gml");
+  /* enfore NRVO at call site */
   return blob;
 }

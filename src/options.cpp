@@ -2,6 +2,7 @@
 #include "ffi.h"
 #include "onnx_parser.h"
 #include "options.h"
+#include "rt.h"
 #include "utils.h"
 #include <cassert>
 #include <string>
@@ -76,6 +77,10 @@ void dispatch_sim_ops() {
 }
 
 void dispatch_run_ops() {
-  auto gml_file = gbl_args["run"].as<std::string>();
-  std::cout << "filename " << gml_file << '\n';
+  if (!gbl_args.has_option("run_onnx")) {
+    log_fatal("couldn't find onnx file. Use --run-onnx to provide one or see help");
+  }
+  auto onnx_file = gbl_args["run_onnx"].as<std::string>();
+  Op::Parser parser(onnx_file);
+  Runner runner(parser);
 }

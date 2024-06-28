@@ -18,6 +18,7 @@
 #include <bitset>
 #include <variant>
 #include <cstring>
+#include <numeric>
 #include <cerrno>
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
@@ -52,13 +53,13 @@ inline void log_info_func(const char *file, int line, const char *func,
 
 inline void check_c_return_val(int val, const char *err) {
   if (val != 0) {
-    log_fatal("%s: %s", strerror(errno));
+    log_fatal("%s: %s", err, strerror(errno));
   }
 }
 
 inline void check_c_return_val(void* val, const char *err) {
   if (val == NULL) {
-    log_fatal("%s: %s", strerror(errno));
+    log_fatal("%s: %s", err, strerror(errno));
   }
 }
 
@@ -90,11 +91,6 @@ class Argparse {
         {"-s", "--sim"},
         "Simulate inference on an input. Use options like --onnx, --loadpy, --preprocfn, --postprocfn to load weights/inputs to the simulator",
         1},
-       {"dump-output",
-        {"--dump-output"},
-        "Dump Outputs produced by the "
-        "simulator. Args: [all | none | comma separated layer names]",
-        1},
        {"venv-path",
         {"--venv-path"},
         "Append venv-path to sys.path while loading the interpreter. Args: [ : "
@@ -125,16 +121,27 @@ class Argparse {
        {"output", {"--output", "-o"}, "write output to file. Args: filename. For ex, -o model.gml", 1},
        {"run", {"-r", "--run"}, "run inference on model. Args: <gml_file>.", 1},
        {"compile", {"-c", "--compile"}, "Compile onnx model into gml file. Args: <onnx_model>", 1},
+       {"run_onnx", {"--run-onnx"}, "onnx model thorough which model.gml was generated. TODO: remove this", 1},
+       {"dispatch", {"--dispatch"}, "comma separated list of layers for which outputs are required. Args: [all | none | comma separated layer names]", 1},
+       {"dispatch_fn", {"--dispatch-fn"}, "python function that'll be passed tensors returned by dipatchable nodes", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"
     "\tRun simulation over a model and inputs\n"
     "\t./sysim -s model.onnx --inputpath image.jpg --loadpy src/ml_inference.py --preprocfn \"<pre_proc_fn>\""
-      " --postprocfn \"<post_proc_fn>\" --venv-path ~/path/to/lib/python3.12/site-packages/ -v\n\n"
+      " --postprocfn \"<post_proc_fn>\" --venv-path ~/path/to/lib/python{version}/site-packages/ -v\n\n"
     "\tCreate a GML model file from onnx\n"
-    "\t./sysim -c model.onnx -o model.gml --ramsize 512 --sa-arch 9,4,4 --vasize 32"
+    "\t./sysim -c model.onnx -o model.gml --ramsize 512 --sa-arch 9,4,4 --vasize 32\n\n"
+    "\tRun inference on FPGA\n"
+    "\t./sysim -r model.gml --run-onnx model.onnx --inputpath img.jpg --loadpy src/ml_inference.py --preprocfn \"preprocess\" --postprocfn \"post_imagenet\" --venv-path ~/path/to/lib/python{version}/site-packages/ --sa-arch 9,4,4 --ramsize 512 --vasize 32\n\n"
+    "\tPretty Print Generated Instructions\n"
+    "\t./sysim -c model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 --pretty-print-inst\n\n"
+    "\tPretty Print GML file\n"
+    "\t./sysim -c model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 --pretty-print-blob\n\n"
+    "\tPrint a summary of onnx file\n"
+    "\t./sysim -i model.onnx --summary\n\n"
     "\tGet layer wise inference time estimates\n"
-    "\t./sysim -i ~/dev/ort/ort-quantizer/vgg_quantized_activation_symmetric.onnx --timeest 9,4,4\n\n";
+    "\t./sysim -i model.onnx --timeest 9,4,4\n\n";
 
 
 public:
@@ -597,8 +604,8 @@ std::vector<int> get_sa_arch();
 int get_va_size();
 
 /* extract bytes from n to m and return them */
-template <typename T>
-T extract_byte(const char *data, size_t size, int n, int m) {
+template <typename T, typename FromT>
+T extract_byte(const FromT *data, size_t size, int n, int m) {
   assert(n>=0);
   assert(m>0);
   assert(n <= m);
@@ -612,3 +619,21 @@ T extract_byte(const char *data, size_t size, int n, int m) {
   }
   return ret;
 }
+
+inline int string_hash(const std::string& s) {
+  return std::accumulate(s.begin(), s.end(), 0);
+}
+
+template <size_t sz, typename T>
+std::bitset<sz> extract_bitset(const T *data, size_t size, int n, int m) {
+  assert(m - n == (sz/8));
+  assert(m - n < size);
+  std::bitset<sz> ret {0};
+  for (int i = n, j = ((sz/8)-1); i < m; ++i, --j) {
+    std::bitset<sz> tmp {data[i]};
+    tmp <<= (j*8);
+    ret |= tmp;
+  }
+  return ret;
+}
+

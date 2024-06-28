@@ -16,20 +16,23 @@
 
 #include <vector>
 
+class DispatchTable {
+  bool dump_all;
+  bool dump_none;
+  std::vector<std::string> tbl;
+  public:
+  DispatchTable();
+  /* all nodes with no out-edges directly quality for dispatch */
+  DispatchTable(Op::Graph graph);
+  /* True if l's outputs need to be dumped */
+  bool should_dispatch(const Op::LayerBase *l);
+  void print();
+};
+
 /* Executor iterates over layers one by one, executing each one of them
  *
- * TODO: update comment
- * Design Choices:
- * 1. This is not the best design for this task. For once, all Op::Layer
- * classes can be extended with another virutal function such as `void
- * run(Op::LayerBase *l)` like the run_* functions below. run needs to
- * be templated, and templated virtual functions are not allowed in cpp.
- * A workaround can be thought of, perhaps with type-erasure. I am not
- * considering that, maybe in the future.
- *
- * 2. Current design is chosen for its mundane-ness. I am aware that
- * dynamic_cast of a base into child is a code smell. I am letting this
- * one in.
+ * I am aware that dynamic_cast of a base into child is a code smell. I am
+ * letting this one in.
  */
 
 class Executor {
@@ -38,11 +41,7 @@ class Executor {
    */
   TensorPool tensor_pool;
 
-  struct DumpOptions {
-    bool dump_all;
-    bool dump_none;
-    std::vector<std::string> dump_candidates;
-  } dump_options;
+  DispatchTable dispatch_table;
 
   /* inputT: input type of the entire model 
    * outputT: output type of the entire model
@@ -51,21 +50,43 @@ class Executor {
   void execute(PyEngine &engine, const Op::Parser &parser);
 
   template <typename T>
-  Tensor<T> *read_model_input(PyEngine &engine);
-
-  template <typename T>
   void write_model_output(PyEngine &engine, Tensor<T> *out);
-
-  /* Sets dump_options based on parameters from gbl_args for dump_options */
-  void configure_dump_options();
-  /* True if l's outputs need to be dumped */
-  bool should_dump(const Op::LayerBase *l);
 
   void print_extra_info(const Op::LayerBase *l);
 
 public:
   Executor(PyEngine &engine, const Op::Parser &parser);
 };
+
+template <typename T>
+Tensor<T> *read_model_input(PyEngine &engine) {
+  PyObject *input_object;
+  if (gbl_args.has_option("input_path")) {
+    std::string image_path = gbl_args["input_path"].as<std::string>();
+    PyObject *args = Py_BuildValue("(s)", image_path.c_str());
+    if (!gbl_args.has_option("preprocfn")) {
+      log_fatal("Need --preprocfn \"proc_name\" with --input_path");
+    }
+    std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
+    input_object = engine.call_func(preprocfn.c_str(), args);
+  }
+  else {
+    PyObject *no_args = PyTuple_New(0);
+    std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
+    input_object = engine.call_func(preprocfn, no_args);
+
+    if (PyErr_Occurred()) {
+      PyErr_Print();
+      log_fatal("function %s erred", preprocfn.c_str());
+    }
+    
+    if (!PyArray_CheckExact(input_object)) {
+      log_fatal("function %s must return a numpy array", preprocfn.c_str());
+    }
+  }
+  Tensor<T> *input = np2t<T>(input_object);
+  return input;
+}
 
 template <typename inputT, typename outputT>
 void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
@@ -84,7 +105,7 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
   tt.start();
   for (Op::LayerBase *l : order) {
     print_extra_info(l);
-    l->dump_output = should_dump(l);
+    l->dispatch = dispatch_table.should_dispatch(l);
     l->run(tensor_pool);
 
     if (parser.has_graph_output(l)) {
@@ -125,35 +146,6 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
 #endif
 }
 
-template <typename T>
-Tensor<T> *Executor::read_model_input(PyEngine &engine) {
-  PyObject *input_object;
-  if (gbl_args.has_option("input_path")) {
-    std::string image_path = gbl_args["input_path"].as<std::string>();
-    PyObject *args = Py_BuildValue("(s)", image_path.c_str());
-    if (!gbl_args.has_option("preprocfn")) {
-      log_fatal("Need --preprocfn \"proc_name\" with --input_path");
-    }
-    std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
-    input_object = engine.call_func(preprocfn.c_str(), args);
-  }
-  else {
-    PyObject *no_args = PyTuple_New(0);
-    std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
-    input_object = engine.call_func(preprocfn, no_args);
-
-    if (PyErr_Occurred()) {
-      PyErr_Print();
-      log_fatal("function %s erred", preprocfn.c_str());
-    }
-    
-    if (!PyArray_CheckExact(input_object)) {
-      log_fatal("function %s must return a numpy array", preprocfn.c_str());
-    }
-  }
-  Tensor<T> *input = np2t<T>(input_object);
-  return input;
-}
 
 template <typename T>
 void Executor::write_model_output(PyEngine &engine, Tensor<T> *out) {

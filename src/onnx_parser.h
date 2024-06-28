@@ -58,6 +58,23 @@ enum DEVICES {
   DEVICE_FPGA
 };
 
+inline const char *get_device_name(int device) {
+  switch (device) {
+    case DEVICE_UNKNOWN:
+      return "DEVICE_UNKNOWN";
+      break;
+    case DEVICE_CPU:
+      return "DEVICE_CPU";
+      break;
+    case DEVICE_FPGA:
+      return "DEVICE_FPGA";
+      break;
+    default:
+      log_fatal("unknown device enum %d, can't get name", device);
+      break;
+  }
+}
+
 /* aot declaration, definition in instgen.h */
 class AddressGen;
 class InitializerTable;
@@ -156,8 +173,8 @@ struct LayerBase {
    * when executing on the fpga. Layers that do not 
    * modify shape, will, for now, emit un-aligned dims
    */
-  virtual uint32_t aligned_input();
-  virtual uint32_t aligned_output();
+  virtual std::vector<int> aligned_input();
+  virtual std::vector<int> aligned_output();
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -168,20 +185,21 @@ struct LayerBase {
   TPDT input_type;
   TPDT output_type;
 
-  /* Used by executor, decides whether current layer's output
-   * should be dumped. Set by Executor::executor
-   */
-  bool dump_output;
-
   /* Dimensions of the input feature map */
   std::vector<int> input_dims;
   std::vector<int> output_dims;
 
+  /* Device on which this node would be executed */
   int device;
 
   /* All nodes with a parameter should have a constructor to
    * initialize them. See conv for eg.
    */
+
+  /* 1 if current node's outputs need to be received from the FPGA or
+   * dumped by the simulator
+   */
+  bool dispatch;
 };
 
 namespace Layer {
@@ -460,8 +478,8 @@ struct QGemm : public LayerBase {
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
-  uint32_t aligned_input() override;
-  uint32_t aligned_output() override;
+  std::vector<int> aligned_input() override;
+  std::vector<int> aligned_output() override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -492,8 +510,8 @@ struct QLinearConv : public LayerBase {
   int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
   void get_opcodes(std::vector<int>& op_codes) override;
   uint32_t get_weight_size() override;
-  uint32_t aligned_input() override;
-  uint32_t aligned_output() override;
+  std::vector<int> aligned_input() override;
+  std::vector<int> aligned_output() override;
 };
 
 } // namespace Layer

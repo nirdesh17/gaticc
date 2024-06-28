@@ -12,7 +12,6 @@ OBJ_FILES = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC_FILES)) $(OBJ_DIR)/onnx.pb.o
 PCH_FILES = $(patsubst %.h,$(SRC_DIR)/%.h.gch,$(PCH_SOURCES))
 LIBSIM_OBJ_FILES = $(filter-out $(OBJ_DIR)/main.o,$(OBJ_FILES))
 
-REMOTE_COMPILE = 1
 
 PYTHON_VERSION=$(shell python3 -c 'import sys; vv = sys.version_info[:2]; sys.stdout.write(f"{vv[0]}.{vv[1]}")')
 
@@ -21,17 +20,11 @@ CXX = g++
 # Determine the operating system
 UNAME_S := $(shell uname -s)
 
-ifeq ($(REMOTE_COMPILE), 1)
-	NUMPY_INSTALL_PATH = /home/shreeyash/python/lib/python3.11/site-packages/numpy
-else
-	NUMPY_INSTALL_PATH = /usr/lib/python${PYTHON_VERSION}/site-packages/numpy/
-endif
+NUMPY_INSTALL_PATH = /usr/lib/python${PYTHON_VERSION}/site-packages/numpy/
+CXXFLAGS = -O3 -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/_core/include -Wno-narrowing -DRAH_ENABLE=${RAH_ENABLE}
 
-CXXFLAGS_CORE = -O3 -std=c++17 `pkg-config --cflags python3` -I${NUMPY_INSTALL_PATH}/core/include -Wno-narrowing
 ifeq ($(DEBUG), 1)
-	CXXFLAGS = -g ${CXXFLAGS_CORE} 
-else
-	CXXFLAGS = ${CXXFLAGS_CORE}
+	CXXFLAGS += -g
 endif
 
 ifeq ($(UNAME_S),Darwin)
@@ -45,7 +38,8 @@ ONEONE = $(shell echo "${PYTHON_PATH_MAC}")
 CXXFLAGS += -I$(PROTOBUF_PATH_MAC)/include -I$(ABSEIL_PATH_MAC)/include
 CXXFLAGS += -I$(BOOST_PATH_MAC)/include
 LDFLAGS +=  -L$(PYTHON_PATH_MAC)/Frameworks/Python.framework/Versions/Current/lib 
-# NOTNEEDED? same as -L?: -Wl,-rpath,/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
+# NOTNEEDED? same as -L?: 
+# -Wl,-rpath,/opt/homebrew/opt/python@${PYTHON_VERSION}/Frameworks/Python.framework/Versions/${PYTHON_VERSION}/lib 
 LDFLAGS +=  -Wl,-undefined,dynamic_lookup
 LDFLAGS +=  -L${PROTOBUF_PATH_MAC}/lib 
 else ifeq ($(UNAME_S),Linux)
