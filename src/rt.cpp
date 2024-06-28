@@ -40,12 +40,16 @@ size_t Fstream::get_size() const {
 }
 
 Rah::Rah() {
-  //m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
-  //check_c_return_val(m_handle, dlerror());
+#if RAH_ENABLE == 1
+  m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
+  check_c_return_val(m_handle, dlerror());
+#endif
 }
 
 Rah::~Rah() {
-  //dlclose(m_handle);
+#if RAH_ENABLE == 1
+  dlclose(m_handle);
+#endif
 }
 
 int Rah::write(const char *data, size_t size) {
@@ -139,7 +143,9 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
   const char *data = fp.get_data();
   size_t size = fp.get_size();
   log_info("writing model weights to FPGA dram");
-  //rah.write(data, size);
+#if RAH_ENABLE == 1
+  rah.write(data, size);
+#endif
   log_info("write model weights complete");
   /* TODO: no way to know if it went through 
    * successfully to the fpga
@@ -166,29 +172,26 @@ void Runner::fake_exec(Op::LayerBase *l) {
 void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   int expected_hash = string_hash(l->name);
   auto expected_dims = l->aligned_output();
-  uint32_t expected_size = prod(expected_dims.begin(), expected_dims.end(), 1);
-  BinBlob blob(expected_size + DWP_HEADER_BYTES);
 
-  rah.read(blob.get_data(), expected_size + DWP_HEADER_BYTES);
+  uint32_t expected_data_size = prod(expected_dims.begin(), expected_dims.end(), 1) *
+    Op::tpdt_sizeof(l->output_type);
+  uint32_t expected_packet_size = io_tensor_packet_size(expected_data_size);
 
+  BinBlob blob(expected_packet_size);
+#if RAH_ENABLE == 1
+  rah.read(blob.get_data(), expected_packet_size);
+#endif
   const unsigned char *data = (const unsigned char *) blob.get_data();
-  uint32_t sop = extract_byte<uint32_t>(data, expected_size, 0, 4);
-  uint32_t ds = extract_byte<uint32_t>(data, expected_size, 4, 8);
-  uint32_t hash = extract_byte<uint32_t>(data, expected_size, 8, 12);
+  check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash); 
 
-  if (sop != DWP_SOP) {
-    log_fatal("expected DWP_SOP, got %d from FPGA", sop);
+  const unsigned char *real_data = data + DWP_HEADER_BYTES;
+  if (l->output_type == onnx::TensorProto_DataType_INT8) {
+    receive_output_aux<int8_t>(real_data, expected_dims, l);
+  } else if (l->output_type == onnx::TensorProto_DataType_UINT8) {
+    receive_output_aux<uint8_t>(real_data, expected_dims, l);
+  } else {
+    log_fatal("can't compute with tensor of type %s", Op::get_tensorproto_dtype_name(l->output_type));
   }
-  if (ds != expected_size) {
-    log_fatal("expected data of size %d, got %d from FPGA", ds);
-  }
-  if (hash != expected_hash) {
-    log_fatal("expected reception hash %d, got %d from FPGA", ds);
-  }
-
-  /* FIXME: this */
-  std::vector<int> dim = {1, 1000};
-  //std::unique_ptr<Tensor<T>> tensor {new TensorCreate(data + DWP_HEADER_BYTES, dim)};
 }
 
 

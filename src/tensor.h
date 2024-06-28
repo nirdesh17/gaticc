@@ -258,17 +258,6 @@ public:
     stride = get_stride_from_shape(dim);
   }
 
-  TensorCreate(const unsigned char *data, const std::vector<int>& dim) {
-    int size = prod(dim.begin(), dim.end(), 1);
-    vec.resize(size, 0);
-    int ptr = 0;
-    for (int i = 0; i < size; ++i) {
-      T v = extract_byte<T>(data, size, ptr, ptr + sizeof(T));
-      vec[i] = v;
-      ptr += sizeof(T);
-    }
-  }
-
   T at(std::vector<int> &at) const override {
     assert(at.size() == dims.size());
     int sum = 0;

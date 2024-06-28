@@ -69,6 +69,10 @@ class Runner {
   void receive_output(Rah &rah, Op::LayerBase *l);
   void fake_exec(Op::LayerBase *l);
 
+  template <typename T>
+  void receive_output_aux(const unsigned char *data,
+                                  const std::vector<int> &dims, Op::LayerBase *l);
+
 public:
   Runner(const Op::Parser &parser);
 };
@@ -116,21 +120,31 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
                get_device_name(l->device));
     if (l->device == DEVICE_CPU && sent == false) {
       l->run(tensor_pool);
-    } else if (l->device == DEVICE_FPGA && sent == false) {
+    } 
+    
+    if (l->device == DEVICE_FPGA && sent == false) {
       using TT = Tensor<CpuOutputT>;
       TT *out = tensor_pool.get<TT *>(l->inputs.at(0));
       uint32_t addr = generator.io_addr_from_register(l->inputs.at(0));
       send_input<CpuOutputT>(rah, out, addr);
       sent = true;
-      exit(1);
-    } else if (l->device == DEVICE_FPGA && sent == true) {
+    } 
+    
+    if (l->device == DEVICE_FPGA && sent == true) {
+      std::cout << "l->dispathch " << l->dispatch << " for layer " << l->name << '\n';
       if (l->dispatch == true) {
-        receive_output(rah, l);
+        log_info("receiving output");
+        //receive_output(rah, l);
+        log_info("receiving output finish");
       } else {
+        log_info("fake exec started");
         fake_exec(l);
+        log_info("fake exec started finish");
       }
-    } else if (l->device == DEVICE_CPU && sent == true) {
-      // receive output - rah read stuff
+    } 
+    
+    if (l->device == DEVICE_CPU && sent == true) {
+      l->run(tensor_pool);
       sent = false;
     }
   }
@@ -138,13 +152,67 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
 
 template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
   auto dims = tensor->get_dims();
-  /* start and end DWP_HEADER */
-  uint32_t aligned_size = aligned_conv_input(dims) + (DWP_HEADER_BYTES * 2) + 1;
+
+  uint32_t aligned_size = aligned_conv_input(dims) * sizeof(T);
+  aligned_size = io_tensor_packet_size(aligned_size) + 1;
+
   BinBlob blob(aligned_size);
   blob.append_sa_input<T>(aligned_size, addr, tensor);
   blob.append_dwp_header(0, 0);
   log_info("start writing images to FPGA");
-  // rah.write(aligned_data, aligned_size);
+#if RAH_ENABLE == 1
+  char *aligned_data = blob.get_data();
+  rah.write(aligned_data, aligned_size);
+#endif
   log_info("finish writing images to FPGA");
 }
 
+template <typename T>
+void unalign_sa_output(Tensor<T> *tensor, const unsigned char *data) {
+  auto dims = tensor->get_dims();
+  size_t size = prod(dims.begin(), dims.end(), 1);
+  auto sa_arch = get_sa_arch();
+  int acc_width = ACC_SIZE/8;
+  int eiec = (dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH]) / acc_width;
+  int tensor_index = 0;
+  for (int j = 0; j < dims[TENSOR_4D_CHANNELS]; ++j) {
+    for (int k = 0; k < eiec; ++k) {
+      for (int l = 0; l < acc_width; ++l) {
+        int index = (j * acc_width) + (acc_width * sa_arch[SA_ARCH_COLS] * k) + l;
+        T v = data[index];
+        tensor->set(tensor_index++, v);
+      }
+    }
+  }
+}
+
+template <typename T>
+void unalign_va_output(Tensor<T> *tensor, const unsigned char *data) {
+  auto dims = tensor->get_dims();
+  size_t size = prod(dims.begin(), dims.end(), 1);
+  for (int i = 0; i < size; ++i) {
+    T v = data[i];
+    tensor->set(i, v);
+  }
+}
+
+/* Converts a byte stream into a tensor and un-aligns if if necessary */
+template <typename T>
+void Runner::receive_output_aux(const unsigned char *data,
+                                const std::vector<int> &dims, Op::LayerBase *l) {
+  static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
+  
+  Tensor<T> *tensor = new TensorCreate<T>(dims);
+  if (strcmp(l->op_type(), "QLinearConv") == 0) {
+    unalign_sa_output(tensor, data);
+  } else if (strcmp(l->op_type(), "QGemm") == 0) {
+    unalign_va_output(tensor, data);
+  } else {
+    log_fatal("cant handle un-alignment for layer of type %s", l->op_type());
+  }
+
+  if (tensor_pool.has_value(l->outputs.at(0))) {
+    tensor_pool.free(l->outputs.at(0));
+  }
+  tensor_pool.set<Tensor<T> *>(l->outputs.at(0), tensor);
+}
