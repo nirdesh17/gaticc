@@ -129,11 +129,19 @@ class Argparse {
     const char *usage_examples = "Examples:\n"
     "\tRun simulation over a model and inputs\n"
     "\t./sysim -s model.onnx --inputpath image.jpg --loadpy src/ml_inference.py --preprocfn \"<pre_proc_fn>\""
-      " --postprocfn \"<post_proc_fn>\" --venv-path ~/path/to/lib/python3.12/site-packages/ -v\n\n"
+      " --postprocfn \"<post_proc_fn>\" --venv-path ~/path/to/lib/python{version}/site-packages/ -v\n\n"
     "\tCreate a GML model file from onnx\n"
     "\t./sysim -c model.onnx -o model.gml --ramsize 512 --sa-arch 9,4,4 --vasize 32\n\n"
+    "\tRun inference on FPGA\n"
+    "\t./sysim -r model.gml --run-onnx model.onnx --inputpath img.jpg --loadpy src/ml_inference.py --preprocfn \"preprocess\" --postprocfn \"post_imagenet\" --venv-path ~/path/to/lib/python{version}/site-packages/ --sa-arch 9,4,4 --ramsize 512 --vasize 32\n\n"
+    "\tPretty Print Generated Instructions\n"
+    "\t./sysim -c model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 --pretty-print-inst\n\n"
+    "\tPretty Print GML file\n"
+    "\t./sysim -c model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 --pretty-print-blob\n\n"
+    "\tPrint a summary of onnx file\n"
+    "\t./sysim -i model.onnx --summary\n\n"
     "\tGet layer wise inference time estimates\n"
-    "\t./sysim -i ~/dev/ort/ort-quantizer/vgg_quantized_activation_symmetric.onnx --timeest 9,4,4\n\n";
+    "\t./sysim -i model.onnx --timeest 9,4,4\n\n";
 
 
 public:
