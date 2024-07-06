@@ -118,6 +118,7 @@ class Argparse {
        {"vasize", {"--vasize"}, "Vector Array size. Usually equivalent to per cycle DRAM bandwidth in bytes. Args: int. For ex, --vasize 32", 1},
        {"pretty-print-blob", {"--pretty-print-blob"}, "pretty print entire blob", 0},
        {"pretty-print-inst", {"--pretty-print-inst"}, "pretty print only instructions", 0},
+       {"pretty-print-inst-raw", {"--pretty-print-inst-raw"}, "pretty print instructions in raw hex", 0},
        {"output", {"--output", "-o"}, "write output to file. Args: filename. For ex, -o model.gml", 1},
        {"run", {"-r", "--run"}, "run inference on model. Args: <gml_file>.", 1},
        {"compile", {"-c", "--compile"}, "Compile onnx model into gml file. Args: <onnx_model>", 1},

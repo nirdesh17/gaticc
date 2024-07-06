@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <memory>
 #include <any>
+#include <string>
 
 static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
                                            "QGemm", "Flatten"};
@@ -1300,6 +1301,27 @@ uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg) {
   return ret;
 }
 
+/* bitset to hex */
+template <std::size_t sz>
+std::string b2h(const std::bitset<sz>& binary) {
+    std::stringstream hex_stream;
+    hex_stream << std::hex << std::setfill('0');
+    for (int i = sz-1; i >= 0; i -= 8) {
+      uint32_t value = 0;
+      for (int j = i; j > (i-8); --j) {
+        value <<= 1;
+        value |= binary[j];
+      }
+      hex_stream << std::setw(2) << value;
+    }
+    return hex_stream.str();
+}
+
+void pretty_print_inst_raw(const InstBlob &blob) {
+  for (const auto &i : blob) {
+    std::cout << b2h(i) << '\n';
+  }
+}
 
 void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
   int op_code = extract_opcode(inst);
@@ -1626,6 +1648,9 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   InstBlob instblob = instgen.get_blob();
   if (gbl_args.has_option("pretty-print-inst")) {
     pretty_print(instblob);
+  }
+  if (gbl_args.has_option("pretty-print-inst-raw")) {
+    pretty_print_inst_raw(instblob);
   }
   blob.append(instblob, m_org);
   InitializerTable tbl = instgen.get_tbl();
