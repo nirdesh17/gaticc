@@ -1204,15 +1204,17 @@ int AddressGen::get_io_region_register_size(
   /* get largest dim in network */
   uint32_t largest_dim = 0;
   for (Op::LayerBase *l : order) {
-    auto inp_dims = l->aligned_input();
-    uint32_t tmp_inp = prod(inp_dims.begin(), inp_dims.end(), 1) * Op::tpdt_sizeof(l->input_type);
-    if (tmp_inp > largest_dim) {
-      largest_dim = tmp_inp;
-    }
-    auto outp_dims = l->aligned_output();
-    uint32_t tmp_outp = prod(outp_dims.begin(), outp_dims.end(), 1) * Op::tpdt_sizeof(l->output_type);
-    if (tmp_outp > largest_dim) {
-      largest_dim = tmp_outp;
+    if (is_megablock(l)) {
+      auto inp_dims = l->aligned_input();
+      uint32_t tmp_inp = prod(inp_dims.begin(), inp_dims.end(), 1) * Op::tpdt_sizeof(l->input_type);
+      if (tmp_inp > largest_dim) {
+        largest_dim = tmp_inp;
+      }
+      auto outp_dims = l->aligned_output();
+      uint32_t tmp_outp = prod(outp_dims.begin(), outp_dims.end(), 1) * Op::tpdt_sizeof(l->output_type);
+      if (tmp_outp > largest_dim) {
+        largest_dim = tmp_outp;
+      }
     }
   }
   return largest_dim;
@@ -1294,11 +1296,12 @@ int AddressGen::get_max_io_reg(const std::vector<Op::LayerBase *> &order) {
 }
 
 uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg) {
-  uint32_t i =
-      inst_region_size + weight_region_size + (reg * io_region_register_size);
-  uint32_t ret = std::ceil((float)i / (float)WORD_SIZE) * WORD_SIZE;
-  ret += ceil_mod(max_io_reg * io_region_register_size, WORD_SIZE);
-  return ret;
+  uint32_t ps_base_addr = inst_region_size + weight_region_size +
+                          ((max_io_reg + 1) * io_region_register_size);
+  ps_base_addr = ceil_mod(ps_base_addr, WORD_SIZE);
+  uint32_t ps_reg_offset = reg * (ACC_SIZE / 8) * io_region_register_size;
+  uint32_t ps_reg_addr = ps_base_addr + ps_reg_offset;
+  return ps_reg_addr;
 }
 
 /* bitset to hex */
