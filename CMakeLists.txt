@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
 
-# cmake_policy(VERSION CMP0167)
 cmake_policy(SET CMP0167 NEW)
 
 project(Sysim)
@@ -20,23 +19,19 @@ add_custom_command(
 )
 
 file(GLOB SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
-file(GLOB PCH_FILES ${SRC_DIR}/sim.h ${SRC_DIR}/ffi.h ${SRC_DIR}/onnx.pb.h ${SRC_DIR}/utils.h ${SRC_DIR}/executor.h ${SRC_DIR}/instgen.h ${SRC_DIR}/options.h ${SRC_DIR}/onnx_parser.h ${SRC_DIR}/rt.h)
-foreach(header ${PCH_FILES})
-    add_custom_command(
-        OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/pch/${header}.gch
-        COMMAND ${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -c ${header} -o ${header}.gch
-        DEPENDS ${header}
-    )
-endforeach()
 
-file(GLOB SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/pch/*.gch)
+add_executable(main ${SRC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h)
 
-add_executable(main ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp ${SRC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h)
+# file(GLOB PCH_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/sim.h ${CMAKE_CURRENT_SOURCE_DIR}/src/ffi.h ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h ${CMAKE_CURRENT_SOURCE_DIR}/src/utils.h ${CMAKE_CURRENT_SOURCE_DIR}/src/executor.h ${CMAKE_CURRENT_SOURCE_DIR}/src/instgen.h ${CMAKE_CURRENT_SOURCE_DIR}/src/options.h ${CMAKE_CURRENT_SOURCE_DIR}/src/onnx_parser.h ${CMAKE_CURRENT_SOURCE_DIR}/src/rt.h)
+
+# target_precompile_headers(main PUBLIC ${PCH_FILES})
 
 target_link_libraries(main ${Protobuf_LIBRARIES} ${Python3_LIBRARIES} ${NumPy_LIBRARIES} ${Boost_LIBRARIES})
 
 target_include_directories(main PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/pch
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${Python3_NumPy_INCLUDE_DIRS} 
+    ${Python3_INCLUDE_DIRS}
 )
 
