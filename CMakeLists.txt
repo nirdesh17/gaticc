@@ -20,23 +20,19 @@ add_custom_command(
 
 file(GLOB SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
-add_executable(main ${SRC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h) 
+add_library(sim STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/sim.cpp ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h)
 
-target_link_libraries(main ${Protobuf_LIBRARIES} ${Python3_LIBRARIES} ${NumPy_LIBRARIES} ${Boost_LIBRARIES})
-
-
-target_include_directories(main PUBLIC
+target_include_directories(sim PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}
     ${Python3_NumPy_INCLUDE_DIRS} 
     ${Python3_INCLUDE_DIRS}
 )
 
-add_library(sim STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/sim.cpp)
-
+add_executable(main ${SRC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h) 
 target_link_libraries(main sim)
-
-target_include_directories(sim PUBLIC
+target_link_libraries(main ${Protobuf_LIBRARIES} ${Python3_LIBRARIES} ${NumPy_LIBRARIES} ${Boost_LIBRARIES})
+target_include_directories(main PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}
     ${Python3_NumPy_INCLUDE_DIRS} 
