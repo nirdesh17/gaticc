@@ -2,3 +2,5 @@
 onnx/
 images/
 __pycache__
+build/
+.vscode/
