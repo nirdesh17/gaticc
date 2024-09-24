@@ -1,7 +1,8 @@
+#include "pch.h"
 #include "tensor.h"
 #include "utils.h"
-#include <cstdint>
-#include <typeinfo>
+// #include <cstdint>
+// #include <typeinfo>
 
 /* Used by run_* functions in executor to free under-lying Tensor
  * pointers. This could very well be templated by that requires the
