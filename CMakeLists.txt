@@ -6,6 +6,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
 include(${CMAKE_SOURCE_DIR}/dependencies.cmake)
+# TODO: remove this later by fixing the code
+add_compile_options(-Wno-narrowing)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h
