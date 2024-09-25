@@ -621,32 +621,50 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   bitset_range_set(output_inst, ob_opcode, OutputBlock_Opcode_LOW,
                    OutputBlock_Opcode_HIGH);
 
-  uint32_t acc_addr_start = gen.ps_addr_from_register(cc->inputs.at(0));
   auto sa_arch = get_sa_arch();
+  assert(cc->outputs.size() == 1);
+  /* out_mod here is the factor by which to pad the outputs of the
+   * set of  systolic arrays. Consider an architecture with 9,4,4 arrangement.
+   * In this case, the SA set will process 4 channels at a time. So, if the 
+   * output of a layer were to be (28,28), in total there'd be (28,28)x4 
+   * output elements emitted by the SA set. Since, we are generating 
+   * 28x28x4 at a time on-chip, this number should be aligned with WORD_SIZE
+   *
+   * In this case,
+   *  Total output elements = (28x28x4) / 32
+   *                        = (28x28) / 8
+   */
+  int out_mod = WORD_SIZE / sa_arch[2];
+  uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
+  uint32_t output_bytes =
+      aligned_conv_output(cc->output_dims) *
+      Op::tpdt_sizeof(cc->output_type);
+  uint32_t output_addr_end =
+      ceil_mod(output_addr_start + output_bytes, out_mod);
+
+  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
+  bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
+                   OutputBlock_OutputAddr_HIGH);
+  //std::cout << "output address " << output_addr_start << '\n';
+
+  /* accumulant_mod is calculated in a similar fashion. since, accumulators
+   * are 32 bits i.e. 4 times the size of outputs (which are 8bits), we can
+   * fit less of accumulatans in one DRAM dispatch. As a results, the output
+   * mod is smaller. 
+   */
+  int accumulant_mod = WORD_SIZE / (out_mod / (ACC_SIZE / 8));
+  uint32_t acc_addr_start = gen.ps_addr_from_register(cc->inputs.at(0));
+
   uint32_t acc_bytes =
       (cc->input_dims[TENSOR_4D_WIDTH] * cc->input_dims[TENSOR_4D_HEIGHT] *
        sa_arch[1] * ACC_SIZE);
-  uint32_t acc_addr_end = ceil_mod(acc_addr_start + acc_bytes, WORD_SIZE);
+  uint32_t acc_addr_end = ceil_mod(acc_addr_start + acc_bytes, accumulant_mod);
 
   //std::cout << "acc address " << acc_addr_start << '\n';
 
   std::bitset<OutputBlock_AccumulantAddr_COUNT> accstart{acc_addr_start};
   bitset_range_set(output_inst, accstart, OutputBlock_AccumulantAddr_LOW,
                    OutputBlock_AccumulantAddr_HIGH);
-
-  assert(cc->outputs.size() == 1);
-  uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
-  uint32_t output_bytes =
-      aligned_conv_output(cc->output_dims) *
-      Op::tpdt_sizeof(cc->output_type);
-  uint32_t output_addr_end =
-      ceil_mod(output_addr_start + output_bytes, WORD_SIZE);
-
-  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
-  bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
-                   OutputBlock_OutputAddr_HIGH);
-
-  //std::cout << "output address " << output_addr_start << '\n';
 
   int channel_iterations = (int)std::ceil(
       (float)cc->input_dims[TENSOR_4D_CHANNELS] / (float)sa_arch[2]);
@@ -664,15 +682,16 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
 
   //std::cout << "kernel iterations " << kernel_iterations << '\n';
 
+  /* TODO: explanation */
   int image_dim_output =
       ceil_mod(cc->pipelined_output_dims[TENSOR_4D_WIDTH] *
                    cc->pipelined_output_dims[TENSOR_4D_HEIGHT],
-               WORD_SIZE);
+                  out_mod);
 
   //std::cout << "dim output " << image_dim_output << '\n';
   int dim_acc = ceil_mod(cc->output_dims.at(TENSOR_4D_WIDTH) *
                              cc->output_dims.at(TENSOR_4D_HEIGHT),
-                         WORD_SIZE);
+                         accumulant_mod);
 
   //std::cout << "dim_acc" << dim_acc << '\n';
 
@@ -1660,6 +1679,8 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   blob.append(instblob, m_org);
   InitializerTable tbl = instgen.get_tbl();
   blob.append(tbl);
+  /* FIXME: remove this. used for prelimnary testing */
+  blob.append_dwp_header(0, 0);
   /* enfore NRVO at call site */
   return blob;
 }
