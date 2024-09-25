@@ -652,7 +652,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
    * fit less of accumulatans in one DRAM dispatch. As a results, the output
    * mod is smaller. 
    */
-  int accumulant_mod = WORD_SIZE / (out_mod / (ACC_SIZE / 8));
+  int accumulant_mod = (out_mod / (ACC_SIZE / 8));
   uint32_t acc_addr_start = gen.ps_addr_from_register(cc->inputs.at(0));
 
   uint32_t acc_bytes =
