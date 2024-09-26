@@ -4,14 +4,17 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) 
 set(CMAKE_CXX_EXTENSIONS OFF)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
+set(EXECUTABLE_NAME sysim)
 
 include(${CMAKE_SOURCE_DIR}/dependencies.cmake)
 # TODO: remove this later by fixing the code
-add_compile_options(-Wno-narrowing -Wall -Wextra -pedantic -fdiagnostics-color=always)
-
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
+set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -pedantic")
+add_compile_options(-Wno-narrowing  -fdiagnostics-color=always)
+
+add_compile_definitions(PRINT_COLOR)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h
@@ -28,13 +31,13 @@ target_include_directories(sim PUBLIC
     ${ALL_DIR}
 )
 
-add_executable(main ${SRC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h) 
-target_precompile_headers(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
-target_link_libraries(main sim)
-target_link_libraries(main 
+add_executable(${EXECUTABLE_NAME} ${SRC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h) 
+target_precompile_headers(${EXECUTABLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
+target_link_libraries(${EXECUTABLE_NAME} sim)
+target_link_libraries(${EXECUTABLE_NAME} 
     ${ALL_LIBS}
 )
-target_include_directories(main PUBLIC
+target_include_directories(${EXECUTABLE_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}
     ${ALL_DIR}
