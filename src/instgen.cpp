@@ -1364,6 +1364,9 @@ void print_table(const Table &tbl) {
         {i.first, std::max((int)i.first.size(), count_digits(i.second))});
   }
   for (const auto &elem : tbl.order) {
+#ifdef PRINT_COLOR
+    std::cout << "\e[93m";
+#endif
     std::cout << elem;
     int max = maxes[elem];
     if (elem.size() < max) {
@@ -1372,6 +1375,9 @@ void print_table(const Table &tbl) {
       }
     }
     std::cout << '\t';
+#ifdef PRINT_COLOR
+    std::cout << "\e[39m";
+#endif
   }
   std::cout << '\n';
   for (const auto &elem : tbl.order) {
