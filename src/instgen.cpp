@@ -514,7 +514,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
   uint32_t input_bytes = aligned_conv_input(cc->input_dims) *
                          Op::tpdt_sizeof(cc->input_type);
-  uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
+  uint32_t input_addr_end = input_addr_start + input_bytes;
 
   //std::cout << "setting input_addr_start to " << input_addr_start << '\n';
   //std::cout << "setting input_addr_end to " << input_addr_end << '\n';
@@ -623,42 +623,21 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
 
   auto sa_arch = get_sa_arch();
   assert(cc->outputs.size() == 1);
-  /* out_mod here is the factor by which to pad the outputs of the
-   * set of  systolic arrays. Consider an architecture with 9,4,4 arrangement.
-   * In this case, the SA set will process 4 channels at a time. So, if the 
-   * output of a layer were to be (28,28), in total there'd be (28,28)x4 
-   * output elements emitted by the SA set. Since, we are generating 
-   * 28x28x4 at a time on-chip, this number should be aligned with WORD_SIZE
-   *
-   * In this case,
-   *  Total output elements = (28x28x4) / 32
-   *                        = (28x28) / 8
-   */
-  int out_mod = WORD_SIZE / sa_arch[2];
+
   uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
   uint32_t output_bytes =
       aligned_conv_output(cc->output_dims) *
       Op::tpdt_sizeof(cc->output_type);
-  uint32_t output_addr_end =
-      ceil_mod(output_addr_start + output_bytes, out_mod);
+  uint32_t output_addr_end = output_addr_start + output_bytes;
 
   std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
   bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
                    OutputBlock_OutputAddr_HIGH);
   //std::cout << "output address " << output_addr_start << '\n';
 
-  /* accumulant_mod is calculated in a similar fashion. since, accumulators
-   * are 32 bits i.e. 4 times the size of outputs (which are 8bits), we can
-   * fit less of accumulatans in one DRAM dispatch. As a results, the output
-   * mod is smaller. 
-   */
-  int accumulant_mod = (out_mod / (ACC_SIZE / 8));
   uint32_t acc_addr_start = gen.ps_addr_from_register(cc->inputs.at(0));
-
-  uint32_t acc_bytes =
-      (cc->input_dims[TENSOR_4D_WIDTH] * cc->input_dims[TENSOR_4D_HEIGHT] *
-       sa_arch[1] * ACC_SIZE);
-  uint32_t acc_addr_end = ceil_mod(acc_addr_start + acc_bytes, accumulant_mod);
+  uint32_t acc_bytes = aligned_conv_acc(cc->input_dims);
+  uint32_t acc_addr_end = acc_addr_start + acc_bytes; 
 
   //std::cout << "acc address " << acc_addr_start << '\n';
 
@@ -686,12 +665,12 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   int image_dim_output =
       ceil_mod(cc->pipelined_output_dims[TENSOR_4D_WIDTH] *
                    cc->pipelined_output_dims[TENSOR_4D_HEIGHT],
-                  out_mod);
+                  get_conv_out_mod());
 
   //std::cout << "dim output " << image_dim_output << '\n';
   int dim_acc = ceil_mod(cc->output_dims.at(TENSOR_4D_WIDTH) *
                              cc->output_dims.at(TENSOR_4D_HEIGHT),
-                         accumulant_mod);
+                         get_conv_acc_mod());
 
   //std::cout << "dim_acc" << dim_acc << '\n';
 

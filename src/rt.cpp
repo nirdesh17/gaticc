@@ -133,6 +133,7 @@ Runner::Runner(const Op::Parser &parser) {
 
 /* make sure correct bitstream is loaded & rah.service
  * is running
+ * TODO: implement this, will probably require bitman?
  */
 void Runner::scan() {
   std::cout << "scanning for rah services no cap fr\n";

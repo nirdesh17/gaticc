@@ -532,6 +532,40 @@ uint32_t aligned_conv_bias(const T &dims) {
   return ret;
 }
 
+// TODO: revise this comment
+/* out_mod here is the factor by which to pad the outputs of the
+ * set of  systolic arrays. Consider an architecture with 9,4,4 arrangement.
+ * In this case, the SA set will process 4 channels at a time. So, if the 
+ * output of a layer were to be (28,28), in total there'd be (28,28)x4 
+ * output elements emitted by the SA set. Since, we are generating 
+ * 28x28x4 at a time on-chip, this number should be aligned with WORD_SIZE
+ *
+ * In this case,
+ *  Total output elements = (28x28x4) / 32
+ *                        = (28x28) / 8
+ */
+inline int get_conv_out_mod() {
+  auto sa_arch = get_sa_arch();
+  return WORD_SIZE / sa_arch[2];
+}
+
+inline int get_conv_in_mod() {
+  auto sa_arch = get_sa_arch();
+  return WORD_SIZE / sa_arch[1];
+}
+
+// TODO: this comment
+/* accumulant_mod is calculated in a similar fashion. since, accumulators
+ * are 32 bits i.e. 4 times the size of outputs (which are 8bits), we can
+ * fit less of accumulatans in one DRAM dispatch. As a results, the output
+ * mod is smaller. 
+ */
+inline int get_conv_acc_mod() {
+  auto sa_arch = get_sa_arch();
+  int accumulant_mod = ((WORD_SIZE / sa_arch[1]) / (ACC_SIZE / 8));
+  return accumulant_mod;
+}
+
 template <typename T>
 std::vector<int> aligned_conv_input_dims(const T &dims) {
   assert(dims.size() == 4);
@@ -549,7 +583,10 @@ std::vector<int> aligned_conv_input_dims(const T &dims) {
 template <typename T>
 uint32_t aligned_conv_input(const T &dims) {
   auto i = aligned_conv_input_dims(dims);
-  int ret = prod(i.begin(), i.end(), 1); 
+  assert(i.size() == 4);
+  int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_in_mod()) *
+    i[TENSOR_4D_CHANNELS];
+  ret = ceil_mod(ret, get_conv_in_mod());
   return ret;
 }
 
@@ -558,19 +595,29 @@ std::vector<int> aligned_conv_output_dims(const T &dims) {
   assert(dims.size() == 4);
   auto sa_arch = get_sa_arch();
   assert(ACC_SIZE >= 8);
-  int acc_width = ACC_SIZE/8;
   auto i = dims;
   i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]);
-  i[TENSOR_4D_WIDTH] = ceil_mod(i[TENSOR_4D_WIDTH], acc_width);
   std::vector<int> ret(dims.size());
   std::copy(i.begin(), i.end(), ret.begin());
   return ret;
 }
 
+
 template <typename T>
 uint32_t aligned_conv_output(const T &dims) {
   auto i = aligned_conv_output_dims(dims);
-  int ret = prod(i.begin(), i.end(), 1); 
+  assert(i.size() == 4);
+  int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_out_mod()) *
+    i[TENSOR_4D_CHANNELS];
+  ret = ceil_mod(ret, get_conv_out_mod());
+  return ret;
+}
+
+template <typename T>
+uint32_t aligned_conv_acc(const T &dims) {
+  auto sa_arch = get_sa_arch();
+  int ret = dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH] * sa_arch[1] * ACC_SIZE;
+  ret = ceil_mod(ret, get_conv_acc_mod());
   return ret;
 }
 
