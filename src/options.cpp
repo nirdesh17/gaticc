@@ -1,12 +1,13 @@
+#include "pch.h"
 #include "executor.h"
 #include "ffi.h"
 #include "onnx_parser.h"
 #include "options.h"
 #include "rt.h"
 #include "utils.h"
-#include <cassert>
-#include <string>
-#include <vector>
+// #include <cassert>
+// #include <string>
+// #include <vector>
 #include "instgen.h"
 
 void dispatch_simulator(const Op::Parser &parser) {

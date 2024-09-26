@@ -1,0 +1,41 @@
+#pragma once
+
+#include "onnx.pb.h"
+#include "onnx_parser.h"
+#include <chrono>
+#include <iostream>
+#include <typeinfo>
+#include <vector>
+#include <cstring>
+#include <memory>
+#include <queue>
+#include "Python.h"
+#include <cstdlib>
+#include <set>
+#include <stack>
+#include <any>
+#include <string>
+#include <filesystem>
+#include <algorithm>
+#include <cerrno>
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <variant>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/graph_traits.hpp>
+#include <cassert>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <dlfcn.h>
+#include <cmath>
+#include <cstdint>
+#include <functional>
+#include <iterator>
+#include <numeric>
+#include <utility>
+
+

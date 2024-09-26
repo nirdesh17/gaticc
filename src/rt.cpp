@@ -1,11 +1,12 @@
+#include "pch.h"
 #include "rt.h"
-#include <cstdlib>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <dlfcn.h>
+// #include <cstdlib>
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <sys/stat.h>
+// #include <sys/types.h>
+// #include <unistd.h>
+// #include <dlfcn.h>
 #include "onnx_parser.h"
 #include "executor.h"
 #include "ffi.h"

@@ -1,20 +1,22 @@
-#include "onnx.pb.h"
+#include "pch.h"
+
+// #include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "utils.h"
-#include <algorithm>
-#include <cerrno>
-#include <cstring>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <queue>
-#include <sstream>
-#include <typeinfo>
-#include <cstring>
-#include <variant>
+// #include <algorithm>
+// #include <cerrno>
+// #include <cstring>
+// #include <fstream>
+// #include <iostream>
+// #include <map>
+// #include <queue>
+// #include <sstream>
+// #include <typeinfo>
+// #include <cstring>
+// #include <variant>
 
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/graph_traits.hpp>
+// #include <boost/graph/adjacency_list.hpp>
+// #include <boost/graph/graph_traits.hpp>
 
 #define CONV_WEIGHT_TENSOR_DIMS 4
 #define GEMM_WEIGHT_TENSOR_DIMS 2

@@ -1,16 +1,18 @@
+#include "pch.h"
+
 #include "instgen.h"
 #include "utils.h"
 #include "onnx_parser.h"
 #include "sim.h"
 #include "executor.h"
-#include <cstring>
-#include <queue>
-#include <set>
-#include <stack>
-#include <cstdlib>
-#include <memory>
-#include <any>
-#include <string>
+// #include <cstring>
+// #include <queue>
+// #include <set>
+// #include <stack>
+// #include <cstdlib>
+// #include <memory>
+// #include <any>
+// #include <string>
 
 static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
                                            "QGemm", "Flatten"};

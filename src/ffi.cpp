@@ -1,14 +1,15 @@
+#include "pch.h"
 #define NO_IMPORT_ARRAY
 #include "numpy_init.h"
 
 #ifndef PY_SSIZE_T_CLEAN
 #define PY_SSIZE_T_CLEAN
 #endif
-#include "Python.h"
+// #include "Python.h"
 #include "ffi.h"
-#include <cstdlib>
-#include <iostream>
-#include <vector>
+// #include <cstdlib>
+// #include <iostream>
+// #include <vector>
 
 
 /*
