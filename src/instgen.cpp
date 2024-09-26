@@ -1357,6 +1357,37 @@ void pretty_print(const InstBlob &blob) {
   }
 }
 
+void print_table(const Table &tbl) {
+  std::map<std::string, int> maxes;
+  for (const auto &i : tbl.tbl) {
+    maxes.insert(
+        {i.first, std::max((int)i.first.size(), count_digits(i.second))});
+  }
+  for (const auto &elem : tbl.order) {
+    std::cout << elem;
+    int max = maxes[elem];
+    if (elem.size() < max) {
+      for (int i = 0; i < (max - elem.size()); ++i) {
+        std::cout << ' ';
+      }
+    }
+    std::cout << '\t';
+  }
+  std::cout << '\n';
+  for (const auto &elem : tbl.order) {
+    int elem_second = tbl.tbl.at(elem);
+    std::cout << elem_second;
+    int max = maxes[elem];
+    if (count_digits(elem_second) < max) {
+      for (int i = 0; i < (max - count_digits(elem_second)); ++i) {
+        std::cout << ' ';
+      }
+    }
+    std::cout << '\t';
+  }
+  std::cout << '\n';
+}
+
 void InitializerTable::push_back(uint32_t addr, const onnx::TensorProto *data, int engine, std::map<std::string,std::any> metadata) {
   InitAddrRow row {.addr {addr}, .data {data}, .engine {engine}, .metadata {metadata}};
   tbl.push_back(row);

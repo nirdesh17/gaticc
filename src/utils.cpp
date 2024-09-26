@@ -158,35 +158,6 @@ int count_digits(int a) {
   return count;
 }
 
-void print_table(const std::map<std::string, int> &tbl) {
-  std::map<std::string, int> maxes;
-  for (const auto &i : tbl) {
-    maxes.insert(
-        {i.first, std::max((int)i.first.size(), count_digits(i.second))});
-  }
-  for (const auto &elem : tbl) {
-    std::cout << elem.first;
-    int max = maxes[elem.first];
-    if (elem.first.size() < max) {
-      for (int i = 0; i < (max - elem.first.size()); ++i) {
-        std::cout << ' ';
-      }
-    }
-    std::cout << '\t';
-  }
-  std::cout << '\n';
-  for (const auto &elem : tbl) {
-    std::cout << elem.second;
-    int max = maxes[elem.first];
-    if (count_digits(elem.second) < max) {
-      for (int i = 0; i < (max - count_digits(elem.second)); ++i) {
-        std::cout << ' ';
-      }
-    }
-    std::cout << '\t';
-  }
-  std::cout << '\n';
-}
 
 std::vector<int> get_sa_arch() {
   if (!gbl_args.has_option("sa_arch")) {
