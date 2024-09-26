@@ -7,7 +7,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(${CMAKE_SOURCE_DIR}/dependencies.cmake)
 # TODO: remove this later by fixing the code
-add_compile_options(-Wno-narrowing)
+add_compile_options(-Wno-narrowing -Wall -Wextra -pedantic -fdiagnostics-color=always)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h
