@@ -797,8 +797,12 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen, InitializerTa
   return 0;
 }
 
-/* get true rows/cols
- * TODO: fix this in the parser directly */
+/* get true row/cols dimensions when transB is
+ * applied on cc dimension. transB is a field in
+ * an onnx::NodeProto present in the onnx file.
+ * This here is an artifact of tightly integrated
+ * onnx<->IR design. This needs fixing TODO.
+ */
 std::vector<int> get_true_rc_weights(const Op::Layer::QGemm *cc) {
   std::vector<int> ret(2);
   if (cc->m_cp.transB) {
@@ -831,6 +835,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   std::bitset<FC_Opcode_COUNT> opcode{OP_FC};
   bitset_range_set(gemm_inst, opcode, FC_Opcode_LOW, FC_Opcode_HIGH);
 
+  /* get the dimensions if transB is applied */
   std::vector<int> rows_cols = get_true_rc_weights(cc);
   //std::cout << "setting weight rows to " << rows_cols[0] << '\n';
 
@@ -852,6 +857,10 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
 
   bool former_layer_conv = (cc->former_layer_dims.size() != 0);
   //std::cout << "former layer conv set to " << former_layer_conv << '\n';
+
+  /* flatten the inputs for this layer if previous layer was 
+   * a convolution
+   */
   std::bitset<FC_Flatten_COUNT> flc{former_layer_conv};
   bitset_range_set(gemm_inst, flc, FC_Flatten_LOW, FC_Flatten_HIGH);
 
@@ -936,12 +945,16 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
 
   //std::cout << "output address " << output_addr_start << '\n';
 
+  /* channel iteration always 1 for FC as the inputs are 
+   * 2 dimensional
+   */
   std::bitset<OutputBlock_ChannelItr_COUNT> citr{1};
   bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
                    OutputBlock_ChannelItr_HIGH);
 
+  auto true_inputs = get_true_rc_weights(cc);
   int va_size = get_va_size();
-  int kernel_iterations = (int)std::ceil((float)cc->m_cp.wc / (float)va_size);
+  int kernel_iterations = (int)std::ceil((float)true_inputs[TENSOR_2D_COLS] / (float)va_size);
   std::bitset<OutputBlock_KernelItr_COUNT> kitr{kernel_iterations};
   bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
                    OutputBlock_KernelItr_HIGH);

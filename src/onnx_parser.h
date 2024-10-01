@@ -32,6 +32,9 @@
 #define TENSOR_2D_HEIGHT 0
 #define TENSOR_2D_WIDTH 1
 
+#define TENSOR_2D_ROWS 0
+#define TENSOR_2D_COLS 1
+
 #define SA_ARCH_ROW 0
 #define SA_ARCH_COLS 1
 #define SA_ARCH_N 2
