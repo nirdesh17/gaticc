@@ -514,7 +514,6 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
   uint32_t input_bytes = aligned_conv_input(cc->input_dims) *
                          Op::tpdt_sizeof(cc->input_type);
-  std::cout << "input bytes " << input_bytes << '\n';
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
   //std::cout << "setting input_addr_start to " << input_addr_start << '\n';
@@ -894,8 +893,15 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   bitset_range_set(gemm_inst, v2mc, FC_Vec2MatCols_LOW, FC_Vec2MatCols_HIGH);
 
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
-  uint32_t input_bytes = aligned_fc_io(cc->input_dims);
-                         Op::tpdt_sizeof(cc->input_type);
+  uint32_t input_bytes = 0;
+  if (cc->former_layer_dims.size() == 4) {
+    input_bytes = aligned_conv_output(cc->former_layer_dims) * Op::tpdt_sizeof(cc->input_type);
+  } else if (cc->former_layer_dims.size() == 0) {
+    input_bytes = aligned_fc_io(cc->input_dims) * Op::tpdt_sizeof(cc->input_type);
+  } else {
+    log_fatal("unknown size info in former layer dims of size %d, could potentially be "
+        " dangerous ", cc->former_layer_dims.size());
+  }
   uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
 
   std::bitset<FC_ImageStartAddress_COUNT> fc_image_start{input_addr_start};

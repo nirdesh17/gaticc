@@ -646,7 +646,6 @@ template <typename T>
 uint32_t aligned_conv_input(const T &dims) {
   auto i = aligned_conv_input_dims(dims);
   assert(i.size() == 4);
-  std::cout << "idims " << i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT] << '\n';
   int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_in_mod()) *
     i[TENSOR_4D_CHANNELS];
   return ret;

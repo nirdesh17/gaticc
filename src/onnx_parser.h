@@ -461,7 +461,8 @@ struct QGemm : public LayerBase {
   GemmParams m_cp;
   /* Occasionally, a conv follows a gemm, in such a case, the FPGA needs to 
    * know this so convolution's output order can be transposed into a linear
-   * order that gemm expects
+   * order that gemm expects. Dims of said former conv layer, is stored
+   * in this the vector 'former_layer_dims'. 
    */
   std::vector<int> former_layer_dims;
   std::vector<float> a_scale;
