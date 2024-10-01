@@ -545,7 +545,9 @@ bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
 std::vector<int> get_dims_from_value_info(const onnx::ValueInfoProto &v);
 std::vector<std::vector<int>> get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g);
 std::vector<TPDT> get_types_of_in_edges(Op::Vertex v, const Op::Graph &g);
+/* size in bytes */
 int tensorproto_sizeof(const onnx::TensorProto *t);
+/* size in bytes */
 int tpdt_sizeof(TPDT v);
 /* compare t1 and t2 */
 bool dtype_eq(int32_t t1, TPDT t2);

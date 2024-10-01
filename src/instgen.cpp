@@ -608,8 +608,16 @@ std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
   bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
                    TailBlock_BiasEndAddress_HIGH);
 
-  std::bitset<TailBlock_BiasEn_COUNT> ben{1};
-  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  int bias_width = Op::tensorproto_sizeof(cc->bias); /* in bytes */
+  if (bias_width == 1) { /* 8 bit bias */
+    std::bitset<TailBlock_FCBiasEn_COUNT> ben{1};
+    bitset_range_set(bias_inst, ben, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
+  } else if (bias_width == 4) { /* 32 bit bias */
+    std::bitset<TailBlock_BiasEn_COUNT> ben{1};
+    bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  } else {
+    log_fatal("found a conv instruction with intangible bias width %d for layer %s", bias_width, cc->name.c_str());
+  }
 
   return bias_inst;
 }
@@ -1007,8 +1015,16 @@ std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
   bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
                    TailBlock_BiasEndAddress_HIGH);
 
-  std::bitset<TailBlock_FCBiasEn_COUNT> fc_ben{1};
-  bitset_range_set(bias_inst, fc_ben, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
+  int bias_width = Op::tensorproto_sizeof(cc->bias); /* in bytes */
+  if (bias_width == 1) { /* 8 bit bias */
+    std::bitset<TailBlock_FCBiasEn_COUNT> ben{1};
+    bitset_range_set(bias_inst, ben, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
+  } else if (bias_width == 4) { /* 32 bit bias */
+    std::bitset<TailBlock_BiasEn_COUNT> ben{1};
+    bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  } else {
+    log_fatal("found a fc instruction with intangible bias width %d for layer %s", bias_width, cc->name.c_str());
+  }
 
   return bias_inst;
 }
