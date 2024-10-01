@@ -514,6 +514,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
   uint32_t input_bytes = aligned_conv_input(cc->input_dims) *
                          Op::tpdt_sizeof(cc->input_type);
+  std::cout << "input bytes " << input_bytes << '\n';
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
   //std::cout << "setting input_addr_start to " << input_addr_start << '\n';

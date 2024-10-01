@@ -599,7 +599,6 @@ uint32_t aligned_conv_bias(const T &dims) {
   return ret;
 }
 
-// TODO: revise this comment
 /* out_mod here is the factor by which to pad the outputs of the
  * set of  systolic arrays. Consider an architecture with 9,4,4 arrangement.
  * In this case, the SA set will process 4 channels at a time. So, if the 
@@ -621,7 +620,6 @@ inline int get_conv_in_mod() {
   return WORD_SIZE / sa_arch[1];
 }
 
-// TODO: this comment
 /* accumulant_mod is calculated in a similar fashion. since, accumulators
  * are 32 bits i.e. 4 times the size of outputs (which are 8bits), we can
  * fit less of accumulatans in one DRAM dispatch. As a results, the output
@@ -637,11 +635,8 @@ template <typename T>
 std::vector<int> aligned_conv_input_dims(const T &dims) {
   assert(dims.size() == 4);
   auto sa_arch = get_sa_arch();
-  assert(ACC_SIZE >= 8);
-  int acc_width = ACC_SIZE/8;
   auto i = dims;
   i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[2]);
-  i[TENSOR_4D_WIDTH] = ceil_mod(i[TENSOR_4D_WIDTH], acc_width);
   std::vector<int> ret(dims.size());
   std::copy(i.begin(), i.end(), ret.begin());
   return ret;
@@ -651,9 +646,9 @@ template <typename T>
 uint32_t aligned_conv_input(const T &dims) {
   auto i = aligned_conv_input_dims(dims);
   assert(i.size() == 4);
+  std::cout << "idims " << i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT] << '\n';
   int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_in_mod()) *
     i[TENSOR_4D_CHANNELS];
-  ret = ceil_mod(ret, get_conv_in_mod());
   return ret;
 }
 
@@ -661,7 +656,6 @@ template <typename T>
 std::vector<int> aligned_conv_output_dims(const T &dims) {
   assert(dims.size() == 4);
   auto sa_arch = get_sa_arch();
-  assert(ACC_SIZE >= 8);
   auto i = dims;
   i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]);
   std::vector<int> ret(dims.size());
@@ -674,9 +668,7 @@ template <typename T>
 uint32_t aligned_conv_output(const T &dims) {
   auto i = aligned_conv_output_dims(dims);
   assert(i.size() == 4);
-  int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_out_mod()) *
-    i[TENSOR_4D_CHANNELS];
-  ret = ceil_mod(ret, get_conv_out_mod());
+  int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_out_mod()) * i[TENSOR_4D_CHANNELS];
   return ret;
 }
 
@@ -694,6 +686,7 @@ std::vector<int> aligned_fc_weight_dims(const T &dims) {
   auto va_size = get_va_size();
   auto w = dims;
   /* FIXME: introduce deduction transpose here */
+  assert(WORD_SIZE == va_size && "not neccessary but needs fixing");
   w[0] = ceil_mod(w[0], WORD_SIZE);
   w[1] = ceil_mod(w[1], va_size);
   std::vector<int> ret {w[0], w[1]};
