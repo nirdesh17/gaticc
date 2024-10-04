@@ -886,7 +886,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
 
   int vec2mat_cols = 0;
   if (former_layer_conv) {
-    vec2mat_cols = std::ceil(((float)input_rows_cols[1] / (float)vasize));
+    vec2mat_cols = std::ceil(((float)aligned_conv_output(cc->former_layer_dims) / (float)vasize));
   }
 
   std::bitset<FC_Vec2MatCols_COUNT> v2mc {vec2mat_cols};
