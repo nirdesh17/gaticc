@@ -9,16 +9,16 @@
 #include "../src/utils.h"
 #include "Python.h"
 
-void five_by_three() {
+void three_by_two() {
     
-    std::vector<int> input_dims = {1, 1, 5, 3}; 
+    std::vector<int> input_dims = {1, 1, 3, 3}; 
     std::vector<float> input_values(input_dims[2] * input_dims[3]);
     std::iota(input_values.begin(), input_values.end(), 0);
 
     TensorCreate<float> input(input_values, input_dims);
+    
 
-
-    std::vector<int> weight_dims = {1, 1, 3, 3}; 
+    std::vector<int> weight_dims = {1, 1, 2, 2}; 
     onnx::TensorProto weight_proto;
     weight_proto.set_name("weight");
     for(int i = 0; i < weight_dims.size(); i++) {
@@ -29,10 +29,9 @@ void five_by_three() {
     for(int i = 0; i < weight_dims[2] * weight_dims[3]; i++) {
         weight_proto.add_float_data(weight_values[i]);
     }
-
     weight_proto.set_data_type(onnx::TensorProto::FLOAT);
 
-    
+
     onnx::TensorProto bias_proto;
     bias_proto.set_name("bias");
     bias_proto.add_dims(1);   
@@ -41,9 +40,9 @@ void five_by_three() {
  
     
 
-    std::vector<int> output_dims = {1, 1, 3, 1}; 
+    std::vector<int> output_dims = {1, 1, 2, 2}; 
     std::vector<float> expected_output_values = {
-        204, 312, 420
+        19,25,37,43
     };
     TensorCreate<float> expected_output(expected_output_values, output_dims);
     
@@ -53,8 +52,8 @@ void five_by_three() {
 
     Op::ConvParams conv_params;
     conv_params.kn = 1;
-    conv_params.k[0] = 3;
-    conv_params.k[1] = 3;
+    conv_params.k[0] = 2;
+    conv_params.k[1] = 2;
     conv_params.stride[0] = 1;
     conv_params.stride[1] = 1;
     conv_params.pad[0] = 0;
@@ -85,7 +84,6 @@ void five_by_three() {
     std::cout << "Test passed!" << std::endl;
 }
 
-
 Argparse gbl_args;
 void global_init(int argc, char *argv[]) {
   gbl_args.parse(argc, argv);
@@ -95,7 +93,7 @@ void global_init(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
   global_init(argc, argv);
   import_array();
-  five_by_three();
+  three_by_two();
 
     return 0;
 }

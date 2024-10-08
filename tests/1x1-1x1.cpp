@@ -1,36 +1,103 @@
-#include "../src/sim.h"
-#include "../src/transformers.h"
-#include "../src/utils.h"
+#include "../src/pch.h"
+#include "../src/numpy_init.h"
+#include <iostream>
+#include <vector>
 #include <numeric>
+#include "../src/sim.h"
+#include "../src/tensor.h"
+#include "../src/onnx_parser.h"
+#include "../src/utils.h"
+#include "Python.h"
+
+void one_by_one() {
+        
+    std::vector<int> input_dims = {1, 1, 1, 1}; 
+    std::vector<float> input_values(input_dims[2] * input_dims[3]);
+    std::iota(input_values.begin(), input_values.end(), 0);
+    TensorCreate<float> input(input_values, input_dims);
+    
+
+    std::vector<int> weight_dims = {1, 1, 1, 1}; 
+    onnx::TensorProto weight_proto;
+    weight_proto.set_name("weight");
+    for(int i = 0; i < weight_dims.size(); i++) {
+        weight_proto.add_dims(weight_dims[i]);
+    }
+    std::vector<float> weight_values(weight_dims[2] * weight_dims[3]);
+    std::iota(weight_values.begin(), weight_values.end(), 0);
+    for(int i = 0; i < weight_dims[2] * weight_dims[3]; i++) {
+        weight_proto.add_float_data(weight_values[i]);
+    }
+    weight_proto.set_data_type(onnx::TensorProto::FLOAT);
+
+    
+
+
+    onnx::TensorProto bias_proto;
+    bias_proto.set_name("bias");
+    bias_proto.add_dims(1);   
+    bias_proto.add_float_data(0);
+    bias_proto.set_data_type(onnx::TensorProto::FLOAT);
+ 
+    
+
+    std::vector<int> output_dims = {1, 1, 1, 1}; 
+    std::vector<float> expected_output_values = {
+        -0
+    };
+    TensorCreate<float> expected_output(expected_output_values, output_dims);
+    
+
+    TensorCreate<float> output(output_dims);
+    
+
+    Op::ConvParams conv_params;
+    conv_params.kn = 1;
+    conv_params.k[0] = 1;
+    conv_params.k[1] = 1;
+    conv_params.stride[0] = 1;
+    conv_params.stride[1] = 1;
+    conv_params.pad[0] = 0;
+    conv_params.pad[1] = 0;
+    conv_params.pad[2] = 0;
+    conv_params.pad[3] = 0;
+
+   
+
+    Op::Layer::Conv conv_layer;
+    conv_layer.m_cp = conv_params;
+    conv_layer.weights = &weight_proto;
+    conv_layer.bias = &bias_proto;
+    conv_layer.output_dims= output_dims;
+
+    
+
+    ConvEngine<float, float, float> conv_engine(&conv_layer);
+
+    
+    conv_engine.run(&input, &output);
+
+  
+    for (int i = 0; i < output.size(); ++i) {
+        assert(output.at(i) == expected_output.at(i));
+    }
+
+    std::cout << "Test passed!" << std::endl;
+}
+
+
+
 
 Argparse gbl_args;
-int main(int argc, char *argv[]) {
+void global_init(int argc, char *argv[]) {
   gbl_args.parse(argc, argv);
-  std::vector<int> expected = {0};
+  Py_Initialize();
+}
 
-  const int array_rows = 1;
-  const int array_columns = 1;
+int main(int argc, char *argv[]) {
+  global_init(argc, argv);
+  import_array();
+  one_by_one();
 
-  const int input_rows = 1;
-  const int input_columns = 1;
-
-  std::vector<int> w(array_rows * array_columns);
-  std::vector<int> v(input_rows * input_columns);
-
-  std::iota(w.begin(), w.end(), 0);
-  std::iota(v.begin(), v.end(), 0);
-
-  SA<int, int> a1(array_rows, array_columns);
-  a1.load_weights(w);
-
-  Chain c1;
-  c1.push(new Chainblock());
-  GemmTransformer<int, int> t(input_rows, input_columns, array_rows,
-                              array_columns);
-  auto out = t.transform(v);
-  a1.propagate(out, c1);
-  auto t1 = a1.get_output();
-  auto computed = t.untransform(t1);
-  bool status = generate_report<int, int>(argv[0], expected, computed);
-  return status;
+    return 0;
 }

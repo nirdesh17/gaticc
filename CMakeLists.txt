@@ -3,8 +3,9 @@ cmake_minimum_required(VERSION 3.21)
 
 project(sysim)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON) 
 set(CMAKE_CXX_EXTENSIONS OFF)
+# set(CMAKE_VERBOSE_MAKEFILE ON)
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 COMPONENTS NumPy REQUIRED)
@@ -22,8 +23,10 @@ add_custom_command(
 )
 
 file(GLOB SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+file(GLOB FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+list(REMOVE_ITEM FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
-add_library(sim STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/sim.cpp ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h)
+add_library(sim STATIC ${FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc)
 
 target_include_directories(sim PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -50,3 +53,10 @@ target_include_directories(main PUBLIC
     ${Python3_INCLUDE_DIRS}
 )
 
+
+add_custom_target(test
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/tests/build
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_SOURCE_DIR}/tests/build ${CMAKE_COMMAND} ..
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_SOURCE_DIR}/tests/build
+    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_SOURCE_DIR}/tests/build ctest
+)
