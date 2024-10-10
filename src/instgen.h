@@ -726,7 +726,8 @@ template <typename T>
 std::vector<int> aligned_fc_io_dims(const T &dims) {
   assert(dims.size() == 2);
   assert(dims[0] == 1);
-  uint32_t ret = ceil_mod(dims[1], WORD_SIZE);
+  int va_size = get_va_size();
+  uint32_t ret = ceil_mod(dims[1], va_size);
   return std::vector<int>{1, ret};
 }
 
