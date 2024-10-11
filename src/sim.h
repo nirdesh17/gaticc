@@ -1257,7 +1257,7 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::Conv *cc) {
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
   w_zero_points = std::vector<int>(cc->output_dims[TENSOR_4D_CHANNELS]);
-  x_zero_points = std::vector<int>(cc->output_dims[TENSOR_4D_CHANNELS]);
+  x_zero_points = std::vector<int>(cc->input_dims[TENSOR_4D_CHANNELS]);
 }
 
 template <typename inputT, typename weightT, typename outputT>
