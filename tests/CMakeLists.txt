@@ -9,7 +9,6 @@ find_package(Python3 COMPONENTS NumPy REQUIRED)
 find_package(Boost 1.67 REQUIRED)
 find_package(Protobuf REQUIRED)
 
-
 add_library(common INTERFACE)
 
 target_link_libraries(common INTERFACE
@@ -35,22 +34,22 @@ target_include_directories(common INTERFACE
 enable_testing()
 
 
-add_executable(oneByOne 1x1-1x1.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
-target_link_libraries(oneByOne PRIVATE common)
-add_test(NAME oneByOne COMMAND oneByOne)
+add_executable(conv_engine_1x1x1x1_1x1x1x1 conv_engine_1x1x1x1_1x1x1x1.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+target_link_libraries(conv_engine_1x1x1x1_1x1x1x1 PRIVATE common)
+add_test(NAME conv_engine_1x1x1x1_1x1x1x1 COMMAND conv_engine_1x1x1x1_1x1x1x1)
 
-add_executable(threeByTwo 3x3-2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
-target_link_libraries(threeByTwo PRIVATE common)
-add_test(NAME threeByTwo COMMAND threeByTwo)
+add_executable(conv_engine_1x1x3x3_1x1x2x2 conv_engine_1x1x3x3_1x1x2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+target_link_libraries(conv_engine_1x1x3x3_1x1x2x2 PRIVATE common)
+add_test(NAME conv_engine_1x1x3x3_1x1x2x2 COMMAND conv_engine_1x1x3x3_1x1x2x2)
 
-add_executable(threeByTwo2 3x3x3-3x2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
-target_link_libraries(threeByTwo2 PRIVATE common)
-add_test(NAME threeByTwo2 COMMAND threeByTwo2)
+add_executable(conv_engine_1x1x5x3_1x1x3x3 conv_engine_1x1x5x3_1x1x3x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+target_link_libraries(conv_engine_1x1x5x3_1x1x3x3 PRIVATE common)
+add_test(NAME conv_engine_1x1x5x3_1x1x3x3 COMMAND conv_engine_1x1x5x3_1x1x3x3)
 
-add_executable(threeByTwo3 3x3x3-3x2x2-2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
-target_link_libraries(threeByTwo3 PRIVATE common)
-add_test(NAME threeByTwo3 COMMAND threeByTwo3)
+add_executable(conv_engine_1x3x3x3_3x3x2x2 conv_engine_1x3x3x3_3x3x2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+target_link_libraries(conv_engine_1x3x3x3_3x3x2x2 PRIVATE common)
+add_test(NAME conv_engine_1x3x3x3_3x3x2x2 COMMAND conv_engine_1x3x3x3_3x3x2x2)
 
-add_executable(fiveBythree 5x3-3x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
-target_link_libraries(fiveBythree PRIVATE common)
-add_test(NAME fiveBythree COMMAND fiveBythree)
+add_executable(conv_engine_1x3x3x3_1x3x2x2 conv_engine_1x3x3x3_1x3x2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+target_link_libraries(conv_engine_1x3x3x3_1x3x2x2 PRIVATE common)
+add_test(NAME conv_engine_1x3x3x3_1x3x2x2 COMMAND conv_engine_1x3x3x3_1x3x2x2)
