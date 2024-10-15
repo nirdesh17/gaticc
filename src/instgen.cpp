@@ -1733,8 +1733,6 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   blob.append(instblob, m_org);
   InitializerTable tbl = instgen.get_tbl();
   blob.append(tbl);
-  /* FIXME: remove this. used for prelimnary testing */
-  blob.append_dwp_header(0, 0);
   /* enfore NRVO at call site */
   return blob;
 }

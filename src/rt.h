@@ -134,7 +134,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
       std::cout << "l->dispathch " << l->dispatch << " for layer " << l->name << '\n';
       if (l->dispatch == true) {
         log_info("receiving output");
-        //receive_output(rah, l);
+        receive_output(rah, l);
         log_info("receiving output finish");
       } else {
         log_info("fake exec started");
@@ -160,10 +160,8 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
   blob.append_sa_input<T>(aligned_size, addr, tensor);
   blob.append_dwp_header(0, 0);
   log_info("start writing images to FPGA");
-#if RAH_ENABLE == 1
   char *aligned_data = blob.get_data();
   rah.write(aligned_data, aligned_size);
-#endif
   log_info("finish writing images to FPGA");
 }
 

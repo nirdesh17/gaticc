@@ -41,16 +41,12 @@ size_t Fstream::get_size() const {
 }
 
 Rah::Rah() {
-#if RAH_ENABLE == 1
   m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
   check_c_return_val(m_handle, dlerror());
-#endif
 }
 
 Rah::~Rah() {
-#if RAH_ENABLE == 1
   dlclose(m_handle);
-#endif
 }
 
 int Rah::write(const char *data, size_t size) {
@@ -145,9 +141,7 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
   const char *data = fp.get_data();
   size_t size = fp.get_size();
   log_info("writing model weights to FPGA dram");
-#if RAH_ENABLE == 1
   rah.write(data, size);
-#endif
   log_info("write model weights complete");
   /* TODO: no way to know if it went through 
    * successfully to the fpga
@@ -180,9 +174,7 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   uint32_t expected_packet_size = io_tensor_packet_size(expected_data_size);
 
   BinBlob blob(expected_packet_size);
-#if RAH_ENABLE == 1
   rah.read(blob.get_data(), expected_packet_size);
-#endif
   const unsigned char *data = (const unsigned char *) blob.get_data();
   check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash); 
 
