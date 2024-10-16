@@ -443,8 +443,7 @@ void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  std::vector<int> ofmap_dims{1, cc->m_cp.wc};
-  Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   VA<inputT, inputT, inputT, outputT> va(*cc);
