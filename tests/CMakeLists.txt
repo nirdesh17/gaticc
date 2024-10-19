@@ -42,3 +42,7 @@ add_test(NAME conv_engine_1x3x3x3_3x3x2x2 COMMAND conv_engine_1x3x3x3_3x3x2x2)
 add_executable(conv_engine_1x3x3x3_1x3x2x2 conv_engine_1x3x3x3_1x3x2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
 target_link_libraries(conv_engine_1x3x3x3_1x3x2x2 PRIVATE common)
 add_test(NAME conv_engine_1x3x3x3_1x3x2x2 COMMAND conv_engine_1x3x3x3_1x3x2x2)
+
+add_executable(flatten_1x1x3x3 flatten_1x1x3x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+target_link_libraries(flatten_1x1x3x3 PRIVATE common)
+add_test(NAME flatten_1x1x3x3 COMMAND flatten_1x1x3x3)
