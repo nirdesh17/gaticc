@@ -31,7 +31,7 @@ target_include_directories(sim PUBLIC
     ${ALL_DIR}
 )
 
-add_executable(${EXECUTABLE_NAME} ${SRC_FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h) 
+add_executable(${EXECUTABLE_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp) 
 target_precompile_headers(${EXECUTABLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 target_link_libraries(${EXECUTABLE_NAME} sim)
 target_link_libraries(${EXECUTABLE_NAME} 
