@@ -63,17 +63,54 @@ int Rah::write(const char *data, size_t size) {
 }
 
 int Rah::read(char *data, size_t size) {
-  typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
+#if 1
+  const int MAX_PACKETIZATION_SIZE = 600000;
 
+  //void *rah_request_mem(const uint8_t appid, const unsigned long len);
+  typedef void *(*rah_req_mem_t) (const uint8_t, const unsigned long);
+  rah_req_mem_t req_mem;
+  req_mem = (rah_req_mem_t) dlsym(m_handle, "rah_request_mem");
+  char *error = dlerror(); if (error != NULL) { log_fatal("%s", error); }
+
+  //void rah_write_mem(const uint8_t appid, void* ptr, const unsigned long len);
+  typedef void (*rah_write_mem_t) (const uint8_t, void *, const unsigned long);
+  rah_write_mem_t write_mem;
+  write_mem = (rah_write_mem_t) dlsym(m_handle, "rah_write_mem");
+  error = dlerror(); if (error != NULL) { log_fatal("%s", error); }
+
+  typedef void (*rah_free_mem_t) (void *);
+  rah_free_mem_t rah_free_mem;
+  rah_free_mem = (rah_free_mem_t) dlsym(m_handle, "rah_free_mem");
+  error = dlerror(); if (error != NULL) { log_fatal("%s", error); }
+
+  int len = size;
+
+  char *data_ptr = data;
+  char *ptr = (char*) (*req_mem)(RAH_APP_ID, MAX_PACKETIZATION_SIZE);
+	int i = 0;
+	for (i = 0; i < len - MAX_PACKETIZATION_SIZE; i += MAX_PACKETIZATION_SIZE) {
+		memcpy(ptr, data_ptr, MAX_PACKETIZATION_SIZE);
+    data_ptr += MAX_PACKETIZATION_SIZE;
+		(*write_mem)(RAH_APP_ID, ptr, MAX_PACKETIZATION_SIZE);
+	}
+	(*rah_free_mem)(ptr);
+
+	ptr = (char *) (*req_mem)(RAH_APP_ID, len - i);
+  memcpy(ptr, data_ptr, len - i);
+  data_ptr += len - i;
+	(*write_mem)(RAH_APP_ID, ptr, len - i);
+	(*rah_free_mem)(ptr);
+  return size;
+#else
+  typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
   read_fn_t read_fn;
   read_fn = (read_fn_t) dlsym(m_handle, "rah_read");
   char *error = dlerror();
   if (error != NULL) {
     log_fatal("%s", error);
   }
-
   return (*read_fn)(RAH_APP_ID, data, size);
-
+#endif
 }
 
 void Runner::check_args() {
