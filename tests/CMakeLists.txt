@@ -43,7 +43,6 @@ add_executable(conv_engine_1x3x3x3_1x3x2x2 conv_engine_1x3x3x3_1x3x2x2.cpp ${CMA
 target_link_libraries(conv_engine_1x3x3x3_1x3x2x2 PRIVATE common)
 add_test(NAME conv_engine_1x3x3x3_1x3x2x2 COMMAND conv_engine_1x3x3x3_1x3x2x2)
 
-<<<<<<< HEAD
 add_executable(relu_1x1x3x3 relu_1x1x3x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
 target_link_libraries(relu_1x1x3x3 PRIVATE common)
 add_test(NAME relu_1x1x3x3 COMMAND relu_1x1x3x3)
@@ -63,3 +62,7 @@ add_test(NAME add_1x1x3x3_1x1x3x3 COMMAND add_1x1x3x3_1x1x3x3)
 add_executable(add_1x3x3x3_1x3x3x3 add_1x3x3x3_1x3x3x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
 target_link_libraries(add_1x3x3x3_1x3x3x3 PRIVATE common)
 add_test(NAME add_1x3x3x3_1x3x3x3 COMMAND add_1x3x3x3_1x3x3x3)
+
+add_executable(dequantize_linear_1x1x4x3 dequantize_linear_1x1x4x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+target_link_libraries(dequantize_linear_1x1x4x3 PRIVATE common)
+add_test(NAME dequantize_linear_1x1x4x3 COMMAND dequantize_linear_1x1x4x3)
