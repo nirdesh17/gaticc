@@ -66,3 +66,7 @@ add_test(NAME add_1x3x3x3_1x3x3x3 COMMAND add_1x3x3x3_1x3x3x3)
 add_executable(dequantize_linear_1x1x4x3 dequantize_linear_1x1x4x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
 target_link_libraries(dequantize_linear_1x1x4x3 PRIVATE common)
 add_test(NAME dequantize_linear_1x1x4x3 COMMAND dequantize_linear_1x1x4x3)
+
+add_executable(flatten_1x1x3x3 flatten_1x1x3x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+target_link_libraries(flatten_1x1x3x3 PRIVATE common)
+add_test(NAME flatten_1x1x3x3 COMMAND flatten_1x1x3x3)
