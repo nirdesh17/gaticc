@@ -154,7 +154,7 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
   auto dims = tensor->get_dims();
 
   uint32_t aligned_size = aligned_conv_input(dims) * sizeof(T);
-  aligned_size = io_tensor_packet_size(aligned_size) + 1;
+  aligned_size = io_tensor_packet_size(aligned_size);
 
   BinBlob blob(aligned_size);
   blob.append_sa_input<T>(aligned_size, addr, tensor);

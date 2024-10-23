@@ -19,7 +19,7 @@ set(ALL_LIBS
     ${Boost_LIBRARIES}
     Python3::Python
     protobuf::libprotobuf
-    absl_log_internal_message
-    absl_log_internal_check_op
+    #absl_log_internal_message
+    #absl_log_internal_check_op
     dl
 )
