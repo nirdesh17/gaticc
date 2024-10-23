@@ -51,14 +51,7 @@ Rah::~Rah() {
 
 int Rah::write(const char *data, size_t size) {
   typedef int (*write_fn_t) (const uint8_t, const char*, const unsigned long);
-
-  write_fn_t write_fn;
-  write_fn = (write_fn_t) dlsym(m_handle, "rah_write");
-  char *error = dlerror();
-  if (error != NULL) {
-    log_fatal("%s", error);
-  }
-
+  write_fn_t write_fn = get_dlsym<write_fn_t>(m_handle, "rah_write");
   return (*write_fn)(RAH_APP_ID, data, size);
 }
 

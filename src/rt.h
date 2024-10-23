@@ -215,3 +215,15 @@ void Runner::receive_output_aux(const unsigned char *data,
   }
   tensor_pool.set<Tensor<T> *>(l->outputs.at(0), tensor);
 }
+
+template <typename T>
+T get_dlsym(void *m_handle, std::string func_name) {
+  T fn;
+  fn = (T) dlsym(m_handle, func_name.c_str());
+  char *error = dlerror();
+  if (error != NULL) {
+    log_fatal("dlsym: %s", error);
+  }
+  return fn;
+}
+
