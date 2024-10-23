@@ -11,6 +11,9 @@
 
 #define RAH_SO_STRING "librah.so"
 #define RAH_APP_ID 1
+#define META_APP_ID 2
+/* Rah is a 48bit (6 byte) per cycle protocol */
+#define RAH_WIDTH 6
 
 
 namespace fs = std::filesystem;

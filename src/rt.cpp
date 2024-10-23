@@ -49,9 +49,44 @@ Rah::~Rah() {
   dlclose(m_handle);
 }
 
+
+/* convert a 32 bit integer into a 48 bit byte stream 
+ * assure that str has size atleast six
+ */
+void cvt_32248(char *str, int v) {
+  assert(RAH_WIDTH == 6 && "expect rah to be 6 bytes");
+  str[0] = 0x00;
+  str[1] = 0x00;
+  str[2] = (value & 0xFF000000) >> 24;
+  str[3] = (value & 0x00FF0000) >> 16;
+  str[4] = (value & 0x0000FF00) >> 8;
+  str[5] = (value & 0x000000FF);
+}
+
 int Rah::write(const char *data, size_t size) {
   typedef int (*write_fn_t) (const uint8_t, const char*, const unsigned long);
   write_fn_t write_fn = get_dlsym<write_fn_t>(m_handle, "rah_write");
+  /* Before writing actual data (weights, biases, inputs etc.) to
+   * the FPGA, the size of data that Gati must expect should be sent
+   * in advance. Here's a problem: data in gaticc is predominantly 32bits,
+   * in rah (the protocol that is responsible for transmission/reception),
+   * it is 48bits and then in gati hardware, it's 32 bits back again. 
+   * This creates problems of mis-alignment which should be handled
+   * via padding appropriate zeros. In order for gati hardware to 
+   * detect pads made by rah, it should know the size of incoming 
+   * data in advance. The size of incoming data is therefore one level
+   * above the gati hardware and below rah (sandwiched in between).
+   *
+   * We achieve this by making a special "meta" app that records this
+   * incoming size and sends it to gati so that it can expect detect
+   * and discard pads made by rah.
+   */
+  char meta_size[RAH_WIDTH];
+  cvt_32248(meta_size, static_cast<int>(size));
+  log("sending meta size %d", size);
+  (*write_fn)(META_APP_ID, meta_size, RAH_WIDTH);
+
+  /* send the actual data */
   return (*write_fn)(RAH_APP_ID, data, size);
 }
 
