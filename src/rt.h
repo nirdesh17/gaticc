@@ -275,3 +275,15 @@ void Runner::compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path& 
   log_info("Comparing %s with %s", l->name.c_str(), file.c_str());
   m_engine->call_func("compare_npy", args);
 }
+
+template <typename T>
+T get_dlsym(void *m_handle, std::string func_name) {
+  T fn;
+  fn = (T) dlsym(m_handle, func_name.c_str());
+  char *error = dlerror();
+  if (error != NULL) {
+    log_fatal("dlsym: %s", error);
+  }
+  return fn;
+}
+
