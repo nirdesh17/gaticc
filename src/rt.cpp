@@ -57,10 +57,10 @@ void cvt_32248(char *str, int v) {
   assert(RAH_WIDTH == 6 && "expect rah to be 6 bytes");
   str[0] = 0x00;
   str[1] = 0x00;
-  str[2] = (value & 0xFF000000) >> 24;
-  str[3] = (value & 0x00FF0000) >> 16;
-  str[4] = (value & 0x0000FF00) >> 8;
-  str[5] = (value & 0x000000FF);
+  str[2] = (v & 0xFF000000) >> 24;
+  str[3] = (v & 0x00FF0000) >> 16;
+  str[4] = (v & 0x0000FF00) >> 8;
+  str[5] = (v & 0x000000FF);
 }
 
 int Rah::write(const char *data, size_t size) {
@@ -83,7 +83,7 @@ int Rah::write(const char *data, size_t size) {
    */
   char meta_size[RAH_WIDTH];
   cvt_32248(meta_size, static_cast<int>(size));
-  log("sending meta size %d", size);
+  log_info("sending meta size %d", size);
   (*write_fn)(META_APP_ID, meta_size, RAH_WIDTH);
 
   /* send the actual data */
