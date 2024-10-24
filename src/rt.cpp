@@ -56,6 +56,7 @@ int Rah::write(const char *data, size_t size) {
 }
 
 int Rah::read(char *data, size_t size) {
+  std::cout << "rah read called \n";
   typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
   read_fn_t read_fn;
   read_fn = (read_fn_t) dlsym(m_handle, "rah_read");
@@ -166,7 +167,16 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   BinBlob blob(expected_packet_size);
   rah.read(blob.get_data(), expected_packet_size);
   const unsigned char *data = (const unsigned char *) blob.get_data();
-  check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash); 
+  
+  std::cout << "expect packet size " << expected_packet_size << '\n';
+  for (int i = 0; i < expected_packet_size; ++i) {
+	if (i % 16 == 0 && i != 0) {
+		printf("\n");
+	}
+	printf("%02x ", data[i]);
+  }
+
+  check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash);
 
   const unsigned char *real_data = data + DWP_HEADER_BYTES;
   if (l->output_type == onnx::TensorProto_DataType_INT8) {
