@@ -109,6 +109,9 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
   auto order = Pass::remove_dqxq(graph);
   AddressGen generator(graph);
 
+  InstGen instgen(parser);
+  IOAddrTbl io_addr_tbl = instgen.get_io_addr_tbl();
+
   tensor_pool.set<Tensor<inputT> *>(0, input_image);
 
   bool sent = false;
@@ -125,7 +128,9 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
     if (l->device == DEVICE_FPGA && sent == false) {
       using TT = Tensor<CpuOutputT>;
       TT *out = tensor_pool.get<TT *>(l->inputs.at(0));
-      uint32_t addr = generator.io_addr_from_register(l->inputs.at(0));
+      Op::VirtualAddress ireg = io_addr_tbl.at(l->name).first.at(0);
+      uint32_t addr = generator.io_addr_from_register(ireg);
+      log_info("sending input for register %d, addr is %d", ireg, addr);
       send_input<CpuOutputT>(rah, out, addr);
       sent = true;
     } 

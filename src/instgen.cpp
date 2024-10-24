@@ -372,7 +372,7 @@ InstBlob Pass::insert_start_inst(const InstBlob &insts) {
 }
 
 
-InstGen::InstGen(Op::Parser &parser) {
+InstGen::InstGen(const Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
   /* pass_reassign_registers is being called for its side-effect
@@ -397,6 +397,7 @@ InstGen::InstGen(Op::Parser &parser) {
      */
     l->dispatch = dispatch_table.should_dispatch(l);
     total_dwp_packets += l->get_inst(instructions, generator, init_tbl);
+    insert_io_addr_tbl(l);
   }
 
   CmpFunc<std::bitset<INST_SIZE_BITS>> cmp = cmp_opcodes;
@@ -405,8 +406,16 @@ InstGen::InstGen(Op::Parser &parser) {
   ret_inst = Pass::insert_start_inst(collapsed_insts);
 }
 
+void InstGen::insert_io_addr_tbl(Op::LayerBase *l) {
+  io_addr_tbl.insert({l->name, {l->inputs, l->outputs}});
+}
+
 InstBlob InstGen::get_blob() {
   return ret_inst;
+}
+
+IOAddrTbl InstGen::get_io_addr_tbl() {
+  return io_addr_tbl;
 }
 
 InitializerTable InstGen::get_tbl() {

@@ -434,6 +434,9 @@ T get_metadata(const MetadataMap& m, const std::string& key) {
   return static_cast<T>(std::any_cast<T>(itr->second));
 }
 
+using IOAddrPair = std::pair<std::vector<Op::VirtualAddress>, std::vector<Op::VirtualAddress>>;
+using IOAddrTbl = std::map<std::string, IOAddrPair>;
+
 /* Megablock and Miniblock
  *
  * All operators, implemented or not, can be divided into two sects: Megablock
@@ -492,16 +495,23 @@ bool is_miniblock(const Op::LayerBase *l);
 class InstGen {
   InstBlob ret_inst;
   InitializerTable init_tbl;
+  /* Records the io addresses for the chopped onnx graph based
+   * on which instructions were generated 
+   */
+  IOAddrTbl io_addr_tbl;
   /* Total bytes to be allocated including instructions, weights, io
    * data, and partial sum data
    */
   int total_model_size_cpu;
   int total_model_size_fpga;
   int total_dwp_packets;
+
+  void insert_io_addr_tbl(Op::LayerBase *l);
 public:
-  InstGen(Op::Parser &parser);
+  InstGen(const Op::Parser &parser);
   InitializerTable get_tbl();
   InstBlob get_blob();
+  IOAddrTbl get_io_addr_tbl();
   int model_size_cpu();
   int model_size_fpga();
   int dwp_packets();
