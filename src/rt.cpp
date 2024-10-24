@@ -56,6 +56,7 @@ int Rah::write(const char *data, size_t size) {
 }
 
 int Rah::read(char *data, size_t size) {
+  std::cout << "rah read called \n";
   typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
   read_fn_t read_fn;
   read_fn = (read_fn_t) dlsym(m_handle, "rah_read");
