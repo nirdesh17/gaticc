@@ -18,7 +18,7 @@ set(ALL_LIBS
     dl
 )
 
-set(PROTOBUF_ERR_VERSION "0.23")
+set(PROTOBUF_ERR_VERSION "4.24")
 # protobuf has a peculiar bug where on versions greater than PROTOBUF_ERR_VERSION
 # cannot link to absl_log_* libs. 
 # See: https://github.com/protocolbuffers/protobuf/issues/11920
@@ -30,5 +30,6 @@ if (${Protobuf_VERSION} VERSION_GREATER ${PROTOBUF_ERR_VERSION})
   # should include and link abseil libs to sysim but on Arch Linux this seems to be 
   # broken. This is a quick fix.
   find_package(absl REQUIRED)
+  message("Found protobuf version ${Protobuf_VERSION}")
   list(APPEND ALL_LIBS absl_log_internal_message absl_log_internal_check_op)
 endif()
