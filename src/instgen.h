@@ -1064,7 +1064,7 @@ void check_dwp_header(const T* data, size_t size, uint32_t expected_ds, uint32_t
   uint32_t hash = extract_byte<uint32_t>(data, size, 8, 12);
 
   if (sop != DWP_SOP) {
-    log_fatal("expected DWP_SOP, got %d from FPGA", sop);
+    log_fatal("expected DWP_SOP, got 0x%x from FPGA", sop);
   }
   if (ds != expected_ds) {
     log_fatal("expected data of size %d, got %d from FPGA", ds);
