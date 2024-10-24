@@ -153,15 +153,16 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
 template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
   auto dims = tensor->get_dims();
 
-  uint32_t aligned_size = aligned_conv_input(dims) * sizeof(T);
-  aligned_size = io_tensor_packet_size(aligned_size);
+  uint32_t og_aligned_size = aligned_conv_input(dims) * sizeof(T);
+  uint32_t total_size_with_packets= io_tensor_packet_size(og_aligned_size);
 
-  BinBlob blob(aligned_size);
-  blob.append_sa_input<T>(aligned_size, addr, tensor);
+  BinBlob blob(total_size_with_packets);
+  blob.append_sa_input<T>(og_aligned_size, addr, tensor);
   blob.append_dwp_header(0, 0);
+  blob.write("rah_input.bin");
   log_info("start writing images to FPGA");
   char *aligned_data = blob.get_data();
-  rah.write(aligned_data, aligned_size);
+  rah.write(aligned_data, total_size_with_packets);
   log_info("finish writing images to FPGA");
 }
 
