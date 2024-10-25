@@ -23,22 +23,26 @@ target_include_directories(common INTERFACE
 
 enable_testing()
 
-add_executable(conv_engine_1x1x1x1_1x1x1x1 conv_engine_1x1x1x1_1x1x1x1.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+add_executable(conv_engine_1x1x1x1_1x1x1x1 conv_engine_1x1x1x1_1x1x1x1.cpp)
 target_link_libraries(conv_engine_1x1x1x1_1x1x1x1 PRIVATE common)
 add_test(NAME conv_engine_1x1x1x1_1x1x1x1 COMMAND conv_engine_1x1x1x1_1x1x1x1)
 
-add_executable(conv_engine_1x1x3x3_1x1x2x2 conv_engine_1x1x3x3_1x1x2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+add_executable(conv_engine_1x1x3x3_1x1x2x2 conv_engine_1x1x3x3_1x1x2x2.cpp)
 target_link_libraries(conv_engine_1x1x3x3_1x1x2x2 PRIVATE common)
 add_test(NAME conv_engine_1x1x3x3_1x1x2x2 COMMAND conv_engine_1x1x3x3_1x1x2x2)
 
-add_executable(conv_engine_1x1x5x3_1x1x3x3 conv_engine_1x1x5x3_1x1x3x3.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+add_executable(conv_engine_1x1x5x3_1x1x3x3 conv_engine_1x1x5x3_1x1x3x3.cpp)
 target_link_libraries(conv_engine_1x1x5x3_1x1x3x3 PRIVATE common)
 add_test(NAME conv_engine_1x1x5x3_1x1x3x3 COMMAND conv_engine_1x1x5x3_1x1x3x3)
 
-add_executable(conv_engine_1x3x3x3_3x3x2x2 conv_engine_1x3x3x3_3x3x2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+add_executable(conv_engine_1x3x3x3_3x3x2x2 conv_engine_1x3x3x3_3x3x2x2.cpp)
 target_link_libraries(conv_engine_1x3x3x3_3x3x2x2 PRIVATE common)
 add_test(NAME conv_engine_1x3x3x3_3x3x2x2 COMMAND conv_engine_1x3x3x3_3x3x2x2)
 
-add_executable(conv_engine_1x3x3x3_1x3x2x2 conv_engine_1x3x3x3_1x3x2x2.cpp ${CMAKE_SOURCE_DIR}/../src/pch.cpp)
+add_executable(conv_engine_1x3x3x3_1x3x2x2 conv_engine_1x3x3x3_1x3x2x2.cpp)
 target_link_libraries(conv_engine_1x3x3x3_1x3x2x2 PRIVATE common)
 add_test(NAME conv_engine_1x3x3x3_1x3x2x2 COMMAND conv_engine_1x3x3x3_1x3x2x2)
+
+add_executable(reshape_1x1x4x3_1x1x2x6 reshape_1x1x4x3_1x1x2x6.cpp)
+target_link_libraries(reshape_1x1x4x3_1x1x2x6 PRIVATE common)
+add_test(NAME reshape_1x1x4x3_1x1x2x6 COMMAND reshape_1x1x4x3_1x1x2x6)
