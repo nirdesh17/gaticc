@@ -112,6 +112,8 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
   InstGen instgen(parser);
   IOAddrTbl io_addr_tbl = instgen.get_io_addr_tbl();
 
+  Op::RegisterAllocator allcator(parser.get_graph());
+
   tensor_pool.set<Tensor<inputT> *>(0, input_image);
 
   bool sent = false;
@@ -127,6 +129,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
     
     if (l->device == DEVICE_FPGA && sent == false) {
       using TT = Tensor<CpuOutputT>;
+	  tensor_pool.print();
       TT *out = tensor_pool.get<TT *>(l->inputs.at(0));
       Op::VirtualAddress ireg = io_addr_tbl.at(l->name).first.at(0);
       uint32_t addr = generator.io_addr_from_register(ireg);
@@ -136,7 +139,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op:
     } 
     
     if (l->device == DEVICE_FPGA && sent == true) {
-      std::cout << "l->dispathch " << l->dispatch << " for layer " << l->name << '\n';
+      std::cout << "l->dispatch " << l->dispatch << " for layer " << l->name << '\n';
       if (l->dispatch == true) {
         log_info("receiving output");
         receive_output(rah, l);

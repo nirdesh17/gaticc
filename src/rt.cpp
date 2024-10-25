@@ -141,6 +141,7 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
 
 
 void Runner::infer_loop(Rah &rah, const Fstream &fp, PyEngine &engine, const Op::Parser &parser) {
+  log_info("Types are being hardcoded in inferloop");
   using inputT = float;
   using outputT = int8_t;
   log_info("reading input");

@@ -442,6 +442,7 @@ public:
   void free(int index);
   bool has_value(int index);
   void resize(int size);
+  void print() const;
   /* TODO: add a destructor */
 };
 
@@ -451,6 +452,10 @@ template <typename T> void TensorPool::set(int index, T data) {
 
 template <typename T> T TensorPool::get(int index) {
   assert(pool.at(index).has_value() && "pool at index does not have a value");
+  if (pool.at(index).type() != typeid(T)) {
+  	log_fatal("at index %d, expected type %s but got %s", index,
+		pool.at(index).type().name(), typeid(T).name());
+  }
   return std::any_cast<T>(pool.at(index));
 }
 

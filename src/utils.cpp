@@ -66,6 +66,13 @@ void TensorPool::free() {
   }
 }
 
+void TensorPool::print() const {
+	for (int i = 0; i < pool.size(); ++i) {
+		std::cout << "At index: " << i << " Type: " <<
+			pool.at(i).type().name() << '\n';
+	}
+}
+
 bool TensorPool::has_value(int index) { return pool.at(index).has_value(); }
 
 void TensorPool::resize(int size) { pool.resize(size); }
