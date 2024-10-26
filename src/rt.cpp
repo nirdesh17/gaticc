@@ -175,11 +175,11 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
     if (i % 16 == 0 && i != 0) {
       printf("\n");
     }
-	  printf("%02x ", data[i]);
+	  printf("0x%02x, ", data[i]);
   }
 
   check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash);
-
+  check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0 /* expected hash */);
   const unsigned char *real_data = data + DWP_HEADER_BYTES;
   if (l->output_type == onnx::TensorProto_DataType_INT8) {
     receive_output_aux<int8_t>(real_data, expected_dims, l);

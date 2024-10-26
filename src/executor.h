@@ -87,7 +87,7 @@ Tensor<T> *read_model_input(const PyEngine &engine) {
 }
 
 template <typename T>
-void write_model_output(PyEngine &engine, Tensor<T> *out) {
+void write_model_output(const PyEngine &engine, Tensor<T> *out) {
   assert(gbl_args.has_option("postprocfn") && "post process function is required");
   std::string postprocfn = gbl_args["postprocfn"].as<std::string>();
   PyObject *t = t2np<T>(out);

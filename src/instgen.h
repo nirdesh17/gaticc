@@ -1073,3 +1073,23 @@ void check_dwp_header(const T* data, size_t size, uint32_t expected_ds, uint32_t
     log_fatal("expected reception hash %d, got %d from FPGA", ds);
   }
 }
+
+template <typename T>
+void check_dwp_footer(const T* data, size_t size, uint32_t expected_ds, uint32_t expected_addr) {
+  assert(size >= DWP_HEADER_BYTES);
+  const T *ndata = data + size - DWP_PACKET_SZ;
+
+  uint32_t sop = extract_byte<uint32_t>(ndata, size, 0, 4);
+  uint32_t ds = extract_byte<uint32_t>(ndata, size, 4, 8);
+  uint32_t hash = extract_byte<uint32_t>(ndata, size, 8, 12);
+
+  if (sop != DWP_SOP) {
+    log_fatal("expected DWP_SOP, got 0x%x from FPGA", sop);
+  }
+  if (ds != expected_ds) {
+    log_fatal("expected data of size %d, got %d from FPGA", ds);
+  }
+  if (hash != expected_addr) {
+    log_fatal("expected reception hash %d, got %d from FPGA", ds);
+  }
+}

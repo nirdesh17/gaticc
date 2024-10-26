@@ -229,6 +229,11 @@ void Runner::receive_output_aux(const unsigned char *data,
     tensor_pool.free(l->outputs.at(0));
   }
   tensor_pool.set<Tensor<T> *>(l->outputs.at(0), tensor);
+
+  tensor->print();
+  if (l->dispatch) {
+  	write_model_output<T>(*m_engine, tensor);
+  }
 }
 
 template <typename T>

@@ -230,7 +230,7 @@ def softmax(x):
 
 def post_imagenet(arr):
     print(arr)
-    label = np.argmax(softmax(arr))
+    label = np.argmax(arr)
     return label
 
 def load_mnist():
