@@ -87,19 +87,18 @@ void Runner::check_args() {
   }
 }
 
-void Runner::tensor_pool_init(const Op::Parser &parser) {
-  int total_regs = parser.get_total_registers() + 1;
+void Runner::tensor_pool_init() {
+  int total_regs = m_parser->get_total_registers() + 1;
   tensor_pool.resize(total_regs);
   tensor_pool.free();
 }
 
-PyEngine Runner::create_pyengine() {
+void Runner::pyengine_init() {
   log_info("starting PyEngine");
   std::string mod_arg = gbl_args["loadpy"].as<std::string>();
   std::string mod_name = extract_basename(mod_arg).stem().string();
   std::filesystem::path mod_path = extract_dirname(mod_arg);
-  PyEngine engine(mod_name, mod_path);
-  return engine;
+  m_engine = new PyEngine(mod_name, mod_path);
 }
 
 std::string Runner::get_run_arg() {
@@ -107,15 +106,16 @@ std::string Runner::get_run_arg() {
   return gbl_args["run"].as<std::string>();
 }
 
-Runner::Runner(const Op::Parser &parser) {
+Runner::Runner(Op::Parser &parser): m_parser {&parser} {
   check_args();
-  tensor_pool_init(parser);
+  tensor_pool_init();
+  pyengine_init();
+
   Rah rah;
-  PyEngine engine = create_pyengine();
   std::string gml_file = get_run_arg();
   Fstream fp(gml_file);
   load_model(rah, fp);
-  infer_loop(rah, fp, engine, parser);
+  infer_loop(rah, fp);
 }
 
 /* make sure correct bitstream is loaded & rah.service
@@ -140,7 +140,7 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
 }
 
 
-void Runner::infer_loop(Rah &rah, const Fstream &fp, PyEngine &engine, const Op::Parser &parser) {
+void Runner::infer_loop(Rah &rah, const Fstream &fp) {
   log_info("Types are being hardcoded in inferloop");
   using inputT = float;
   using outputT = int8_t;
@@ -148,7 +148,7 @@ void Runner::infer_loop(Rah &rah, const Fstream &fp, PyEngine &engine, const Op:
   log_info("running preprocess on inputs");
   HashedDispatchTable hdt(fp);
   /* TODO: deduce the types dynamically */
-  run<inputT, outputT, int8_t, float>(rah, hdt, engine, parser);
+  run<inputT, outputT, int8_t, float>(rah, hdt);
 }
 
 void Runner::fake_exec(Op::LayerBase *l) {

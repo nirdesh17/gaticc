@@ -49,8 +49,6 @@ class Executor {
   template <typename inputT, typename outputT>
   void execute(PyEngine &engine, const Op::Parser &parser);
 
-  template <typename T>
-  void write_model_output(PyEngine &engine, Tensor<T> *out);
 
   void print_extra_info(const Op::LayerBase *l);
 
@@ -59,7 +57,7 @@ public:
 };
 
 template <typename T>
-Tensor<T> *read_model_input(PyEngine &engine) {
+Tensor<T> *read_model_input(const PyEngine &engine) {
   PyObject *input_object;
   if (gbl_args.has_option("input_path")) {
     std::string image_path = gbl_args["input_path"].as<std::string>();
@@ -86,6 +84,17 @@ Tensor<T> *read_model_input(PyEngine &engine) {
   }
   Tensor<T> *input = np2t<T>(input_object);
   return input;
+}
+
+template <typename T>
+void write_model_output(PyEngine &engine, Tensor<T> *out) {
+  assert(gbl_args.has_option("postprocfn") && "post process function is required");
+  std::string postprocfn = gbl_args["postprocfn"].as<std::string>();
+  PyObject *t = t2np<T>(out);
+  PyObject *arr = Py_BuildValue("(O)", t);
+  PyObject *ret = engine.call_func(postprocfn, arr);
+  long label = PyLong_AsLong(ret);
+  std::cout << label << '\n';
 }
 
 template <typename inputT, typename outputT>
@@ -147,13 +156,3 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
 }
 
 
-template <typename T>
-void Executor::write_model_output(PyEngine &engine, Tensor<T> *out) {
-  assert(gbl_args.has_option("postprocfn") && "post process function is required");
-  std::string postprocfn = gbl_args["postprocfn"].as<std::string>();
-  PyObject *t = t2np<T>(out);
-  PyObject *arr = Py_BuildValue("(O)", t);
-  PyObject *ret = engine.call_func(postprocfn, arr);
-  long label = PyLong_AsLong(ret);
-  std::cout << label << '\n';
-}

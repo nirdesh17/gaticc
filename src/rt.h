@@ -51,18 +51,21 @@ class HashedDispatchTable {
 
 class Runner {
   TensorPool tensor_pool;
+  Op::Parser *m_parser;
+  const PyEngine *m_engine;
+
   void scan();
   void device_init();
   void load_model(Rah &rah, const Fstream &fp);
-  void infer_loop(Rah &rah, const Fstream &fp, PyEngine &engine, const Op::Parser &parser);
+  void infer_loop(Rah &rah, const Fstream &fp);
   void check_args();
-  void tensor_pool_init(const Op::Parser &parser);
-  PyEngine create_pyengine();
+  void tensor_pool_init();
+  void pyengine_init();
   std::string get_run_arg();
 
   template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
             typename OutputT>
-  void run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op::Parser &parser);
+  void run(Rah &rah, HashedDispatchTable &hdt);
 
   template <typename T>
   void send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
@@ -74,7 +77,7 @@ class Runner {
                                   const std::vector<int> &dims, Op::LayerBase *l);
 
 public:
-  Runner(const Op::Parser &parser);
+  Runner(Op::Parser &parser);
 };
 
 /* run is a state-machine that passes through these states of execution:
@@ -101,18 +104,18 @@ public:
  */
 template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
           typename OutputT>
-void Runner::run(Rah &rah, HashedDispatchTable &hdt, PyEngine &engine, const Op::Parser &parser) {
-  Tensor<inputT> *input_image = read_model_input<inputT>(engine);
+void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
+  Tensor<inputT> *input_image = read_model_input<inputT>(*m_engine);
   log_info("preprocess finish");
 
-  auto graph = parser.get_graph();
+  auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
   AddressGen generator(graph);
 
-  InstGen instgen(parser);
+  InstGen instgen(*m_parser);
   IOAddrTbl io_addr_tbl = instgen.get_io_addr_tbl();
 
-  Op::RegisterAllocator allcator(parser.get_graph());
+  Op::RegisterAllocator allcator(m_parser->get_graph());
 
   tensor_pool.set<Tensor<inputT> *>(0, input_image);
 

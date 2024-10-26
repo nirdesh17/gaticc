@@ -48,7 +48,7 @@ PyEngine::~PyEngine() {
   //Py_FinalizeEx();
 }
 
-PyObject *PyEngine::call_func(std::string const &func_name, PyObject *args) {
+PyObject *PyEngine::call_func(std::string const &func_name, PyObject *args) const {
 
   PyObject *dict = PyModule_GetDict(mod);
   py_fatal_err_check(dict, "PyModule_GetDict");

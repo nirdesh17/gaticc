@@ -66,7 +66,7 @@ public:
    */
   PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir);
   ~PyEngine();
-  PyObject *call_func(std::string const &func_name, PyObject *args);
+  PyObject *call_func(std::string const &func_name, PyObject *args) const;
   void print_object(PyObject *obj);
 };
 
