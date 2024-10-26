@@ -209,7 +209,11 @@ void Runner::receive_output_aux(const unsigned char *data,
                                 const std::vector<int> &dims, Op::LayerBase *l) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
   
-  Tensor<T> *tensor = new TensorCreate<T>(dims);
+  print_vec("expected dims", dims);
+  print_vec("input dims", l->input_dims);
+  print_vec("input dims", l->output_dims);
+
+  Tensor<T> *tensor = new TensorCreate<T>(l->output_dims);
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
     unalign_sa_output(tensor, data);
   } else if (strcmp(l->op_type(), "QGemm") == 0) {
