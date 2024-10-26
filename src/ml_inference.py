@@ -224,8 +224,13 @@ def transpose_aux(arr, perm):
 def load_imagenet():
     return preprocess("/home/shreeyash/images/pom.jpg").reshape(1, 3, 224, 224)
 
+def softmax(x):
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum(axis=0)
+
 def post_imagenet(arr):
-    label = np.argmax(arr)
+    print(arr)
+    label = np.argmax(softmax(arr))
     return label
 
 def load_mnist():
