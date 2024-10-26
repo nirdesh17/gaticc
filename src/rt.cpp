@@ -118,6 +118,10 @@ Runner::Runner(Op::Parser &parser): m_parser {&parser} {
   infer_loop(rah, fp);
 }
 
+Runner::~Runner() {
+  delete m_engine;
+}
+
 /* make sure correct bitstream is loaded & rah.service
  * is running
  * TODO: implement this, will probably require bitman?

@@ -78,6 +78,7 @@ class Runner {
 
 public:
   Runner(Op::Parser &parser);
+  ~Runner();
 };
 
 /* run is a state-machine that passes through these states of execution:
