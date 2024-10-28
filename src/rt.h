@@ -71,6 +71,7 @@ class Runner {
   void send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
   void receive_output(Rah &rah, Op::LayerBase *l);
   void fake_exec(Op::LayerBase *l);
+  void read_uart(BinBlob &blob);
 
   template <typename T>
   void receive_output_aux(const unsigned char *data,

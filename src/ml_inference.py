@@ -15,6 +15,9 @@ import jax.numpy
 import os.path
 from os.path import join
 
+import serial
+import time
+
 # NEEDED BY SYSIM FFI
 def l2nparr(l,dims):
     a = np.array(l).reshape((dims))
@@ -241,6 +244,56 @@ def post_mnist(arr):
 
 def save_tensor(filename, arr):
     np.save(filename, arr)
+
+
+def setup_uart(port, baudrate=9600, timeout=1):
+    try:
+        ser = serial.Serial(
+            port=port,
+            baudrate=baudrate,
+            bytesize=serial.EIGHTBITS,
+            parity=serial.PARITY_NONE,
+            stopbits=serial.STOPBITS_ONE,
+            timeout=timeout
+        )
+        return ser
+    except serial.SerialException as e:
+        print(f"Error opening serial port: {e}")
+        return None
+
+def read_uart_data(ser, mode='bytes'):
+    try:
+        if mode == 'line':
+            data = ser.readline().decode('utf-8').strip()
+        else:
+            data = ser.read(ser.in_waiting or 1)
+        return data
+    except Exception as e:
+        print(f"Error reading data: {e}")
+        return None
+
+def read_uart():
+    expected_bytes = 1048
+    serial_port = '/dev/ttyUSB0'
+    baudrate = 9600
+
+    ser = setup_uart(serial_port, baudrate=baudrate)
+    if not ser:
+        return -1
+    print(f"Listening on {serial_port}...")
+    try:
+        while True:
+            try:
+                data = ser.read(expected_bytes)
+                return data
+            except Exception as e:
+                print(f"Error reading data: {e}")
+                return None
+    except KeyboardInterrupt:
+        print("\nStopping...")
+    finally:
+        ser.close()
+        print("Serial port closed")
 
 #print(preprocess("images/ray.jpg").reshape(1, 3, 224, 224))
 

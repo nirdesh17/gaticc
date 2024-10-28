@@ -161,6 +161,18 @@ void Runner::fake_exec(Op::LayerBase *l) {
   }
 }
 
+void Runner::read_uart(BinBlob &blob) {
+  PyObject *args = Py_BuildValue("()");
+  PyObject *ret = m_engine->call_func("read_uart", args);
+
+  std::vector<uint8_t> rr = np2v<uint8_t>(ret);
+  assert(rr.size() == blob.get_size());
+  char *data = blob.get_data();
+  for (int i = 0; i < rr.size(); ++i) {
+    data[i] = rr.at(i);
+  }
+}
+
 void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   int expected_hash = string_hash(l->name);
   auto expected_dims = l->aligned_output();
@@ -172,7 +184,8 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   log_info("expected packet size in receive output: %d", expected_packet_size);
 
   BinBlob blob(expected_packet_size);
-  rah.read(blob.get_data(), expected_packet_size);
+  read_uart(blob);
+  //rah.read(blob.get_data(), expected_packet_size);
   const unsigned char *data = (const unsigned char *) blob.get_data();
   
   for (int i = 0; i < expected_packet_size; ++i) {
