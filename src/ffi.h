@@ -155,8 +155,6 @@ std::vector<T> np2iv(PyObject *nparr, std::vector<int> &dims) {
   for (int i = 0; i < nparrsz; ++i) {
     ret[i] = *((T *)PyArray_GETPTR1((PyArrayObject *)flattened, i));
   }
-  Py_XDECREF(flattened);
-  return ret;
 }
 
 template <typename T> Tensor<T> *np2t(PyObject *nparr) {

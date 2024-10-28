@@ -246,7 +246,7 @@ def save_tensor(filename, arr):
     np.save(filename, arr)
 
 
-def setup_uart(port, baudrate=9600, timeout=1):
+def setup_uart(port, baudrate=115200):
     try:
         ser = serial.Serial(
             port=port,
@@ -254,28 +254,16 @@ def setup_uart(port, baudrate=9600, timeout=1):
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
-            timeout=timeout
         )
         return ser
     except serial.SerialException as e:
         print(f"Error opening serial port: {e}")
         return None
 
-def read_uart_data(ser, mode='bytes'):
-    try:
-        if mode == 'line':
-            data = ser.readline().decode('utf-8').strip()
-        else:
-            data = ser.read(ser.in_waiting or 1)
-        return data
-    except Exception as e:
-        print(f"Error reading data: {e}")
-        return None
-
 def read_uart():
     expected_bytes = 1048
     serial_port = '/dev/ttyUSB0'
-    baudrate = 9600
+    baudrate = 115200
 
     ser = setup_uart(serial_port, baudrate=baudrate)
     if not ser:
@@ -285,7 +273,11 @@ def read_uart():
         while True:
             try:
                 data = ser.read(expected_bytes)
-                return data
+                print("printing data\n")
+                print(f"uart read len: {len(data)} of type {type(data)}")
+                buf = np.frombuffer(data, dtype=np.int8)
+                print(buf)
+                return np.frombuffer(data, dtype=np.int8)
             except Exception as e:
                 print(f"Error reading data: {e}")
                 return None

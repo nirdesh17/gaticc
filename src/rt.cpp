@@ -164,13 +164,18 @@ void Runner::fake_exec(Op::LayerBase *l) {
 void Runner::read_uart(BinBlob &blob) {
   PyObject *args = Py_BuildValue("()");
   PyObject *ret = m_engine->call_func("read_uart", args);
-
-  std::vector<uint8_t> rr = np2v<uint8_t>(ret);
-  assert(rr.size() == blob.get_size());
-  char *data = blob.get_data();
-  for (int i = 0; i < rr.size(); ++i) {
-    data[i] = rr.at(i);
+  if (ret == NULL) {
+  	log_fatal("read_uart failed don't know why");
   }
+  Tensor<int8_t> *rr = np2t<int8_t>(ret);
+  assert(rr->size() == blob.get_size());
+  char *data = blob.get_data();
+  for (int i = 0; i < rr->size(); ++i) {
+    data[i] = rr->at(i);
+  }
+  delete rr;
+  Py_XDECREF(ret);
+  Py_XDECREF(args);
 }
 
 void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
