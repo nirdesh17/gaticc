@@ -263,6 +263,8 @@ def setup_uart(port, baudrate=115200):
 def read_uart(baudrate, expected_bytes):
     serial_port = '/dev/ttyUSB0'
     ser = setup_uart(serial_port, baudrate=baudrate)
+    print(f"Baud rate {baudrate}")
+    print(f"Expected bytes {expected_bytes}")
     if not ser:
         return -1
     print(f"Listening on {serial_port}...")
