@@ -260,11 +260,8 @@ def setup_uart(port, baudrate=115200):
         print(f"Error opening serial port: {e}")
         return None
 
-def read_uart():
-    expected_bytes = 1048
+def read_uart(baudrate, expected_bytes):
     serial_port = '/dev/ttyUSB0'
-    baudrate = 115200
-
     ser = setup_uart(serial_port, baudrate=baudrate)
     if not ser:
         return -1

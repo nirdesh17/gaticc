@@ -125,6 +125,7 @@ class Argparse {
        {"run_onnx", {"--run-onnx"}, "onnx model thorough which model.gml was generated. TODO: remove this", 1},
        {"dispatch", {"--dispatch"}, "comma separated list of layers for which outputs are required. Args: [all | none | comma separated layer names]", 1},
        {"dispatch_fn", {"--dispatch-fn"}, "python function that'll be passed tensors returned by dipatchable nodes", 1},
+       {"receive-over-uart", {"--receive-over-uart"}, "receive over /dev/ttyUSB0. Args: baudrate (as set by the FPGA)", 1},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
     const char *usage_examples = "Examples:\n"

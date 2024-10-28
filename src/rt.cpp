@@ -161,8 +161,8 @@ void Runner::fake_exec(Op::LayerBase *l) {
   }
 }
 
-void Runner::read_uart(BinBlob &blob) {
-  PyObject *args = Py_BuildValue("()");
+void Runner::read_uart(BinBlob &blob, int uart_baud) {
+  PyObject *args = Py_BuildValue("(ii)", uart_baud, blob.size());
   PyObject *ret = m_engine->call_func("read_uart", args);
   if (ret == NULL) {
   	log_fatal("read_uart failed don't know why");
@@ -189,8 +189,15 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   log_info("expected packet size in receive output: %d", expected_packet_size);
 
   BinBlob blob(expected_packet_size);
-  read_uart(blob);
-  //rah.read(blob.get_data(), expected_packet_size);
+
+  if (gbl_args.has_option("receive-over-uart")) {
+    std::string uart_baud = gbl_args["receive-over-uart"].as<std::string>();
+    int baud_rate = std::strtol(uart_baud.c_str(), NULL, 10); 
+    read_uart(blob, baud_rate);
+  } else {
+    rah.read(blob.get_data(), expected_packet_size);
+  }
+
   const unsigned char *data = (const unsigned char *) blob.get_data();
   
   for (int i = 0; i < expected_packet_size; ++i) {
