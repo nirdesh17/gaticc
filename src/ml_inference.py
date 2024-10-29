@@ -286,6 +286,13 @@ def read_uart(baudrate, expected_bytes):
         ser.close()
         print("Serial port closed")
 
+def compare_npy(received_tensor, residing_tensor_path):
+    print(f"residing tensor path {residing_tensor_path}")
+    t2 = np.load(residing_tensor_path)
+    if t1 != t2:
+        print("t1, t2 not equal")
+        
+
 #print(preprocess("images/ray.jpg").reshape(1, 3, 224, 224))
 
 #images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)

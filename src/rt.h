@@ -6,9 +6,14 @@
 #include <cstddef>
 #include <string>
 #include "instgen.h"
+#include <filesystem>
+
 
 #define RAH_SO_STRING "librah.so"
 #define RAH_APP_ID 1
+
+
+namespace fs = std::filesystem;
 
 /* Why re-invent streams?
  * stl streams do everything this does but extracting
@@ -76,6 +81,9 @@ class Runner {
   template <typename T>
   void receive_output_aux(const unsigned char *data,
                                   const std::vector<int> &dims, Op::LayerBase *l);
+
+  template <typename T>
+  void compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path& path);
 
 public:
   Runner(Op::Parser &parser);
@@ -236,6 +244,12 @@ void Runner::receive_output_aux(const unsigned char *data,
   if (l->dispatch) {
   	write_model_output<T>(*m_engine, tensor);
   }
+  if (gbl_args.has_option("compare-layer")) {
+    std::string arg = gbl_args["compare-layer"].as<std::string>();
+    fs::path p {fs::path(arg)};
+    fs::path abs_p = fs::absolute(p);
+    compare_layer(l, tensor, abs_p);
+  }
 }
 
 template <typename T>
@@ -249,3 +263,15 @@ T get_dlsym(void *m_handle, std::string func_name) {
   return fn;
 }
 
+
+template <typename T>
+void Runner::compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path& path) {
+  fs::path file = path / fs::path(l->name + ".tensor.npy"); 
+  if (!fs::exists(file)) {
+    log_fatal("%s: no such file or directory", file.c_str());
+  }
+  PyObject *received_tensor = t2np<T>(tensor);
+  PyObject *args = Py_BuildValue("(Os)", received_tensor, file.c_str());
+  log_info("Comparing %s with %s", l->name.c_str(), file.c_str());
+  m_engine->call_func("compare_npy", args);
+}
