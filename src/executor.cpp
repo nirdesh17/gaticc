@@ -149,7 +149,9 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
     tt.report("Time taken: ");
   }
 }
@@ -187,7 +189,9 @@ template <typename T> void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
   relu.exec(input, output);
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -221,7 +225,9 @@ void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
   maxpool<T>(input, output, cc->m_cp);
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -260,7 +266,9 @@ void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
   flatten<T>(input, output);
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -302,7 +310,9 @@ void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.stop();
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
     tt.report("Time taken: ");
   }
 }
@@ -339,7 +349,9 @@ void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
   *output = *input;
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -382,7 +394,9 @@ void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
   reshape<T>(input, output, cc->new_shape);
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -418,7 +432,9 @@ void run_transpose(Op::LayerBase *l, TensorPool &tensor_pool) {
   transpose<T>(input, output, cc->perm);
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -462,7 +478,9 @@ void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.stop();
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
     tt.report("Time taken: ");
   }
 }
@@ -512,7 +530,9 @@ void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -555,7 +575,9 @@ void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   quantize<inputT, outputT>(input, output, scales, zero_point);
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -606,7 +628,9 @@ void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
     tt.report("Time taken: ");
   }
 }
@@ -662,7 +686,9 @@ void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   dequantize<inputT, outputT>(input, output, scales, zero_point);
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -711,7 +737,9 @@ void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.stop();
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
     tt.report("Time taken: ");
   }
 }
@@ -770,7 +798,9 @@ void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale, zero_points);
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
   }
 }
 
@@ -821,7 +851,9 @@ void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.report("Time taken: ");
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    output->print();
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
     tt.report("Time taken: ");
   }
 }
