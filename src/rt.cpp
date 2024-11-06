@@ -215,13 +215,21 @@ void Runner::read_uart(BinBlob &blob, int uart_baud, int expected_size) {
 
 void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   int expected_hash = string_hash(l->name);
+  uint32_t expected_data_size = 0;
+
+  if (strcmp(l->op_type(), "QLinearConv") == 0) {
+    expected_data_size = aligned_conv_output(l->output_dims) * Op::tpdt_sizeof(l->output_type);
+  } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 || strcmp(l->op_type(), "QGemm") == 0) {
+    expected_data_size = aligned_fc_io(l->output_dims) * Op::tpdt_sizeof(l->output_type);
+  } else {
+  	log_fatal("Unhandled layer of type: %s", l->op_type());
+  }
   auto expected_dims = l->aligned_output();
 
-  uint32_t expected_data_size = prod(expected_dims.begin(), expected_dims.end(), 1) *
-    Op::tpdt_sizeof(l->output_type);
   uint32_t expected_packet_size = io_tensor_packet_size(expected_data_size);
 
   log_info("expected packet size in receive output: %d", expected_packet_size);
+  log_info("expected data size in receive output: %d", expected_data_size);
 
   BinBlob blob(expected_packet_size);
 
@@ -234,13 +242,6 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   }
 
   const unsigned char *data = (const unsigned char *) blob.get_data();
-  
-  for (int i = 0; i < expected_packet_size; ++i) {
-    if (i % 16 == 0 && i != 0) {
-      printf("\n");
-    }
-	  printf("0x%02x, ", data[i]);
-  }
 
   check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash);
   //check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0 /* expected hash */);
@@ -253,7 +254,6 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
     log_fatal("can't compute with tensor of type %s", Op::get_tensorproto_dtype_name(l->output_type));
   }
 }
-
 
 HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
   const unsigned char *data = (const unsigned char *)fp.get_data();
