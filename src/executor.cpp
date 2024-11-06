@@ -62,13 +62,14 @@ DispatchTable::DispatchTable(Op::Graph graph) {
        tbl = parse_csv_string<std::string>(arg);
        check_dispatch_table_validity(tbl, graph);
     }
-  }
-  auto vitr = boost::vertices(graph);
-  for (auto itr = vitr.first; itr != vitr.second; ++itr) {
-    if (boost::out_degree(*itr, graph) == 0) {
-      tbl.push_back(graph[*itr]->name);
-    }
-  }
+  } else {
+	  auto vitr = boost::vertices(graph);
+	  for (auto itr = vitr.first; itr != vitr.second; ++itr) {
+		if (boost::out_degree(*itr, graph) == 0) {
+		  tbl.push_back(graph[*itr]->name);
+		}
+	  }
+   }
 }
 
 bool DispatchTable::should_dispatch(const Op::LayerBase *l) {
