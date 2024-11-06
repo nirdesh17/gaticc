@@ -82,3 +82,7 @@ add_test(NAME gemm_1x1x5x5_1x1x5x3 COMMAND gemm_1x1x5x5_1x1x5x3)
 add_executable(gemm_1x1x2x3_1x1x2x3 gemm_1x1x2x3_1x1x2x3.cpp)
 target_link_libraries(gemm_1x1x2x3_1x1x2x3 PRIVATE common)
 add_test(NAME gemm_1x1x2x3_1x1x2x3 COMMAND gemm_1x1x2x3_1x1x2x3)
+
+add_executable(matmul_1x1x2x3_1x1x3x2 matmul_1x1x2x3_1x1x3x2.cpp)
+target_link_libraries(matmul_1x1x2x3_1x1x3x2 PRIVATE common)
+add_test(NAME matmul_1x1x2x3_1x1x3x2 COMMAND matmul_1x1x2x3_1x1x3x2)
