@@ -218,14 +218,20 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   uint32_t expected_data_size = 0;
 
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
-    expected_data_size = aligned_conv_output(l->output_dims) * Op::tpdt_sizeof(l->output_type);
+	std::vector<int> dims;
+	Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
+	if (cc->pipelined_output_dims.size() != 0) {
+		dims = cc->pipelined_output_dims;
+	} else {
+		dims = l->output_dims;
+	}
+	expected_data_size = aligned_conv_output(dims) * Op::tpdt_sizeof(l->output_type);
   } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 || strcmp(l->op_type(), "QGemm") == 0) {
     expected_data_size = aligned_fc_io(l->output_dims) * Op::tpdt_sizeof(l->output_type);
   } else {
   	log_fatal("Unhandled layer of type: %s", l->op_type());
   }
   auto expected_dims = l->aligned_output();
-
   uint32_t expected_packet_size = io_tensor_packet_size(expected_data_size);
 
   log_info("expected packet size in receive output: %d", expected_packet_size);
