@@ -210,4 +210,33 @@ void log_func(const char *type, const char *file, int line, const char *func,
   exit(EXIT_FAILURE);
 }
 
+void Argparse::parse(int argc, char *argv[]) {
+  try {
+    args = argparser.parse(argc, argv);
+  } catch (const std::exception &e) {
+    std::cerr << usage << argparser;
+    log_fatal("%s", e.what());
+  }
+}
 
+argagg::option_results &Argparse::operator[](const std::string &name) {
+  return args[name];
+}
+
+bool Argparse::has_option(const std::string &name) const {
+  return args.has_option(name);
+}
+
+void Argparse::print_usage() const { std::cerr << usage << argparser << usage_examples; }
+
+void check_c_return_val(int val, const char *err) {
+  if (val != 0) {
+    log_fatal("%s: %s", err, strerror(errno));
+  }
+}
+
+void check_c_return_val(void* val, const char *err) {
+  if (val == NULL) {
+    log_fatal("%s: %s", err, strerror(errno));
+  }
+}

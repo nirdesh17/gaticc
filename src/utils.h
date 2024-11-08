@@ -37,17 +37,9 @@ void log_func(const char *type, const char *file, int line, const char *func,
 [[noreturn]] void log_fatal_func(const char *file, int line, const char *func,
                            const char *fmt, ...);
 
-inline void check_c_return_val(int val, const char *err) {
-  if (val != 0) {
-    log_fatal("%s: %s", err, strerror(errno));
-  }
-}
+void check_c_return_val(int val, const char *err);
+void check_c_return_val(void* val, const char *err);
 
-inline void check_c_return_val(void* val, const char *err) {
-  if (val == NULL) {
-    log_fatal("%s: %s", err, strerror(errno));
-  }
-}
 
 struct SaDims {
   int rows;
@@ -134,30 +126,10 @@ class Argparse {
 
 
 public:
-  void parse(int argc, char *argv[]) {
-#if 0
-    if (argc < 2) {
-      std::cerr << usage << argparser;
-      log_fatal("Too few arguments");
-    }
-#endif
-    try {
-      args = argparser.parse(argc, argv);
-    } catch (const std::exception &e) {
-      std::cerr << usage << argparser;
-      log_fatal("%s", e.what());
-    }
-  }
-
-  argagg::option_results &operator[](const std::string &name) {
-    return args[name];
-  }
-
-  bool has_option(const std::string &name) const {
-    return args.has_option(name);
-  }
-
-  void print_usage() const { std::cerr << usage << argparser << usage_examples; }
+  void parse(int argc, char *argv[]);
+  argagg::option_results &operator[](const std::string &name);
+  bool has_option(const std::string &name) const;
+  void print_usage() const;
 };
 
 /* This is globally available for all functions. Alternatively,
