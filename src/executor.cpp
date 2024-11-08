@@ -5,7 +5,6 @@
 #include "executor.h"
 // #include "onnx.pb.h"
 // #include "onnx_parser.h"
-#include "sasa.h"
 #include "sim.h"
 #include "utils.h"
 // #include <chrono>
@@ -135,12 +134,6 @@ void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
-  /* TODO: get architecture size from gbl_args */
-  //SASA<inputT, outputT> sasa(9, 16, 16, *cc);
-  //sasa.master(*input, *output);
-  //Tensor<outputT> *bias = new TensorExtant<outputT>(cc->bias);
-  //tensor_vector_add(output, output, bias);
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
