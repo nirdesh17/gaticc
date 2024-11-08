@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "tensor.h"
 #include "utils.h"
+#include <cstdarg>
 // #include <cstdint>
 // #include <typeinfo>
 
@@ -187,3 +188,26 @@ int get_va_size() {
   int va_size = gbl_args["vasize"].as<int>();
   return va_size;
 }
+
+void log_func(const char *type, const char *file, int line, const char *func,
+                          const char *fmt, ...) {
+  fprintf(stderr, "%s:%d: %s: %s: ", file, line, func, type);
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  va_end(ap);
+  fprintf(stderr, "\n");
+}
+
+[[noreturn]] void log_fatal_func(const char *file, int line, const char *func,
+                           const char *fmt, ...) {
+
+  fprintf(stderr, "%s:%d: %s: FATAL: ", file, line, func);
+  va_list ap;
+  va_start(ap, fmt);
+  log_func("FATAL", file, line, func, fmt, ap);
+  va_end(ap);
+  exit(EXIT_FAILURE);
+}
+
+

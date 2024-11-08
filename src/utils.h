@@ -28,28 +28,14 @@
 #define log_fatal(fmt, ...)                                                    \
   (log_fatal_func(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
 #define log_info(fmt, ...)                                                     \
-  (log_info_func(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
+  (log_func("INFO", __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
+#define log_warn(fmt, ...)                                                     \
+  (log_func("WARNING", __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
 
-[[noreturn]] inline void log_fatal_func(const char *file, int line, const char *func,
-                           const char *fmt, ...) {
-  fprintf(stderr, "%s:%d: %s: FATAL: ", file, line, func);
-  va_list ap;
-  va_start(ap, fmt);
-  vfprintf(stderr, fmt, ap);
-  va_end(ap);
-  fprintf(stderr, "\n");
-  exit(EXIT_FAILURE);
-}
-
-inline void log_info_func(const char *file, int line, const char *func,
-                          const char *fmt, ...) {
-  fprintf(stderr, "%s:%d: %s: INFO: ", file, line, func);
-  va_list ap;
-  va_start(ap, fmt);
-  vfprintf(stderr, fmt, ap);
-  va_end(ap);
-  fprintf(stderr, "\n");
-}
+void log_func(const char *type, const char *file, int line, const char *func,
+                          const char *fmt, ...);
+[[noreturn]] void log_fatal_func(const char *file, int line, const char *func,
+                           const char *fmt, ...);
 
 inline void check_c_return_val(int val, const char *err) {
   if (val != 0) {

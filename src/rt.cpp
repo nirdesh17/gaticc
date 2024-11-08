@@ -180,7 +180,7 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
 
 
 void Runner::infer_loop(Rah &rah, const Fstream &fp) {
-  log_info("Types are being hardcoded in inferloop");
+  log_warn("Types are being hardcoded in inferloop");
   using inputT = float;
   using outputT = int8_t;
   log_info("reading input");
