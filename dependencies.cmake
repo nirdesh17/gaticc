@@ -9,12 +9,10 @@ set(ALL_DIR
 )
 
 set(ALL_LIBS
-    ${Protobuf_LIBRARIES} 
     ${Python3_LIBRARIES} 
     ${NumPy_LIBRARIES} 
     ${Boost_LIBRARIES}
-    Python3::Python
-    protobuf::libprotobuf
+    ${Protobuf_LITE_LIBRARIES}
     dl
 )
 
@@ -30,6 +28,7 @@ if (${Protobuf_VERSION} VERSION_GREATER ${PROTOBUF_ERR_VERSION})
   # should include and link abseil libs to sysim but on Arch Linux this seems to be 
   # broken. This is a quick fix.
   find_package(absl REQUIRED)
-  message("Found protobuf version ${Protobuf_VERSION}")
+  message("-- Found protobuf version ${Protobuf_VERSION}")
+  message("-- Explicitly links absl_log_internal_*")
   list(APPEND ALL_LIBS absl_log_internal_message absl_log_internal_check_op)
 endif()

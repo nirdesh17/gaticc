@@ -7,10 +7,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(EXECUTABLE_NAME sysim)
 
 include(${CMAKE_SOURCE_DIR}/dependencies.cmake)
-# TODO: remove this later by fixing the code
+
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
+
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wextra -pedantic")
 add_compile_options(-Wno-narrowing  -fdiagnostics-color=always)
 
