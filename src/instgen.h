@@ -912,7 +912,6 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
       }
     }
   }
-  exit(1);
 }
 template <typename T> void BinBlob::sa_align_aux_pointwise(const Tensor<T> *tensor) {
   log_fatal("shouldnt reach here, pointwise alignment un-implemented");
