@@ -5,3 +5,7 @@ __pycache__
 build/
 .vscode/
 exe/
+*.bin
+*.gch
+*.gml
+*.a
