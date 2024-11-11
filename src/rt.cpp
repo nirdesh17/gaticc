@@ -203,7 +203,7 @@ void Runner::read_uart(BinBlob &blob, int uart_baud, int expected_size) {
   	log_fatal("read_uart failed don't know why");
   }
   Tensor<int8_t> *rr = np2t<int8_t>(ret);
-  assert(rr->size() == blob.get_size());
+  assert(rr->size() == blob.size());
   char *data = blob.get_data();
   for (int i = 0; i < rr->size(); ++i) {
     data[i] = rr->at(i);
