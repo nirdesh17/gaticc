@@ -1,75 +1,12 @@
 #!/usr/bin/env python
-# coding: utf-8
-
-# In[27]:
-
 
 import onnx
 import numpy as np
-import re
-from math import ceil
 from PIL import Image
-
-import jax.lax
-import jax.numpy
 import os.path
 from os.path import join
-
 import serial
 import time
-
-# NEEDED BY SYSIM FFI
-def l2nparr(l,dims):
-    a = np.array(l).reshape((dims))
-    return a
-
-# NEEDED BY SYSIM FFI
-def nparr2l(arr):
-    return arr.flatten().tolist()
-
-# NEEDED BY SYSIM FFI
-def npgetdims(arr):
-    arr = np.squeeze(arr)
-    return arr.shape
-
-# ifmap 2d, kernel 2d -> out 2d 
-def _conv2d(ctx, ifmap, kernel):
-    """ conv2d helper - conv ifmap[i,j] with kernel """
-    out = np.zeros(ctx.Hout * ctx.Wout)
-    out_index = 0
-    for i in range(ctx.Hout):
-        for j in range(ctx.Wout):
-            for ii in range(ctx.KH):
-                for jj in range(ctx.KW):
-                     #print(ifmap.shape)
-                     out[out_index] = out[out_index] + (ifmap[ii+i,jj+j] * kernel[ii, jj])                       
-            out_index = out_index + 1
-    return out.reshape(ctx.Hout, ctx.Wout)
-
-# ifmap 3d, kernel 3d -> out 2d (from addition of all the channels)
-def conv2d(ctx, ifmap, kernel):
-    out = np.empty((ctx.IC, ctx.Hout, ctx.Wout))
-    for i in range(ctx.IC):
-        out[i] = _conv2d(ctx, ifmap[0,i,:,:], kernel[i])
-    out = np.sum(out, axis=0)
-    return out
-
-class ctx:
-    def __init__(self, ifmap, kernels, stride=1, padding=0):
-        """ Args:
-                ifmap: input map
-                kernels: list of kernels each of size KH, KW
-            Returns:
-                ctx: object that collects N,C,IH,IW,KH,KW,Hout,Wout
-        """
-        self.N, self.C, self.IH, self.IW = ifmap.shape
-        self.S, self.P = (stride, padding)
-        self.KN = kernels.shape[0]
-        self.IC = kernels.shape[1]
-        self.KH = kernels.shape[2]
-        self.KW = kernels.shape[3]
-        self.Hout = ceil((self.IW - self.KW)/stride) + 1
-        self.Wout = ceil((self.IH - self.KH)/stride) + 1
 
 # image: path to image
 # Imagenet preprocessing function
@@ -140,89 +77,9 @@ def mnist_image_x(x):
 def mnist_label_x(x):
     labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)
     return labels[x]
-    
-# Uses custom conv2d
-def infer_layer(model, ifm, layer):
-    kernels = get_kernel(model, layer)
-    ctxo = ctx(ifm, kernels, stride=1, padding=0)
-    print(kernels.shape)
-    out = []
-    for i in range(kernels.shape[0]):
-        kernel = kernels[i]
-        out.append(conv2d(ctxo, ifm, kernel))
-    return np.array(out)
-
-def get_initializers(model):
-    model = onnx.load(model)
-    return model.graph.initializer
-
-def vgg_int_get_kernel(model_path, layernum):
-    initializers = get_initializers(model_path)
-    format_string = 'vgg0_conv{}_weight_quantized'.format(layernum)
-    for i in initializers:
-        if i.name == format_string:
-            array = np.frombuffer(i.raw_data, dtype=np.int8).reshape(i.dims)
-            return array
-    raise ValueError(f'Could not find layer {format_string} in model {model_path}') 
-
-def vgg_float_get_kernel(model_path, layernum):
-    initializers = get_initializers(model_path)
-    format_string = 'vgg0_conv{}_weight'.format(layernum)
-    for i in initializers:
-        if i.name == format_string:
-            print(i.name)
-            array = np.array(i.float_data).reshape(i.dims)
-            return array
-    raise ValueError(f'Could not find layer {format_string} in model {model_path}')
-
-
-def post_infer_layer(ofmap):
-    return np.array(ofmap).flatten().tolist()
-
-# Deprecated: torch. functions mess with the program in unknown
-# ways. Probably because both torch and sysim dynamically link to
-# libprotobuf. Real cause unknown but the solution is to not use
-# torch functions
-#def vgg_int_infer_layer(model_path, ifmap, layernum):
-#    ifmap = torch.Tensor(ifmap)
-#    k = np.copy(vgg_int_get_kernel(model_path, layernum))
-#    kernels = torch.Tensor(k)
-#    ofmap = torch.nn.functional.conv2d(ifmap, kernels)
-#    ofmap = np.array(ofmap)
-#    ofmap = post_infer_layer(ofmap.astype(np.int32))
-#    return ofmap
-
-def vgg_int_infer_layer(model_path, ifmap, layernum):
-    ifmap = jax.numpy.array(ifmap)
-    k = np.copy(vgg_int_get_kernel(model_path, layernum))
-    kernels = jax.numpy.array(k)
-    ofmap = jax.lax.conv(ifmap, kernels, (1,1), ((0,0),(0,0)))
-    ofmap = np.array(ofmap)
-    ofmap = post_infer_layer(ofmap.astype(np.int32))
-    return ofmap
-
-def vgg_float_infer_layer(model_path, ifmap, layernum):
-    ifmap = jax.numpy.array(ifmap)
-    k = np.copy(vgg_float_get_kernel(model_path, layernum))
-    kernels = jax.numpy.array(k)
-    ofmap = jax.lax.conv(ifmap, kernels, (1,1), ((0,0),(0,0)))
-    ofmap = np.array(ofmap)
-    ofmap = post_infer_layer(ofmap.astype(np.float32))
-    return ofmap
-
-def quantize_fp32i8(tensor, scale, zero_point):
-    tten = np.clip(np.round((tensor / scale) + zero_point), -128, 127)
-    return tten.astype(np.int8)
-
-def preprocess_quantize(image):
-    arr = preprocess(image)
-    # TODO: do not hardcode scale values, calculate them
-    arr = quantize_fp32i8(arr, 0.01865844801068306, 114)
-    return arr
 
 def transpose_aux(arr, perm):
     return np.transpose(arr, perm).flatten().tolist()
-
 
 def load_imagenet():
     return preprocess("/home/shreeyash/images/pom.jpg").reshape(1, 3, 224, 224)
@@ -296,12 +153,3 @@ def compare_npy(received_tensor, residing_tensor_path):
     #assert(len(t1) == len(t2))
     for i,j in zip(t1, t2):
         print(i,j)
-
-#print(preprocess("images/ray.jpg").reshape(1, 3, 224, 224))
-
-#images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)
-#labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)
-#3get_mnist_image(images, 0)
-
-# Example call:
-# vgg_float_infer_layer("../onnx/vgg/vgg16-12.onnx", preprocess("../images/dog.jpg"), 0)
