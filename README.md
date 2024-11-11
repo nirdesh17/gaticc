@@ -46,7 +46,7 @@ Regardless of the OS, these packages have to be installed. If pip on your system
 supports installing packages system-wide, run: 
 
 ```
-pip install numpy jax jaxlib pillow onnx
+pip install numpy pillow onnx serial
 ```
 
 Otherwise, create a virtual env and install it there:
