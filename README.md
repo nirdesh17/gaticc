@@ -46,7 +46,7 @@ Regardless of the OS, these packages have to be installed. If pip on your system
 supports installing packages system-wide, run: 
 
 ```
-pip install numpy pillow onnx pyserial
+pip install -r requirements.txt
 ```
 
 Otherwise, create a virtual env and install it there:
@@ -56,7 +56,7 @@ mkdir my_env
 cd my_env
 python -m venv .
 source bin/activate
-pip install {above_packages}
+pip install -r requirements.txt
 ```
 
 ### On board
