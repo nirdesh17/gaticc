@@ -215,6 +215,58 @@ Op::Graph Pass::reassign_registers(Op::Graph graph) {
   return megablock_graph;
 }
 
+/* In onnx, a QLinearConv can be followed by Relu, Maxpool, etc.
+ * These (miniblocks) are available only for float operations as 
+ * a result of which a QLinearConv's output (traditionally, int8/uint8)
+ * will be Dequantized to fp32, operated on relu, maxpool etc. and
+ * requantized back to lower precision. This dequantization-quantization
+ * introduces a shift in the values that the FPGA must account for.
+ * We do this by consuming scale values from following dq-q layers
+ * into QLinearConv's y_scale
+ */
+void Pass::adjust_scale_shift(Op::Graph graph) {
+  Op::VertexIterator vi, vi_end, next;
+  std::tie(vi, vi_end) = boost::vertices(graph);
+  int cnt = 0;
+
+  Op::LayerBase *latest_megablock = nullptr;
+  for (next = vi; vi != vi_end; vi = next, cnt++) {
+    next++;
+    Op::LayerBase *l = graph[*vi];
+    if (std::strcmp(l->op_type(), "QLinearConv") == 0) {
+      latest_megablock = l;
+      continue;
+    }
+
+    if (std::strcmp(l->op_type(), "DequantizeLinear") == 0 && latest_megablock != nullptr) {
+      Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(latest_megablock);
+      Op::Layer::DequantizeLinear *dl = dynamic_cast<Op::Layer::DequantizeLinear *>(l);
+      if (std::holds_alternative<float>(dl->scale)) {
+        for (int i = 0; i < cc->y_scale.size(); ++i) {
+          cc->y_scale.at(i) /= std::get<float>(dl->scale);
+        }
+      } else if (std::holds_alternative<double>(dl->scale)) {
+        for (int i = 0; i < cc->y_scale.size(); ++i) {
+          cc->y_scale.at(i) /= std::get<double>(dl->scale);
+        }
+      } else {
+        log_fatal("scale variant of %s holds an unhandled type of data", l->name.c_str());
+      }
+      continue;
+    }
+
+    if (std::strcmp(l->op_type(), "QuantizeLinear") == 0 && latest_megablock != nullptr) {
+      Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(latest_megablock);
+      Op::Layer::QuantizeLinear *dl = dynamic_cast<Op::Layer::QuantizeLinear *>(l);
+      for (int i = 0; i < cc->y_scale.size(); ++i) {
+        cc->y_scale.at(i) *= dl->scale;
+      }
+      latest_megablock = nullptr;
+      continue;
+    }
+  }
+}
+
 /* Megablocks like convolution are followed by miniblocks
  * like relu and/or maxpool in pipeline. relu does not change
  * the shape of its outputs but maxpool does. in case, where
@@ -377,9 +429,13 @@ InstGen::InstGen(const Op::Parser &parser) {
   Op::Graph graph = parser.get_graph();
   /* pass_reassign_registers is being called for its side-effect
    * which is the modification of LayerBase->{inputs,outputs} registers.
-   * graph2 is a intentianally un-used object
    */
-  Op::Graph graph2 = Pass::reassign_registers(graph);
+  Pass::reassign_registers(graph);
+  /* This function is called by its side-effect that adjusts
+   * a megablocks' y_scale to account of shift introduced
+   * by dequantize-quantize layers following a QLinearConv.
+   */
+  Pass::adjust_scale_shift(graph);
   AddressGen generator(graph);
   auto exec_order = generator.get_exec_order();
   total_model_size_cpu = generator.get_model_size_cpu();

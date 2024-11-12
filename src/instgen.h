@@ -900,7 +900,7 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
                * requirements. rindex is the 4 dimensional
                * index into the tensor (form NCHW)
                */
-              print_vec("rindex", rindex);
+              //print_vec("rindex", rindex);
               if (is_out_of_bounds(rindex, dims)) {
                 append(zero);
               } else {
@@ -1043,6 +1043,8 @@ namespace Pass {
 
 std::vector<Op::LayerBase *> remove_dqxq(Op::Graph graph);
 Op::Graph reassign_registers(Op::Graph graph);
+
+void adjust_scale_shift(Op::Graph graph);
 
 std::vector<Op::LayerBase *>
 extract_conv_true_odims(const std::vector<Op::LayerBase *> &order);
