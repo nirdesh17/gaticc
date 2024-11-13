@@ -1,4 +1,4 @@
-# Simulator for CNN
+# sysim - Compiler/Simulator/Runtime for Gati DNN accelerator
 
 # Build
 
