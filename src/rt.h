@@ -269,8 +269,8 @@ T get_dlsym(void *m_handle, std::string func_name) {
 
 
 template <typename T>
-void Runner::compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path& path) {
-  fs::path file = path / fs::path(l->name + ".tensor.npy"); 
+void Runner::compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path& file) {
+  //fs::path file = path / fs::path(l->name + ".tensor.npy"); 
   if (!fs::exists(file)) {
     log_fatal("%s: no such file or directory", file.c_str());
   }
