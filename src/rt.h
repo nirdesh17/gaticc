@@ -228,9 +228,20 @@ void Runner::receive_output_aux(const unsigned char *data,
   
   print_vec("expected dims", dims);
   print_vec("input dims", l->input_dims);
-  print_vec("input dims", l->output_dims);
+  print_vec("output dims", l->output_dims);
 
-  Tensor<T> *tensor = new TensorCreate<T>(l->output_dims);
+  std::vector<int> odims;
+  if (strcmp(l->op_type(), "QLinearConv") == 0) {
+    Op::Layer::QLinearConv *qc = dynamic_cast<Op::Layer::QLinearConv *>(l);
+    if (qc->pipelined_output_dims.size() != 0) {
+      print_vec("pipelined output dims", qc->pipelined_output_dims);
+      odims = qc->pipelined_output_dims;
+    }
+  } else {
+    odims = l->output_dims;
+  }
+
+  Tensor<T> *tensor = new TensorCreate<T>(odims);
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
     unalign_sa_output(tensor, data);
   } else if (strcmp(l->op_type(), "QGemm") == 0) {
