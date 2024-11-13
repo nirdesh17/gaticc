@@ -517,7 +517,7 @@ std::bitset<INST_SIZE_BITS> gen_quant(const std::vector<float> &x_scale,
 
   /* TODO: deduce logically */
   int shift_val = 16;
-  int calib_scale = (int)((1 / scales[0]) * std::pow(2, shift_val));
+  int calib_scale = std::round((1 / scales[0]) * std::pow(2, shift_val));
 
   std::bitset<TailBlock_QuantScale_COUNT> qscale{calib_scale};
   bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW,
