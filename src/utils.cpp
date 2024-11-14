@@ -168,10 +168,10 @@ int count_digits(int a) {
 
 
 std::vector<int> get_sa_arch() {
-  if (!gbl_args.has_option("sa_arch")) {
-    log_fatal("cant get architecture for sa, please use --sa_arch option");
+  if (!gbl_args.has_option("sa-arch")) {
+    log_fatal("cant get architecture for sa, please use --sa-arch option");
   }
-  std::string arch_list = gbl_args["sa_arch"].as<std::string>();
+  std::string arch_list = gbl_args["sa-arch"].as<std::string>();
   std::vector<int> mnk = parse_csv_string<int>(arch_list);
   assert(mnk.size() != 0 && "Ill formatted dimension string to --sa_arch, "
                             "expects string like m,n,k");
@@ -240,3 +240,25 @@ void check_c_return_val(void* val, const char *err) {
     log_fatal("%s: %s", err, strerror(errno));
   }
 }
+
+char** argv_create(int argc, ...) {
+  char **ptr = new char*[argc];
+  va_list ap;
+  va_start(ap, argc);
+  for (int i = 0; i < argc; ++i) {
+    char *p = va_arg(ap, char*);
+    size_t plen = strlen(p);
+    ptr[i] = new char[plen];
+    strncpy(ptr[i], p, plen);
+  }
+  va_end(ap);
+  return ptr;
+}
+
+void argv_delete(int argc, char **argv) {
+  for (int i = 0; i < argc; ++i) {
+    delete[] argv[i];
+  }
+  delete argv;
+}
+

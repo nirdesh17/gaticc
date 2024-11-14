@@ -91,7 +91,7 @@ class Argparse {
         1},
        {"input_path", {"--inputpath"}, "specify input to model as a resident file path (one file at a time)", 1},
        {"instgen", {"--instgen"}, "generate and print config instructions for an onnx model", 0},
-       {"sa_arch", {"--sa-arch"}, "systolic array architecture. Args: [comma sep values]. accepts args like --timeest", 1},
+       {"sa-arch", {"--sa-arch"}, "systolic array architecture. Args: [comma sep values]. accepts args like --timeest", 1},
        {"ramsize", {"--ramsize"}, "ram size in MB. Args: int. For ex, --ramsize 512", 1},
        {"vasize", {"--vasize"}, "Vector Array size. Usually equivalent to per cycle DRAM bandwidth in bytes. Args: int. For ex, --vasize 32", 1},
        {"pretty-print-blob", {"--pretty-print-blob"}, "pretty print entire blob", 0},
@@ -259,14 +259,14 @@ template <typename Container> void print_vec(const char *s, Container const &v) 
   std::cout << std::setprecision(8) << std::fixed;
   for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
     /* print only 16 number on a single line */
-    if (newline_cnt >= 9) {
+    if (newline_cnt >= 16) {
       std::cout << '\n';
       newline_cnt = 0;
     }
     if (is_int_like<decltype(*itr)>(*itr) || is_unsigned_int_like<decltype(*itr)>(*itr)) {
-      std::cout << (int) *itr << '\t';
+      std::cout << (int) *itr << ", " << ' ';
     } else {
-      std::cout << *itr << '\t';
+      std::cout << *itr << ", " << ' ';
     }
     newline_cnt++;
   }
@@ -596,3 +596,5 @@ std::bitset<sz> extract_bitset(const T *data, size_t size, int n, int m) {
   return ret;
 }
 
+char** argv_create(int argc, ...);
+void argv_delete(int argc, char **argv);
