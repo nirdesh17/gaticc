@@ -212,6 +212,9 @@ void unalign_sa_output(Tensor<T> *tensor, const T *data) {
 #endif
 
   auto dims = aligned_conv_output_dims(tensor->get_dims());
+  if (dims[TENSOR_4D_BATCH] != 1) {
+    log_fatal("can only operate on batch size 1; support must be added for more");
+  }
   auto sa_arch = get_sa_arch();
   /* elements per col */
   int epcol = ACC_SIZE / 8;
