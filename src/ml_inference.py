@@ -147,8 +147,6 @@ def compare_npy(received_tensor, residing_tensor_path):
     print(f"residing tensor path {residing_tensor_path}")
     t2 = np.load(residing_tensor_path)
     t1 = received_tensor.flatten()
-    t1 = t1[12:]
-    t1 = t1[:len(t1)-12]
     t2 = t2.flatten()
     #assert(len(t1) == len(t2))
     for i,j in zip(t1, t2):
