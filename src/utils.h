@@ -289,8 +289,7 @@ template <typename T> bool xcmp(T a, T b) {
 template <typename expectedT, typename computedT>
 bool generate_report(const char *test_name, std::vector<expectedT> &expected,
                      std::vector<computedT> &computed) {
-  printf("---------------------------------\n");
-  printf("Test Name: %s\n", test_name);
+  printf("Test Name: %s ", test_name);
   bool status = false;
   assert(expected.size() == computed.size() && "expected - computed unequal");
   for (int i = 0; i < expected.size(); ++i) {
