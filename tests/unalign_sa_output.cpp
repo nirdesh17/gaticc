@@ -101,9 +101,41 @@ bool unalign_sa_output() {
 
   std::vector<int8_t> computed = out->get();
 
-  bool status = generate_report<int8_t, int8_t>("unalign_sa_output_1x9x9x9_9x4x4", computed, expected);
+  bool status = generate_report<int8_t, int8_t>(
+      "unalign_sa_output_1x9x9x9_9x4x4", computed, expected);
   delete out;
 
+  return status;
+}
+
+bool unalign_sa_output2() {
+  std::vector<int8_t> expected{
+      0,  1,  2,  3,  0,  15, 16, 17, 30, 31, 0,  31, 44, 45, 46, 47,
+      4,  5,  6,  7,  18, 19, 20, 21, 32, 33, 34, 35, 0,  47, 48, 49,
+      8,  9,  10, 11, 22, 23, 24, 25, 36, 37, 38, 39, 50, 51, 52, 53,
+      12, 13, 14, 15, 26, 27, 28, 29, 40, 41, 42, 43, 54, 55, 56, 57};
+  std::vector<int> dims =
+      aligned_conv_output_dims(std::vector<int>{1, 4, 4, 4});
+  auto sa_arch = get_sa_arch();
+  int epcy = sa_arch[SA_ARCH_COLS];
+  int vacancy_factor = WORD_SIZE / epcy;
+  int og_elements = dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH];
+  /* elements emitted per channel */
+  int eepch = ceil_mod(og_elements, vacancy_factor);
+
+  std::vector<int8_t> v(dims[TENSOR_4D_CHANNELS] * eepch);
+  /* initialize */
+  int c = 0;
+  for (int i = 0; i < (int)v.size(); ++i) {
+    v.at(i) = (i % 128);
+  }
+  Tensor<int8_t> *out = new TensorCreate<int8_t>(dims);
+  const int8_t *data = reinterpret_cast<const int8_t *>(v.data());
+  unalign_sa_output<int8_t>(out, data);
+  std::vector<int8_t> computed = out->get();
+  bool status = generate_report<int8_t, int8_t>(
+      "unalign_sa_output_1x4x4x4_9x4x4", computed, expected);
+  delete out;
   return status;
 }
 
@@ -118,8 +150,15 @@ int main(int argc, char *argv[]) {
   global_init(ac, av);
   import_array();
   bool status1 = unalign_sa_output();
+  bool status2 = unalign_sa_output2();
 
   if (!status1) {
+    std::cerr << "status1 unalign_sa_output() failed\n";
+    exit(1);
+  }
+
+  if (!status2) {
+    std::cerr << "status2 unalign_sa_output2() failed\n";
     exit(1);
   }
 
