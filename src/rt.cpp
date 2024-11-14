@@ -251,10 +251,11 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
 
   check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash);
   //check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0 /* expected hash */);
-  const unsigned char *real_data = data + DWP_HEADER_BYTES;
   if (l->output_type == onnx::TensorProto_DataType_INT8) {
+    const int8_t *real_data = reinterpret_cast<const int8_t*>(data + DWP_HEADER_BYTES);
     receive_output_aux<int8_t>(real_data, expected_dims, l);
   } else if (l->output_type == onnx::TensorProto_DataType_UINT8) {
+    const uint8_t *real_data = reinterpret_cast<const uint8_t*>(data + DWP_HEADER_BYTES);
     receive_output_aux<uint8_t>(real_data, expected_dims, l);
   } else {
     log_fatal("can't compute with tensor of type %s", Op::get_tensorproto_dtype_name(l->output_type));

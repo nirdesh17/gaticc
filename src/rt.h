@@ -82,7 +82,7 @@ class Runner {
   void read_uart(BinBlob &blob, int uart_baud, int expected_size);
 
   template <typename T>
-  void receive_output_aux(const unsigned char *data,
+  void receive_output_aux(const T *data,
                                   const std::vector<int> &dims, Op::LayerBase *l);
 
   template <typename T>
@@ -192,7 +192,8 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
 }
 
 template <typename T>
-void unalign_sa_output(Tensor<T> *tensor, const unsigned char *data) {
+void unalign_sa_output(Tensor<T> *tensor, const T *data) {
+#if 0 
   auto dims = tensor->get_dims();
   size_t size = prod(dims.begin(), dims.end(), 1);
   auto sa_arch = get_sa_arch();
@@ -208,10 +209,50 @@ void unalign_sa_output(Tensor<T> *tensor, const unsigned char *data) {
       }
     }
   }
+#endif
+
+  auto dims = aligned_conv_output_dims(tensor->get_dims());
+  auto sa_arch = get_sa_arch();
+  /* elements per col */
+  int epcol = ACC_SIZE / 8;
+  /* elements per cycle */
+  int epcy = sa_arch[SA_ARCH_COLS];
+  /* TODO: explain this */
+  int vacancy_factor = WORD_SIZE / epcy;
+  int chan_sz = dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH];
+  /* elements emitted per channel */
+  int eepch = ceil_mod(chan_sz, vacancy_factor);
+  /* channels iterations */
+  int channel_itr = dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N];
+  int elements_itr = chan_sz / epcol;
+  int leftover_elements = eepch - chan_sz;
+  assert(leftover_elements >= 0);
+  int running_mod = chan_sz;
+  int data_index = 0;
+
+  for (int i = 0; i < channel_itr; ++i) {
+    for (int j = 0; j < elements_itr; ++j) {
+      for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
+        for (int l = 0; l < epcol; ++l) {
+          if (data_index >= running_mod && data_index != 0) {
+            data_index += leftover_elements - 1;
+            running_mod += leftover_elements + chan_sz;
+          } else {
+            int chan = i * sa_arch[SA_ARCH_N] + k;
+            int elem = j * epcol + l;
+            int write_index = chan * chan_sz + elem;
+            //std::cout << " index " << chan  << ' ' <<  elem << 
+            //  "write_index " << write_index << ' ' <<  " data " << data_index << '\n';
+            tensor->set(write_index, data[data_index++]);
+          }
+        }
+      }
+    }
+  }
 }
 
 template <typename T>
-void unalign_va_output(Tensor<T> *tensor, const unsigned char *data) {
+void unalign_va_output(Tensor<T> *tensor, const T *data) {
   auto dims = tensor->get_dims();
   size_t size = prod(dims.begin(), dims.end(), 1);
   for (int i = 0; i < size; ++i) {
@@ -222,7 +263,7 @@ void unalign_va_output(Tensor<T> *tensor, const unsigned char *data) {
 
 /* Converts a byte stream into a tensor and un-aligns if if necessary */
 template <typename T>
-void Runner::receive_output_aux(const unsigned char *data,
+void Runner::receive_output_aux(const T *data,
                                 const std::vector<int> &dims, Op::LayerBase *l) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
   

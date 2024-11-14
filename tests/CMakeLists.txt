@@ -147,3 +147,7 @@ add_test(NAME transpose_1x1x3x2 COMMAND transpose_1x1x3x2)
 add_executable(transpose_1x15x10x5 transpose_1x15x10x5.cpp)
 target_link_libraries(transpose_1x15x10x5 PRIVATE common)
 add_test(NAME transpose_1x15x10x5 COMMAND transpose_1x15x10x5)
+
+add_executable(unalign_sa_output unalign_sa_output.cpp)
+target_link_libraries(unalign_sa_output PRIVATE common)
+add_test(NAME unalign_sa_output COMMAND unalign_sa_output)
