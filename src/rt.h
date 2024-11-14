@@ -228,9 +228,9 @@ void unalign_sa_output(Tensor<T> *tensor, const T *data) {
   /* channels iterations */
   int channel_itr = dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N];
   int elements_itr = chan_sz / epcol;
-  int leftover_elements = eepch - chan_sz;
+  int leftover_elements = (eepch - chan_sz) * 4;
   assert(leftover_elements >= 0);
-  int running_mod = chan_sz;
+  int running_mod = chan_sz * 4;
   int data_index = 0;
 
   for (int i = 0; i < channel_itr; ++i) {
@@ -238,16 +238,15 @@ void unalign_sa_output(Tensor<T> *tensor, const T *data) {
       for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
         for (int l = 0; l < epcol; ++l) {
           if (data_index >= running_mod && data_index != 0) {
-            data_index += leftover_elements - 1;
-            running_mod += leftover_elements + chan_sz;
-          } else {
-            int chan = i * sa_arch[SA_ARCH_N] + k;
-            int elem = j * epcol + l;
-            int write_index = chan * chan_sz + elem;
-            //std::cout << " index " << chan  << ' ' <<  elem << 
-            //  "write_index " << write_index << ' ' <<  " data " << data_index << '\n';
-            tensor->set(write_index, data[data_index++]);
-          }
+            data_index += leftover_elements;
+            running_mod += leftover_elements + (chan_sz * 4);
+          } 
+          int chan = i * sa_arch[SA_ARCH_N] + k;
+          int elem = j * epcol + l;
+          int write_index = chan * chan_sz + elem;
+          std::cout << " index " << chan  << ' ' <<  elem << 
+            " write_index " << write_index << ' ' <<  " data " << data_index << '\n';
+          tensor->set(write_index, data[data_index++]);
         }
       }
     }
