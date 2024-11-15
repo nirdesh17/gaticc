@@ -276,6 +276,7 @@ void Runner::receive_output_aux(const T *data,
   } else {
     odims = l->output_dims;
   }
+  print_vec("tensor dims", odims);
 
   Tensor<T> *tensor = new TensorCreate<T>(odims);
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
