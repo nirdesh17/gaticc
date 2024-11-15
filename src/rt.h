@@ -193,60 +193,53 @@ template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor,
 
 template <typename T>
 void unalign_sa_output(Tensor<T> *tensor, const T *data) {
-#if 0 
-  auto dims = tensor->get_dims();
-  size_t size = prod(dims.begin(), dims.end(), 1);
-  auto sa_arch = get_sa_arch();
-  int acc_width = ACC_SIZE/8;
-  int eiec = (dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH]) / acc_width;
-  int tensor_index = 0;
-  for (int j = 0; j < dims[TENSOR_4D_CHANNELS]; ++j) {
-    for (int k = 0; k < eiec; ++k) {
-      for (int l = 0; l < acc_width; ++l) {
-        int index = (j * acc_width) + (acc_width * sa_arch[SA_ARCH_COLS] * k) + l;
-        T v = data[index];
-        tensor->set(tensor_index++, v);
-      }
-    }
-  }
-#endif
+  /* TODO: explain this function in detail */
 
-  auto dims = aligned_conv_output_dims(tensor->get_dims());
+  auto dims = tensor->get_dims();
+  auto new_dims = aligned_conv_output_dims(tensor->get_dims()); 
+
   if (dims[TENSOR_4D_BATCH] != 1) {
     log_fatal("can only operate on batch size 1; support must be added for more");
   }
   auto sa_arch = get_sa_arch();
-  /* elements per col */
+  /* elements per column */
   int epcol = ACC_SIZE / 8;
-  /* elements per cycle */
+  /* elements emitted per cycle */
   int epcy = sa_arch[SA_ARCH_COLS];
-  /* TODO: explain this */
-  int vacancy_factor = WORD_SIZE / epcy;
   int chan_sz = dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH];
-  /* elements emitted per channel */
-  int eepch = ceil_mod(chan_sz, vacancy_factor);
-  /* channels iterations */
-  int channel_itr = dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N];
-  int elements_itr = chan_sz / epcol;
-  int leftover_elements = (eepch - chan_sz) * 4;
-  assert(leftover_elements >= 0);
-  int running_mod = chan_sz * 4;
+  int new_chan_sz = new_dims[TENSOR_4D_HEIGHT] * new_dims[TENSOR_4D_WIDTH];
+  int vacancy_factor = WORD_SIZE / epcy;
+  /* elements in a column */
+  int ecol = ceil_mod(ceil_mod(chan_sz, epcol), vacancy_factor);
+
+  int channel_itr = new_dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N];
+  int elements_itr = ecol / epcol;
   int data_index = 0;
+
+  /* is out of bounds */
+  auto oob = [&dims, chan_sz](int ci, int ei) -> bool {
+    if (ci >= dims[TENSOR_4D_CHANNELS]) {
+      return true;
+    }
+    if (ei >= chan_sz) {
+      return true;
+    }
+    return false;
+  };
 
   for (int i = 0; i < channel_itr; ++i) {
     for (int j = 0; j < elements_itr; ++j) {
       for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
         for (int l = 0; l < epcol; ++l) {
-          if (data_index >= running_mod && data_index != 0) {
-            data_index += leftover_elements;
-            running_mod += leftover_elements + (chan_sz * 4);
-          } 
-          int chan = i * sa_arch[SA_ARCH_N] + k;
-          int elem = j * epcol + l;
-          int write_index = chan * chan_sz + elem;
-          std::cout << " index " << chan  << ' ' <<  elem << 
-            " write_index " << write_index << ' ' <<  " data " << data_index << '\n';
-          tensor->set(write_index, data[data_index++]);
+          int chan_index = i * sa_arch[SA_ARCH_N] + k;
+          int elem_index = j * epcol + l;
+          int windex = chan_index * chan_sz + elem_index;
+          if (!oob(chan_index, elem_index)) {
+            tensor->set(windex, data[data_index++]);
+          }
+          //std::cout << "chan: " << chan_index << " elem: " << elem_index
+          //<< " dindex: " << data_index++ << " windex " << windex << " oob "
+          //<< oob(chan_index, elem_index) << '\n';
         }
       }
     }
