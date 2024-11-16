@@ -3,6 +3,7 @@
 // #include "Python.h"
 #include "ffi.h"
 #include "utils.h"
+#include <csignal>
 // #include <filesystem>
 #include "options.h"
 
@@ -15,7 +16,14 @@ void global_init(int argc, char *argv[]) {
   Py_Initialize();
 }
 
+void exit_on_failure(int sig) {
+  /* TODO: add cleanup routines. debatable? */
+  exit(EXIT_FAILURE);
+}
+
 int main(int argc, char *argv[]) {
+  signal(SIGINT, exit_on_failure);
+
   global_init(argc, argv);
   import_array();
   if (PyErr_Occurred()) {
