@@ -224,7 +224,7 @@ Op::Graph Pass::reassign_registers(Op::Graph graph) {
  * We do this by consuming scale values from following dq-q layers
  * into QLinearConv's y_scale
  */
-void Pass::adjust_scale_shift(Op::Graph graph) {
+void Pass::adjust_scale_shift_conv(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
   std::tie(vi, vi_end) = boost::vertices(graph);
   int cnt = 0;
@@ -262,6 +262,50 @@ void Pass::adjust_scale_shift(Op::Graph graph) {
         cc->y_scale.at(i) *= dl->scale;
       }
       latest_megablock = nullptr;
+      continue;
+    }
+  }
+}
+
+/* TODO: merge this into a single pass */
+void Pass::adjust_scale_shift_gemm(Op::Graph graph) {
+  Op::VertexIterator vi, vi_end, next;
+  std::tie(vi, vi_end) = boost::vertices(graph);
+  int cnt = 0;
+
+  Op::LayerBase *latest_megablock = nullptr;
+  Op::LayerBase *previous_dl = nullptr;
+  for (next = vi; vi != vi_end; vi = next, cnt++) {
+    next++;
+    Op::LayerBase *l = graph[*vi];
+    if (std::strcmp(l->op_type(), "QGemm") == 0) {
+      latest_megablock = l;
+      continue;
+    }
+    if (std::strcmp(l->op_type(), "DequantizeLinear") == 0 && latest_megablock != nullptr) {
+      previous_dl = l;
+      continue;
+    }
+    if (std::strcmp(l->op_type(), "QuantizeLinear") == 0 && latest_megablock != nullptr && previous_dl != nullptr) {
+      Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(latest_megablock);
+      Op::Layer::DequantizeLinear *dl = dynamic_cast<Op::Layer::DequantizeLinear *>(previous_dl);
+      Op::Layer::QuantizeLinear *ql = dynamic_cast<Op::Layer::QuantizeLinear *>(l);
+
+      if (std::holds_alternative<float>(dl->scale)) {
+        for (int i = 0; i < cc->y_scale.size(); ++i) {
+          cc->y_scale.at(i) /= std::get<float>(dl->scale);
+          cc->y_scale.at(i) *= ql->scale;
+        }
+      } else if (std::holds_alternative<double>(dl->scale)) {
+        for (int i = 0; i < cc->y_scale.size(); ++i) {
+          cc->y_scale.at(i) /= std::get<double>(dl->scale);
+          cc->y_scale.at(i) *= ql->scale;
+        }
+      } else {
+        log_fatal("scale variant of %s holds an unhandled type of data", l->name.c_str());
+      }
+      latest_megablock = nullptr;
+      previous_dl = nullptr;
       continue;
     }
   }
@@ -435,7 +479,9 @@ InstGen::InstGen(const Op::Parser &parser) {
    * a megablocks' y_scale to account of shift introduced
    * by dequantize-quantize layers following a QLinearConv.
    */
-  Pass::adjust_scale_shift(graph);
+  Pass::adjust_scale_shift_conv(graph);
+  Pass::adjust_scale_shift_gemm(graph);
+
   AddressGen generator(graph);
   auto exec_order = generator.get_exec_order();
   total_model_size_cpu = generator.get_model_size_cpu();
