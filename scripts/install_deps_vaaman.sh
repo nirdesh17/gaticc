@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo apt update
+
 sudo apt install \
   libprotobuf23 \
   libprotobuf-dev \
@@ -8,4 +10,7 @@ sudo apt install \
   python3-dev \
   python3 \
   pkg-config \
-  python3-numpy
+  python3-numpy \
+  cmake \
+  make \
+  python3-venv
