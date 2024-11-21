@@ -1,17 +1,20 @@
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 COMPONENTS NumPy REQUIRED)
-find_package(Boost 1.67 COMPONENTS REQUIRED)
+#find_package(Boost 1.67 COMPONENTS REQUIRED)
 find_package(Protobuf REQUIRED)
+
+set(BOOST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party/graph/include/)
 
 set(ALL_DIR
     ${Python3_NumPy_INCLUDE_DIRS} 
     ${Python3_INCLUDE_DIRS}
+    ${BOOST_PATH}
 )
 
 set(ALL_LIBS
     ${Python3_LIBRARIES} 
     ${NumPy_LIBRARIES} 
-    ${Boost_LIBRARIES}
+    #${Boost_LIBRARIES}
     ${Protobuf_LITE_LIBRARIES}
     dl
 )

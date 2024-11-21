@@ -7,22 +7,21 @@
 ### Arch
 
 ```
-sudo pacman -S boost boost-libs python3 protobuf python-numpy pkg-config
+sudo pacman -S python3 protobuf python-numpy pkg-config
 python-numpy
 ```
 
 ### Fedora
     
 ``` 
-sudo dnf install boost-devel python3-devel protobuf-compiler pkg-config
-python3-numpy
+sudo dnf install python3-devel protobuf-compiler pkg-config python3-numpy
 ```
 
 ### Ubuntu/Debian
 
 ```
 sudo apt install libprotobuf{available_version} libprotobuf-dev \
-    protobuf-compiler libboost{available_version}-all-dev \
+    protobuf-compiler \
     python{available_version}-dev python{available_version} \
   pkg-config python3-numpy
 
@@ -33,11 +32,11 @@ the apt repos.
 
 ### MacOS M1/M2
 
-To install boost and protobuf in mac we can use either [brew](https://brew.sh) or [macports](https://www.macports.org).
+To install protobuf in mac we can use either [brew](https://brew.sh) or [macports](https://www.macports.org).
 
 **Using Brew**
 ```
-brew install boost protobuf
+brew install protobuf
 ```
 
 ### Python dependencies
@@ -84,6 +83,7 @@ sudo apt install rah-service
 
 ```
 cd /path/to/sysim
+git submodule update --init --depth 1 --recursive
 mkdir build
 cd build
 cmake ..

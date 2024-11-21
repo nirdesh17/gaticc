@@ -3,10 +3,12 @@ project(sysim)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) 
 set(CMAKE_CXX_EXTENSIONS OFF)
-# set(CMAKE_VERBOSE_MAKEFILE ON)
+#set(CMAKE_VERBOSE_MAKEFILE ON)
 set(EXECUTABLE_NAME sysim)
+set(PCH_LIBS ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 
 include(${CMAKE_SOURCE_DIR}/dependencies.cmake)
+
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -33,7 +35,8 @@ target_include_directories(sim PUBLIC
 )
 
 add_executable(${EXECUTABLE_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp) 
-target_precompile_headers(${EXECUTABLE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
+target_precompile_headers(${EXECUTABLE_NAME} PRIVATE ${PCH_LIBS})
+
 target_link_libraries(${EXECUTABLE_NAME} sim)
 target_link_libraries(${EXECUTABLE_NAME} 
     ${ALL_LIBS}
