@@ -42,7 +42,14 @@ size_t Fstream::get_size() const {
 
 Rah::Rah() {
   m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
-  check_c_return_val(m_handle, dlerror());
+  if (m_handle == NULL) {
+    log_fatal("dlopen(): %d: could not open %s, check if you've installed rah. "
+              "Additionally, check "
+              "if vaaman-fpga communication overlay has been configured "
+              "properly (see "
+              "https://docs.vicharak.in/vicharak_sbcs/vaaman/vaaman-linux/"
+              "linux-configuration-guide/vicharak-config-tool/) ", dlerror(), RAH_SO_STRING);
+  }
 }
 
 Rah::~Rah() {
