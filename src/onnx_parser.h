@@ -11,7 +11,7 @@
 #include <boost/graph/graph_traits.hpp>
 #include <utility>
 
-#include <google/protobuf/arena.h>
+#include "google/protobuf/arena.h"
 
 #include "onnx.pb.h"
 #include "utils.h"
