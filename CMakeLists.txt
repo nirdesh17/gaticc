@@ -18,18 +18,18 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -pedantic")
 add_compile_options(-Wno-narrowing  -fdiagnostics-color=always)
 add_compile_definitions(PRINT_COLOR)
 
-# Set abseil to build static libs before protobuf subdirectory
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libs" FORCE)
-set(protobuf_ABSL_PROVIDER "module" CACHE STRING "Use module abseil" FORCE) 
-set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared protobuf libs" FORCE)
-# Your existing protobuf options
-set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
-set(protobuf_BUILD_CONFORMANCE OFF CACHE BOOL "Build conformance tests") 
-set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Build examples")
-set(protobuf_INSTALL OFF CACHE BOOL "Install protobuf")
-set(protobuf_BUILD_LIBPROTOC OFF CACHE BOOL "Build libprotoc")
-set(protobuf_BUILD_LIBUPB OFF CACHE BOOL "Build libupb")
-set(protobuf_BUILD_SHARED_LIBS OFF)
+## Set abseil to build static libs before protobuf subdirectory
+#set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libs" FORCE)
+#set(protobuf_ABSL_PROVIDER "module" CACHE STRING "Use module abseil" FORCE) 
+#set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared protobuf libs" FORCE)
+## Your existing protobuf options
+#set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
+#set(protobuf_BUILD_CONFORMANCE OFF CACHE BOOL "Build conformance tests") 
+#set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Build examples")
+#set(protobuf_INSTALL OFF CACHE BOOL "Install protobuf")
+#set(protobuf_BUILD_LIBPROTOC OFF CACHE BOOL "Build libprotoc")
+#set(protobuf_BUILD_LIBUPB OFF CACHE BOOL "Build libupb")
+#set(protobuf_BUILD_SHARED_LIBS OFF)
 
 add_subdirectory(third_party/protobuf/ ${CMAKE_CURRENT_BINARY_DIR}/protobuf)
 
@@ -44,6 +44,8 @@ list(REMOVE_ITEM FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 add_library(sim STATIC ${FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc)
 target_include_directories(sim PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/third_party/abseil-cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}
     ${ALL_DIR}
@@ -65,6 +67,8 @@ target_link_libraries(${EXECUTABLE_NAME} sim ${ALL_LIBS})
 target_include_directories(${EXECUTABLE_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/third_party/abseil-cpp
     ${ALL_DIR}
 )
 

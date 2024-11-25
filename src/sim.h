@@ -9,8 +9,8 @@
 #endif
 #include "Python.h"
 #include <algorithm>
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/graph_traits.hpp>
+#include "boost/graph/adjacency_list.hpp"
+#include "boost/graph/graph_traits.hpp"
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
