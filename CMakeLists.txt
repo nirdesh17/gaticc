@@ -7,7 +7,23 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 set(EXECUTABLE_NAME sysim)
 set(PCH_LIBS ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 
-include(${CMAKE_SOURCE_DIR}/dependencies.cmake)
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+find_package(Python3 COMPONENTS NumPy REQUIRED)
+
+set(BOOST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost/)
+
+set(ALL_DIR
+    ${Python3_NumPy_INCLUDE_DIRS} 
+    ${Python3_INCLUDE_DIRS}
+    ${BOOST_PATH}
+)
+
+set(ALL_LIBS
+    ${Python3_LIBRARIES} 
+    ${NumPy_LIBRARIES} 
+    ${CMAKE_CURRENT_BINARY_DIR}/protobuf/libprotobuf-lite.a
+    dl
+)
 
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -18,18 +34,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Wextra -pedantic")
 add_compile_options(-Wno-narrowing  -fdiagnostics-color=always)
 add_compile_definitions(PRINT_COLOR)
 
-## Set abseil to build static libs before protobuf subdirectory
-#set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libs" FORCE)
-#set(protobuf_ABSL_PROVIDER "module" CACHE STRING "Use module abseil" FORCE) 
-#set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared protobuf libs" FORCE)
-## Your existing protobuf options
-#set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
-#set(protobuf_BUILD_CONFORMANCE OFF CACHE BOOL "Build conformance tests") 
-#set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Build examples")
-#set(protobuf_INSTALL OFF CACHE BOOL "Install protobuf")
-#set(protobuf_BUILD_LIBPROTOC OFF CACHE BOOL "Build libprotoc")
-#set(protobuf_BUILD_LIBUPB OFF CACHE BOOL "Build libupb")
-#set(protobuf_BUILD_SHARED_LIBS OFF)
+set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
 
 add_subdirectory(third_party/protobuf/ ${CMAKE_CURRENT_BINARY_DIR}/protobuf)
 
