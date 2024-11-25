@@ -3,7 +3,7 @@ project(sysim)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) 
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_VERBOSE_MAKEFILE ON)
+#set(CMAKE_VERBOSE_MAKEFILE ON)
 set(EXECUTABLE_NAME sysim)
 set(PCH_LIBS ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 
@@ -16,6 +16,9 @@ set(ALL_DIR
     ${Python3_NumPy_INCLUDE_DIRS} 
     ${Python3_INCLUDE_DIRS}
     ${BOOST_PATH}
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 set(ALL_LIBS
@@ -48,34 +51,15 @@ file(GLOB FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 list(REMOVE_ITEM FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 add_library(sim STATIC ${FILES} ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc)
-target_include_directories(sim PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/third_party/abseil-cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${ALL_DIR}
-)
+target_include_directories(sim PUBLIC ${ALL_DIR})
 target_link_libraries(sim ${ALL_LIBS})
-message("ALL libns ${ALL_LIBS}")
-
-add_executable(${EXECUTABLE_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp) 
-
-add_dependencies(${EXECUTABLE_NAME} libprotobuf-lite)
-
 add_dependencies(sim libprotobuf-lite)
 
+add_executable(${EXECUTABLE_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp) 
+add_dependencies(${EXECUTABLE_NAME} libprotobuf-lite)
 target_precompile_headers(${EXECUTABLE_NAME} PRIVATE ${PCH_LIBS})
-
-
 target_link_libraries(${EXECUTABLE_NAME} sim ${ALL_LIBS})
-
-target_include_directories(${EXECUTABLE_NAME} PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/third_party/abseil-cpp
-    ${ALL_DIR}
-)
+target_include_directories(${EXECUTABLE_NAME} PUBLIC ${ALL_DIR})
 
 add_custom_target(test
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/tests/build
