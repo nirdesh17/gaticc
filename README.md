@@ -4,42 +4,25 @@
 
 ## Install Dependencies 
 
-### Arch
+**Arch**:
 
 ```
-sudo pacman -S python3 protobuf python-numpy pkg-config
-python-numpy
+sudo pacman -S python3 python-numpy pkg-config python3-venv
 ```
 
-### Fedora
+**Fedora**:
     
 ``` 
-sudo dnf install python3-devel protobuf-compiler pkg-config python3-numpy
+sudo dnf install python3-devel python3-numpy python3-venv
 ```
 
-### Ubuntu/Debian
+**Ubuntu/Debian**:
 
 ```
-sudo apt install libprotobuf{available_version} libprotobuf-dev \
-    protobuf-compiler \
-    python{available_version}-dev python{available_version} \
-  pkg-config python3-numpy
-
+sudo apt install python3-dev python3-numpy pkg-config python3-venv
 ```
 
-`{available_version}` here is a version number of the packages available in
-the apt repos.
-
-### MacOS M1/M2
-
-To install protobuf in mac we can use either [brew](https://brew.sh) or [macports](https://www.macports.org).
-
-**Using Brew**
-```
-brew install protobuf
-```
-
-### Python dependencies
+**Python dependencies**:
 
 Regardless of the OS, these packages have to be installed. If pip on your system
 supports installing packages system-wide, run: 
@@ -83,17 +66,16 @@ sudo apt install rah-service
 
 ```
 cd /path/to/sysim
-git submodule update --init --depth 1 --recursive
+./scripts/install_deps.sh
 mkdir build
-cd build
-cmake ..
-cmake --build . 
+cmake -B build
+cmake --build build
 ```
 
 TODO: add test instructions here
 
 
-## Usage (projected)
+## Usage
 
 See,
 ```
@@ -127,52 +109,91 @@ for usage instructions.
 # Guide to Writing Tests
 
 ## Overview
-This guide provides instructions on creating and running test files for various run functions in the `sysim`. The goal is to understand the process of testing individual functions.
+
+This guide provides instructions on creating and running test files for various
+run functions in the `sysim`. The goal is to understand the process of testing
+individual functions.
 
 ## Important Files for Writing Tests
-1. **executor.cpp**: Implements the logic for executing various neural network operations by overriding the Op::LayerBase::run() method for different layer types. This file contains the execution logic for layers such as convolution, ReLU, max pooling, and more, handling both floating-point and quantized data types.
 
-2. **onnx_parser.h**: Defines classes and structures for parsing ONNX models. It includes definitions for different layer types, methods for setting parameters, and executing layers. The file also provides utilities for handling ONNX model components like initializers, value info, and attributes, facilitating the conversion of ONNX models into executable graphs.
+1. **executor.cpp**: Implements the logic for executing various neural network
+   operations by overriding the Op::LayerBase::run() method for different layer
+types. This file contains the execution logic for layers such as convolution,
+ReLU, max pooling, and more, handling both floating-point and quantized data
+types.
 
-3. **sim.h**: Contains simulation functionalities for neural network operations. This file includes classes and methods for simulating the execution of layers, handling operations like matrix multiplication, pooling and more. It also provides profiling tools to measure execution performance.
+2. **onnx_parser.h**: Defines classes and structures for parsing ONNX models. It
+   includes definitions for different layer types, methods for setting
+parameters, and executing layers. The file also provides utilities for handling
+ONNX model components like initializers, value info, and attributes,
+facilitating the conversion of ONNX models into executable graphs.
 
-4. **tensor.h**: Defines tensor data structures and methods for managing dimensions and accessing data. This file is essential for handling multi-dimensional arrays in machine learning models, providing an abstract base class for tensors and concrete implementations for different tensor types. It includes methods for tensor operations such as element access, insertion, and dimension manipulation.
+3. **sim.h**: Contains simulation functionalities for neural network operations.
+   This file includes classes and methods for simulating the execution of
+layers, handling operations like matrix multiplication, pooling and more. It
+also provides profiling tools to measure execution performance.
+
+4. **tensor.h**: Defines tensor data structures and methods for managing
+   dimensions and accessing data. This file is essential for handling
+multi-dimensional arrays in machine learning models, providing an abstract base
+class for tensors and concrete implementations for different tensor types. It
+includes methods for tensor operations such as element access, insertion, and
+dimension manipulation.
 
 ## Understanding and Using Functions
-There are multiple functions, such as `run_conv`, `run_relu`, `run_maxpool`, etc., that simulate different CNN operations. To create a test file for any function, follow these general steps:
 
-1. **Identify the Function**:  
-   Start by choosing the function you want to test (e.g., `run_conv`, `run_relu`). These functions are typically found in the `executor.cpp` file.
+There are multiple functions, such as `run_conv`, `run_relu`, `run_maxpool`,
+etc., that simulate different CNN operations. To create a test file for any
+function, follow these general steps:
 
-2. **Understand the Function Parameters**:  
-   Look into the source file to understand:
-   - What inputs the function expects (e.g., tensor data, dimensions, configuration parameters).
-   - What outputs the function produces (e.g., modified tensors, numerical results).
+1. **Identify the Function**:  Start by choosing the function you want to test
+   (e.g., `run_conv`, `run_relu`). These functions are typically found in the
+`executor.cpp` file.
+
+2. **Understand the Function Parameters**:  Look into the source file to
+   understand:
+   - What inputs the function expects (e.g., tensor data, dimensions,
+     configuration parameters).
+   - What outputs the function produces (e.g., modified tensors, numerical
+     results).
    
    For example, for `run_conv`, check what data format it accepts (like a multi-dimensional array or tensor), the required kernel size, stride, etc.
 
-3. **Map to the Class and Methods**:  
-   If the function is part of a class, understand how the class is structured:
+3. **Map to the Class and Methods**:  If the function is part of a class,
+   understand how the class is structured:
    - **Constructor**: How to initialize the class object.
-   - **Methods**: Which methods of the class need to be called to properly execute the function (e.g., initialization methods, setters for inputs).
-   - **Input/Output Parameters**: Identify the required formats for input and output.
+   - **Methods**: Which methods of the class need to be called to properly
+     execute the function (e.g., initialization methods, setters for inputs).
+   - **Input/Output Parameters**: Identify the required formats for input and
+     output.
 
-4. **Create the Test File**:  
-   Once you understand how the function works and its requirements, create a test file for it (e.g., `functionName_inputDims_outputDims.cpp`). Structure the file to:
+4. **Create the Test File**:  Once you understand how the function works and its
+   requirements, create a test file for it (e.g.,
+`functionName_inputDims_outputDims.cpp`). Structure the file to:
    - Initialize the necessary data (e.g., input tensors).
    - Call the function with the appropriate arguments.
    - Capture and check the output to ensure correctness.
    - Include all required headers.
 
-5. **Add Executable in CMakeLists.txt**:  
-   After writing the code, add its executable in the `CMakeLists.txt` file of the tests directory as a CTest. Then, run and check if it's working as required.
+5. **Add Executable in CMakeLists.txt**:  After writing the code, add its
+   executable in the `CMakeLists.txt` file of the tests directory as a CTest.
+Then, run and check if it's working as required.
 
-6. **Repeat for Other Functions**:  
-   Follow the same steps for each function you want to test, such as `run_flatten`, `run_gemm`, `run_quantize_linear`, etc. Each function may have unique inputs and outputs, so make sure to adjust accordingly.
+6. **Repeat for Other Functions**:  Follow the same steps for each function you
+   want to test, such as `run_flatten`, `run_gemm`, `run_quantize_linear`, etc.
+Each function may have unique inputs and outputs, so make sure to adjust
+accordingly.
 
 ### Example Test File 
-- Find example test files in the [sysim/tests](https://github.com/vicharak-in/sysim/tree/master/tests) directory. For reference on how to include new tests, check the `CMakeLists.txt` file located in the same folder. This will help you understand the structure and integration of new test cases.
+
+- Find example test files in the
+  [sysim/tests](https://github.com/vicharak-in/sysim/tree/master/tests)
+directory. For reference on how to include new tests, check the `CMakeLists.txt`
+file located in the same folder. This will help you understand the structure and
+integration of new test cases.
+
 ## Building and Running Test Files
+
 There are two ways to build and run the test files:
 
 1. **Run Tests via Main Project Build**:
