@@ -69,3 +69,11 @@ git commit -m "bump version to: $NEW_VERSION
 
 " -e
 git tag "v$NEW_VERSION"
+
+cat > src/version.h << EOF
+#pragma once
+
+#define GATICC_VERSION "$NEW_VERSION"
+#define GATICC_BOOST_VERSION "$(awk -F " " '/constant BOOST_VERSION/{print $4}' third_party/boost/Jamroot)"
+#define GATICC_PROTOBUF_VERSION "$(awk -F '["]' '/protoc_version/{print $4}' third_party/protobuf/version.json)"
+EOF

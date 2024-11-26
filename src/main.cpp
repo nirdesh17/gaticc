@@ -33,6 +33,9 @@ int main(int argc, char *argv[]) {
   if (gbl_args.has_option("help")) {
     gbl_args.print_usage();
     return 0;
+  } else if (gbl_args.has_option("version")) {
+    gbl_args.print_version();
+    return 0;
   } else if (gbl_args.has_option("info")) {
     dispatch_info_ops();
   } else if (gbl_args.has_option("compile")) {

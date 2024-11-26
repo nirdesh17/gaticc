@@ -2,6 +2,7 @@
 #include "tensor.h"
 #include "utils.h"
 #include <cstdarg>
+#include "version.h"
 // #include <cstdint>
 // #include <typeinfo>
 
@@ -228,6 +229,12 @@ bool Argparse::has_option(const std::string &name) const {
 }
 
 void Argparse::print_usage() const { std::cerr << usage << argparser << usage_examples; }
+
+void Argparse::print_version() const { 
+  std::cerr << "Gaticc: " << GATICC_VERSION << '\n';
+  std::cerr << "Boost: " << GATICC_BOOST_VERSION << '\n';
+  std::cerr << "Protobuf: " << GATICC_PROTOBUF_VERSION << '\n';
+}
 
 void check_c_return_val(int val, const char *err) {
   if (val != 0) {
