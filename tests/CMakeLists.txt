@@ -1,25 +1,10 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.15)
 
 project(Testing)
+
 set(CMAKE_CXX_STANDARD 17)
-
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-include(${CMAKE_CURRENT_SOURCE_DIR}/../dependencies.cmake)
-
-add_library(common INTERFACE)
-
-target_link_libraries(common INTERFACE
-    ${ALL_LIBS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../build/libsim.a
-)
-
-target_include_directories(common INTERFACE
-
-    ${ALL_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../build
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src
-)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 enable_testing()
 set(TESTS 
@@ -56,12 +41,18 @@ set(TESTS
     reshape_1x1x4x3_1x1x2x6
     transpose_1x1x3x2
     transpose_1x15x10x5
+    unalign_sa_output
 )
 
 foreach(TEST ${TESTS})
     add_executable(${TEST} ${TEST}.cpp)
-    target_link_libraries(${TEST} PRIVATE common)
+    add_dependencies(${TEST} libprotobuf-lite sim pbgen)
+    target_include_directories(${TEST} PRIVATE ${ALL_DIR})
+    target_link_libraries(${TEST} PRIVATE 
+      ${LIB_NAME}
+      ${ALL_LIBS}
+    )
     add_test(NAME ${TEST} COMMAND ${TEST})
 endforeach()
 
-add_custom_target(tests DEPENDS ${TESTS})
+add_custom_target(tests DEPENDS ${TESTS} ${PROTO_LIB_NAME} sim)
