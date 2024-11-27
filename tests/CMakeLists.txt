@@ -41,6 +41,7 @@ set(TESTS
     reshape_1x1x4x3_1x1x2x6
     transpose_1x1x3x2
     transpose_1x15x10x5
+    unalign_sa_output
 )
 
 foreach(TEST ${TESTS})
