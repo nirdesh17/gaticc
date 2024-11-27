@@ -67,7 +67,7 @@ cat > src/version.h << EOF
 #define GATICC_PROTOBUF_VERSION "$(awk -F '["]' '/protoc_version/{print $4}' third_party/protobuf/version.json)"
 EOF
 
-git add VERSION.txt src/version.txt
+git add VERSION.txt src/version.h
 git commit -m "bump version to: $NEW_VERSION
 
 # Describe this release
