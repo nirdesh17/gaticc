@@ -1,29 +1,10 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.15)
 
 project(Testing)
+
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_VERBOSE_MAKEFILE ON)
-
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-#add_library(common INTERFACE)
-#add_dependencies(common libprotobuf-lite sim)
-
-message("current binary  ${CMAKE_CURRENT_SOURCE_DIR}")
-message("current source ${CMAKE_CURRENT_BINARY_DIR}")
-message("all libs ${ALL_LIBS}")
-message("all dir ${ALL_DIR}")
-
-#target_link_libraries(common INTERFACE
-#    ${ALL_LIBS}
-#    ${CMAKE_CURRENT_SOURCE_DIR}/../build/libsim.a
-#)
-#
-#target_include_directories(common INTERFACE
-#    ${ALL_DIR}
-#    ${CMAKE_CURRENT_SOURCE_DIR}/../build
-#    ${CMAKE_CURRENT_SOURCE_DIR}/../src
-#)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 enable_testing()
 set(TESTS 
@@ -67,10 +48,8 @@ foreach(TEST ${TESTS})
     add_dependencies(${TEST} libprotobuf-lite sim pbgen)
     target_include_directories(${TEST} PRIVATE ${ALL_DIR})
     target_link_libraries(${TEST} PRIVATE 
-      ${CMAKE_CURRENT_SOURCE_DIR}/../build/libsim.a
-      ${CMAKE_CURRENT_SOURCE_DIR}/../build/protobuf/${PROTO_LIB_NAME}.a
-      ${Python3_LIBRARIES}
-      ${NumPy_LIBRARIES}
+      ${LIB_NAME}
+      ${ALL_LIBS}
     )
     add_test(NAME ${TEST} COMMAND ${TEST})
 endforeach()
