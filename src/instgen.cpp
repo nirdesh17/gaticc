@@ -498,7 +498,8 @@ InstGen::InstGen(const Op::Parser &parser) {
      * 'instructions' and 'tbl' respectively
      */
     l->dispatch = dispatch_table.should_dispatch(l);
-    total_dwp_packets += l->get_inst(instructions, generator, init_tbl);
+    int rr = l->get_inst(instructions, generator, init_tbl);
+    total_dwp_packets += rr;
     insert_io_addr_tbl(l);
   }
 
@@ -1163,9 +1164,12 @@ int Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen,
   std::bitset<INST_SIZE_BITS> bias_inst = gen_fc_bias(this, gen, tbl);
   std::bitset<INST_SIZE_BITS> quant_inst = gen_fc_quant(this, gen);
 
-  int has_bias = bitset_range_get<TailBlock_FCBiasEn_COUNT, INST_SIZE_BITS>(
+  int has_fc_bias = bitset_range_get<TailBlock_FCBiasEn_COUNT, INST_SIZE_BITS>(
       bias_inst, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
-  if (has_bias) {
+  int has_conv_bias = bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(
+      bias_inst, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+
+  if (has_fc_bias || has_conv_bias) {
     dwp_packets++;
   }
 
@@ -1173,7 +1177,6 @@ int Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen,
   insts.push_back(output_inst);
   insts.push_back(bias_inst);
   insts.push_back(quant_inst);
-  return dwp_packets;
   return dwp_packets;
 }
 
@@ -1314,6 +1317,7 @@ AddressGen::AddressGen(Op::Graph graph)
    * top
    */
   inst_region_size = (total_instructions * (INST_SIZE_BITS / 8)) + (INST_SIZE_BITS/8);
+
   io_region_register_size = get_io_region_register_size(order);
   weight_region_size = get_weight_size(order);
 
@@ -1618,24 +1622,23 @@ size_t BinBlob::size() const {
 }
 
 void BinBlob::append(int a) {
-  assert(sizeof(a) < (m_size - m_ptr));
+  assert(sizeof(a) <= (m_size - m_ptr));
   generic_append(a);
 }
 
 void BinBlob::append(uint32_t a) {
-  assert(sizeof(a) < (m_size - m_ptr));
+  assert(sizeof(a) <= (m_size - m_ptr));
   generic_append(a);
 }
 
 void BinBlob::append(uint8_t a) {
-  assert(sizeof(a) < (m_size - m_ptr));
+  assert(sizeof(a) <= (m_size - m_ptr));
   generic_append(a);
 }
 
 void BinBlob::append(int8_t a) {
-  assert(sizeof(a) < (m_size - m_ptr));
+  assert(sizeof(a) <= (m_size - m_ptr));
   generic_append(a);
-  //assert(sizeof(a) <= (m_size - m_ptr));
 }
 
 void BinBlob::append_dwp_header(uint32_t size, uint32_t addr) {
@@ -1830,9 +1833,8 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   InstGen instgen(parser);
   uint32_t size = instgen.model_size_cpu();
   /* +1 for end packet */
-  int tdp = instgen.dwp_packets() + 1;
+  int tdp = instgen.dwp_packets();
   size += (tdp * DWP_HEADER_BYTES);
-  size += 1; /* extra byte for good luck */
   BinBlob blob(size);
   InstBlob instblob = instgen.get_blob();
   if (gbl_args.has_option("pretty-print-inst")) {
