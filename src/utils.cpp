@@ -203,7 +203,7 @@ void log_func(const char *type, const char *file, int line, const char *func,
 [[noreturn]] void log_fatal_func(const char *file, int line, const char *func,
                            const char *fmt, ...) {
 
-  fprintf(stderr, "%s:%d: %s: FATAL: ", file, line, func);
+  //fprintf(stderr, "%s:%d: %s: FATAL: ", file, line, func);
   va_list ap;
   va_start(ap, fmt);
   log_func("FATAL", file, line, func, fmt, ap);
@@ -215,8 +215,9 @@ void Argparse::parse(int argc, char *argv[]) {
   try {
     args = argparser.parse(argc, argv);
   } catch (const std::exception &e) {
-    std::cerr << usage << argparser;
-    log_fatal("%s", e.what());
+    print_usage();
+    std::cerr << "FATAL: " << e.what() << '\n';
+    exit(1);
   }
 }
 
