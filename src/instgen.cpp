@@ -551,10 +551,16 @@ std::bitset<INST_SIZE_BITS> gen_quant(const std::vector<float> &x_scale,
                                       const std::vector<int> &zero_points) {
   std::bitset<INST_SIZE_BITS> quant_inst;
   std::vector<float> scales = compute_output_scale(x_scale, w_scale, y_scale);
-  assert(scales.size() == 1 && "unsupported: per-channel quantization");
-  assert(scales[0] != 0);
+  if (scales.size() != 1) {
+    log_fatal("unsupported: per-channel quantization");
+  }
+  if (scales[0] == 0) {
+    log_fatal("scales[0] = 0, need non-zero scales");
+  }
   auto assert_zero = [](int i) {
-    assert(i == 0 && "unsupported: non zero points");
+    if (i != 0) {
+      log_fatal("unsupported: non-zero zero-points");
+    }
   };
   std::for_each(zero_points.begin(), zero_points.end(), assert_zero);
 
