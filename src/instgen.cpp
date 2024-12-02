@@ -663,41 +663,6 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   return conv_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_bias(const onnx::TensorProto *bias,
-                                     AddressGen &gen, int conv_bias,
-                                     int fc_bias) {
-  std::bitset<INST_SIZE_BITS> bias_inst;
-
-  auto bias_dims = bias->dims();
-  assert(bias_dims.size() == 1);
-  uint32_t bias_bytes = prod(bias_dims.begin(), bias_dims.end(), 1) *
-                        Op::tensorproto_sizeof(bias);
-  uint32_t bias_addr_start = gen.alloc(bias_bytes);
-  uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  //std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
-  //std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
-
-  std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
-  bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
-                   TailBlock_Opcode_HIGH);
-
-  std::bitset<TailBlock_BiasStartAddress_COUNT> bstart{bias_addr_start};
-  bitset_range_set(bias_inst, bstart, TailBlock_BiasStartAddress_LOW,
-                   TailBlock_BiasStartAddress_HIGH);
-
-  std::bitset<TailBlock_BiasEndAddress_COUNT> bend{bias_addr_end};
-  bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
-                   TailBlock_BiasEndAddress_HIGH);
-
-  std::bitset<TailBlock_BiasEn_COUNT> ben{conv_bias};
-  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
-
-  std::bitset<TailBlock_FCBiasEn_COUNT> fc_ben{fc_bias};
-  bitset_range_set(bias_inst, fc_ben, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
-
-  return bias_inst;
-}
-
 std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
                                           AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> bias_inst;
@@ -725,13 +690,13 @@ std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
   bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
                    TailBlock_BiasEndAddress_HIGH);
 
-  int bias_width = Op::tensorproto_sizeof(cc->bias); /* in bytes */
-  if (bias_width == 1) { /* 8 bit bias */
-    std::bitset<TailBlock_FCBiasEn_COUNT> ben{1};
-    bitset_range_set(bias_inst, ben, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
-  } else if (bias_width == 4) { /* 32 bit bias */
-    std::bitset<TailBlock_BiasEn_COUNT> ben{1};
-    bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  std::bitset<TailBlock_BiasEn_COUNT> ben{1};
+  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+
+  int bias_width = Op::tensorproto_sizeof(cc->bias) * 8; /* in bits */
+  if (bias_width == 8 || bias_width == 32) { /* 8 bit bias or 32 bit bias */
+    std::bitset<TailBlock_BiasWidth_COUNT> bw{bias_width};
+    bitset_range_set(bias_inst, bw, TailBlock_BiasWidth_LOW, TailBlock_BiasWidth_HIGH);
   } else {
     log_fatal("found a conv instruction with intangible bias width %d for layer %s", bias_width, cc->name.c_str());
   }
@@ -839,7 +804,6 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   if (accbuf_size >= acc_count) {
     on_chip_acc_en = 1; 
   }
-  std::cout << "accbuf " << accbuf_size << '\n';
   std::bitset<OutputBlock_OnChipAcc_COUNT> on_chip_bitset {on_chip_acc_en};
   bitset_range_set(output_inst, on_chip_bitset, OutputBlock_OnChipAcc_LOW,
       OutputBlock_OnChipAcc_HIGH);
@@ -1159,17 +1123,16 @@ std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
   bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
                    TailBlock_BiasEndAddress_HIGH);
 
-  int bias_width = Op::tensorproto_sizeof(cc->bias); /* in bytes */
-  if (bias_width == 1) { /* 8 bit bias */
-    std::bitset<TailBlock_FCBiasEn_COUNT> ben{1};
-    bitset_range_set(bias_inst, ben, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
-  } else if (bias_width == 4) { /* 32 bit bias */
-    std::bitset<TailBlock_BiasEn_COUNT> ben{1};
-    bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  std::bitset<TailBlock_BiasEn_COUNT> ben{1};
+  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+
+  int bias_width = Op::tensorproto_sizeof(cc->bias) * 8; /* in bits */
+  if (bias_width == 8 || bias_width == 32) { /* 8 bit bias or 32 bit bias */
+    std::bitset<TailBlock_BiasWidth_COUNT> bw{bias_width};
+    bitset_range_set(bias_inst, bw, TailBlock_BiasWidth_LOW, TailBlock_BiasWidth_HIGH);
   } else {
     log_fatal("found a fc instruction with intangible bias width %d for layer %s", bias_width, cc->name.c_str());
   }
-
   return bias_inst;
 }
 
@@ -1188,12 +1151,10 @@ int Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen,
   std::bitset<INST_SIZE_BITS> bias_inst = gen_fc_bias(this, gen, tbl);
   std::bitset<INST_SIZE_BITS> quant_inst = gen_fc_quant(this, gen);
 
-  int has_fc_bias = bitset_range_get<TailBlock_FCBiasEn_COUNT, INST_SIZE_BITS>(
-      bias_inst, TailBlock_FCBiasEn_LOW, TailBlock_FCBiasEn_HIGH);
-  int has_conv_bias = bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(
+  int has_bias = bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(
       bias_inst, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
 
-  if (has_fc_bias || has_conv_bias) {
+  if (has_bias) {
     dwp_packets++;
   }
 
