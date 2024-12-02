@@ -5,6 +5,7 @@
 #include "onnx_parser.h"
 #include "sim.h"
 #include "executor.h"
+#include <stack>
 // #include <cstring>
 // #include <queue>
 // #include <set>
@@ -311,6 +312,11 @@ void Pass::adjust_scale_shift_gemm(Op::Graph graph) {
   }
 }
 
+/* true if 'l' does not change the shape of its inputs */
+bool is_shape_preserving(Op::LayerBase *l) {
+  return l->input_dims == l->output_dims;
+}
+
 /* Megablocks like convolution are followed by miniblocks
  * like relu and/or maxpool in pipeline. relu does not change
  * the shape of its outputs but maxpool does. in case, where
@@ -319,25 +325,41 @@ void Pass::adjust_scale_shift_gemm(Op::Graph graph) {
  *
  * this pass traverses a megablock's miniblock pipeline
  * to calculate and store the true output dims
+ *
+ * does a depth first traversal over nodes
  */
-std::vector<Op::LayerBase *>
-Pass::extract_conv_true_odims(const std::vector<Op::LayerBase *> &order) {
+void Pass::extract_conv_true_odims(Op::Graph gcopy) {
+  /* will contain megablock nodes */
+  std::stack<Op::Vertex> candidates;
+  std::set<Op::Vertex> discovered;
+
+  Op::Vertex root = Op::get_root_node(&gcopy);
   Op::Layer::QLinearConv *cc = nullptr;
-  for (Op::LayerBase *l : order) {
+  candidates.push(root);
+
+  while (!candidates.empty()) {
+    Op::Vertex v = candidates.top();
+    Op::LayerBase *l = gcopy[v];
+
     if (is_op_type(l, "QLinearConv")) {
-      Op::Layer::QLinearConv *cc1 = dynamic_cast<Op::Layer::QLinearConv *>(l);
-      if (cc != nullptr) {
-        cc->pipelined_output_dims = cc1->input_dims;
-      }
-      cc = cc1;
-    } else if (is_op_type(l, "Flatten")) {
-      if (cc != nullptr) {
-        cc->pipelined_output_dims = l->input_dims;
-        break;
-      }
+      cc = dynamic_cast<Op::Layer::QLinearConv*>(l);
+      cc->pipelined_output_dims = l->output_dims;
+    } else if (is_megablock(l)) {
+      cc = nullptr;
+    } else if (cc != nullptr) {
+      cc->pipelined_output_dims = l->output_dims;
+    }
+
+    candidates.pop();
+    auto r = discovered.insert(v);
+    if (r.second == true) { // v is undiscovered
+      auto out_edges = boost::out_edges(v, gcopy);
+      for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+        Op::Vertex v2 = boost::target(*itr, gcopy);
+        candidates.push(v2);
+      } 
     }
   }
-  return order;
 }
 
 /* Find the pattern of layers conv -> flatten -> gemm and marks gemm with
@@ -706,6 +728,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
 
 std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
                                             AddressGen &gen) {
+  std::cout << cc->name << '\n';
   std::bitset<INST_SIZE_BITS> output_inst;
 
   std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
@@ -1285,7 +1308,8 @@ AddressGen::AddressGen(Op::Graph graph)
     : current_address{0} {
 
   auto order = Pass::remove_dqxq(graph);
-  order = Pass::extract_conv_true_odims(order);
+  Pass::extract_conv_true_odims(graph);
+
   order = Pass::mark_cfg(order);
 
   m_exec_order = order;

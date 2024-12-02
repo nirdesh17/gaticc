@@ -1052,8 +1052,7 @@ Op::Graph reassign_registers(Op::Graph graph);
 void adjust_scale_shift_conv(Op::Graph graph);
 void adjust_scale_shift_gemm(Op::Graph graph);
 
-std::vector<Op::LayerBase *>
-extract_conv_true_odims(const std::vector<Op::LayerBase *> &order);
+void extract_conv_true_odims(Op::Graph graph);
 
 std::vector<Op::LayerBase *>
 mark_cfg(const std::vector<Op::LayerBase *> &order);

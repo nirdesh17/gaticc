@@ -123,7 +123,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
 
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
-  order = Pass::extract_conv_true_odims(order);
+  Pass::extract_conv_true_odims(graph);
   AddressGen generator(graph);
 
   InstGen instgen(*m_parser);
