@@ -826,6 +826,24 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
         OutputBlock_DispatchID_HIGH);
   }
 
+  int accbuf_size = 0;
+  if (gbl_args.has_option("accbuf-size")) {
+    /* division with ACC_SIZE/8 returns the depth of the acc fifo */
+    accbuf_size = gbl_args["accbuf-size"].as<int>() / (ACC_SIZE/8);
+  } else {
+    log_fatal("don't know accbuf-size, use option --accbuf-size to provide "
+        "one");
+  }
+  int on_chip_acc_en = 0;
+  int acc_count = cc->output_dims.at(TENSOR_4D_WIDTH) * cc->output_dims.at(TENSOR_4D_HEIGHT);
+  if (accbuf_size >= acc_count) {
+    on_chip_acc_en = 1; 
+  }
+  std::cout << "accbuf " << accbuf_size << '\n';
+  std::bitset<OutputBlock_OnChipAcc_COUNT> on_chip_bitset {on_chip_acc_en};
+  bitset_range_set(output_inst, on_chip_bitset, OutputBlock_OnChipAcc_LOW,
+      OutputBlock_OnChipAcc_HIGH);
+
   return output_inst;
 }
 
