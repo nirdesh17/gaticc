@@ -176,7 +176,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
       } 
       
       if (l->device == DEVICE_FPGA && sent == true) {
-        log_info("l->dispatch %d for layer %s", l->dispatch, l->name);
+        log_info("l->dispatch %d for layer %s", l->dispatch, l->name.c_str());
         if (l->dispatch == true) {
           log_info("receiving output");
           receive_output(rah, l);
