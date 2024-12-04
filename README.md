@@ -83,6 +83,49 @@ sysim -h
 ```
 for usage instructions.
 
+# Versioning
+
+Sysim uses three numbers in the style of <https://semver.org/>:
+
+```
+MAJOR.MINOR.PATCH
+```
+
+The version number is:
+
+1. Used to track the history of this program
+2. **Keep it in sync with the hardware** (i.e. the Gati project)
+
+This is done by assigining a meaning to each number and agreeing with the
+hardware maintainers on when to increment which number. 
+
+To keep in sync, the major and minor numbers should always be equal to
+that of the hardware. So, if we ask ourselves, which version of the 
+hardware is compatible with sysim version 1.3.x, the answer is:
+Gati version 1.3.x. Keeping the compatibility intact is in the hands
+of the maintainers of both projects. The patch number in both cases
+should be the latest available for that `major.minor` combination.
+
+When are version numbers incremented:
+
+- major: when architectures are changed fundamentally. for example, a move
+from 9x4x4 SAs to 9x8x8, or 9x8x8 to Mobilenet. 
+- minor: when a change is supposed to take place in both hardware and software.
+for example, addition of an extra field in some instruction. this requires both
+hardware and software to be changed to implemented this feature leading to a 
+minor version bump.
+- patch: patch numbers are incremented changes agnostic to hardware are made
+in the software. for example, when a segfault is patched in the software. as
+this demands no change in the hardware, only the patch numbers are increased.
+
+Ideally, a version `a.b.c` is always compatible with the version
+`(a-1).(b-1).(c-1)`.
+
+Version bumps are controlled manually by the maintainer (who can push to master)
+through the `bump_version.sh` script present in the root of this repo. Read the
+script (or `./bump_version.sh` to get usage message) to understand what all it
+does. Any push to master should be preceded by a version bump.
+
 # Contributing to sysim
 
 ## General 
