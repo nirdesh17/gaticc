@@ -36,14 +36,25 @@ public:
   size_t get_size() const;
 };
 
-class Rah {
-  void *m_handle;
 
+class Rah {
 public:
-  Rah();
-  ~Rah();
-  int write(const char *data, size_t size);
-  int read(char *data, size_t size);
+  virtual int write(const char *data, size_t size) = 0;
+  virtual int read(char *data, size_t size) = 0;
+};
+
+class RealRah : public Rah {
+  void *m_handle;
+public:
+  RealRah();
+  ~RealRah();
+  int write(const char *data, size_t size) override;
+  int read(char *data, size_t size) override;
+};
+
+class FakeRah : public Rah {
+  int write(const char *data, size_t size) override;
+  int read(char *data, size_t size) override;
 };
 
 /* Like dispatch table, but reads binarized instructions and creates a table

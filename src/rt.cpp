@@ -40,7 +40,7 @@ size_t Fstream::get_size() const {
   return m_size;
 }
 
-Rah::Rah() {
+RealRah::RealRah() {
   m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
   if (m_handle == NULL) {
     log_fatal("dlopen(): %d: could not open %s, check if you've installed rah. "
@@ -52,7 +52,7 @@ Rah::Rah() {
   }
 }
 
-Rah::~Rah() {
+RealRah::~RealRah() {
   dlclose(m_handle);
 }
 
@@ -70,7 +70,7 @@ void cvt_32248(char *str, int v) {
   str[5] = (v & 0x000000FF);
 }
 
-int Rah::write(const char *data, size_t size) {
+int RealRah::write(const char *data, size_t size) {
   typedef int (*write_fn_t) (const uint8_t, const char*, const unsigned long);
   write_fn_t write_fn = get_dlsym<write_fn_t>(m_handle, "rah_write");
   /* Before writing actual data (weights, biases, inputs etc.) to
@@ -97,7 +97,7 @@ int Rah::write(const char *data, size_t size) {
   return (*write_fn)(RAH_APP_ID, data, size);
 }
 
-int Rah::read(char *data, size_t size) {
+int RealRah::read(char *data, size_t size) {
   std::cout << "rah read called \n";
   typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
   read_fn_t read_fn;
@@ -153,7 +153,8 @@ Runner::Runner(Op::Parser &parser): m_parser {&parser} {
   tensor_pool_init();
   pyengine_init();
 
-  Rah rah;
+  RealRah rr;
+  Rah &rah = rr;
   std::string gml_file = get_run_arg();
   Fstream fp(gml_file);
   load_model(rah, fp);
