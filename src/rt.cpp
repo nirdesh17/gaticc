@@ -136,9 +136,6 @@ int FakeRah::read(char *data, size_t size) {
 }
 
 void Runner::check_args() {
-  if (!gbl_args.has_option("input_path")) {
-    log_fatal("No input file provided");
-  }
   if (!gbl_args.has_option("loadpy")) {
     log_fatal("Option --loadpy needs to be specified");
     gbl_args.print_usage();

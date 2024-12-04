@@ -31,6 +31,10 @@ def preprocess(image):
     img = np.expand_dims(img, axis=0)
     return img
 
+def gen_imagenet():
+    image_list = ['images/dog.jpg', 'images/ray.jpg', 'images/snail.jpg']
+    preprocessed_images = [preprocess(image) for image in image_list]
+    return np.concatenate(preprocessed_images, axis=0)
 
 def np2jpg(arr, filename):
     """ convert `arr` to a jpg with filename `filename` """

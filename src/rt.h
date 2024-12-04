@@ -52,6 +52,10 @@ public:
   int read(char *data, size_t size) override;
 };
 
+/* Used as a dupe of rah while running sysim on devices
+ * that do not have rah (non-vaaman devices). Used by
+ * the --dry-run option, mainly for debugging
+ */
 class FakeRah : public Rah {
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
@@ -129,9 +133,6 @@ public:
 template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
           typename OutputT>
 void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
-  Tensor<inputT> *input_image = read_model_input<inputT>(*m_engine);
-  log_info("preprocess finish");
-
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
   Pass::extract_conv_true_odims(graph);
@@ -142,46 +143,55 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
 
   Op::RegisterAllocator allcator(m_parser->get_graph());
 
-  tensor_pool.set<Tensor<inputT> *>(0, input_image);
+  Tensor<inputT> *input_image = read_model_input<inputT>(*m_engine);
+  if (input_image->dims_size() != 4) {
+    log_fatal("Expects input images to be 4 dimensional (N,C,H,W) got a %d dimensional "
+        "output", input_image->dims_size());
+  }
+  log_info("preprocess finish");
+  for (int i = 0; i < input_image->dims_at(0); ++i) {
+    tensor_pool.free();
+    TensorSlice<inputT> shlice(input_image, std::vector<int>{i});
+    tensor_pool.set<Tensor<inputT> *>(0, &shlice);
 
-  bool sent = false;
-  for (Op::LayerBase *l : order) {
-    assert(l->device != DEVICE_UNKNOWN);
+    bool sent = false;
+    for (Op::LayerBase *l : order) {
+      assert(l->device != DEVICE_UNKNOWN);
 
-    l->dispatch = hdt.should_dispatch(l);
-    log_info("Running layer %s on %s", l->name.c_str(),
-               get_device_name(l->device));
-    if (l->device == DEVICE_CPU && sent == false) {
-      l->run(tensor_pool);
-    } 
-    
-    if (l->device == DEVICE_FPGA && sent == false) {
-      using TT = Tensor<CpuOutputT>;
-	  tensor_pool.print();
-      TT *out = tensor_pool.get<TT *>(l->inputs.at(0));
-      Op::VirtualAddress ireg = io_addr_tbl.at(l->name).first.at(0);
-      uint32_t addr = generator.io_addr_from_register(ireg);
-      log_info("sending input for register %d, addr is %d", ireg, addr);
-      send_input<CpuOutputT>(rah, out, addr);
-      sent = true;
-    } 
-    
-    if (l->device == DEVICE_FPGA && sent == true) {
-      std::cout << "l->dispatch " << l->dispatch << " for layer " << l->name << '\n';
-      if (l->dispatch == true) {
-        log_info("receiving output");
-        receive_output(rah, l);
-        log_info("receiving output finish");
-      } else {
-        log_info("fake exec started");
-        fake_exec(l);
-        log_info("fake exec started finish");
+      l->dispatch = hdt.should_dispatch(l);
+      log_info("Running layer %s on %s", l->name.c_str(),
+                 get_device_name(l->device));
+      if (l->device == DEVICE_CPU && sent == false) {
+        l->run(tensor_pool);
+      } 
+      
+      if (l->device == DEVICE_FPGA && sent == false) {
+        using TT = Tensor<CpuOutputT>;
+        TT *out = tensor_pool.get<TT *>(l->inputs.at(0));
+        Op::VirtualAddress ireg = io_addr_tbl.at(l->name).first.at(0);
+        uint32_t addr = generator.io_addr_from_register(ireg);
+        log_info("sending input for register %d, addr is %d", ireg, addr);
+        send_input<CpuOutputT>(rah, out, addr);
+        sent = true;
+      } 
+      
+      if (l->device == DEVICE_FPGA && sent == true) {
+        log_info("l->dispatch %d for layer %s", l->dispatch, l->name);
+        if (l->dispatch == true) {
+          log_info("receiving output");
+          receive_output(rah, l);
+          log_info("receiving output finish");
+        } else {
+          log_info("fake exec started");
+          fake_exec(l);
+          log_info("fake exec finish");
+        }
+      } 
+      
+      if (l->device == DEVICE_CPU && sent == true) {
+        l->run(tensor_pool);
+        sent = false;
       }
-    } 
-    
-    if (l->device == DEVICE_CPU && sent == true) {
-      l->run(tensor_pool);
-      sent = false;
     }
   }
 }

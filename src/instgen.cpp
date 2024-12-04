@@ -728,7 +728,6 @@ std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
 
 std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
                                             AddressGen &gen) {
-  std::cout << cc->name << '\n';
   std::bitset<INST_SIZE_BITS> output_inst;
 
   std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
