@@ -108,6 +108,19 @@ public:
   ~Runner();
 };
 
+template <typename T>
+Tensor<T> *get_slice(Tensor<T>* src, std::vector<int> s) {
+	std::vector<int> dd = src->get_dims();
+	assert(dd.size() == 4);
+	dd.at(0) = 1;
+	Tensor<T> *ret = new TensorCreate<T>(dd);
+	TensorSlice<T> slice(src, s);
+	for (int i = 0; i < slice.size(); ++i) {
+		ret->set(i, slice.at(i));
+	}
+	return ret;
+}
+
 /* run is a state-machine that passes through these states of execution:
  *
  * CPU-UNSENT
@@ -151,9 +164,10 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
   log_info("preprocess finish");
   for (int i = 0; i < input_image->dims_at(0); ++i) {
     tensor_pool.free();
-    TensorSlice<inputT> shlice(input_image, std::vector<int>{i});
-    tensor_pool.set<Tensor<inputT> *>(0, &shlice);
-
+    Tensor<inputT> *slice {get_slice(input_image, std::vector<int>{i})};
+    print_vec("slice dims ", slice->get_dims());
+    print_vec("image dims ", input_image->get_dims());
+    tensor_pool.set<Tensor<inputT> *>(0, slice);
     bool sent = false;
     for (Op::LayerBase *l : order) {
       assert(l->device != DEVICE_UNKNOWN);

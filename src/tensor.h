@@ -380,11 +380,11 @@ public:
   /* Write functions */
 
   /* insert one element at a time */
+  void set_dims(std::vector<int> const &temp_dims);
 #if 0
   void insert(std::vector<int> &at, T data);
   void push_back(T data);
   void push_back(const std::vector<T>& data);
-  void set_dims(std::vector<int> const &temp_dims);
   void clear();
   void shrink_to_fit();
   void set(int index, T val);
@@ -405,6 +405,7 @@ TensorSlice<T>::TensorSlice(Tensor<T> *src, std::vector<int> slice) {
   for (int i = 0; i < slice.size(); ++i) {
     this->offset += (strides[i] * slice[i]);
   }
+  std::cout << "offset " << this->offset << '\n';
   for (int i = slice.size(); i < src->dims_size(); ++i) {
     this->dims.push_back(src->dims_at(i));
   }
@@ -478,6 +479,10 @@ void TensorSlice<T>::print() const {
 template <typename T>
 bool TensorSlice<T>::freeable() const {
   return false;
+}
+template <typename T>
+void TensorSlice<T>::set_dims(std::vector<int> const &temp_dims) {
+	dims = temp_dims;
 }
 
 template <typename T>
