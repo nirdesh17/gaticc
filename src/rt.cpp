@@ -109,6 +109,32 @@ int RealRah::read(char *data, size_t size) {
   return (*read_fn)(RAH_APP_ID, data, size);
 }
 
+int FakeRah::write(const char *data, size_t size) {
+  return size;
+}
+
+int FakeRah::read(char *data, size_t size) {
+  int m_ptr = 0;
+  auto append_int = [&](uint32_t a) {
+    /* reverse iteration for big endian */
+    for (int i = sizeof(uint32_t) - 1; i >= 0; --i) {
+      char c = get_byte(a, i);
+      data[m_ptr++] = c;
+    }
+  };
+  memset(data, 0, size);
+  append_int(DWP_SOP);
+  append_int((uint32_t)(size - (DWP_HEADER_BYTES * 2)));
+  append_int((uint32_t)2108);
+
+  int8_t c = 1;
+  for (int i = m_ptr; i < size; ++i) {
+    data[i] = c;
+    c++;
+  }
+  return size;
+}
+
 void Runner::check_args() {
   if (!gbl_args.has_option("input_path")) {
     log_fatal("No input file provided");
@@ -153,12 +179,18 @@ Runner::Runner(Op::Parser &parser): m_parser {&parser} {
   tensor_pool_init();
   pyengine_init();
 
-  RealRah rr;
-  Rah &rah = rr;
   std::string gml_file = get_run_arg();
   Fstream fp(gml_file);
-  load_model(rah, fp);
-  infer_loop(rah, fp);
+
+  if (gbl_args.has_option("dry-run")) {
+    FakeRah fr;
+    load_model(fr, fp);
+    infer_loop(fr, fp);
+  } else {
+    RealRah rr;
+    load_model(rr, fp);
+    infer_loop(rr, fp);
+  }
 }
 
 Runner::~Runner() {
@@ -257,7 +289,13 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
 
   const unsigned char *data = (const unsigned char *) blob.get_data();
 
-  check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash);
+  if (!gbl_args.has_option("dry-run")) {
+    /* dry-run is a false traversal of the run loop used for debugging,
+     * correctness is not really needed all that much
+     */
+    check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash);
+  }
+
   //check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0 /* expected hash */);
   if (l->output_type == onnx::TensorProto_DataType_INT8) {
     const int8_t *real_data = reinterpret_cast<const int8_t*>(data + DWP_HEADER_BYTES);

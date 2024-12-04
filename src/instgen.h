@@ -1083,10 +1083,12 @@ void check_dwp_header(const T* data, size_t size, uint32_t expected_ds, uint32_t
     log_fatal("expected DWP_SOP, got 0x%x from FPGA", sop);
   }
   if (ds != expected_ds) {
-    log_fatal("expected data of size %d, got %d from FPGA", ds);
+    std::cout << "expected_ds " << expected_ds << " and " << ds << '\n';
+    log_fatal("alsdjhal");
   }
   if (hash != expected_addr) {
-    log_fatal("expected reception hash %d, got %d from FPGA", ds);
+    std::cout << "expected_addr " << expected_addr << " and " << hash << '\n';
+    log_fatal("alsdjhal");
   }
 }
 
