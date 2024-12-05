@@ -195,9 +195,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
           receive_output(rah, l);
           log_info("receiving output finish\n");
         } else {
-          log_info("fake exec started\n");
           fake_exec(l);
-          log_info("fake exec finish\n");
         }
       } 
       
@@ -301,7 +299,6 @@ void Runner::receive_output_aux(const T *data,
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
     Op::Layer::QLinearConv *qc = dynamic_cast<Op::Layer::QLinearConv *>(l);
     if (qc->pipelined_output_dims.size() != 0) {
-      print_vec("pipelined output dims", qc->pipelined_output_dims);
       odims = qc->pipelined_output_dims;
     }
   } else {
@@ -322,7 +319,6 @@ void Runner::receive_output_aux(const T *data,
   }
   tensor_pool.set<Tensor<T> *>(l->outputs.at(0), tensor);
 
-  tensor->print();
   if (l->dispatch) {
   	write_model_output<T>(*m_engine, tensor);
   }

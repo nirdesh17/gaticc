@@ -405,7 +405,6 @@ TensorSlice<T>::TensorSlice(Tensor<T> *src, std::vector<int> slice) {
   for (int i = 0; i < slice.size(); ++i) {
     this->offset += (strides[i] * slice[i]);
   }
-  std::cout << "offset " << this->offset << '\n';
   for (int i = slice.size(); i < src->dims_size(); ++i) {
     this->dims.push_back(src->dims_at(i));
   }
