@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import onnx
 import numpy as np
 from PIL import Image
 import os.path
@@ -35,12 +34,6 @@ def gen_imagenet():
     image_list = ['images/dog.jpg', 'images/ray.jpg', 'images/snail.jpg']
     preprocessed_images = [preprocess(image) for image in image_list]
     return np.concatenate(preprocessed_images, axis=0)
-
-def np2jpg(arr, filename):
-    """ convert `arr` to a jpg with filename `filename` """
-    img = Image.fromarray(arr)
-    img.save(f"{filename}.jpg")
-
 
 def mnist_idx_image_load(path, sample_size):
     """ return a np.array of dims (sample_size, 28, 28, 1) """
@@ -82,12 +75,6 @@ def mnist_label_x(x):
     labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)
     return labels[x]
 
-def transpose_aux(arr, perm):
-    return np.transpose(arr, perm).flatten().tolist()
-
-def load_imagenet():
-    return preprocess("/home/shreeyash/images/pom.jpg").reshape(1, 3, 224, 224)
-
 def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=0)
@@ -105,7 +92,6 @@ def post_mnist(arr):
 
 def save_tensor(filename, arr):
     np.save(filename, arr)
-
 
 def setup_uart(port, baudrate=115200):
     try:
