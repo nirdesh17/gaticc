@@ -1111,3 +1111,5 @@ void check_dwp_footer(const T* data, size_t size, uint32_t expected_ds, uint32_t
     log_fatal("expected reception hash %d, got %d from FPGA", ds);
   }
 }
+
+bool is_op_type(const Op::LayerBase *l, const char *op_type);

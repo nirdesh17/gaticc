@@ -91,7 +91,7 @@ class Runner {
   void run(Rah &rah, HashedDispatchTable &hdt);
 
   template <typename T>
-  void send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr);
+  void send_input(Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor, uint32_t addr);
   void receive_output(Rah &rah, Op::LayerBase *l);
   void fake_exec(Op::LayerBase *l);
   void read_uart(BinBlob &blob, int uart_baud, int expected_size);
@@ -157,17 +157,17 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
   Op::RegisterAllocator allcator(m_parser->get_graph());
 
   Tensor<inputT> *input_image = read_model_input<inputT>(*m_engine);
-  if (input_image->dims_size() != 4) {
-    log_fatal("Expects input images to be 4 dimensional (N,C,H,W) got a %d dimensional "
-        "output", input_image->dims_size());
+  if (input_image->dims_size() <= 1) {
+    log_fatal("Expects input images to be greater than 1 dimensional (N,...) got a %d dimensional "
+        "image", input_image->dims_size());
   }
   log_info("preprocess finish");
   for (int i = 0; i < input_image->dims_at(0); ++i) {
     tensor_pool.free();
+
     Tensor<inputT> *slice {get_slice(input_image, std::vector<int>{i})};
-    print_vec("slice dims ", slice->get_dims());
-    print_vec("image dims ", input_image->get_dims());
     tensor_pool.set<Tensor<inputT> *>(0, slice);
+
     bool sent = false;
     for (Op::LayerBase *l : order) {
       assert(l->device != DEVICE_UNKNOWN);
@@ -185,7 +185,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
         Op::VirtualAddress ireg = io_addr_tbl.at(l->name).first.at(0);
         uint32_t addr = generator.io_addr_from_register(ireg);
         log_info("sending input for register %d, addr is %d", ireg, addr);
-        send_input<CpuOutputT>(rah, out, addr);
+        send_input<CpuOutputT>(l, rah, out, addr);
         sent = true;
       } 
       
@@ -210,19 +210,20 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
   }
 }
 
-template <typename T> void Runner::send_input(Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
+template <typename T> void Runner::send_input(Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
   auto dims = tensor->get_dims();
-
-  uint32_t og_aligned_size = aligned_conv_input(dims) * sizeof(T);
-  uint32_t total_size_with_packets= io_tensor_packet_size(og_aligned_size);
-
-  BinBlob blob(total_size_with_packets);
-  blob.append_sa_input<T>(og_aligned_size, addr, tensor);
-  blob.append_dwp_header(0, 0);
-  blob.write("rah_input.bin");
-  log_info("start writing images to FPGA");
-  char *aligned_data = blob.get_data();
-  rah.write(aligned_data, total_size_with_packets);
+  if (is_op_type(l, "QLinearConv")) {
+    uint32_t og_aligned_size = aligned_conv_input(dims) * sizeof(T);
+    uint32_t total_size_with_packets = io_tensor_packet_size(og_aligned_size);
+    BinBlob blob(total_size_with_packets);
+    blob.append_sa_input<T>(og_aligned_size, addr, tensor);
+    blob.append_dwp_header(0, 0);
+    log_info("start writing images to FPGA");
+    char *aligned_data = blob.get_data();
+    rah.write(aligned_data, total_size_with_packets);
+  } else {
+    log_fatal("cannot send input for layer of type %s - support missing", l->op_type());
+  }
   log_info("finish writing images to FPGA");
 }
 
@@ -297,10 +298,6 @@ void Runner::receive_output_aux(const T *data,
                                 const std::vector<int> &dims, Op::LayerBase *l) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
   
-  print_vec("expected dims", dims);
-  print_vec("input dims", l->input_dims);
-  print_vec("output dims", l->output_dims);
-
   std::vector<int> odims;
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
     Op::Layer::QLinearConv *qc = dynamic_cast<Op::Layer::QLinearConv *>(l);
@@ -311,7 +308,6 @@ void Runner::receive_output_aux(const T *data,
   } else {
     odims = l->output_dims;
   }
-  print_vec("tensor dims", odims);
 
   Tensor<T> *tensor = new TensorCreate<T>(odims);
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
