@@ -362,7 +362,7 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std::v
     min_lim = -128;
     max_lim = 127;
   } else {
-    log_fatal("cant find saturation values for quantization (unimplemented)");
+    log_fatal("cant find saturation values for quantization (unimplemented)\n");
   }
 
   if (input->dims_size() == 4) {

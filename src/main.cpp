@@ -27,7 +27,7 @@ void *global_init(int argc, char *argv[]) {
   Py_Initialize();
   import_array();
   if (PyErr_Occurred()) {
-    log_fatal("Failed to import numpy Python module(s).");
+    log_fatal("Failed to import numpy Python module(s).\n");
   }
   return NULL;
 }

@@ -434,7 +434,7 @@ template <typename T>
 T get_metadata(const MetadataMap& m, const std::string& key) {
   auto itr = m.find(key);
   if (itr == m.end()) {
-    log_fatal("could not find key %s in MetadataMap", key.c_str());
+    log_fatal("could not find key {} in MetadataMap\n", key);
   }
   return static_cast<T>(std::any_cast<T>(itr->second));
 }
@@ -870,7 +870,7 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
   int kwidth = aligned_dims[TENSOR_4D_WIDTH];
   int khkw = kheight * kwidth;
   if (khkw > sa_arch[SA_ARCH_ROW]) {
-    log_fatal("not enough rows in sa for this convolution of kernel size %d,%d",
+    log_fatal("not enough rows in sa for this convolution of kernel size {},{}\n",
               kheight, kwidth);
   }
 
@@ -919,7 +919,7 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
   }
 }
 template <typename T> void BinBlob::sa_align_aux_pointwise(const Tensor<T> *tensor) {
-  log_fatal("shouldnt reach here, pointwise alignment un-implemented");
+  log_fatal("shouldnt reach here, pointwise alignment un-implemented\n");
 }
 
 template <typename T> void BinBlob::conv_bias_align_aux(const Tensor<T> *tensor) {
@@ -1080,35 +1080,13 @@ void check_dwp_header(const T* data, size_t size, uint32_t expected_ds, uint32_t
   uint32_t hash = extract_byte<uint32_t>(data, size, 8, 12);
 
   if (sop != DWP_SOP) {
-    log_fatal("expected DWP_SOP, got 0x%x from FPGA", sop);
+    log_fatal("expected DWP_SOP {}, got 0x{} from FPGA\n", DWP_SOP, sop);
   }
   if (ds != expected_ds) {
-    std::cout << "expected_ds " << expected_ds << " and " << ds << '\n';
-    log_fatal("alsdjhal");
+    log_fatal("expected_ds {}, got {}\n", expected_ds, ds);
   }
   if (hash != expected_addr) {
-    std::cout << "expected_addr " << expected_addr << " and " << hash << '\n';
-    log_fatal("alsdjhal");
-  }
-}
-
-template <typename T>
-void check_dwp_footer(const T* data, size_t size, uint32_t expected_ds, uint32_t expected_addr) {
-  assert(size >= DWP_HEADER_BYTES);
-  const T *ndata = data + size - DWP_PACKET_SZ;
-
-  uint32_t sop = extract_byte<uint32_t>(ndata, size, 0, 4);
-  uint32_t ds = extract_byte<uint32_t>(ndata, size, 4, 8);
-  uint32_t hash = extract_byte<uint32_t>(ndata, size, 8, 12);
-
-  if (sop != DWP_SOP) {
-    log_fatal("expected DWP_SOP, got 0x%x from FPGA", sop);
-  }
-  if (ds != expected_ds) {
-    log_fatal("expected data of size %d, got %d from FPGA", ds);
-  }
-  if (hash != expected_addr) {
-    log_fatal("expected reception hash %d, got %d from FPGA", ds);
+    log_fatal("expected_addr {}, got {}\n", expected_addr, hash);
   }
 }
 

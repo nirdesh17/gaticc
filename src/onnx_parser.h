@@ -73,7 +73,7 @@ inline const char *get_device_name(int device) {
       return "DEVICE_FPGA";
       break;
     default:
-      log_fatal("unknown device enum %d, can't get name", device);
+      log_fatal("unknown device enum {}, can't get name\n", device);
       break;
   }
 }

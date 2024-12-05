@@ -12,17 +12,17 @@
 
 void dispatch_simulator(const Op::Parser &parser) {
   if (!gbl_args.has_option("loadpy")) {
-    log_fatal("Option --loadpy needs to be specified for simulation");
+    log_fatal("Option --loadpy needs to be specified for simulation\n");
     gbl_args.print_usage();
   }
 
   if (!gbl_args.has_option("preprocfn")) {
-    log_fatal("Option --preprocfn needs to be specified for simulation");
+    log_fatal("Option --preprocfn needs to be specified for simulation\n");
     gbl_args.print_usage();
   }
 
   if (!gbl_args.has_option("postprocfn")) {
-    log_fatal("Option --postprocfn needs to be specified for simulation");
+    log_fatal("Option --postprocfn needs to be specified for simulation\n");
     gbl_args.print_usage();
   }
   std::string mod_arg = gbl_args["loadpy"].as<std::string>();
@@ -79,7 +79,7 @@ void dispatch_sim_ops() {
 
 void dispatch_run_ops() {
   if (!gbl_args.has_option("run_onnx")) {
-    log_fatal("couldn't find onnx file. Use --run-onnx to provide one or see help");
+    log_fatal("couldn't find onnx file. Use --run-onnx to provide one or see help\n");
   }
   auto onnx_file = gbl_args["run_onnx"].as<std::string>();
   Op::Parser parser(onnx_file);

@@ -46,7 +46,7 @@ template <typename T> int deduce_npy_typenum() {
   } else if (typeid(T) == typeid(uint8_t)) {
     return NPY_UINT8;
   } else {
-    log_fatal("Cannot deduce typenum or unimplemented");
+    log_fatal("Cannot deduce typenum or unimplemented\n");
   }
 }
 
@@ -73,7 +73,7 @@ public:
 /* List (in python) to std::vector */
 template <typename T> std::vector<T> il2iv(PyObject *list) {
   if (!PyList_Check(list)) {
-    log_fatal("Input not a list");
+    log_fatal("Input not a list\n");
   }
   std::vector<T> vec;
 
@@ -84,23 +84,23 @@ template <typename T> std::vector<T> il2iv(PyObject *list) {
     T value;
     if (is_int_like<T>(value)) {
       if (!PyLong_Check(item)) {
-        log_fatal("heterogenous types");
+        log_fatal("heterogenous types\n");
       }
       value = PyLong_AsLong(item);
       if (value == -1 && PyErr_Occurred()) {
-        log_fatal("Unable to extract long from obj");
+        log_fatal("Unable to extract long from obj\n");
       }
     } else if (is_float_like<T>(value)) {
       if (!PyFloat_Check(item)) {
-        log_fatal("heterogenous types");
+        log_fatal("heterogenous types\n");
         continue;
       }
       value = static_cast<T>(PyFloat_AsDouble(item));
       if (value == -1.0 && PyErr_Occurred()) {
-        log_fatal("Unable to extract float from obj");
+        log_fatal("Unable to extract float from obj\n");
       }
     } else {
-      log_fatal("Unsupported type: %s", typeid(T).name());
+      log_fatal("Unsupported type: {}\n", typeid(T).name());
     }
     vec.push_back(value);
   }
@@ -113,7 +113,7 @@ template <typename T> PyObject *iv2il(std::vector<T> const &v) {
   for (int i = 0; i < v.size(); ++i) {
     PyObject *value = PyLong_FromLong(v.at(i));
     if (PyList_SetItem(l, i, value) == -1) {
-      log_fatal("PyList_SetItem: out of bounds");
+      log_fatal("PyList_SetItem: out of bounds\n");
     }
   }
   return l;
@@ -169,7 +169,7 @@ template <typename T> Tensor<T> *np2t(PyObject *nparr) {
   Tensor<T> *ret = new TensorCreate<T>(dims);
   PyObject *flattened = PyArray_Flatten((PyArrayObject *)nparr, NPY_CORDER);
   if (!flattened) {
-    log_fatal("Could not flatten array");
+    log_fatal("Could not flatten array\n");
   }
   for (int i = 0; i < nparrsz; ++i) {
     ret->set(i, *((T *)PyArray_GETPTR1((PyArrayObject *)flattened, i)));

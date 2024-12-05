@@ -70,47 +70,47 @@ public:
 
 template <typename T>
 void Tensor<T>::insert(std::vector<int> &at, T data) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::push_back(T data) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::push_back(const std::vector<T>& data) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::set_dims(std::vector<int> const &temp_dims) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::clear() {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
 void Tensor<T>::shrink_to_fit() {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::set(int index, T val) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
 Tensor<T>& Tensor<T>::operator=(const Tensor<T>& rhs) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
 typename std::vector<T>::iterator Tensor<T>::begin() {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
 typename std::vector<T>::iterator Tensor<T>::end() {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>

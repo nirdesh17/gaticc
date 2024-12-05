@@ -24,7 +24,7 @@ Fstream::Fstream(const std::string& filename) {
   check_c_return_val(m_buf, "malloc");
   size_t size_read = fread(m_buf, sizeof(*m_buf), m_size, fp);
   if (size_read != m_size) {
-    log_fatal("couldn't read all %ld bytes, %ld bytes read", m_size, size_read);
+    log_fatal("couldn't read all {} bytes, {} bytes read\n", m_size, size_read);
   }
   fclose(fp);
 }
@@ -43,7 +43,7 @@ size_t Fstream::get_size() const {
 RealRah::RealRah() {
   m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
   if (m_handle == NULL) {
-    log_fatal("dlopen(): %d: could not open %s, check if you've installed rah. "
+    log_fatal("dlopen(): {}: could not open {}, check if you've installed rah. \n"
               "Additionally, check "
               "if vaaman-fpga communication overlay has been configured "
               "properly (see "
@@ -90,7 +90,7 @@ int RealRah::write(const char *data, size_t size) {
    */
   char meta_size[RAH_WIDTH];
   cvt_32248(meta_size, static_cast<int>(size));
-  log_info("sending meta size %d", size);
+  log_info("sending meta size {}\n", size);
   (*write_fn)(META_APP_ID, meta_size, RAH_WIDTH);
 
   /* send the actual data */
@@ -104,7 +104,7 @@ int RealRah::read(char *data, size_t size) {
   read_fn = (read_fn_t) dlsym(m_handle, "rah_read");
   char *error = dlerror();
   if (error != NULL) {
-    log_fatal("%s", error);
+    log_fatal("{}\n", error);
   }
   return (*read_fn)(RAH_APP_ID, data, size);
 }
@@ -137,17 +137,17 @@ int FakeRah::read(char *data, size_t size) {
 
 void Runner::check_args() {
   if (!gbl_args.has_option("loadpy")) {
-    log_fatal("Option --loadpy needs to be specified");
+    log_fatal("Option --loadpy needs to be specified\n");
     gbl_args.print_usage();
   }
 
   if (!gbl_args.has_option("preprocfn")) {
-    log_fatal("Option --preprocfn needs to be specified");
+    log_fatal("Option --preprocfn needs to be specified\n");
     gbl_args.print_usage();
   }
 
   if (!gbl_args.has_option("postprocfn")) {
-    log_fatal("Option --postprocfn needs to be specified");
+    log_fatal("Option --postprocfn needs to be specified\n");
     gbl_args.print_usage();
   }
 }
@@ -159,7 +159,7 @@ void Runner::tensor_pool_init() {
 }
 
 void Runner::pyengine_init() {
-  log_info("starting PyEngine");
+  log_info("starting PyEngine\n");
   std::string mod_arg = gbl_args["loadpy"].as<std::string>();
   std::string mod_name = extract_basename(mod_arg).stem().string();
   std::filesystem::path mod_path = extract_dirname(mod_arg);
@@ -199,7 +199,7 @@ Runner::~Runner() {
  * TODO: implement this, will probably require bitman?
  */
 void Runner::scan() {
-  std::cout << "scanning for rah services no cap fr\n";
+  log_info("scanning for rah services no cap fr\n");
 }
 
 /* Loads aligned and padded weights to the FPGA's DRAM */
@@ -207,9 +207,9 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
   scan();
   const char *data = fp.get_data();
   size_t size = fp.get_size();
-  log_info("writing model weights to FPGA dram");
+  log_info("writing model weights to FPGA dram\n");
   rah.write(data, size);
-  log_info("write model weights complete");
+  log_info("write model weights complete\n");
   /* TODO: no way to know if it went through 
    * successfully to the fpga
    */
@@ -217,11 +217,11 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
 
 
 void Runner::infer_loop(Rah &rah, const Fstream &fp) {
-  log_warn("Types are being hardcoded in inferloop");
+  log_warn("Types are being hardcoded in inferloop\n");
   using inputT = float;
   using outputT = int8_t;
-  log_info("reading input");
-  log_info("running preprocess on inputs");
+  log_info("reading input\n");
+  log_info("running preprocess on inputs\n");
   HashedDispatchTable hdt(fp);
   /* TODO: deduce the types dynamically */
   run<inputT, outputT, int8_t, float>(rah, hdt);
@@ -237,7 +237,7 @@ void Runner::read_uart(BinBlob &blob, int uart_baud, int expected_size) {
   PyObject *args = Py_BuildValue("(ii)", uart_baud, expected_size);
   PyObject *ret = m_engine->call_func("read_uart", args);
   if (ret == NULL) {
-  	log_fatal("read_uart failed don't know why");
+  	log_fatal("read_uart failed don't know why\n");
   }
   Tensor<int8_t> *rr = np2t<int8_t>(ret);
   assert(rr->size() == blob.size());
@@ -266,13 +266,13 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 || strcmp(l->op_type(), "QGemm") == 0) {
     expected_data_size = aligned_fc_io(l->output_dims) * Op::tpdt_sizeof(l->output_type);
   } else {
-  	log_fatal("Unhandled layer of type: %s", l->op_type());
+  	log_fatal("Unhandled layer of type: {}\n", l->op_type());
   }
   auto expected_dims = l->aligned_output();
   uint32_t expected_packet_size = io_tensor_packet_size(expected_data_size);
 
-  log_info("expected packet size in receive output: %d", expected_packet_size);
-  log_info("expected data size in receive output: %d", expected_data_size);
+  log_info("expected packet size in receive output: {}\n", expected_packet_size);
+  log_info("expected data size in receive output: {}\n", expected_data_size);
 
   BinBlob blob(expected_packet_size);
 
@@ -301,7 +301,7 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
     const uint8_t *real_data = reinterpret_cast<const uint8_t*>(data + DWP_HEADER_BYTES);
     receive_output_aux<uint8_t>(real_data, expected_dims, l);
   } else {
-    log_fatal("can't compute with tensor of type %s", Op::get_tensorproto_dtype_name(l->output_type));
+    log_fatal("can't compute with tensor of type {}\n", Op::get_tensorproto_dtype_name(l->output_type));
   }
 }
 

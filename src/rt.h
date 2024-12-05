@@ -158,10 +158,10 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
 
   Tensor<inputT> *input_image = read_model_input<inputT>(*m_engine);
   if (input_image->dims_size() <= 1) {
-    log_fatal("Expects input images to be greater than 1 dimensional (N,...) got a %d dimensional "
-        "image", input_image->dims_size());
+    log_fatal("Expects input images to be greater than 1 dimensional (N,...) got a {} dimensional "
+        "image\n", input_image->dims_size());
   }
-  log_info("preprocess finish");
+  log_info("preprocess finish\n");
   for (int i = 0; i < input_image->dims_at(0); ++i) {
     tensor_pool.free();
 
@@ -173,8 +173,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
       assert(l->device != DEVICE_UNKNOWN);
 
       l->dispatch = hdt.should_dispatch(l);
-      log_info("Running layer %s on %s", l->name.c_str(),
-                 get_device_name(l->device));
+      log_info("Running layer {} on {}\n", l->name, get_device_name(l->device));
       if (l->device == DEVICE_CPU && sent == false) {
         l->run(tensor_pool);
       } 
@@ -184,21 +183,21 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
         TT *out = tensor_pool.get<TT *>(l->inputs.at(0));
         Op::VirtualAddress ireg = io_addr_tbl.at(l->name).first.at(0);
         uint32_t addr = generator.io_addr_from_register(ireg);
-        log_info("sending input for register %d, addr is %d", ireg, addr);
+        log_info("sending input for register {}, addr is {}\n", ireg, addr);
         send_input<CpuOutputT>(l, rah, out, addr);
         sent = true;
       } 
       
       if (l->device == DEVICE_FPGA && sent == true) {
-        log_info("l->dispatch %d for layer %s", l->dispatch, l->name.c_str());
+        log_info("l->dispatch {} for layer {}\n", l->dispatch, l->name.c_str());
         if (l->dispatch == true) {
-          log_info("receiving output");
+          log_info("receiving output\n");
           receive_output(rah, l);
-          log_info("receiving output finish");
+          log_info("receiving output finish\n");
         } else {
-          log_info("fake exec started");
+          log_info("fake exec started\n");
           fake_exec(l);
-          log_info("fake exec finish");
+          log_info("fake exec finish\n");
         }
       } 
       
@@ -218,13 +217,13 @@ template <typename T> void Runner::send_input(Op::LayerBase *l, Rah &rah, const 
     BinBlob blob(total_size_with_packets);
     blob.append_sa_input<T>(og_aligned_size, addr, tensor);
     blob.append_dwp_header(0, 0);
-    log_info("start writing images to FPGA");
+    log_info("start writing images to FPGA\n");
     char *aligned_data = blob.get_data();
     rah.write(aligned_data, total_size_with_packets);
   } else {
-    log_fatal("cannot send input for layer of type %s - support missing", l->op_type());
+    log_fatal("cannot send input for layer of type {} - support missing\n", l->op_type());
   }
-  log_info("finish writing images to FPGA");
+  log_info("finish writing images to FPGA\n");
 }
 
 template <typename T>
@@ -235,7 +234,7 @@ void unalign_sa_output(Tensor<T> *tensor, const T *data) {
   auto new_dims = aligned_conv_output_dims(tensor->get_dims()); 
 
   if (dims[TENSOR_4D_BATCH] != 1) {
-    log_fatal("can only operate on batch size 1; support must be added for more");
+    log_fatal("can only operate on batch size 1; support must be added for more\n");
   }
   auto sa_arch = get_sa_arch();
   /* elements per column */
@@ -315,7 +314,7 @@ void Runner::receive_output_aux(const T *data,
   } else if (strcmp(l->op_type(), "QGemm") == 0) {
     unalign_va_output(tensor, data);
   } else {
-    log_fatal("cant handle un-alignment for layer of type %s", l->op_type());
+    log_fatal("cant handle un-alignment for layer of type {}\n", l->op_type());
   }
 
   if (tensor_pool.has_value(l->outputs.at(0))) {
@@ -341,7 +340,7 @@ T get_dlsym(void *m_handle, std::string func_name) {
   fn = (T) dlsym(m_handle, func_name.c_str());
   char *error = dlerror();
   if (error != NULL) {
-    log_fatal("dlsym: %s", error);
+    log_fatal("dlsym: {}\n", error);
   }
   return fn;
 }
@@ -351,10 +350,10 @@ template <typename T>
 void Runner::compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path& file) {
   //fs::path file = path / fs::path(l->name + ".tensor.npy"); 
   if (!fs::exists(file)) {
-    log_fatal("%s: no such file or directory", file.c_str());
+    log_fatal("{}: no such file or directory\n", file);
   }
   PyObject *received_tensor = t2np<T>(tensor);
   PyObject *args = Py_BuildValue("(Os)", received_tensor, file.c_str());
-  log_info("Comparing %s with %s", l->name.c_str(), file.c_str());
+  log_info("Comparing {} with {}\n", l->name, file);
   m_engine->call_func("compare_npy", args);
 }
