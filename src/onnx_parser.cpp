@@ -1221,6 +1221,46 @@ void Op::Layer::QGemm::infer_type(const std::vector<TPDT>& input_types) {
   this->bias_type = Op::get_type_from_tensor_proto(*this->bias);
 }
 
+Op::Layer::LogSoftmax::LogSoftmax() {
+  axis = -1;
+}
+
+const char *Op::Layer::LogSoftmax::op_type() const {
+  return m_optype;
+}
+
+const char *Op::Layer::LogSoftmax::params() const {
+  static char pbuf[128];
+  sprintf(pbuf, "Axis: %d\n", axis);
+  return pbuf;
+}
+
+void Op::Layer::LogSoftmax::set_initializer_params(int n, const onnx::TensorProto &t) {
+  return; 
+}
+
+void Op::Layer::LogSoftmax::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axis") {
+      if (itr->has_i()) {
+        axis = static_cast<int>(itr->i());
+      } else {
+        log_fatal("cannot find attribute 'axis' in layer {}, is it an integer?", node.name());
+      }
+    }
+  }
+}
+
+void Op::Layer::LogSoftmax::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  this->input_dims = input_dims.at(0);
+  this->output_dims = input_dims.at(0);
+}
+
+void Op::Layer::LogSoftmax::infer_type(const std::vector<TPDT>& input_types) {
+  this->input_type = input_types.at(0);
+  this->output_type = input_types.at(0);
+}
 
 /* Auxillary Graph Functions */
 
@@ -1975,6 +2015,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::MatMul(), node);
   } else if (opt == "QGemm") {
     m_model.add(new Op::Layer::QGemm(), node);
+  } else if (opt == "LogSoftmax") {
+    m_model.add(new Op::Layer::LogSoftmax(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }

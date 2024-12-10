@@ -564,3 +564,21 @@ void dequantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std:
     }
   }
 }
+
+
+template <typename T>
+void logsoftmax(Tensor<T> *output, Tensor<T> *input, int axis) {
+  int true_axis = 0;
+  int dims_sz = input->dims_size();
+
+  if (abs(axis) >= dims_sz) {
+    log_fatal("logsoftmax received out of bounds axis vaalue {}. total dims {}\n", axis, dims_sz);
+  }
+
+  if (axis < 0) {
+    true_axis = dims_sz - axis;
+  }
+
+  std::cout << "true axis " << true_axis << '\n';
+  exit(1);
+}

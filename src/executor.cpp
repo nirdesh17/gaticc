@@ -877,3 +877,39 @@ void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
               Op::get_tensorproto_dtype_name(output_type));
   }
 }
+
+template <typename inputT, typename outputT>
+void run_logsoftmax(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::LogSoftmax *cc = dynamic_cast<Op::Layer::LogSoftmax *>(l);
+
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+
+  logsoftmax(output, input, cc->axis);
+}
+
+void Op::Layer::LogSoftmax::run(TensorPool &tensor_pool) {
+  if (input_type == onnx::TensorProto_DataType_UNDEFINED) {
+    log_fatal("input_type for layer {} UNDEFINED", this->name);
+  }
+  if (output_type == onnx::TensorProto_DataType_UNDEFINED) {
+    log_fatal("output_type for layer {} UNDEFINED", this->name);
+  }
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT &&
+      output_type == onnx::TensorProto_DataType_FLOAT) {
+    run_logsoftmax<float, float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_DOUBLE &&
+             output_type == onnx::TensorProto_DataType_DOUBLE) {
+    run_logsoftmax<double, double>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}
+

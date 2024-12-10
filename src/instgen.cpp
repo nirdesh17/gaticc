@@ -1278,6 +1278,23 @@ uint32_t Op::Layer::QGemm::get_weight_size() {
   return w + b;
 }
 
+void Op::Layer::LogSoftmax::get_opcodes(std::vector<int>& op_codes) {
+  if (this->device != DEVICE_CPU) {
+    log_fatal("Operator LogSoftmax can't run on the FPGA\n");
+  }
+}
+
+uint32_t Op::Layer::LogSoftmax::get_weight_size() {
+  return 0;
+}
+
+int Op::Layer::LogSoftmax::get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) {
+  if (this->device != DEVICE_CPU) {
+    log_fatal("Operator LogSoftmax can't run on the FPGA\n");
+  }
+  return 0;
+}
+
 std::vector<int> Op::LayerBase::aligned_input() {
   return input_dims;
 }
