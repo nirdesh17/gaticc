@@ -237,18 +237,31 @@ integration of new test cases.
 
 ## Building and Running Test Files
 
-There are two ways to build and run the test files:
+- By default, **Sysim** builds only the main project without including test files. If you want to include the tests in the build, you need to enable the `BUILD_TESTING` flag during the configuration step. Follow these steps:
+  ```
+  cmake -B build -DBUILD_TESTING=ON
+  cmake --build build
+  ```
 
-1. **Run Tests via Main Project Build**:
-    - Build the Main Project.
-    - After building the main project, you can run all test files using the `make test` command.
+- After building with tests enabled, you can execute individual test executables:
+  - Navigate to the `tests` folder within the `build` directory
+  - Run the desired test executable. For example:
+    ``` 
+    ./test_example 
+    ```
+- To run all tests together, use `ctest` from the build directory:
+  ```
+  cd build
+  ctest
+  ```
 
-2. **Build and Run Tests Individually**:
-    - Ensure the main project is built.
-    - Navigate to the `tests/` directory and build only the tests.
-    - Once built, you can run all the test files using `ctest`.
+> [!NOTE]  
+> The `BUILD_TESTING` flag is set to `OFF` by default. If tests are not
+> required, you can skip enabling this flag.
 
 ## Supported Models
-- Sysim supports ONNX models that are hosted on our Galacatos Server. one can download these models directly for use with Sysim.
+
+- Sysim supports ONNX models that are hosted on our Galacatos Server. One can
+  download these models directly for use with Sysim.
 
   [Download Supported Models](http://galactos.local:8471/)
