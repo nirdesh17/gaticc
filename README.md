@@ -247,3 +247,8 @@ There are two ways to build and run the test files:
     - Ensure the main project is built.
     - Navigate to the `tests/` directory and build only the tests.
     - Once built, you can run all the test files using `ctest`.
+
+## Supported Models
+- Sysim supports ONNX models that are hosted on our Galacatos Server. one can download these models directly for use with Sysim.
+
+  [Download Supported Models](http://galactos.local:8471/)
