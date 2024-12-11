@@ -379,15 +379,13 @@ public:
 
   /* Write functions */
 
-  /* insert one element at a time */
-  void set_dims(std::vector<int> const &temp_dims);
+  void set(int index, T val);
 #if 0
   void insert(std::vector<int> &at, T data);
   void push_back(T data);
   void push_back(const std::vector<T>& data);
   void clear();
   void shrink_to_fit();
-  void set(int index, T val);
   Tensor<T>& operator=(Tensor<T>& rhs);
   typename std::vector<T>::iterator begin();
   typename std::vector<T>::iterator end();
@@ -472,21 +470,23 @@ void TensorSlice<T>::print() const {
     std::cout << at(i) << ' ';
   }
   std::cout << '\n';
-  std::cout << "slice print " << slice_size << '\n';
 }
 
 template <typename T>
 bool TensorSlice<T>::freeable() const {
   return false;
 }
-template <typename T>
-void TensorSlice<T>::set_dims(std::vector<int> const &temp_dims) {
-	dims = temp_dims;
-}
 
 template <typename T>
 TensorSlice<T>::~TensorSlice() {
   // frees nothing as it owns nothing
+}
+
+template <typename T>
+void TensorSlice<T>::set(int index, T data) {
+  assert(index >= 0);
+  assert(index < slice_size);
+  return src->set(offset + index, data);
 }
 
 template <typename T>
