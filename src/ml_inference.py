@@ -1139,3 +1139,22 @@ def post_imagenet(arr):
     label = np.argmax(arr)
     print(f"{imagenet_labels[label]}")
     return label
+
+def gen_mnist():
+    arr = np.load('mnist_1000.npy')
+    arr2 = arr[0]
+    arr2 = np.expand_dims(arr2, axis=0)
+    img = Image.fromarray((arr2.reshape(28,28) * 255).astype(np.uint8))
+    img.save(f"mnist.jpg")
+    return arr2
+
+def pre_mnist(image):
+    if not os.path.exists(image):
+        raise OSError("File not found: {}".format(image))
+    img = Image.open(image)
+    return quantize_ui8fp32(np.array(img)).astype(np.float32).reshape(1,1,28,28)
+
+def post(num):
+    m = np.argmax(num)
+    print(f"number: {m}")
+    return m
