@@ -93,12 +93,20 @@ int RealRah::write(const char *data, size_t size) {
   log_info("sending meta size {}\n", size);
   (*write_fn)(META_APP_ID, meta_size, RAH_WIDTH);
 
+  log_info("writing via rah, size {}\n", size);
   /* send the actual data */
-  return (*write_fn)(RAH_APP_ID, data, size);
+  int r = (*write_fn)(RAH_APP_ID, data, size);
+  return r;
 }
 
 int RealRah::read(char *data, size_t size) {
-  std::cout << "rah read called \n";
+  /* clear buffers before writing */
+  typedef int (*clear_fn_t) (const uint8_t);
+  clear_fn_t clear_fn = get_dlsym<clear_fn_t>(m_handle, "rah_clear_buf");
+  log_info("clear buffers before read\n");
+  (*clear_fn)(RAH_APP_ID);
+  (*clear_fn)(META_APP_ID);
+
   typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
   read_fn_t read_fn;
   read_fn = (read_fn_t) dlsym(m_handle, "rah_read");
@@ -106,6 +114,7 @@ int RealRah::read(char *data, size_t size) {
   if (error != NULL) {
     log_fatal("{}\n", error);
   }
+  log_info("reading via rah, size {}\n", size);
   return (*read_fn)(RAH_APP_ID, data, size);
 }
 
