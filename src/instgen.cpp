@@ -184,7 +184,7 @@ std::vector<Op::LayerBase *> Pass::remove_dqxq(Op::Graph graph) {
         continue;
       }
       if (l->input_type != l->output_type) {
-        log_fatal("could not remove layer %s", l->name.c_str());
+        log_fatal("could not remove layer {}\n", l->name);
       }
     }
   }
@@ -251,7 +251,7 @@ void Pass::adjust_scale_shift_conv(Op::Graph graph) {
           cc->y_scale.at(i) /= std::get<double>(dl->scale);
         }
       } else {
-        log_fatal("scale variant of %s holds an unhandled type of data", l->name.c_str());
+        log_fatal("scale variant of {} holds an unhandled type of data\n", l->name);
       }
       continue;
     }
@@ -303,7 +303,7 @@ void Pass::adjust_scale_shift_gemm(Op::Graph graph) {
           cc->y_scale.at(i) *= ql->scale;
         }
       } else {
-        log_fatal("scale variant of %s holds an unhandled type of data", l->name.c_str());
+        log_fatal("scale variant of {} holds an unhandled type of data\n", l->name);
       }
       latest_megablock = nullptr;
       previous_dl = nullptr;
@@ -574,14 +574,14 @@ std::bitset<INST_SIZE_BITS> gen_quant(const std::vector<float> &x_scale,
   std::bitset<INST_SIZE_BITS> quant_inst;
   std::vector<float> scales = compute_output_scale(x_scale, w_scale, y_scale);
   if (scales.size() != 1) {
-    log_fatal("unsupported: per-channel quantization");
+    log_fatal("unsupported: per-channel quantization\n");
   }
   if (scales[0] == 0) {
-    log_fatal("scales[0] = 0, need non-zero scales");
+    log_fatal("scales[0] = 0, need non-zero scales\n");
   }
   auto assert_zero = [](int i) {
     if (i != 0) {
-      log_fatal("unsupported: non-zero zero-points");
+      log_fatal("unsupported: non-zero zero-points\n");
     }
   };
   std::for_each(zero_points.begin(), zero_points.end(), assert_zero);
@@ -720,7 +720,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
     std::bitset<TailBlock_BiasWidth_COUNT> bw{bias_width};
     bitset_range_set(bias_inst, bw, TailBlock_BiasWidth_LOW, TailBlock_BiasWidth_HIGH);
   } else {
-    log_fatal("found a conv instruction with intangible bias width %d for layer %s", bias_width, cc->name.c_str());
+    log_fatal("found a conv instruction with intangible bias width {} for layer {}\n", bias_width, cc->name);
   }
 
   return bias_inst;
@@ -819,7 +819,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
     accbuf_size = gbl_args["accbuf-size"].as<int>() / (ACC_SIZE/8);
   } else {
     log_fatal("don't know accbuf-size, use option --accbuf-size to provide "
-        "one");
+        "one\n");
   }
   int on_chip_acc_en = 0;
   int acc_count = cc->output_dims.at(TENSOR_4D_WIDTH) * cc->output_dims.at(TENSOR_4D_HEIGHT);
@@ -983,7 +983,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   bitset_range_set(gemm_inst, fc_input_rows, FC_InputRows_LOW,
                    FC_InputRows_HIGH);
 
-  log_info("ignoring dropout constant while generating inst for QGemm");
+  log_info("ignoring dropout constant while generating inst for QGemm\n");
 
   bool former_layer_conv = (cc->former_layer_dims.size() != 0);
   //std::cout << "former layer conv set to " << former_layer_conv << '\n';
@@ -1023,8 +1023,8 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   } else if (cc->former_layer_dims.size() == 0) {
     input_bytes = aligned_fc_io(cc->input_dims) * Op::tpdt_sizeof(cc->input_type);
   } else {
-    log_fatal("unknown size info in former layer dims of size %d, could potentially be "
-        " dangerous ", cc->former_layer_dims.size());
+    log_fatal("unknown size info in former layer dims of size {}, could potentially be "
+        " dangerous \n", cc->former_layer_dims.size());
   }
   uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
 
@@ -1153,7 +1153,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
     std::bitset<TailBlock_BiasWidth_COUNT> bw{bias_width};
     bitset_range_set(bias_inst, bw, TailBlock_BiasWidth_LOW, TailBlock_BiasWidth_HIGH);
   } else {
-    log_fatal("found a fc instruction with intangible bias width %d for layer %s", bias_width, cc->name.c_str());
+    log_fatal("found a fc instruction with intangible bias width {} for layer {}\n", bias_width, cc->name);
   }
   return bias_inst;
 }
@@ -1278,6 +1278,23 @@ uint32_t Op::Layer::QGemm::get_weight_size() {
   return w + b;
 }
 
+void Op::Layer::LogSoftmax::get_opcodes(std::vector<int>& op_codes) {
+  if (this->device != DEVICE_CPU) {
+    log_fatal("Operator LogSoftmax can't run on the FPGA\n");
+  }
+}
+
+uint32_t Op::Layer::LogSoftmax::get_weight_size() {
+  return 0;
+}
+
+int Op::Layer::LogSoftmax::get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) {
+  if (this->device != DEVICE_CPU) {
+    log_fatal("Operator LogSoftmax can't run on the FPGA\n");
+  }
+  return 0;
+}
+
 std::vector<int> Op::LayerBase::aligned_input() {
   return input_dims;
 }
@@ -1314,7 +1331,7 @@ AddressGen::AddressGen(Op::Graph graph)
   m_exec_order = order;
 
   if (!gbl_args.has_option("ramsize")) {
-    log_fatal("ramsize unknown, use option --ramsize to specify or see --help");
+    log_fatal("ramsize unknown, use option --ramsize to specify or see --help\n");
   }
   ram_size_max = gbl_args["ramsize"].as<int>() * 1024 * 1024;
   ram_size_max = ceil_mod(ram_size_max, WORD_SIZE);
@@ -1392,7 +1409,7 @@ int AddressGen::get_weight_size(const std::vector<Op::LayerBase *> &order) {
 void AddressGen::addr_incr(uint32_t size) {
   uint32_t i = ceil_mod(size, WORD_SIZE);
   if (current_address + i > ram_size_max) {
-    log_fatal("OOM: cannot allocate memory of size %d, already occupied %d",
+    log_fatal("OOM: cannot allocate memory of size {}, already occupied {}\n",
               size, current_address);
   }
   current_address += i;
@@ -1506,7 +1523,7 @@ void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
     pretty_print_fc(inst);
     break;
   default:
-    log_fatal("can't pretty print instruction with opcode %d", op_code);
+    log_fatal("can't pretty print instruction with opcode {}\n", op_code);
     break;
   }
 }
@@ -1591,7 +1608,7 @@ void BinBlob::pretty_print() const {
   for (int i = 0; i < m_ptr; ) {
     if (m_ptr - i < DWP_HEADER_BYTES) {
       log_fatal(
-          "ill-formed data, not enough bytes to form DWP_HEADER at index %d",
+          "ill-formed data, not enough bytes to form DWP_HEADER at index {}\n",
           i);
     }
     uint32_t sop = extract_byte<uint32_t>(m_data, m_ptr, i, i + 4);
@@ -1601,7 +1618,7 @@ void BinBlob::pretty_print() const {
     std::cout << "ADDR " << addr << '\n';
     std::cout << "SOP " << std::hex << sop << std::dec << '\n';
     if (sop != DWP_SOP) {
-      log_fatal("ill-formed data, expected SOP at index %d", i);
+      log_fatal("ill-formed data, expected SOP at index {}\n", i);
     }
     i += DWP_HEADER_BYTES;
     for (int j = 0; j < ds; ++j) {
@@ -1674,8 +1691,8 @@ void BinBlob::append(const InitializerTable &tbl) {
   for (const InitAddrRow &i : tbl) {
     switch (i.engine) {
     case ENGINE_UNKNOWN:
-      log_fatal("Unknown engine, can't align initializer tensor %s",
-                i.data->name().c_str());
+      log_fatal("Unknown engine, can't align initializer tensor {}\n",
+                i.data->name());
       break;
     case ENGINE_SA: {
       uint32_t aligned_sz = aligned_conv_weight(i.data->dims());
@@ -1712,8 +1729,8 @@ void BinBlob::append(const InitializerTable &tbl) {
     }
     default:
       log_fatal(
-          "Uncatched aligner engine for tensor %s probably un-implemented",
-          i.data->name().c_str());
+          "Uncatched aligner engine for tensor {} probably un-implemented\n",
+          i.data->name());
     }
   }
 }
@@ -1732,10 +1749,10 @@ void BinBlob::sa_align(const onnx::TensorProto *tensor) {
     break;
   }
   default:
-    log_fatal("Cant generate weight blob, unsupported data type %s "
-              "for tensor %s",
+    log_fatal("Cant generate weight blob, unsupported data type {} "
+              "for tensor {}\n",
               Op::get_tensorproto_dtype_name((TPDT)type),
-              tensor->name().c_str());
+              tensor->name());
     break;
   }
 }
@@ -1759,10 +1776,10 @@ void BinBlob::conv_bias_align(const onnx::TensorProto *tensor) {
     break;
   }
   default:
-    log_fatal("Cant generate weight blob, unsupported data type %s "
-              "for tensor %s",
+    log_fatal("Cant generate weight blob, unsupported data type {} "
+              "for tensor {}\n",
               Op::get_tensorproto_dtype_name((TPDT)type),
-              tensor->name().c_str());
+              tensor->name());
     break;
   }
 }
@@ -1786,10 +1803,10 @@ void BinBlob::fc_bias_align(const onnx::TensorProto *tensor) {
     break;
   }
   default:
-    log_fatal("Cant generate weight blob, unsupported data type %s "
-              "for tensor %s",
+    log_fatal("Cant generate weight blob, unsupported data type {} "
+              "for tensor {}\n",
               Op::get_tensorproto_dtype_name((TPDT)type),
-              tensor->name().c_str());
+              tensor->name());
     break;
   }
 }
@@ -1813,10 +1830,10 @@ void BinBlob::fc_weight_align(const onnx::TensorProto *tensor, bool transpose) {
     break;
   }
   default:
-    log_fatal("Cant generate weight blob, unsupported data type %s "
-              "for tensor %s",
+    log_fatal("Cant generate weight blob, unsupported data type {} "
+              "for tensor {}\n",
               Op::get_tensorproto_dtype_name((TPDT)type),
-              tensor->name().c_str());
+              tensor->name());
     break;
   }
 }

@@ -56,7 +56,7 @@ void TensorPool::free(int index) {
       delete dd;
     }
   } else {
-    log_fatal("Unknown type: %s, cannot free. Support has to be added",
+    log_fatal("Unknown type: {}, cannot free. Support has to be added\n",
               v.type().name());
   }
   pool.at(index).reset();
@@ -170,7 +170,7 @@ int count_digits(int a) {
 
 std::vector<int> get_sa_arch() {
   if (!gbl_args.has_option("sa-arch")) {
-    log_fatal("cant get architecture for sa, please use --sa-arch option");
+    log_fatal("cant get architecture for sa, please use --sa-arch option\n");
   }
   std::string arch_list = gbl_args["sa-arch"].as<std::string>();
   std::vector<int> mnk = parse_csv_string<int>(arch_list);
@@ -184,31 +184,10 @@ std::vector<int> get_sa_arch() {
 int get_va_size() {
   if (!gbl_args.has_option("vasize")) {
     log_fatal(
-        "can't deduce vector array size, use option --vasize to provide one");
+        "can't deduce vector array size, use option --vasize to provide one\n");
   }
   int va_size = gbl_args["vasize"].as<int>();
   return va_size;
-}
-
-void log_func(const char *type, const char *file, int line, const char *func,
-                          const char *fmt, ...) {
-  fprintf(stderr, "%s:%d: %s: %s: ", file, line, func, type);
-  va_list ap;
-  va_start(ap, fmt);
-  vfprintf(stderr, fmt, ap);
-  va_end(ap);
-  fprintf(stderr, "\n");
-}
-
-[[noreturn]] void log_fatal_func(const char *file, int line, const char *func,
-                           const char *fmt, ...) {
-
-  //fprintf(stderr, "%s:%d: %s: FATAL: ", file, line, func);
-  va_list ap;
-  va_start(ap, fmt);
-  log_func("FATAL", file, line, func, fmt, ap);
-  va_end(ap);
-  exit(EXIT_FAILURE);
 }
 
 void Argparse::parse(int argc, char *argv[]) {
@@ -239,13 +218,13 @@ void Argparse::print_version() const {
 
 void check_c_return_val(int val, const char *err) {
   if (val != 0) {
-    log_fatal("%s: %s", err, strerror(errno));
+    log_fatal("{}: {}\n", err, strerror(errno));
   }
 }
 
 void check_c_return_val(void* val, const char *err) {
   if (val == NULL) {
-    log_fatal("%s: %s", err, strerror(errno));
+    log_fatal("{}: {}\n", err, strerror(errno));
   }
 }
 

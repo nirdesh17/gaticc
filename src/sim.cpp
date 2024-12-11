@@ -77,7 +77,7 @@ void increment_shape(std::vector<int> &ii, const std::vector<int> &limit_shape) 
     }
   }
   if (ii.at(0) >= limit_shape.at(0)) {
-    log_fatal("Cannot increment past limit_shape");
+    log_fatal("Cannot increment past limit_shape\n");
   }
 }
 

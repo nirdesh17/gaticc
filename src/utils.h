@@ -25,17 +25,93 @@
  */
 #include "argagg.h"
 
-#define log_fatal(fmt, ...)                                                    \
-  (log_fatal_func(__FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
-#define log_info(fmt, ...)                                                     \
-  (log_func("INFO", __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
-#define log_warn(fmt, ...)                                                     \
-  (log_func("WARNING", __FILE__, __LINE__, __func__, fmt, ##__VA_ARGS__))
+/* has format specifier i.e. {} */
+inline bool has_fs(const char* p) {
+  if (*p == '\0' || *(p+1) == '\0') {
+    return false;
+  }
+  if (*p == '{' && *(p+1) == '}') {
+    return true;
+  }
+  return false;
+}
 
-void log_func(const char *type, const char *file, int line, const char *func,
-                          const char *fmt, ...);
-[[noreturn]] void log_fatal_func(const char *file, int line, const char *func,
-                           const char *fmt, ...);
+inline void log(const char *p) {
+  while (*p) {
+    if (has_fs(p)) {
+      std::cerr << "insufficient arguments for print";
+      abort();
+    }
+    std::cout << *p;
+    ++p;
+  }
+}
+
+template <typename T>
+void log(const char *p, T v) {
+  while (*p) {
+    const char s = *p;
+    ++p;
+    if (has_fs(p-1)) {
+      std::cout << v;
+      ++p;
+      log(p);
+      break;
+    } else {
+      std::cout << s;
+    }
+  }
+}
+
+template <typename T, typename... Args>
+void log(const char *p, T v, Args... args) {
+  while (*p) {
+    const char s = *p;
+    p++;
+    if (has_fs(p-1)) {
+      std::cout << v;
+      ++p;
+      log(p, args...);
+      break;
+    } else {
+      std::cout << s;
+    }
+  }
+}
+
+template <typename T, typename... Args>
+void log(const char *type, const char *p, T v, Args... args) {
+  std::cout << type << " ";
+  log(p, v, args...);
+}
+
+template <typename T, typename... Args>
+void log_info(const char *p, T v, Args... args) {
+  log("INFO:",  p, v, args...);
+}
+
+inline void log_info(const char *p) {
+  log_info("{}", p);
+}
+
+template <typename T, typename... Args>
+[[noreturn]] void log_fatal(const char *p, T v, Args... args) {
+  log("FATAL:",  p, v, args...);
+  exit(1);
+}
+
+[[noreturn]] inline void log_fatal(const char *p) {
+  log_fatal("{}", p);
+}
+
+template <typename T, typename... Args>
+void log_warn(const char *p, T v, Args... args) {
+  log("WARNING:",  p, v, args...);
+}
+
+inline void log_warn(const char *p) {
+  log_warn("{}", p);
+}
 
 void check_c_return_val(int val, const char *err);
 void check_c_return_val(void* val, const char *err);
@@ -409,7 +485,7 @@ template <typename T> void TensorPool::set(int index, T data) {
 template <typename T> T TensorPool::get(int index) {
   assert(pool.at(index).has_value() && "pool at index does not have a value");
   if (pool.at(index).type() != typeid(T)) {
-  	log_fatal("at index %d, expected type %s but got %s", index,
+  	log_fatal("at index {}, expected type {} but got {}\n", index,
 		pool.at(index).type().name(), typeid(T).name());
   }
   return std::any_cast<T>(pool.at(index));
@@ -500,7 +576,7 @@ std::vector<vectorT> variant2vec(const std::vector<variantT> &var) {
     } else if (std::holds_alternative<int8_t>(i)) {
       ret.push_back((vectorT) std::get<int8_t>(i));
     } else {
-      log_fatal("cant deduce type for zero point");
+      log_fatal("cant deduce type for zero point\n");
     }
   }
   return ret; 

@@ -42,28 +42,28 @@ const char *Op::LayerBase::params() const { return "(null)"; }
 void Op::LayerBase::set_initializer_params(int n, const onnx::TensorProto &t) {}
 void Op::LayerBase::set_value_info_params(const onnx::ValueInfoProto &t) {}
 void Op::LayerBase::run(TensorPool &tensor_pool) {
-  log_fatal("No overrides present for this layer %s: %s", this->op_type(), name.c_str());
+  log_fatal("No overrides present for this layer {}: {}\n", this->op_type(), name);
 }
 void Op::LayerBase::set_attributes(const onnx::NodeProto &node) { return; }
 
 void Op::LayerBase::infer_shape(const std::vector<std::vector<int>>& input_dims) {
-  log_fatal("Shape Inference Un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+  log_fatal("Shape Inference Un-implemented for this layer {}: {}\n", this->op_type(), this->name);
 }
 
 void Op::LayerBase::infer_type(const std::vector<TPDT>& input_types) {
-  log_fatal("Type inference un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+  log_fatal("Type inference un-implemented for this layer {}: {}\n", this->op_type(), this->name);
 }
 
 int Op::LayerBase::get_inst(InstBlob& insts, AddressGen& gen, InitializerTable &tbl) {
-  log_fatal("Instruction generation un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+  log_fatal("Instruction generation un-implemented for this layer {}: {}\n", this->op_type(), this->name);
 }
 
 void Op::LayerBase::get_opcodes(std::vector<int>& op_codes) {
-  log_fatal("Opcode generation un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+  log_fatal("Opcode generation un-implemented for this layer {}: {}\n", this->op_type(), this->name);
 }
 
 uint32_t Op::LayerBase::get_weight_size() {
-  log_fatal("Weight size un-implemented for this layer %s: %s", this->op_type(), this->name.c_str());
+  log_fatal("Weight size un-implemented for this layer {}: {}\n", this->op_type(), this->name);
 }
 
 
@@ -474,8 +474,8 @@ const char *Op::Layer::Reshape::params() const {
 
 void Op::Layer::Reshape::set_initializer_params(int n, const onnx::TensorProto &t) {
   if (t.dims_size() != 1) {
-    log_fatal("New shape expected to be a linear vector, got vector of size %d for"
-        " tensor %s", t.dims_size(), t.name().c_str());
+    log_fatal("New shape expected to be a linear vector, got vector of size {} for\n"
+        " tensor {}", t.dims_size(), t.name());
   }
         
   if (t.int64_data_size() > 0) {
@@ -491,8 +491,8 @@ void Op::Layer::Reshape::set_initializer_params(int n, const onnx::TensorProto &
       new_shape.push_back(raw_ptr[i]);
     }
   } else {
-    log_fatal("Do not know how to interpret TensorProto for %s",
-              t.name().c_str());
+    log_fatal("Do not know how to interpret TensorProto for {}\n",
+              t.name());
   }
 }
 
@@ -511,7 +511,7 @@ const char *Op::Layer::DequantizeLinear::params() const {
   } else if (std::holds_alternative<double>(scale)) {
     sprintf(ret, "Scale: %f, Zero Point: %d", std::get<double>(scale), zero_point);
   } else {
-    log_fatal("cannot format zero point of unknown type for layer %s", this->name.c_str());
+    log_fatal("cannot format zero point of unknown type for layer {}\n", this->name);
   }
   return ret;
 }
@@ -528,7 +528,7 @@ void Op::Layer::DequantizeLinear::set_initializer_params(int n,
   } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
     zero_point = t.int32_data(0);
   } else {
-    log_fatal("Could not find an initializer of expected types");
+    log_fatal("Could not find an initializer of expected types\n");
   }
 }
 
@@ -538,14 +538,14 @@ void Op::Layer::DequantizeLinear::set_attributes(const onnx::NodeProto &node) {
     if (itr->name() == "axis") {
       if (itr->has_i()) {
         if (itr->i() != 0) {
-          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+          log_fatal("axes != 0 are unsupported, axis = {}\n", itr->i());
         }
         axis = itr->i();
       }
     } else if (itr->name() == "block_size") {
       if (itr->has_i()) {
         if (itr->i() != 0) {
-          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+          log_fatal("axes != 0 are unsupported, axis = {}\n", itr->i());
         }
         block_size = itr->i();
       }
@@ -561,7 +561,7 @@ void Op::Layer::DequantizeLinear::infer_type(const std::vector<TPDT>& input_type
   } else if (std::holds_alternative<double>(this->scale)) {
     this->output_type = onnx::TensorProto_DataType_DOUBLE;
   } else {
-    log_fatal("could not deduce output type for layer %s", this->name.c_str());
+    log_fatal("could not deduce output type for layer {}\n", this->name);
   }
 }
 
@@ -581,7 +581,7 @@ const char *Op::Layer::QuantizeLinear::params() const {
   } else if (std::holds_alternative<uint8_t>(zero_point)) {
     sprintf(ret, "Scale: %f, Zero Point: %d", scale, std::get<uint8_t>(zero_point));
   } else {
-    log_fatal("cannot format zero point of unknown type for layer %s", this->name.c_str());
+    log_fatal("cannot format zero point of unknown type for layer {}\n", this->name);
   }
   return ret;
 }
@@ -596,7 +596,7 @@ void Op::Layer::QuantizeLinear::set_initializer_params(int n,
   } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
     zero_point = (int8_t) t.int32_data(0);
   } else {
-    log_fatal("Could not find an initializer of expected types");
+    log_fatal("Could not find an initializer of expected types\n");
   }
 }
 
@@ -620,7 +620,7 @@ void Op::Layer::QuantizeLinear::infer_type(
   } else if (std::holds_alternative<uint8_t>(this->zero_point)) {
     this->output_type = onnx::TensorProto_DataType_UINT8;
   } else {
-    log_fatal("could not deduce output type for layer %s", this->name.c_str());
+    log_fatal("could not deduce output type for layer {}\n", this->name);
   }
 }
 
@@ -630,28 +630,28 @@ void Op::Layer::QuantizeLinear::set_attributes(const onnx::NodeProto &node) {
     if (itr->name() == "axis") {
       if (itr->has_i()) {
         if (itr->i() != 0) {
-          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+          log_fatal("axes != 0 are unsupported, axis = {}\n", itr->i());
         }
         axis = itr->i();
       }
     } else if (itr->name() == "block_size") {
       if (itr->has_i()) {
         if (itr->i() != 0) {
-          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+          log_fatal("axes != 0 are unsupported, axis = {}\n", itr->i());
         }
         block_size = itr->i();
       }
     } else if (itr->name() == "output_dtype") {
       if (itr->has_i()) {
         if (itr->i() != 0) {
-          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+          log_fatal("axes != 0 are unsupported, axis = {}\n", itr->i());
         }
         output_dtype = itr->i();
       }
     } else if (itr->name() == "saturate") {
       if (itr->has_i()) {
         if (itr->i() != 1) {
-          log_fatal("axes != 0 are unsupported, axis = %d", itr->i());
+          log_fatal("axes != 0 are unsupported, axis = {}\n", itr->i());
         }
         saturate = itr->i();
       }
@@ -704,7 +704,7 @@ const char *Op::Layer::QLinearConv::params() const {
     } else if (std::holds_alternative<uint8_t>(x_zero_point[i])) {
       ss << (int) std::get<uint8_t>(x_zero_point[i]) << ' ';
     } else {
-      log_fatal("cant get type for x_zero_point");
+      log_fatal("cant get type for x_zero_point\n");
     }
   }
   ss << '\n';
@@ -778,7 +778,7 @@ void Op::Layer::QLinearConv::set_initializer_params(int n, const onnx::TensorPro
       bias = &t;
       break;
     default:
-      log_fatal("unknown initializer for layer %s", this->name.c_str());
+      log_fatal("unknown initializer for layer {}\n", this->name);
       break;
   }
 }
@@ -859,7 +859,7 @@ void Op::Layer::QLinearMatMul::set_initializer_params(int n,
       } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
         a_zero_point.push_back((int8_t) t.int32_data(0));
       } else {
-        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+        log_fatal("cant deduce zero point for tensor {}\n", t.name());
       }
       break;
     case QLMM_B:
@@ -879,7 +879,7 @@ void Op::Layer::QLinearMatMul::set_initializer_params(int n,
       } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
         b_zero_point.push_back((int8_t) t.int32_data(0));
       } else {
-        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+        log_fatal("cant deduce zero point for tensor {}\n", t.name());
       }
       break;
     case QLMM_Y_SCALE:
@@ -894,11 +894,11 @@ void Op::Layer::QLinearMatMul::set_initializer_params(int n,
       } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
         y_zero_point.push_back((int8_t) t.int32_data(0));
       } else {
-        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+        log_fatal("cant deduce zero point for tensor {}\n", t.name());
       }
       break;
     default:
-        log_fatal("unknown inputs number %d for tensor %s", n, t.name().c_str());
+        log_fatal("unknown inputs number {} for tensor {}\n", n, t.name());
       break;
   }
 }
@@ -910,7 +910,7 @@ void Op::Layer::QLinearMatMul::set_value_info_params(
   if (Op::is_valid_tensor_shape(shape, GEMM_WEIGHT_TENSOR_DIMS)) {
     m_cp.is = shape.dim().at(1).dim_value();
   } else {
-    log_fatal("Could not set ValueInfoProto for %s", t.name().c_str());
+    log_fatal("Could not set ValueInfoProto for %s\n", t.name().c_str());
   }
 #endif
 }
@@ -982,11 +982,11 @@ void Op::Layer::QLinearAdd::set_initializer_params(int n, const onnx::TensorProt
       } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
         zero_point.push_back((int8_t) t.int32_data(0));
       } else {
-        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+        log_fatal("cant deduce zero point for tensor {}\n", t.name());
       }
       break;
     default:
-        log_fatal("unknown inputs number %d for tensor %s", n, t.name().c_str());
+        log_fatal("unknown inputs number {} for tensor {}\n", n, t.name());
       break;
   }
 }
@@ -994,10 +994,10 @@ void Op::Layer::QLinearAdd::set_initializer_params(int n, const onnx::TensorProt
 void Op::Layer::QLinearAdd::infer_shape(const std::vector<std::vector<int>>& input_dims) {
   std::vector<int> weight_dims = get_tensorproto_shape(*this->addend);
   if (!is_broadcastable(input_dims[0], weight_dims)) {
-    log_fatal("input_dims and weight_dims can't be broadcasted for layer %s", this->name.c_str());
+    log_fatal("input_dims and weight_dims can't be broadcasted for layer {}\n", this->name);
   }
   if (input_dims[0].size() != 2) {
-    log_fatal("cant infer shape for layer %s, dims.size() = %s != 2", this->name.c_str(), input_dims.size());
+    log_fatal("cant infer shape for layer {}, dims.size() = {} != 2\n", this->name, input_dims.size());
   }
   this->input_dims = input_dims[0];
   this->output_dims.resize(2);
@@ -1031,13 +1031,13 @@ void Op::Layer::Transpose::set_attributes(const onnx::NodeProto &node) {
   for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
     if (itr->name() == "perm") {
       if (itr->ints_size() < 1) {
-        log_fatal("expected node %s to contain perm info", node.name().c_str());
+        log_fatal("expected node {} to contain perm info\n", node.name());
       }
       perm.resize(itr->ints_size(), 0);
       parse_onnx_ints(*itr, perm.data());
     } else {
-      log_info("Parser un-implemented for attribute %s at node %s",
-               itr->name().c_str(), node.name().c_str());
+      log_info("Parser un-implemented for attribute {} at node {}\n",
+               itr->name(), node.name());
     }
   }
 }
@@ -1126,7 +1126,7 @@ void Op::Layer::QGemm::set_initializer_params(int n,
       } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
         a_zero_point.push_back((int8_t) t.int32_data(0));
       } else {
-        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+        log_fatal("cant deduce zero point for tensor {}\n", t.name());
       }
       break;
     case QLG_B:
@@ -1146,7 +1146,7 @@ void Op::Layer::QGemm::set_initializer_params(int n,
       } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
         b_zero_point.push_back((int8_t) t.int32_data(0));
       } else {
-        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+        log_fatal("cant deduce zero point for tensor {}\n", t.name());
       }
       break;
     case QLG_C:
@@ -1164,11 +1164,11 @@ void Op::Layer::QGemm::set_initializer_params(int n,
       } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
         y_zero_point.push_back((int8_t) t.int32_data(0));
       } else {
-        log_fatal("cant deduce zero point for tensor %s", t.name().c_str());
+        log_fatal("cant deduce zero point for tensor {}\n", t.name());
       }
       break;
     default:
-        log_fatal("unknown inputs number %d for tensor %s", n, t.name().c_str());
+        log_fatal("unknown inputs number {} for tensor {}\n", n, t.name());
       break;
   }
 }
@@ -1221,6 +1221,46 @@ void Op::Layer::QGemm::infer_type(const std::vector<TPDT>& input_types) {
   this->bias_type = Op::get_type_from_tensor_proto(*this->bias);
 }
 
+Op::Layer::LogSoftmax::LogSoftmax() {
+  axis = -1;
+}
+
+const char *Op::Layer::LogSoftmax::op_type() const {
+  return m_optype;
+}
+
+const char *Op::Layer::LogSoftmax::params() const {
+  static char pbuf[128];
+  sprintf(pbuf, "Axis: %d\n", axis);
+  return pbuf;
+}
+
+void Op::Layer::LogSoftmax::set_initializer_params(int n, const onnx::TensorProto &t) {
+  return; 
+}
+
+void Op::Layer::LogSoftmax::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axis") {
+      if (itr->has_i()) {
+        axis = static_cast<int>(itr->i());
+      } else {
+        log_fatal("cannot find attribute 'axis' in layer {}, is it an integer?", node.name());
+      }
+    }
+  }
+}
+
+void Op::Layer::LogSoftmax::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  this->input_dims = input_dims.at(0);
+  this->output_dims = input_dims.at(0);
+}
+
+void Op::Layer::LogSoftmax::infer_type(const std::vector<TPDT>& input_types) {
+  this->input_type = input_types.at(0);
+  this->output_type = input_types.at(0);
+}
 
 /* Auxillary Graph Functions */
 
@@ -1307,7 +1347,7 @@ void Op::Model::connect(const onnx::NodeProto &node) {
     // found vertex for current node
     current_node = itr->second;
   } else {
-    log_fatal("Coudn't find node %s in name_vertex_map", node.name().c_str());
+    log_fatal("Coudn't find node {} in name_vertex_map\n", node.name());
   }
   for (auto i : node.input()) {
     /* for inputs that are not initializers or inputs to the
@@ -1319,7 +1359,7 @@ void Op::Model::connect(const onnx::NodeProto &node) {
         /* connect */
         boost::add_edge(itr->second, current_node, g);
       } else {
-        log_fatal("Coudn't find node %s in output_map", i.c_str());
+        log_fatal("Coudn't find node {} in output_map\n", i);
       }
     }
   }
@@ -1353,7 +1393,7 @@ size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
 bool Op::Model::has_graph_output(Op::LayerBase *l) const {
   if (graph_output_map.size() != 1) {
-    log_fatal("Graphs with only one outputs are currently supported");
+    log_fatal("Graphs with only one outputs are currently supported\n");
   }
   auto graph_out = graph_output_map.begin();
   auto output_name = (graph_out->second).name();
@@ -1415,7 +1455,7 @@ void Op::print_node(const LayerBase *node) {
       device = "CPU";
       break;
     default:
-      log_fatal("illegal device number for layer %s", node->name.c_str());
+      log_fatal("illegal device number for layer {}\n", node->name);
   }
   std::cout << "Device " <<  device << '\n';
   print_vec("Input dims", node->input_dims);
@@ -1662,7 +1702,7 @@ void Op::Model::deduce_types(const std::vector<TPDT>& input_types) {
     // onnx::TensorProto_DataType_UNDEFINED && "Output type cannot be
     // Undefined");
     if (l->input_type == onnx::TensorProto_DataType_UNDEFINED) {
-      log_fatal("Failed Type Deduction. Input type for layer: %s cannot be "
+      log_fatal("Failed Type Deduction. Input type for layer: %s cannot be \n"
                 "UNDEFINED",
                 l->name.c_str());
     }
@@ -1689,8 +1729,8 @@ void Op::Model::set_input_type(const onnx::NodeProto &node, Op::LayerBase *l) {
         break;
       }
       log_fatal(
-          "Couldn't find %s for node %s in value_info_map or graph_input_map",
-          input.c_str(), node.name().c_str());
+          "Couldn't find {} for node {} in value_info_map or graph_input_map\n",
+          input, node.name());
     }
   }
 }
@@ -1709,9 +1749,9 @@ void Op::Model::set_output_type(const onnx::NodeProto &node, Op::LayerBase *l) {
         l->output_type = get_type_from_value_info(go_itr->second);
         break;
       }
-      log_fatal("Couldn't find %s for node %s in value_info_map or "
-                "graph_output_map",
-                output.c_str(), node.name().c_str());
+      log_fatal("Couldn't find {} for node {} in value_info_map or "
+                "graph_output_map\n",
+                output, node.name());
     }
   }
 }
@@ -1721,17 +1761,17 @@ Op::get_type_from_value_info(const onnx::ValueInfoProto &v) {
   if (!v.has_type()) {
     /* TODO: bug, last node's types are not being deduced */
     log_info(
-        "graph input's valueinfoproto named \"%s\" does not have a data type",
-        v.name().c_str());
+        "graph input's valueinfoproto named \"{}\" does not have a data type\n",
+        v.name());
     return onnx::TensorProto_DataType_UNDEFINED;
   }
   const onnx::TypeProto &type = v.type();
   if (!type.has_tensor_type()) {
-    log_fatal("input to the graph is not a a TensorType");
+    log_fatal("input to the graph is not a a TensorType\n");
   }
   const onnx::TypeProto_Tensor &tensor = type.tensor_type();
   if (!tensor.has_elem_type()) {
-    log_fatal("tensor for graph's input does not have a elem_type");
+    log_fatal("tensor for graph's input does not have a elem_type\n");
   }
   return static_cast<TPDT>(tensor.elem_type());
 }
@@ -1740,23 +1780,23 @@ TPDT Op::get_type_from_tensor_proto(const onnx::TensorProto &v) {
   if (v.has_data_type()) {
     return (TPDT) v.data_type();
   } else {
-    log_fatal("could not deduce type for tensor %s", v.name().c_str());
+    log_fatal("could not deduce type for tensor {}\n", v.name());
   }
 }
 
 const onnx::TensorShapeProto &
 Op::get_tensor_shape_proto(const onnx::ValueInfoProto &t) {
   if (!t.has_type()) {
-    log_fatal("valueinfoproto %s does not have a type", t.name().c_str());
+    log_fatal("valueinfoproto {} does not have a type\n", t.name());
   }
   const onnx::TypeProto &type = t.type();
   if (!type.has_tensor_type()) {
-    log_fatal("valuefatalproto %s has a type but does not have a tensor_type",
-              t.name().c_str());
+    log_fatal("valuefatalproto {} has a type but does not have a tensor_type\n",
+              t.name());
   }
   const onnx::TypeProto_Tensor &tensor = type.tensor_type();
   if (!tensor.has_shape()) {
-    log_fatal("valuefatalproto %s does not have a shape", t.name().c_str());
+    log_fatal("valuefatalproto {} does not have a shape\n", t.name());
   }
   const onnx::TensorShapeProto &shape = tensor.shape();
   return shape;
@@ -1770,10 +1810,10 @@ std::vector<int> Op::get_dims_from_value_info(const onnx::ValueInfoProto &v) {
       dims.push_back(static_cast<int>(i.dim_value()));
     } else if (i.has_dim_param()) {
       /* default batch size */
-      log_info("got dim parameter %s, setting it to 1 (default)", i.dim_param().c_str());
+      log_info("got dim parameter {}, setting it to 1 (default)\n", i.dim_param());
       dims.push_back(1);
     } else if (i.has_denotation()) {
-      log_info("found denotation, but ignoring (needs support)");
+      log_info("found denotation, but ignoring (needs support)\n");
     }
   }
   return dims;
@@ -1803,7 +1843,7 @@ int Op::tpdt_sizeof(TPDT v) {
   int32_t dtype = (int32_t)v;
   switch (dtype) {
   case 0:
-    log_fatal("cannot calculate sizeof for type %d", dtype);
+    log_fatal("cannot calculate sizeof for type {}\n", dtype);
     break;
   case 1:
     return sizeof(float);
@@ -1840,19 +1880,19 @@ int Op::tpdt_sizeof(TPDT v) {
     return sizeof(uint64_t);
     break;
   default:
-    log_fatal("could not calculate sizeof() for type %d", dtype);
+    log_fatal("could not calculate sizeof() for type {}\n", dtype);
     break;
   }
 }
 
 int Op::tensorproto_sizeof(const onnx::TensorProto *t) {
   if (!t->has_data_type()) {
-    log_fatal("could not deduce type for tensor %s", t->name().c_str());
+    log_fatal("could not deduce type for tensor {}\n", t->name());
   }
   TPDT dtype = (TPDT)t->data_type();
   if (dtype == 0) {
-    log_fatal("cannot  calculate sizeof() for tensor: %s of type UNDEFINED",
-              t->name().c_str());
+    log_fatal("cannot  calculate sizeof() for tensor: {} of type UNDEFINED\n",
+              t->name());
   }
   return tpdt_sizeof(dtype);
 }
@@ -1870,8 +1910,8 @@ bool Op::is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
     auto dims = shape.dim();
     if (!dims.at(0).has_dim_value()) {
       log_info("ValueInfoProto has params for Batch dimensions (not value):"
-               " and the param is: %s",
-               dims.at(0).dim_param().c_str());
+               " and the param is: {}\n",
+               dims.at(0).dim_param());
     }
     std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
       assert(val.has_dim_value() &&
@@ -1975,8 +2015,10 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::MatMul(), node);
   } else if (opt == "QGemm") {
     m_model.add(new Op::Layer::QGemm(), node);
+  } else if (opt == "LogSoftmax") {
+    m_model.add(new Op::Layer::LogSoftmax(), node);
   } else {
-    log_fatal("Unimplemented Operator: %s", opt.c_str());
+    log_fatal("Unimplemented Operator: {}\n", opt);
   }
 }
 
@@ -1991,7 +2033,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
 Op::Parser::Parser(std::string const &filename) {
   loaded_model.open(filename, std::ios::in | std::ios::binary);
   if (loaded_model.fail()) {
-    log_fatal("%s: %s", filename.c_str(), strerror(errno));
+    log_fatal("{}: {}\n", filename, strerror(errno));
   }
   model_proto =
       google::protobuf::Arena::CreateMessage<onnx::ModelProto>(&arena);
@@ -2148,7 +2190,7 @@ Op::VirtualAddress Op::RegisterAllocator::acquire(void) {
     *itr = OCCUPIED;
     return itr - register_set.begin();
   } else {
-    log_fatal("Out of registers!");
+    log_fatal("Out of registers!\n");
     return -1; // will never reach here
   }
 }

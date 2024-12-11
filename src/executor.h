@@ -62,7 +62,7 @@ Tensor<T> *read_model_input(const PyEngine &engine) {
     std::string image_path = gbl_args["input_path"].as<std::string>();
     PyObject *args = Py_BuildValue("(s)", image_path.c_str());
     if (!gbl_args.has_option("preprocfn")) {
-      log_fatal("Need --preprocfn \"proc_name\" with --input_path");
+      log_fatal("Need --preprocfn \"proc_name\" with --input_path\n");
     }
     std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
     input_object = engine.call_func(preprocfn.c_str(), args);
@@ -74,11 +74,11 @@ Tensor<T> *read_model_input(const PyEngine &engine) {
 
     if (PyErr_Occurred()) {
       PyErr_Print();
-      log_fatal("function %s erred", preprocfn.c_str());
+      log_fatal("function {} erred\n", preprocfn);
     }
     
     if (!PyArray_CheckExact(input_object)) {
-      log_fatal("function %s must return a numpy array", preprocfn.c_str());
+      log_fatal("function {} must return a numpy array\n", preprocfn);
     }
   }
   Tensor<T> *input = np2t<T>(input_object);

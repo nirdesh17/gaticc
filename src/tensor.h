@@ -70,47 +70,47 @@ public:
 
 template <typename T>
 void Tensor<T>::insert(std::vector<int> &at, T data) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::push_back(T data) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::push_back(const std::vector<T>& data) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::set_dims(std::vector<int> const &temp_dims) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::clear() {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
 void Tensor<T>::shrink_to_fit() {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 template <typename T>
 void Tensor<T>::set(int index, T val) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
 Tensor<T>& Tensor<T>::operator=(const Tensor<T>& rhs) {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
 typename std::vector<T>::iterator Tensor<T>::begin() {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
 typename std::vector<T>::iterator Tensor<T>::end() {
-  log_fatal("Un-implemented function");
+  log_fatal("Un-implemented function\n");
 }
 
 template <typename T>
@@ -379,15 +379,13 @@ public:
 
   /* Write functions */
 
-  /* insert one element at a time */
-  void set_dims(std::vector<int> const &temp_dims);
+  void set(int index, T val);
 #if 0
   void insert(std::vector<int> &at, T data);
   void push_back(T data);
   void push_back(const std::vector<T>& data);
   void clear();
   void shrink_to_fit();
-  void set(int index, T val);
   Tensor<T>& operator=(Tensor<T>& rhs);
   typename std::vector<T>::iterator begin();
   typename std::vector<T>::iterator end();
@@ -405,7 +403,6 @@ TensorSlice<T>::TensorSlice(Tensor<T> *src, std::vector<int> slice) {
   for (int i = 0; i < slice.size(); ++i) {
     this->offset += (strides[i] * slice[i]);
   }
-  std::cout << "offset " << this->offset << '\n';
   for (int i = slice.size(); i < src->dims_size(); ++i) {
     this->dims.push_back(src->dims_at(i));
   }
@@ -473,21 +470,23 @@ void TensorSlice<T>::print() const {
     std::cout << at(i) << ' ';
   }
   std::cout << '\n';
-  std::cout << "slice print " << slice_size << '\n';
 }
 
 template <typename T>
 bool TensorSlice<T>::freeable() const {
   return false;
 }
-template <typename T>
-void TensorSlice<T>::set_dims(std::vector<int> const &temp_dims) {
-	dims = temp_dims;
-}
 
 template <typename T>
 TensorSlice<T>::~TensorSlice() {
   // frees nothing as it owns nothing
+}
+
+template <typename T>
+void TensorSlice<T>::set(int index, T data) {
+  assert(index >= 0);
+  assert(index < slice_size);
+  return src->set(offset + index, data);
 }
 
 template <typename T>

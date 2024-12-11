@@ -73,7 +73,7 @@ inline const char *get_device_name(int device) {
       return "DEVICE_FPGA";
       break;
     default:
-      log_fatal("unknown device enum %d, can't get name", device);
+      log_fatal("unknown device enum {}, can't get name\n", device);
       break;
   }
 }
@@ -516,6 +516,22 @@ struct QLinearConv : public LayerBase {
   uint32_t get_weight_size() override;
   std::vector<int> aligned_input() override;
   std::vector<int> aligned_output() override;
+};
+
+struct LogSoftmax : public LayerBase {
+  const char *m_optype = "LogSoftmax";
+  const char *op_type() const override;
+  const char *params() const override;
+  int axis;
+  LogSoftmax();
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
+  void run(TensorPool &tensor_pool) override;
+  void get_opcodes(std::vector<int>& op_codes) override;
+  uint32_t get_weight_size() override;
+  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
 };
 
 } // namespace Layer

@@ -362,7 +362,7 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std::v
     min_lim = -128;
     max_lim = 127;
   } else {
-    log_fatal("cant find saturation values for quantization (unimplemented)");
+    log_fatal("cant find saturation values for quantization (unimplemented)\n");
   }
 
   if (input->dims_size() == 4) {
@@ -562,5 +562,40 @@ void dequantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std:
       outputT new_val = dequantize_fn<inputT, outputT>(val, scales[0], zero_point[0]);
       output->set(i, new_val);
     }
+  }
+}
+
+
+template <typename T>
+void logsoftmax(Tensor<T> *output, Tensor<T> *input, int axis) {
+  if (output->get_dims() != input->get_dims()) {
+    log_fatal("logsoftmax: input, output dims do not match");
+  }
+  int dims_sz = input->dims_size();
+  if (abs(axis) >= dims_sz) {
+    log_fatal("logsoftmax: received out of bounds axis value {}. total dims {}\n", axis, dims_sz);
+  }
+
+  int true_axis = axis;
+  if (axis < 0) {
+    true_axis = dims_sz + axis;
+  }
+  std::vector<int> axis_v(true_axis, 0);
+  TensorSlice<T> slice(input, axis_v);
+  std::vector<int> exp_dims; exp_dims.push_back(slice.size());
+  TensorCreate<T> exp_v(exp_dims);
+
+  for (int i = 0; i < slice.size(); ++i) {
+    exp_v.set(i, std::exp(slice.at(i)));
+  }
+
+  T reduced_sum = std::accumulate(exp_v.begin(), exp_v.end(), static_cast<T>(1.0));
+  for (int i = 0; i < output->size(); ++i) {
+    output->set(i, input->at(i));
+  }
+  TensorSlice<T> out_slice(output, axis_v);
+  assert(out_slice.size() == slice.size());
+  for (int i = 0; i < out_slice.size(); ++i) {
+    out_slice.set(i, std::log(exp_v.at(i) / reduced_sum));
   }
 }

@@ -26,13 +26,13 @@ PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) 
   PyObject *path = PyObject_GetAttrString(sys, "path");
 
   if (PyList_Append(path, PyUnicode_FromString(mod_dir.c_str())) == -1) {
-    log_fatal("PyList_Append");
+    log_fatal("PyList_Append\n");
   }
 
   if (gbl_args.has_option("venv-path")) {
     std::string venv_path = gbl_args["venv-path"].as<std::string>();
     if (PyList_Insert(path, 0, PyUnicode_FromString(venv_path.c_str())) == -1) {
-      log_fatal("PyList_Append");
+      log_fatal("PyList_Append\n");
     }
   }
   this->mod = PyImport_Import(PyUnicode_FromString(mod_name.c_str()));
