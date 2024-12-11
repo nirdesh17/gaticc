@@ -71,6 +71,13 @@ void cvt_32248(char *str, int v) {
 }
 
 int RealRah::write(const char *data, size_t size) {
+  /* clear buffers before writing */
+  typedef int (*clear_fn_t) (const uint8_t);
+  clear_fn_t clear_fn = get_dlsym<clear_fn_t>(m_handle, "rah_clear_buffer");
+  log_info("clear buffers before read\n");
+  (*clear_fn)(RAH_APP_ID);
+  (*clear_fn)(META_APP_ID);
+
   typedef int (*write_fn_t) (const uint8_t, const char*, const unsigned long);
   write_fn_t write_fn = get_dlsym<write_fn_t>(m_handle, "rah_write");
   /* Before writing actual data (weights, biases, inputs etc.) to
@@ -100,12 +107,6 @@ int RealRah::write(const char *data, size_t size) {
 }
 
 int RealRah::read(char *data, size_t size) {
-  /* clear buffers before writing */
-  typedef int (*clear_fn_t) (const uint8_t);
-  clear_fn_t clear_fn = get_dlsym<clear_fn_t>(m_handle, "rah_clear_buf");
-  log_info("clear buffers before read\n");
-  (*clear_fn)(RAH_APP_ID);
-  (*clear_fn)(META_APP_ID);
 
   typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
   read_fn_t read_fn;
