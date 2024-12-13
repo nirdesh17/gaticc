@@ -87,7 +87,8 @@ def post_mnist(arr):
     print("Inferred number: ", np.argmax(arr.flatten()))
 
 def save_tensor(filename, arr):
-    np.save(filename, arr)
+    fname = filename.replace('/', '_')
+    np.save(fname, arr)
 
 def setup_uart(port, baudrate=115200):
     try:
