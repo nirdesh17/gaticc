@@ -25,6 +25,20 @@
  */
 #include "argagg.h"
 
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& obj)
+{
+  os << '(';
+  for (int i = 0; i < obj.size(); ++i) {
+    os << obj.at(i);
+    if (i < (obj.size() - 1)) {
+      os << ',';
+    }
+  }
+  os << ')';
+  return os;
+}
+
 /* has format specifier i.e. {} */
 inline bool has_fs(const char* p) {
   if (*p == '\0' || *(p+1) == '\0') {

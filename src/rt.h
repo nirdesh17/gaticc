@@ -166,6 +166,9 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
     tensor_pool.free();
 
     Tensor<inputT> *slice {get_slice(input_image, std::vector<int>{i})};
+    if (order.at(0)->input_dims != slice->get_dims()) {
+      log_fatal("Expected input dims {}, got input of dimensions {}\n", order.at(0)->input_dims, slice->get_dims());
+    }
     tensor_pool.set<Tensor<inputT> *>(0, slice);
 
     bool sent = false;
