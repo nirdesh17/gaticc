@@ -652,6 +652,7 @@ std::vector<int> aligned_conv_input_dims(const T &dims) {
   auto sa_arch = get_sa_arch();
   auto i = dims;
   i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[2]);
+  i[TENSOR_4D_WIDTH] = ceil_mod(i[TENSOR_4D_WIDTH], sa_arch[SA_ARCH_N]);
   std::vector<int> ret(dims.size());
   std::copy(i.begin(), i.end(), ret.begin());
   return ret;
@@ -1004,7 +1005,7 @@ void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr, const Tensor<T>
   int efee = sa_arch[SA_ARCH_N];
   int acc_width = ACC_SIZE/8; /* In bytes */
   int outer_channel_iterations = aligned_dims[TENSOR_4D_CHANNELS] / efee;
-  int width_iterations = aligned_dims[TENSOR_4D_WIDTH] / acc_width;
+  int width_iterations = std::ceil((float)aligned_dims[TENSOR_4D_WIDTH] / (float)acc_width);
   std::vector<int> index(4);
   T zero = 0;
   for (int n = 0; n < aligned_dims[TENSOR_4D_BATCH]; ++n) {
