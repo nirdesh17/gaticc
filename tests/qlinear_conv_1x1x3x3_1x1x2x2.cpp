@@ -39,12 +39,8 @@ bool qlinear_conv_1x1x3x3_1x1x2x2() {
   };
   TensorCreate<int8_t> expected_output(expected_output_values, output_dims);
   
+  TensorCreate<int8_t> output_intr(output_dims);
   TensorCreate<int8_t> output(output_dims);
-
-  TensorPool tensor_pool;
-  tensor_pool.resize(2);
-
-  tensor_pool.set<Tensor<int8_t> *>(0, &input);
   
   Op::ConvParams conv_params={1,{2, 2},{0,0,0,0},{1,1},{0, 0}};
     
@@ -71,11 +67,17 @@ bool qlinear_conv_1x1x3x3_1x1x2x2() {
   q_conv_layer.weight_type=onnx::TensorProto::INT8;
 
 
-  q_conv_layer.run(tensor_pool);
+  ConvEngine<int8_t, int8_t, int8_t> q_conv_engine(&q_conv_layer);
 
-  Tensor<int8_t> *out = tensor_pool.get<Tensor<int8_t> *>(q_conv_layer.outputs.at(0));
+  q_conv_engine.run(&input, &output_intr);
 
-  std::vector<int8_t> out_values = out->get();
+
+  std::vector<float> scales = compute_output_scale(q_conv_layer.x_scale, q_conv_layer.w_scale, q_conv_layer.y_scale);
+
+  quantize<int8_t, int8_t>(&output_intr, &output, scales, {0});
+
+  std::vector<int8_t> out_values = output.get();
+
 
   bool result = generate_report("qlinear_conv_1x1x3x3_1x1x2x2", out_values, expected_output_values);
   return result;

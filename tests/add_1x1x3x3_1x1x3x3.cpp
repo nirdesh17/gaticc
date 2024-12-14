@@ -28,24 +28,8 @@ bool add_1x1x3x3_1x1x3x3()
     };
     TensorCreate<float> output(output_dims);
 
-    TensorPool tensor_pool;
-    tensor_pool.resize(3);
-
-    Op::Layer::Add add;
-    add.inputs.push_back(0);
-    add.inputs.push_back(1);
-    add.outputs.push_back(2);
-    add.input_type = onnx::TensorProto_DataType_FLOAT;
-    add.output_type = onnx::TensorProto_DataType_FLOAT;
-    add.input_dims = input_dims;
-    add.output_dims = output_dims;
-
-    tensor_pool.set<Tensor<float> *>(0, &input);
-    tensor_pool.set<Tensor<float> *>(1, &input2);
-    add.run(tensor_pool);
-    Tensor<float> *out = tensor_pool.get<Tensor<float> *>(add.outputs.at(0));
-
-    std::vector<float> out_values = out->get();
+    tensor_add(&output, &input, &input2);
+    std::vector<float> out_values = output.get();
 
     bool status = generate_report<float,float>("add_1x1x3x3_1x1x3x3", out_values, expected_output_values);
 

@@ -20,23 +20,11 @@ bool flatten_1x1x3x3()
         6, 7, -1
     };
     TensorCreate<float> input(input_values, input_dims);
-    
+    TensorCreate<float> expected_output({1, 9});
+    TensorCreate<float> output(input_values, input_dims);
 
-    TensorPool tensor_pool;
-    tensor_pool.resize(2);
-
-    Op::Layer::Flatten flatten;
-    flatten.inputs.push_back(0);
-    flatten.outputs.push_back(1);
-    flatten.input_dims = input_dims;
-    flatten.output_dims = {1, 9};
-    flatten.input_type = onnx::TensorProto_DataType_FLOAT;
-    flatten.output_type = onnx::TensorProto_DataType_FLOAT;
-
-    tensor_pool.set<Tensor<float> *>(0, &input);
-    flatten.run(tensor_pool);
-    Tensor<float> *out = tensor_pool.get<Tensor<float> *>(flatten.outputs.at(0));
-    bool status = out->get_dims() == flatten.output_dims;
+    flatten(&input, &output);
+    bool status = output.get_dims() == expected_output.get_dims();
      
     return status;
 

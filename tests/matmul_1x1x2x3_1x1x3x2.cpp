@@ -40,22 +40,14 @@ bool matmul_1x1x2x3_1x1x3x2() {
     matmul.weights = &weight_proto;
     matmul.output_dims= output_dims;
     matmul.input_dims = input_dims;
-    matmul.inputs.push_back(0);
-    matmul.outputs.push_back(1);
     matmul.input_type=onnx::TensorProto::FLOAT;
     matmul.output_type=onnx::TensorProto::FLOAT;
 
-
-    TensorPool tensor_pool;
-    tensor_pool.resize(2);
-
-    tensor_pool.set<Tensor<float> *>(0, &input);
     VA<float,float,float,float> va(matmul);
 
-    matmul.run(tensor_pool);
+    va.run(&input, &output);
 
-    Tensor<float> *out = tensor_pool.get<Tensor<float> *>(matmul.outputs.at(0));
-    std::vector<float> out_values = out->get();
+    std::vector<float> out_values = output.get();
     
     bool status = generate_report<float,float>("matmul_1x1x2x3_1x1x3x2", out_values, expected_output_values);
 

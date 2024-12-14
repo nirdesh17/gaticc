@@ -19,13 +19,9 @@ bool add_1x3x3x3_1x3x3x3()
     TensorCreate<float> input(input_values, input_dims);
 
     std::vector<int> add_dims = {1, 3, 3, 3}; 
-    onnx::TensorProto add_proto;
-    add_proto.set_name("add");
-    add_proto.mutable_dims()->Add(add_dims.begin(), add_dims.end());
     std::vector<float> add_values(add_dims[0]*add_dims[1]*add_dims[2] * add_dims[3]);
     std::iota(add_values.begin(), add_values.end(), 0);
-    add_proto.mutable_float_data()->Add(add_values.begin(), add_values.end());
-    add_proto.set_data_type(onnx::TensorProto::FLOAT);
+    TensorCreate<float> add_proto(add_values, add_dims);
 
 
     std::vector<int> output_dims = {1, 3, 3, 3};
@@ -44,23 +40,8 @@ bool add_1x3x3x3_1x3x3x3()
     };
     TensorCreate<float> output(output_dims);
 
-    TensorPool tensor_pool;
-    tensor_pool.resize(3);
-
-    Op::Layer::Add add;
-    add.inputs.push_back(0);
-    add.outputs.push_back(1);
-    add.input_type = onnx::TensorProto_DataType_FLOAT;
-    add.output_type = onnx::TensorProto_DataType_FLOAT;
-    add.input_dims = input_dims;
-    add.output_dims = output_dims;
-    add.addend= &add_proto;
-
-    tensor_pool.set<Tensor<float> *>(0, &input);
-    add.run(tensor_pool);
-    Tensor<float> *out = tensor_pool.get<Tensor<float> *>(add.outputs.at(0));
-
-    std::vector<float> out_values = out->get();
+    tensor_add(&output, &input, &add_proto);
+    std::vector<float> out_values = output.get();
 
     bool status = generate_report<float,float>("add_1x3x3x3_1x3x3x3", out_values, expected_output_values);
 

@@ -33,25 +33,11 @@ bool dequantize_linear_1x1x4x3()
     };
     TensorCreate<float> output(output_dims);
 
-    TensorPool tensor_pool;
-    tensor_pool.resize(2);
+    std::vector<float> scales = {0.2};
+    std::vector<int> zero_points = {0};
 
-    uint8_t zero_point_values = 0; 
-    Op::Layer::DequantizeLinear dequantize_linear;
-    dequantize_linear.inputs.push_back(0);
-    dequantize_linear.outputs.push_back(1);
-    dequantize_linear.input_type = onnx::TensorProto_DataType_UINT8;
-    dequantize_linear.output_type = onnx::TensorProto_DataType_FLOAT;
-    dequantize_linear.input_dims = input_dims;
-    dequantize_linear.output_dims = output_dims;
-    dequantize_linear.scale = 0.2;
-    dequantize_linear.zero_point = zero_point_values;
-
-    tensor_pool.set<Tensor<uint8_t> *>(0, &input);
-    dequantize_linear.run(tensor_pool);
-    Tensor<float> *out = tensor_pool.get<Tensor<float> *>(dequantize_linear.outputs.at(0));
-
-    std::vector<float> out_values = out->get();
+    dequantize<uint8_t, float>(&input, &output, scales, zero_points);
+    std::vector<float> out_values = output.get();
 
 
     bool status = generate_report("dequantize_linear_1x1x4x3", out_values, expected_output_values);
