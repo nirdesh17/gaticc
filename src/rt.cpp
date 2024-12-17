@@ -40,6 +40,27 @@ size_t Fstream::get_size() const {
   return m_size;
 }
 
+/* convert a 32 bit integer into a 48 bit byte stream */
+std::vector<char> cvt_32248(int v) {
+  std::vector<char> buf;
+  buf.push_back(static_cast<char>(0x00));
+  buf.push_back(static_cast<char>(0x00));
+  buf.push_back(static_cast<char>((v & 0xFF000000) >> 24));
+  buf.push_back(static_cast<char>((v & 0x00FF0000) >> 16));
+  buf.push_back(static_cast<char>((v & 0x0000FF00) >> 8));
+  buf.push_back(static_cast<char>((v & 0x000000FF)));
+  return buf;
+}
+
+static const std::vector<char> META_SOP = {0xff, 0xff, 0xff, 0xff, 0xff, 0x0ff};
+static const std::vector<char> META_TYPE_RESET = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static const std::vector<char> META_TYPE_DISPATCH = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+static const std::vector<char> META_TYPE_PAYLOAD_SIZE = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
+
+static const std::vector<char> META_CONST_DISPATCH_RAH = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+static const std::vector<char> META_CONST_DISPATCH_UART = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+
+
 RealRah::RealRah() {
   m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
   if (m_handle == NULL) {
@@ -56,55 +77,51 @@ RealRah::~RealRah() {
   dlclose(m_handle);
 }
 
-
-/* convert a 32 bit integer into a 48 bit byte stream 
- * assure that str has size atleast six
- */
-void cvt_32248(char *str, int v) {
-  if (RAH_WIDTH != 6) {
-    log_fatal("cvt_32248 expects rah to be 6 bytes");
-  }
-  str[0] = 0x00;
-  str[1] = 0x00;
-  str[2] = (v & 0xFF000000) >> 24;
-  str[3] = (v & 0x00FF0000) >> 16;
-  str[4] = (v & 0x0000FF00) >> 8;
-  str[5] = (v & 0x000000FF);
-}
-
 int RealRah::write(const char *data, size_t size) {
   /* clear buffers before writing */
   typedef int (*clear_fn_t) (const uint8_t);
   clear_fn_t clear_fn = get_dlsym<clear_fn_t>(m_handle, "rah_clear_buffer");
   log_info("clear buffers before read\n");
   (*clear_fn)(RAH_APP_ID);
-  (*clear_fn)(META_APP_ID);
 
   typedef int (*write_fn_t) (const uint8_t, const char*, const unsigned long);
   write_fn_t write_fn = get_dlsym<write_fn_t>(m_handle, "rah_write");
-  /* Before writing actual data (weights, biases, inputs etc.) to
-   * the FPGA, the size of data that Gati must expect should be sent
-   * in advance. Here's a problem: data in gaticc is predominantly 32bits,
-   * in rah (the protocol that is responsible for transmission/reception),
-   * it is 48bits and then in gati hardware, it's 32 bits back again. 
-   * This creates problems of mis-alignment which should be handled
-   * via padding appropriate zeros. In order for gati hardware to 
-   * detect pads made by rah, it should know the size of incoming 
-   * data in advance. The size of incoming data is therefore one level
-   * above the gati hardware and below rah (sandwiched in between).
-   *
-   * We achieve this by making a special "meta" app that records this
-   * incoming size and sends it to gati so that it can expect detect
-   * and discard pads made by rah.
-   */
-  char meta_size[RAH_WIDTH];
-  cvt_32248(meta_size, static_cast<int>(size));
-  log_info("sending meta size {}\n", size);
-  (*write_fn)(META_APP_ID, meta_size, RAH_WIDTH);
+
+  log_info("writing meta app, size {}\n", size);
+  std::vector<char> size_buf = cvt_32248(size);
+  write_meta(META_TYPE_PAYLOAD_SIZE, size_buf);
 
   log_info("writing via rah, size {}\n", size);
   /* send the actual data */
   int r = (*write_fn)(RAH_APP_ID, data, size);
+  return r;
+}
+
+/* 
+ * Lowest level MetaApp write.
+ * TODO: document the META protocol
+ * 'size' here is the size of payload in bytes 
+ */
+int RealRah::write_meta(const std::vector<char> &type,
+                    const std::vector<char> &data) {
+
+  std::vector<char> size_buf{cvt_32248(static_cast<int>(data.size()))};
+  std::vector<char> packet;
+  packet.insert(packet.end(), META_SOP.begin(), META_SOP.end());
+  packet.insert(packet.end(), size_buf.begin(), size_buf.end());
+  packet.insert(packet.end(), type.begin(), type.end());
+
+  for (char i : data) {
+    packet.push_back(i);
+  }
+
+  typedef int (*clear_fn_t) (const uint8_t);
+  clear_fn_t clear_fn = get_dlsym<clear_fn_t>(m_handle, "rah_clear_buffer");
+  (*clear_fn)(META_APP_ID);
+
+  typedef int (*write_fn_t) (const uint8_t, const char*, const unsigned long);
+  write_fn_t write_fn = get_dlsym<write_fn_t>(m_handle, "rah_write");
+  int r = (*write_fn)(META_APP_ID, packet.data(), packet.size());
   return r;
 }
 
@@ -119,6 +136,11 @@ int RealRah::read(char *data, size_t size) {
   }
   log_info("reading via rah, size {}\n", size);
   return (*read_fn)(RAH_APP_ID, data, size);
+}
+
+int FakeRah::write_meta(const std::vector<char> &type,
+                    const std::vector<char> &data) {
+  return static_cast<int>(data.size());
 }
 
 int FakeRah::write(const char *data, size_t size) {
@@ -210,15 +232,26 @@ Runner::~Runner() {
  * is running
  * TODO: implement this, will probably require bitman?
  */
-void Runner::scan() {
+void Runner::scan(Rah &rah) {
   log_info("scanning for rah services no cap fr\n");
+  log_info("resetting FPGA\n");
+  std::vector<char> empty;
+  rah.write_meta(META_TYPE_RESET, empty);
 }
 
 /* Loads aligned and padded weights to the FPGA's DRAM */
 void Runner::load_model(Rah& rah, const Fstream &fp) {
-  scan();
+  scan(rah);
   const char *data = fp.get_data();
   size_t size = fp.get_size();
+
+  log_info("setting dispatch type\n");
+  if (gbl_args.has_option("receive-over-uart")) {
+    rah.write_meta(META_TYPE_DISPATCH, META_CONST_DISPATCH_UART);
+  } else {
+    rah.write_meta(META_TYPE_DISPATCH, META_CONST_DISPATCH_RAH);
+  }
+
   log_info("writing model weights to FPGA dram\n");
   rah.write(data, size);
   log_info("write model weights complete\n");
@@ -289,8 +322,7 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   BinBlob blob(expected_packet_size);
 
   if (gbl_args.has_option("receive-over-uart")) {
-    std::string uart_baud = gbl_args["receive-over-uart"].as<std::string>();
-    int baud_rate = std::strtol(uart_baud.c_str(), NULL, 10); 
+    int baud_rate = gbl_args["receive-over-uart"].as<int>();
     read_uart(blob, baud_rate, expected_packet_size);
   } else {
     rah.read(blob.get_data(), expected_packet_size);

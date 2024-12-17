@@ -719,6 +719,11 @@ unsigned long bitset_range_get(const std::bitset<b2N>& src, int start, int stop)
   return ret.to_ulong();
 }
 
+template <std::size_t b2N>
+uint8_t bitset_byte_get(const std::bitset<b2N>& src, int n) {
+  return static_cast<uint8_t>(bitset_range_get<8, b2N>(src, n * 8, (n * 8 + 8 - 1)));
+}
+
 template <typename T>
 void assert_all_equal(const T *arr, int size) {
   assert(size > 0);
