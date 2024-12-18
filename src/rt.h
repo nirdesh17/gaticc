@@ -220,6 +220,7 @@ template <typename T> void Runner::send_input(Op::LayerBase *l, Rah &rah, const 
     BinBlob blob(total_size_with_packets);
     blob.append_sa_input<T>(og_aligned_size, addr, tensor);
     blob.append_dwp_header(0, 0);
+    blob.write("input_data.bin");
     log_info("start writing images to FPGA\n");
     char *aligned_data = blob.get_data();
     rah.write(aligned_data, total_size_with_packets);

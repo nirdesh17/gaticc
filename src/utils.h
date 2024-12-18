@@ -792,6 +792,11 @@ inline T ceil_mod(T i, int m) {
   return (T) (std::ceil((float)i/(float)m) * m);
 }
 
+template <typename T>
+inline T ceil_div(T i, T j) {
+  return static_cast<T>(std::ceil(static_cast<float>(i) / static_cast<float>(j)));
+}
+
 int count_digits(int a);
 void print_table(const std::map<std::string, int>& tbl);
 
