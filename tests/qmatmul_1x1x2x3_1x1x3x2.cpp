@@ -57,26 +57,20 @@ bool qmatmul_1x1x2x3_1x1x3x2() {
     qmatmul.weight_type=onnx::TensorProto::INT8;
     qmatmul.output_type=onnx::TensorProto::INT8;
     qmatmul.m_cp = qmatmul_params;
-    qmatmul.a_scale.push_back(0.2);
-    qmatmul.b_scale.push_back(0.3);
-    qmatmul.y_scale.push_back(0.4);
+    qmatmul.a_scale.push_back(1);
+    qmatmul.b_scale.push_back(1);
+    qmatmul.y_scale.push_back(1);
     qmatmul.a_zero_point=a_zero_point;
     qmatmul.b_zero_point=b_zero_point;
     qmatmul.y_zero_point=y_zero_point;
 
     
 
-
-    TensorPool tensor_pool;
-    tensor_pool.resize(2);
-
-    tensor_pool.set<Tensor<int8_t> *>(0, &input);
     VA<int8_t,int8_t,int,int8_t> va(qmatmul);
 
-    qmatmul.run(tensor_pool);
+    va.run(&input, &output);
 
-    Tensor<int8_t> *out = tensor_pool.get<Tensor<int8_t> *>(qmatmul.outputs.at(0));
-    std::vector<int8_t> out_values = out->get();
+    std::vector<int8_t> out_values = output.get();
     
     bool status = generate_report<int8_t,int8_t>("qmatmul_1x1x2x3_1x1x3x2", out_values, expected_output_values);
 

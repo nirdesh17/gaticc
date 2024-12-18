@@ -49,23 +49,15 @@ bool quantize_linear_1x3x3x3()
     TensorPool tensor_pool;
     tensor_pool.resize(2);
 
-    int8_t zero_point_values = 1; 
     Op::Layer::QuantizeLinear quantize_linear;
-    quantize_linear.inputs.push_back(0);
-    quantize_linear.outputs.push_back(1);
     quantize_linear.input_type = onnx::TensorProto_DataType_FLOAT;
-    quantize_linear.output_type = onnx::TensorProto_DataType_INT8;
-    quantize_linear.input_dims = input_dims;
-    quantize_linear.output_dims = output_dims;
-    quantize_linear.scale = 0.15;
-    quantize_linear.zero_point = zero_point_values;
+    quantize_linear.output_type = onnx::TensorProto_DataType_UINT8;
 
-    tensor_pool.set<Tensor<float> *>(0, &input);
-    quantize_linear.run(tensor_pool);
-    Tensor<int8_t> *out = tensor_pool.get<Tensor<int8_t> *>(quantize_linear.outputs.at(0));
+    std::vector<float> scales = {0.15};
+    std::vector<int> zero_point = {0};
+    quantize<float, int8_t>(&input, &output, scales, zero_point);
 
-    std::vector<int8_t> out_values = out->get();
-
+    std::vector<int8_t> out_values = output.get();
 
     bool status = generate_report("quantize_linear_1x3x3x3", out_values, expected_output_values);
 

@@ -19,14 +19,7 @@ bool qlinear_add_1x3x3x3_1x3x3x3()
     TensorCreate<int8_t> input(input_values, input_dims);
 
     std::vector<int> qlinear_add_dims = {1, 3, 3, 3}; 
-    onnx::TensorProto qlinear_add_proto;
-    qlinear_add_proto.set_name("qlinear_add");
-    qlinear_add_proto.mutable_dims()->Add(qlinear_add_dims.begin(), qlinear_add_dims.end());
-    std::vector<int8_t> qlinear_add_values(qlinear_add_dims[0]*qlinear_add_dims[1]*qlinear_add_dims[2] * qlinear_add_dims[3]);
-    std::iota(qlinear_add_values.begin(), qlinear_add_values.end(), 0);
-    qlinear_add_proto.mutable_raw_data()->append(qlinear_add_values.begin(), qlinear_add_values.end());
-    qlinear_add_proto.set_data_type(onnx::TensorProto::INT8);
-
+    TensorCreate<int8_t> qlinear_add_proto(input_values, qlinear_add_dims);
 
     std::vector<int> output_dims = {1, 3, 3, 3};
     std::vector<int8_t> expected_output_values{
@@ -35,38 +28,16 @@ bool qlinear_add_1x3x3x3_1x3x3x3()
         72,      76,      80,     84,     88,      92,      96,     100,     104,
     };
     TensorCreate<int8_t> output(output_dims);
+    TensorCreate<int8_t> output_final(output_dims);
 
-    TensorPool tensor_pool;
-    tensor_pool.resize(3);
+    tensor_qadd<int8_t, int8_t>(&output, &input, &qlinear_add_proto, 0.17, 0.13, 0, 0);
+    quantize(&output, &output_final, {0.5}, {0});
 
-    std::vector<std::variant<int8_t, uint8_t>> zero_point;
-    zero_point.emplace_back(static_cast<int8_t>(0));
-
-    Op::Layer::QLinearAdd qlinear_add;
-    qlinear_add.inputs.push_back(0);
-    qlinear_add.outputs.push_back(1);
-    qlinear_add.input_type = onnx::TensorProto_DataType_INT8;
-    qlinear_add.output_type = onnx::TensorProto_DataType_INT8;
-    qlinear_add.input_dims = input_dims;
-    qlinear_add.output_dims = output_dims;
-    qlinear_add.addend= &qlinear_add_proto;
-    qlinear_add.a_scale=0.17;
-    qlinear_add.b_scale=0.13;
-    qlinear_add.a_zp=0;
-    qlinear_add.b_zp=0;
-    qlinear_add.o_scale.push_back(0.5);
-    qlinear_add.zero_point = zero_point;
-
-    tensor_pool.set<Tensor<int8_t> *>(0, &input);
-    qlinear_add.run(tensor_pool);
-    Tensor<int8_t> *out = tensor_pool.get<Tensor<int8_t> *>(qlinear_add.outputs.at(0));
-
-    std::vector<int8_t> out_values = out->get();
-
-    bool status = generate_report<int8_t,int8_t>("qlinear_add_1x3x3x3_1x3x3x3", out_values, expected_output_values);
+    std::vector<int8_t> out_values = output_final.get();
+    
+    bool status = generate_report<int8_t,int8_t>("qlinear_add_1x1x3x3_1x1x3x3", out_values, expected_output_values);
 
     return status;
-
 }
 
 

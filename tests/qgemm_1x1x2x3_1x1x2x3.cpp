@@ -16,6 +16,8 @@ bool qgemm_1x1x2x3_1x1x2x3() {
     std::iota(input_values.begin(), input_values.end(), 0);
     TensorCreate<int8_t> input(input_values, input_dims);
 
+    TensorCreate<int8_t> input_intr(input_dims);
+
     std::vector<int> weight_dims = {2, 3}; 
     onnx::TensorProto weight_proto;
     weight_proto.set_name("weight");
@@ -35,9 +37,11 @@ bool qgemm_1x1x2x3_1x1x2x3() {
  
     std::vector<int> output_dims = {2, 2}; 
     std::vector<int8_t> expected_output_values = {
-        15,127,-128,127
+        2,7,
+        7,24
     };
-       
+    
+    TensorCreate<int8_t> output_intr(output_dims);
     TensorCreate<int8_t> output(output_dims);
     
     Op::GemmParams conv_params={3, 3, 1, 0, 0, 1};
@@ -63,8 +67,8 @@ bool qgemm_1x1x2x3_1x1x2x3() {
     qgemm_layer.output_type=onnx::TensorProto::INT8;
     qgemm_layer.weight_type=onnx::TensorProto::INT8;
     qgemm_layer.bias_type=onnx::TensorProto::INT32;
-    qgemm_layer.former_layer_dims={3,3};
-    qgemm_layer.a_scale.push_back(1.2);
+    qgemm_layer.former_layer_dims={2,2};
+    qgemm_layer.a_scale.push_back(0.2);
     qgemm_layer.b_scale.push_back(0.3);
     qgemm_layer.y_scale.push_back(0.124);
     qgemm_layer.a_zero_point=a_zero_point;
@@ -72,18 +76,14 @@ bool qgemm_1x1x2x3_1x1x2x3() {
     qgemm_layer.y_zero_point=y_zero_point;
 
 
-    TensorPool tensor_pool;
-    tensor_pool.resize(2);
+    VA<int8_t, int8_t, int, int8_t> va(qgemm_layer);
+    va.run(&input, &output_intr);
+    std::vector<float> scales = compute_output_scale(qgemm_layer.a_scale, qgemm_layer.b_scale, qgemm_layer.y_scale);
+    quantize<int8_t, int8_t>(&output_intr, &output, scales, {0});
 
-    tensor_pool.set<Tensor<int8_t> *>(0, &input);
-    VA<int8_t,int8_t,int,int8_t> va(qgemm_layer);
+    std::vector<int8_t> out_values = output.get();
 
-    qgemm_layer.run(tensor_pool);
-
-    Tensor<int8_t> *out = tensor_pool.get<Tensor<int8_t> *>(qgemm_layer.outputs.at(0));
-    std::vector<int8_t> out_values = out->get();
-    
-    bool status = generate_report<int8_t,int8_t>("qgemm_1x1x2x3_1x1x2x3", out_values, expected_output_values);
+    bool status = generate_report<int8_t, int8_t>("qgemm_1x1x3x3_1x1x3x3", out_values, expected_output_values);
 
     return status;
 }

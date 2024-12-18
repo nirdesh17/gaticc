@@ -18,35 +18,21 @@ bool reshape_1x1x4x3_1x1x2x6()
     std::iota(input_values.begin(), input_values.end(), 0);
     TensorCreate<float> input(input_values, input_dims);
 
-    std::vector<int> output_dims = {1, 1, 2, 6};
+    std::vector<int64_t> output_dims = {1, 1, 2, 6};
     std::vector<float> expected_output_values(output_dims[0]*output_dims[1]*output_dims[2] * output_dims[3]);
     std::iota(expected_output_values.begin(), expected_output_values.end(), 0);
-    TensorCreate<float> output(output_dims);
+    TensorCreate<float> output(input_dims);
 
     if(output.dims_iterator(-1)!=input.dims_iterator(-1)){
       log_fatal("Reshape failed: Number of input elements does not match the number of output elements.");
     }
-    TensorPool tensor_pool;
 
-    tensor_pool.resize(2);
+    reshape<float>(&input, &output, output_dims);
 
-    Op::Layer::Reshape reshape;
-    reshape.inputs.push_back(0);
-    reshape.outputs.push_back(1);
-    reshape.input_type = onnx::TensorProto_DataType_FLOAT;
-    reshape.output_type = onnx::TensorProto_DataType_FLOAT;
-    reshape.input_dims = input_dims;
-    reshape.output_dims = output_dims;
-    reshape.new_shape = std::vector<int64_t>(output_dims.begin(), output_dims.end());
-
-    tensor_pool.set<Tensor<float> *>(0, &input);
-    reshape.run(tensor_pool);
-    Tensor<float> *out = tensor_pool.get<Tensor<float> *>(reshape.outputs.at(0));
-
-    bool status = output_dims==out->get_dims();
+    std::vector<int> output_dims_int(output_dims.begin(), output_dims.end());
+    bool status = output_dims_int == output.get_dims();
 
     return status;
-
 }
 
 

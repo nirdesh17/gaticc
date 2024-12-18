@@ -49,22 +49,11 @@ bool gemm_1x1x2x3_1x1x2x3() {
     gemm_layer.bias = &bias_proto;
     gemm_layer.output_dims= output_dims;
     gemm_layer.input_dims = input_dims;
-    gemm_layer.inputs.push_back(0);
-    gemm_layer.outputs.push_back(1);
-    gemm_layer.input_type=onnx::TensorProto::FLOAT;
-    gemm_layer.output_type=onnx::TensorProto::FLOAT;
-
-
-    TensorPool tensor_pool;
-    tensor_pool.resize(2);
-
-    tensor_pool.set<Tensor<float> *>(0, &input);
+    
     VA<float,float,float,float> va(gemm_layer);
+    va.run(&input, &output);
 
-    gemm_layer.run(tensor_pool);
-
-    Tensor<float> *out = tensor_pool.get<Tensor<float> *>(gemm_layer.outputs.at(0));
-    std::vector<float> out_values = out->get();
+    std::vector<float> out_values = output.get();
     
     bool status = generate_report<float,float>("gemm_1x1x2x3_1x1x2x3", out_values, expected_output_values);
 

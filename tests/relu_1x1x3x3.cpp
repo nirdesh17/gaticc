@@ -29,23 +29,10 @@ bool relu_1x1x3x3()
     };
     TensorCreate<float> output(output_dims);
 
-    TensorPool tensor_pool;
-    tensor_pool.resize(2);
-    
-    Op::Layer::Relu relu;
-    relu.inputs.push_back(0);
-    relu.outputs.push_back(1);
-    relu.input_type = onnx::TensorProto_DataType_FLOAT;
-    relu.output_type = onnx::TensorProto_DataType_FLOAT;
-    relu.input_dims = input_dims;
-    relu.output_dims = output_dims;
+    Relu<float> relu;
+    relu.exec(&input, &output);
 
-    tensor_pool.set<Tensor<float> *>(0, &input);
-    relu.run(tensor_pool);
-    Tensor<float> *out = tensor_pool.get<Tensor<float> *>(relu.outputs.at(0));
-
-    std::vector<float> out_values = out->get();
-
+    std::vector<float> out_values = output.get();
     bool status = generate_report<float,float>("relu_1x1x3x3", out_values, expected_output_values);
 
     return status;
