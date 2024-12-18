@@ -61,7 +61,9 @@ RealRah::~RealRah() {
  * assure that str has size atleast six
  */
 void cvt_32248(char *str, int v) {
-  assert(RAH_WIDTH == 6 && "expect rah to be 6 bytes");
+  if (RAH_WIDTH != 6) {
+    log_fatal("cvt_32248 expects rah to be 6 bytes");
+  }
   str[0] = 0x00;
   str[1] = 0x00;
   str[2] = (v & 0xFF000000) >> 24;
@@ -354,3 +356,4 @@ bool HashedDispatchTable::should_dispatch(const Op::LayerBase *l) const {
   }
   return false;
 }
+

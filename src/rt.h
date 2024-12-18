@@ -166,6 +166,9 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
     tensor_pool.free();
 
     Tensor<inputT> *slice {get_slice(input_image, std::vector<int>{i})};
+    if (order.at(0)->input_dims != slice->get_dims()) {
+      log_fatal("Expected input dims {}, got input of dimensions {}\n", order.at(0)->input_dims, slice->get_dims());
+    }
     tensor_pool.set<Tensor<inputT> *>(0, slice);
 
     bool sent = false;
@@ -217,6 +220,7 @@ template <typename T> void Runner::send_input(Op::LayerBase *l, Rah &rah, const 
     BinBlob blob(total_size_with_packets);
     blob.append_sa_input<T>(og_aligned_size, addr, tensor);
     blob.append_dwp_header(0, 0);
+    blob.write("input_data.bin");
     log_info("start writing images to FPGA\n");
     char *aligned_data = blob.get_data();
     rah.write(aligned_data, total_size_with_packets);

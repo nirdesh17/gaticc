@@ -3,6 +3,7 @@
 #include "utils.h"
 #include <cstdarg>
 #include "version.h"
+#include <regex>
 // #include <cstdint>
 // #include <typeinfo>
 
@@ -208,7 +209,31 @@ bool Argparse::has_option(const std::string &name) const {
   return args.has_option(name);
 }
 
-void Argparse::print_usage() const { std::cerr << usage << argparser << usage_examples; }
+#define BOLD(str) ("\033[1m" str "\033[0m")
+
+void Argparse::print_usage() const { 
+  auto color_options = [](const std::string& s) -> std::string {
+    std::regex opt_reg(" +--[a-zA-Z0-9-]+");
+    std::string result = std::regex_replace(s, opt_reg, "\033[34m$&\033[0m");
+    return result;
+  };
+
+  auto print_ss_vector = [&color_options](const auto& ssv) {
+    for (const auto &i : ssv) {
+      std::cout << "  " << "\033[33m" << color_options(i.first) << "\033[0m" << '\n';
+      std::cout << "  " << color_options(i.second) << '\n';
+      std::cout << '\n';
+    }
+  };
+
+  std::cout <<  BOLD("USAGE: sysim [OPTIONS]\n\n");
+  std::cout << argparser << '\n';
+  std::cout << BOLD("USAGE EXAMPLES:\n\n");
+  print_ss_vector(_usage_examples);
+  std::cout << BOLD("CONCEPTS:\n\n");
+  print_ss_vector(_concepts);
+}
+
 
 void Argparse::print_version() const { 
   std::cerr << "Gaticc: " << GATICC_VERSION << '\n';

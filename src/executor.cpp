@@ -621,6 +621,7 @@ void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.stop();
 
   if (l->dispatch) {
+    pickle_tensor(intr_output.get(), l->name + "_32bit_acc" + ".tensor");
     pickle_tensor(output, l->name + ".tensor");
     output->print();
   }

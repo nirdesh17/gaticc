@@ -25,6 +25,20 @@
  */
 #include "argagg.h"
 
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& obj)
+{
+  os << '(';
+  for (int i = 0; i < obj.size(); ++i) {
+    os << obj.at(i);
+    if (i < (obj.size() - 1)) {
+      os << ',';
+    }
+  }
+  os << ')';
+  return os;
+}
+
 /* has format specifier i.e. {} */
 inline bool has_fs(const char* p) {
   if (*p == '\0' || *(p+1) == '\0') {
@@ -125,7 +139,6 @@ struct SaDims {
 
 /* Wrapper over argagg library */
 class Argparse {
-  const char *usage = "Usage: sysim [OPTIONS]\n";
   argagg::parser_results args;
   /* To extend, add a new definition here */
   argagg::parser argparser{
@@ -137,14 +150,13 @@ class Argparse {
         {"--timeest"},
         "print estimated time that a model would take based on FLOP counts "
         "(this does not account for latencies such as that of DRAM)"
-        "\n\tArgs: [comma separated arch config]"
-        "\n\tEx: --timeest 9,8,8",
+        "Args: [comma separated arch config]",
         1},
-       {"info", {"-i", "--info"}, "Query information from model. Args: <onnx_model>", 1},
-       {"sim",
-        {"-s", "--sim"},
-        "Simulate inference on an input. Use options like --onnx, --loadpy, --preprocfn, --postprocfn to load weights/inputs to the simulator",
+       {"info",
+        {"-i", "--info"},
+        "Query information from model. Args: <onnx_model>",
         1},
+       {"sim", {"-s", "--sim"}, "Simulate inference on an input.", 1},
        {"venv-path",
         {"--venv-path"},
         "Append venv-path to sys.path while loading the interpreter. Args: [ : "
@@ -152,57 +164,202 @@ class Argparse {
         1},
        {"loadpy",
         {"--loadpy"},
-        "Load the python script mentioned in arg. Usually the script that'll contain pre/post process functions for --sim"
+        "Load the python script mentioned in arg. Usually the script that'll "
+        "contain pre/post process functions for --sim"
         "\n\tArgs: [script_name.py]",
         1},
        {"preprocfn",
         {"--preprocfn"},
-        "Function that'll be called to get inputs that should be fed to the inference engine. Accepts no arguments, Returns a numpy array of atleast two dims, first being the batch and rest inputs i.e. (batch_size, ...)"
+        "Function that'll be called to get inputs that should be fed to the "
+        "inference engine. Accepts no arguments, Returns a numpy array of "
+        "atleast two dims, first being the batch and rest inputs i.e. "
+        "(batch_size, ...). If --inputpath is used, this function must accept "
+        "an argument of a numpy tensor, preprocess and return it to the engine"
         "\n\tArgs: [func_name]",
         1},
        {"postprocfn",
         {"--postprocfn"},
-        "Results from the inference engine would be handed to this function. Should expect (batch_size, ...) dimensional array"
+        "Results from the inference engine would be handed to this function. "
+        "Should expect (batch_size, ...) dimensional array"
         "\n\tArgs: [func_name]",
         1},
-       {"input_path", {"--inputpath"}, "specify input to model as a resident file path (one file at a time)", 1},
-       {"instgen", {"--instgen"}, "generate and print config instructions for an onnx model", 0},
-       {"sa-arch", {"--sa-arch"}, "systolic array architecture. Args: [comma sep values]. accepts args like --timeest", 1},
-       {"ramsize", {"--ramsize"}, "ram size in MB. Args: int. For ex, --ramsize 512", 1},
-       {"vasize", {"--vasize"}, "Vector Array size. Usually equivalent to per cycle DRAM bandwidth in bytes. Args: int. For ex, --vasize 32", 1},
-       {"pretty-print-blob", {"--pretty-print-blob"}, "pretty print entire blob", 0},
-       {"pretty-print-inst", {"--pretty-print-inst"}, "pretty print only instructions", 0},
-       {"pretty-print-inst-raw", {"--pretty-print-inst-raw"}, "pretty print instructions in raw hex", 0},
-       {"output", {"--output", "-o"}, "write output to file. Args: filename. For ex, -o model.gml", 1},
+       {"input_path",
+        {"--inputpath"},
+        "specify input to model as a resident file path (one file at a time)",
+        1},
+       {"sa-arch",
+        {"--sa-arch"},
+        "systolic array architecture. Args: [comma sep values]. accepts args "
+        "like --timeest",
+        1},
+       {"ramsize",
+        {"--ramsize"},
+        "ram size in MB. Args: int. For ex, --ramsize 512",
+        1},
+       {"vasize",
+        {"--vasize"},
+        "Vector Array size. Usually equivalent to per cycle DRAM bandwidth in "
+        "bytes. Args: int. For ex, --vasize 32",
+        1},
+       {"pretty-print-blob",
+        {"--pretty-print-blob"},
+        "pretty print entire blob",
+        0},
+       {"pretty-print-inst",
+        {"--pretty-print-inst"},
+        "pretty print only instructions",
+        0},
+       {"pretty-print-inst-raw",
+        {"--pretty-print-inst-raw"},
+        "pretty print instructions in raw hex",
+        0},
+       {"output",
+        {"--output", "-o"},
+        "write output to file. Args: filename. For ex, -o model.gml",
+        1},
        {"run", {"-r", "--run"}, "run inference on model. Args: <gml_file>.", 1},
-       {"compile", {"-c", "--compile"}, "Compile onnx model into gml file. Args: <onnx_model>", 1},
-       {"run_onnx", {"--run-onnx"}, "onnx model thorough which model.gml was generated. TODO: remove this", 1},
-       {"dispatch", {"--dispatch"}, "comma separated list of layers for which outputs are required. Args: [all | none | comma separated layer names]", 1},
-       {"dispatch_fn", {"--dispatch-fn"}, "python function that'll be passed tensors returned by dipatchable nodes", 1},
-       {"receive-over-uart", {"--receive-over-uart"}, "receive over /dev/ttyUSB0. Args: baudrate (as set by the FPGA)", 1},
-       {"compare-layer", {"--compare-layer"}, "compare layer with a golden value. The golden tensor can be generated by the simulator. Args: [path to golden .npy tensor]", 1},
-       {"accbuf-size", {"--accbuf-size"}, "size of accumulant buffer for a single channel. Args: size in bytes (int)", 1},
-       {"dry-run", {"--dry-run"}, "pretend to run by bypassing RAH (useful only for debugging)", 0},
+       {"compile",
+        {"-c", "--compile"},
+        "Compile onnx model into gml file. Args: <onnx_model>",
+        1},
+       {"run_onnx",
+        {"--run-onnx"},
+        "onnx model thorough which model.gml was generated. TODO: remove this",
+        1},
+       {"dispatch",
+        {"--dispatch"},
+        "comma separated list of layers for which outputs are required. Args: "
+        "[all | none | comma separated layer names]",
+        1},
+       {"dispatch_fn",
+        {"--dispatch-fn"},
+        "python function that'll be passed tensors returned by dipatchable "
+        "nodes",
+        1},
+       {"receive-over-uart",
+        {"--receive-over-uart"},
+        "receive over /dev/ttyUSB0. Args: baudrate (as set by the FPGA)",
+        1},
+       {"compare-layer",
+        {"--compare-layer"},
+        "compare layer with a golden value. The golden tensor can be generated "
+        "by the simulator. Args: [path to golden .npy tensor]",
+        1},
+       {"accbuf-size",
+        {"--accbuf-size"},
+        "size of accumulant buffer for a single channel. Args: size in bytes "
+        "(int)",
+        1},
+       {"dry-run",
+        {"--dry-run"},
+        "pretend to run by bypassing RAH (useful only for debugging)",
+        0},
        {"version", {"--version"}, "print version info and exit"},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
-    const char *usage_examples = "Examples:\n"
-    "\tRun simulation over a model and inputs\n"
-    "\t./sysim -s model.onnx --inputpath image.jpg --loadpy src/ml_inference.py --preprocfn \"<pre_proc_fn>\""
-      " --postprocfn \"<post_proc_fn>\" --venv-path ~/path/to/lib/python{version}/site-packages/ -v\n\n"
-    "\tCreate a GML model file from onnx\n"
-    "\t./sysim -c model.onnx -o model.gml --ramsize 512 --sa-arch 9,4,4 --vasize 32\n\n"
-    "\tRun inference on FPGA\n"
-    "\t./sysim -r model.gml --run-onnx model.onnx --inputpath img.jpg --loadpy src/ml_inference.py --preprocfn \"preprocess\" --postprocfn \"post_imagenet\" --venv-path ~/path/to/lib/python{version}/site-packages/ --sa-arch 9,4,4 --ramsize 512 --vasize 32\n\n"
-    "\tPretty Print Generated Instructions\n"
-    "\t./sysim -c model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 --pretty-print-inst\n\n"
-    "\tPretty Print GML file\n"
-    "\t./sysim -c model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 --pretty-print-blob\n\n"
-    "\tPrint a summary of onnx file\n"
-    "\t./sysim -i model.onnx --summary\n\n"
-    "\tGet layer wise inference time estimates\n"
-    "\t./sysim -i model.onnx --timeest 9,4,4\n\n";
+  /*                                          description   command     */
+  using SSVector = std::vector<std::pair<std::string, std::string>>;
 
+  SSVector _usage_examples = {
+      {"Run simulation given an onnx model and inputs. The simulation is run "
+       "on the CPU. "
+       "Useful to extract intermidiate outputs of layers",
+       "sysim -s path/to/model.onnx --loadpy <py_file> "
+       "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
+       "--venv-path ~/path/to/lib/python{version}/site-packages"},
+      {"Run simulation but dispatch an intermidiate layer. Find layer "
+       "names through model summary",
+       "sysim -s path/to/model.onnx --loadpy <py_file> "
+       "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
+       "--venv-path ~/path/to/lib/python{version}/site-packages "
+       "--dispatch <layer1>,<layer2>,<layer3>"},
+      {"Run simulation but dispatch all layers. Dispatch also stores "
+       "an numpy pickled tensor for intermidiate outputs can be found "
+       "in <layer_name>.tensor.npy",
+       "sysim -s path/to/model.onnx --loadpy <py_file> "
+       "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
+       "--venv-path ~/path/to/lib/python{version}/site-packages "
+       "--dispatch all"},
+      {"Get a summary of a onnx model",
+       "sysim -i path/to/model.onnx --summary"},
+      {"Get a theoretical time estimate for a model",
+       "sysim -i path/to/model.onnx --timeest <sa_arch>  "
+       "(e.g. --timeest 9,4,4)"},
+      {"Compile a model into a gml file",
+       "sysim -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
+       "--accbuf-size 4096 -o model.gml"},
+      {"Pretty print generated instructions",
+       "sysim -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
+       "--accbuf-size 4096 --pretty-print-inst"},
+      {"Print the complete blob in hex",
+       "sysim -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
+       "--accbuf-size 4096 --pretty-print-blob"},
+      {"Run an inference", "sysim -r model.gml --run-onnx model.onnx --loadpy "
+                           "<py_file> --preprocfn <preprocess_fn> "
+                           "--postprocfn <postprocess_fn> --venv-path "
+                           "~/path/to/lib/python{version}/site-packages "
+                           "--sa-arch <sa-arch> --ramsize <ramsize> --vasize "
+                           "<vasize> --accbuf-size <accbuf-size> "},
+      {"Run an inference but provide immediate image as input",
+       "sysim -r model.gml --run-onnx model.onnx --inputpath img.jpg --loadpy "
+       "<py_file> --preprocfn <preprocess_fn>(img) "
+       "--postprocfn <postprocess_fn> --venv-path "
+       "~/path/to/lib/python{version}/site-packages "
+       "--sa-arch <sa-arch> --ramsize <ramsize> --vasize "
+       "<vasize> --accbuf-size <accbuf-size> "},
+      {"Run an inference but receive outputs over UART",
+       "sysim -r model.gml --run-onnx model.onnx --loadpy <py_file> "
+       "--preprocfn <preprocess_fn> "
+       "--postprocfn <postprocess_fn> --venv-path "
+       "~/path/to/lib/python{version}/site-packages "
+       "--sa-arch <sa-arch> --ramsize <ramsize> --vasize <vasize> "
+       "--accbuf-size <accbuf-size> "
+       "--receive-over-uart <baudrate>"},
+      {"Run an inference but dispatch intermidiate layers and receive over "
+       "UART",
+       "sysim -r model.gml --run-onnx model.onnx --loadpy <py_file> "
+       "--preprocfn <preprocess_fn> "
+       "--postprocfn <postprocess_fn> --venv-path "
+       "~/path/to/lib/python{version}/site-packages "
+       "--sa-arch <sa-arch> --ramsize <ramsize> --vasize <vasize> "
+       "--accbuf-size <accbuf-size> "
+       "--dispatch <layer1>,<layer2>,<layer3> --receive-over-uart <baudrate>"},
+  };
+
+  SSVector _concepts = {
+    {"What does sysim do and how to use it for inference",
+     "Sysim's main purpose is to do two things: compile and run. "
+     "In compile, sysim creates a .gml file from an .onnx file. The gml "
+     "file contains re-ordered tensors and instructions. Gml can be generated "
+     "by following the 'Compile model' usage example above. "
+     "A gml file is used by sysim to start a run, in which it takes inputs, "
+     "sends it to the FPGA along with the model (gml), then receives the outputs. "
+     "Run can be executed by following the 'Run an Inference' example above"
+    },
+    {"What are the --loadpy, --preprocfn, --postprocfn options",
+     "Sysim has an integrated python interpreter which allows calling into python functions "
+     "as most people use python for ML work, they already have scripts to pre/post process their "
+     "inputs/outputs, sysim allows users to use the same scripts without re-writing them. "
+     "--loadpy is used to provide the script and --pre/postproc are used to provide the "
+     "functions to be called for pre/post processing. An example python file is provided in "
+     "src/ml_inference.py and can be used"
+    },
+    {"What are the primary options",
+     "Sysim has primary options (-s, -i, -c, -r). Almost all other options are suboptions "
+     "of these primary options. These are related to the four primary features of "
+     "sysim: simulation, info, compilation and run."
+    },
+    {"Where to get the models from?",
+     "Refer to the sysim project README"
+    },
+    {"What are --ramsize, --sa-arch --vasize?",
+     "These are parameter based on which Gati is organized. These parameters "
+     "affect address generation, alignment etc. They come directly from the "
+     "architecture, thus, in order to answer why --accbuf-size is set to 4096 "
+     "in many examples, you need to understand the architecture or talk to architecture "
+     "people"
+    },
+  };
 
 public:
   void parse(int argc, char *argv[]);
@@ -633,6 +790,11 @@ int cmp_dims(const std::vector<int>& dim1, const std::vector<int>& dim2);
 template <typename T>
 inline T ceil_mod(T i, int m) {
   return (T) (std::ceil((float)i/(float)m) * m);
+}
+
+template <typename T>
+inline T ceil_div(T i, T j) {
+  return static_cast<T>(std::ceil(static_cast<float>(i) / static_cast<float>(j)));
 }
 
 int count_digits(int a);

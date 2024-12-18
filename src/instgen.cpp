@@ -382,6 +382,7 @@ Pass::mark_cfg(const std::vector<Op::LayerBase *> &order) {
       if (flatten_pass) {
         Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(l);
         cc->former_layer_dims = former_layer_dims;
+        flatten_pass = false;
       } else {
         flatten_pass = false;
         former_layer_dims = std::vector<int>();
