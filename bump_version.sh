@@ -70,11 +70,16 @@ EOF
 git add VERSION.txt src/version.h
 git commit -m "bump version to: $NEW_VERSION
 
+Commit log:
+
+
 # Describe this release
 # - change X
 # - move Y
 # - adds support for Z
 # - remove W
+
+$(git log --oneline --no-decorate --no-merges v$VERSION..HEAD)
 
 " -e
 git tag "v$NEW_VERSION"
