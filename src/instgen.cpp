@@ -1881,6 +1881,9 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   size += (tdp * DWP_HEADER_BYTES);
   BinBlob blob(size);
   InstBlob instblob = instgen.get_blob();
+
+  GmlCheck gmlcheck(instblob);
+
   if (gbl_args.has_option("pretty-print-inst")) {
     pretty_print(instblob);
   }
@@ -1892,4 +1895,66 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   blob.append(tbl);
   /* enfore NRVO at call site */
   return blob;
+}
+
+GmlCheck::GmlCheck(const InstBlob &instblob) {
+  check_citr_kitr(instblob);
+}
+
+
+void GmlCheck::check_citr_kitr(const InstBlob &instblob) {
+  auto sa_arch = get_sa_arch();
+  auto va_size = get_va_size();
+
+  std::stack<const std::bitset<INST_SIZE_BITS>*> megablocks;
+
+  for (const auto &i : instblob) {
+    int op = extract_opcode(i);
+
+    if (is_megablock_op_code(op)) {
+      megablocks.push(&i);
+    }
+
+    if (op == OP_OutputBlock) {
+      if (megablocks.empty()) {
+        log_fatal("GmlCheck: Found output instruction without any parent megablock instruction\n");
+      }
+      const auto *previous_inst = megablocks.top();
+      int p_op = extract_opcode(*previous_inst);
+
+      int expected_chan_itr = 0;
+      int expected_kern_itr = 0;
+
+      if (p_op == OP_CONV) {
+        int chan = inst_get(*previous_inst, CONV_IC);
+        int kern = inst_get(*previous_inst, CONV_KN);
+        expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_N]);
+        expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_COLS]);
+      } else if (p_op == OP_FC) {
+        expected_chan_itr = 1;
+        /* FC processes va_size number of columns at a time, kernel
+         * iterations for FC mean the iterations of weight cols to
+         * process the weight matrix completely i.e.
+         * WeightCols/va_size
+         */
+        int weight_cols = inst_get(*previous_inst, FC_WeightCols);
+        expected_kern_itr = ceil_div(weight_cols, va_size);
+      } else {
+        log_fatal("GmlCheck: megablock of opcode {} cannot be handled\n", p_op);
+      }
+
+      int computed_chan_itr = inst_get(i, OutputBlock_ChannelItr);
+      int computed_kern_itr = inst_get(i, OutputBlock_KernelItr);
+      
+      if (computed_chan_itr != expected_chan_itr) {
+        log_fatal("GmlCheck: computed channel iteration ({}) does not match expected channel iteration ({})\n",
+            computed_chan_itr, expected_chan_itr);
+      }
+
+      if (computed_kern_itr != expected_kern_itr) {
+        log_fatal("GmlCheck: computed kernel iteration ({}) does not match expected kernel iteration ({})\n",
+            computed_kern_itr, expected_kern_itr);
+      }
+    }
+  }
 }

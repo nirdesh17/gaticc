@@ -1051,6 +1051,12 @@ public:
   BinBlob generate_gml(Op::Parser &parser);
 };
 
+class GmlCheck {
+  public:
+  GmlCheck(const InstBlob &instblob);
+  void check_citr_kitr(const InstBlob &instblob);
+};
+
 namespace Pass {
 
 std::vector<Op::LayerBase *> remove_dqxq(Op::Graph graph);
@@ -1070,7 +1076,10 @@ Op::Graph create_megablock_graph(Op::Graph graph);
 
 }; // namespace Pass
 
+#define inst_get(bs, param) (bitset_range_get<param ## _COUNT>(bs, param ## _LOW, param ## _HIGH))
 int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst);
+/* true is opcode is a megablock */
+bool is_megablock_op_code(int i);
 
 /* all input/output tensors (this excludes weights+instructions packet)
  * have a DWP_HEADER as a start and a DWP_HEADER as end packet
