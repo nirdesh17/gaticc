@@ -1055,6 +1055,7 @@ class GmlCheck {
   public:
   GmlCheck(const InstBlob &instblob);
   void check_citr_kitr(const InstBlob &instblob);
+  void check_addresses(const InstBlob &instblob);
 };
 
 namespace Pass {

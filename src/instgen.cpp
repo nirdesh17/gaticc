@@ -1899,6 +1899,7 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
 
 GmlCheck::GmlCheck(const InstBlob &instblob) {
   check_citr_kitr(instblob);
+  check_addresses(instblob);
 }
 
 
@@ -1955,6 +1956,51 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) {
         log_fatal("GmlCheck: computed kernel iteration ({}) does not match expected kernel iteration ({})\n",
             computed_kern_itr, expected_kern_itr);
       }
+    }
+  }
+}
+
+void GmlCheck::check_addresses(const InstBlob &instblob) {
+  auto sa_arch = get_sa_arch();
+  auto va_size = get_va_size();
+  std::stack<const std::bitset<INST_SIZE_BITS>*> op_insts;
+
+  int index = 0;
+  for (int i = 0; i < instblob.size(); ++i) {
+    int op = extract_opcode(i);
+    if (is_megablock_op_code(op)) {
+      index = i + 1;
+      break;
+    }
+  }
+
+  for (int i = index; i < instblob.size(); ++i) {
+    const auto& inst = instblob.at(i);
+    int op = extract_opcode(inst);
+    if (op == OP_OutputBlock) {
+      op_insts.push(&inst);
+    }
+    if (is_megablock_op_code(op)) {
+      if (op_insts.empty()) {
+        log_fatal("Found an empty output stack i.e. this megablock {} at index {} does not "
+            " have a preceding output instruction\n", op, i);
+      }
+      int input_addr = 0;
+      if (op == OP_CONV) {
+        input_addr = inst_get(inst, CONV_ImageStartAddress);
+      } else if (op == OP_FC) {
+        input_addr = inst_get(inst, FC_ImageStartAddress);
+      } else {
+        log_fatal("Unhandled megablock of opcode {} at index {}\n", op, i);
+      }
+      const auto preceding_inst = op_insts.top();
+      op_insts.pop();
+      int output_addr = inst_get(*preceding_inst, OutputBlock_OutputAddr);
+
+      if (input_addr != output_addr) {
+        log_fatal("GmlCheck: input_address != output_addr for output inst at index {}\n", i);
+      }
+
     }
   }
 }
