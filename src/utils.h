@@ -254,7 +254,7 @@ class Argparse {
         {"--dry-run"},
         "pretend to run by bypassing RAH (useful only for debugging)",
         0},
-       {"version", {"--version"}, "print version info and exit"},
+       {"version", {"--version"}, "print version info and exit", 0},
        {"summary", {"--summary"}, "print a summary of the model", 0}}};
 
   /*                                          description   command     */
