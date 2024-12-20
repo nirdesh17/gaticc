@@ -1056,6 +1056,10 @@ class GmlCheck {
   GmlCheck(const InstBlob &instblob);
   void check_citr_kitr(const InstBlob &instblob);
   void check_addresses(const InstBlob &instblob);
+  void check_weight_address_continuity(const InstBlob &instblob);
+  int check_conv_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst);
+  int check_conv_bias_continuity(const std::bitset<INST_SIZE_BITS>& inst);
+  int check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst);
 };
 
 namespace Pass {

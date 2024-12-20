@@ -2004,3 +2004,90 @@ void GmlCheck::check_addresses(const InstBlob &instblob) {
     }
   }
 }
+
+/* Corollary: check if weight addresses do not overlap */
+void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) {
+  int current_address = 0;
+  for (int i = 0; i < instblob.size(); ++i) {
+    const auto &inst = instblob.at(i);
+    int op = extract_opcode(inst);
+    int ret = 0;
+    if (op == OP_CONV) {
+      ret = check_conv_weight_continuity(inst);
+    } else if (op == OP_TailBlock) {
+      ret = check_conv_bias_continuity(inst);
+    } else if (op == OP_FC) {
+      ret = check_fc_weight_continuity(inst);
+    } else if (op == OP_OutputBlock || op == OP_START) {
+      // do nothing
+    } else {
+      log_fatal("Unhandled instruction in check_weight_address_continuity {}\n", op);
+    }
+    if (ret == -1) {
+      continue;
+    }
+    
+    if (ret <= current_address) {
+      log_fatal("weight address continuity broken at current_address {} and ret {}\n", current_address, ret);
+    } else {
+      current_address = ret;
+    }
+  }
+}
+
+int GmlCheck::check_conv_weight_continuity(
+    const std::bitset<INST_SIZE_BITS> &inst) {
+  auto sa_arch = get_sa_arch();
+  int start = inst_get(inst, CONV_WeightStartAddress);
+  int end = inst_get(inst, CONV_WeightEndAddress);
+  if (start >= end) {
+    log_fatal("Layer has WeightStartAddress {} >= WeightEndAddress {}",
+              start, end);
+  }
+  int kn = inst_get(inst, CONV_KN);
+  int ic = inst_get(inst, CONV_IC);
+  int kw = inst_get(inst, CONV_KW);
+  int kh = inst_get(inst, CONV_KH);
+  int expected_weight_size = ceil_mod(kn, sa_arch[SA_ARCH_COLS]) *
+                             ceil_mod(ic, sa_arch[SA_ARCH_N]) * kw * kh;
+
+  int computed_weight_size = end - start;
+  if (computed_weight_size != expected_weight_size) {
+    log_fatal("For conv instruction, computed_weight_size {} does not match "
+              "expected_weight_size {}\n",
+              computed_weight_size, expected_weight_size);
+  }
+  return end;
+}
+
+int GmlCheck::check_conv_bias_continuity(const std::bitset<INST_SIZE_BITS>& inst) {
+  if (!inst_get(inst, TailBlock_BiasEn)) {
+    return -1;
+  }
+  int start = inst_get(inst, TailBlock_BiasStartAddress);
+  int end = inst_get(inst, TailBlock_BiasEndAddress);
+  if (start >= end) {
+    log_fatal("Layer has BiasStartAddress {} >= BiasEndAddress {}", start, end);
+  }
+  return end;
+}
+
+int GmlCheck::check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst) {
+  auto va_size = get_va_size();
+  int start = inst_get(inst, FC_WeightStartAddress);
+  int end = inst_get(inst, FC_WeightEndAddress);
+  if (start >= end) {
+    log_fatal("Layer has WeightStartAddress {} >= WeightEndAddress {}",
+              start, end);
+  }
+  int wr = inst_get(inst, FC_WeightRows);
+  int wc = inst_get(inst, FC_WeightCols);
+  int expected_weight_size = ceil_mod(wr, va_size) * ceil_mod(wc, va_size);
+  int computed_weight_size = end - start;
+  if (computed_weight_size != expected_weight_size) {
+    log_fatal("For FC instruction, computed_weight_size {} does not match "
+              "expected_weight_size {}\n",
+              computed_weight_size, expected_weight_size);
+  }
+  return end;
+}
