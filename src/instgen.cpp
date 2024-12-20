@@ -1900,6 +1900,8 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
 GmlCheck::GmlCheck(const InstBlob &instblob) {
   check_citr_kitr(instblob);
   check_addresses(instblob);
+  check_weight_address_continuity(instblob);
+  check_fc_flatten(instblob);
 }
 
 
@@ -2008,10 +2010,10 @@ void GmlCheck::check_addresses(const InstBlob &instblob) {
 /* Corollary: check if weight addresses do not overlap */
 void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) {
   int current_address = 0;
+  int ret = 0;
   for (int i = 0; i < instblob.size(); ++i) {
     const auto &inst = instblob.at(i);
     int op = extract_opcode(inst);
-    int ret = 0;
     if (op == OP_CONV) {
       ret = check_conv_weight_continuity(inst);
     } else if (op == OP_TailBlock) {
@@ -2027,7 +2029,7 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) {
       continue;
     }
     
-    if (ret <= current_address) {
+    if (ret < current_address) {
       log_fatal("weight address continuity broken at current_address {} and ret {}\n", current_address, ret);
     } else {
       current_address = ret;
@@ -2090,4 +2092,33 @@ int GmlCheck::check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst
               computed_weight_size, expected_weight_size);
   }
   return end;
+}
+
+void GmlCheck::check_fc_flatten(const InstBlob &instblob) {
+  std::stack<const std::bitset<INST_SIZE_BITS>*> megablocks;
+  for (int i = 0; i < instblob.size(); ++i) {
+    const auto &inst = instblob.at(i);
+    int op = extract_opcode(inst);
+    if (op == OP_CONV) {
+      if (!megablocks.empty()) {
+        megablocks.pop();
+      }
+      megablocks.push(&inst);
+    }
+
+    if (op == OP_FC) {
+      int expected_flatten = 0;
+      if (megablocks.empty()) {
+        expected_flatten = 0;
+      } else {
+        const auto *i_ptr = megablocks.top();
+        megablocks.pop();
+        if (extract_opcode(*i_ptr) == OP_CONV) {
+          expected_flatten = 1;
+        }
+      } 
+      int computed_flatten = inst_get(inst, FC_Flatten);
+      std::cout << "flatten " << expected_flatten << ' ' << computed_flatten << '\n';
+    }
+  } 
 }

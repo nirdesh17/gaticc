@@ -1060,6 +1060,7 @@ class GmlCheck {
   int check_conv_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst);
   int check_conv_bias_continuity(const std::bitset<INST_SIZE_BITS>& inst);
   int check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst);
+  void check_fc_flatten(const InstBlob &instblob);
 };
 
 namespace Pass {
