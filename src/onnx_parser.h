@@ -545,6 +545,7 @@ using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 
 /* Auxillary functions (no where else to put them...) */
 
+void print_opgraph(Op::Graph gcopy);
 bool is_root_node(Op::Vertex v, const Op::Graph *g);
 bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g);
 void print_node(const LayerBase *node);

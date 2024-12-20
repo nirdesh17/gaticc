@@ -1932,13 +1932,8 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return execution_order;
 }
 
-/* TODO: make this algorithm (used by summary() and get_execution_order()
- * common) with callbacks
- */
-void Op::Model::summary(void) const {
+void Op::print_opgraph(Op::Graph gcopy) {
   std::queue<Op::Vertex> S;
-  Op::Graph gcopy = g;
-
   auto vitr = boost::vertices(gcopy);
   Op::Vertex v = *(vitr.first);
   S.push(v);
@@ -1957,6 +1952,12 @@ void Op::Model::summary(void) const {
       }
     }
   }
+}
+/* TODO: make this algorithm (used by summary() and get_execution_order()
+ * common) with callbacks
+ */
+void Op::Model::summary(void) const {
+  print_opgraph(g);
 }
 
 Op::Graph Op::Model::get_graph() const {
@@ -2169,6 +2170,11 @@ Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
     Op::LayerBase *node = g[n];
     S.pop();
 
+    if (Op::is_root_node(n, &g)) {
+      node->inputs.push_back(acquire());
+      node->outputs.push_back(acquire());
+    }
+
     auto out_edges = boost::out_edges(n, g);
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
       Op::Vertex dest_vertex = boost::target(*itr, g);
@@ -2204,10 +2210,6 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
 
-  if (Op::is_root_node(source, g)) {
-    src_node->inputs.push_back(acquire());
-    src_node->outputs.push_back(acquire());
-  }
   dst_node->inputs.push_back(src_node->outputs.at(0));
   if (boost::out_degree(source, *g) == 1) {
     relinquish(src_node->inputs.at(0));
