@@ -1,4 +1,4 @@
-# sysim - Compiler/Simulator/Runtime for Gati DNN accelerator
+# gaticc - Compiler/Simulator/Runtime for Gati DNN accelerator
 
 # Build
 
@@ -43,7 +43,7 @@ pip install -r requirements.txt
 
 ### On board
 
-If install sysim on a board with an FPGA (Vaaman etc.), you would need
+If install gaticc on a board with an FPGA (Vaaman etc.), you would need
 additional dependencies that allow CPU-FPGA communication:
 
 First, check if "Vaaman FPGA communication" is checked in the overlay config,
@@ -65,7 +65,7 @@ sudo apt install rah-service
 ## Compile
 
 ```
-cd /path/to/sysim
+cd /path/to/gaticc
 ./scripts/install_deps.sh
 mkdir build
 cmake -B build
@@ -79,13 +79,13 @@ TODO: add test instructions here
 
 See,
 ```
-sysim -h
+gaticc -h
 ```
 for usage instructions.
 
 # Versioning
 
-Sysim uses three numbers in the style of <https://semver.org/>:
+Gaticc uses three numbers in the style of <https://semver.org/>:
 
 ```
 MAJOR.MINOR.PATCH
@@ -101,7 +101,7 @@ hardware maintainers on when to increment which number.
 
 To keep in sync, the major and minor numbers should always be equal to
 that of the hardware. So, if we ask ourselves, which version of the 
-hardware is compatible with sysim version 1.3.x, the answer is:
+hardware is compatible with gaticc version 1.3.x, the answer is:
 Gati version 1.3.x. Keeping the compatibility intact is in the hands
 of the maintainers of both projects. The patch number in both cases
 should be the latest available for that `major.minor` combination.
@@ -126,12 +126,12 @@ through the `bump_version.sh` script present in the root of this repo. Read the
 script (or `./bump_version.sh` to get usage message) to understand what all it
 does. Any push to master should be preceded by a version bump.
 
-# Contributing to sysim
+# Contributing to gaticc
 
 ## General 
 
 - Format all your commit messages according to <https://www.conventionalcommits.org/en/v1.0.0/>.
-- For bugs, create an issues here: <https://github.com/vicharak-in/sysim/issues/>
+- For bugs, create an issues here: <https://github.com/vicharak-in/gaticc/issues/>
 - Keep commit message titles succinct. Use the body for further elaboration if
   needed. See <https://cbea.ms/git-commit/>
 - PRs should be related to a topic/goal, be easy to review and check for bugs.
@@ -142,7 +142,7 @@ does. Any push to master should be preceded by a version bump.
   them.
 - Read <https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines> and what
   and what not to use.
-- Use a formatter. sysim uses LLVM style formatting for c++
+- Use a formatter. gaticc uses LLVM style formatting for c++
   <https://clang.llvm.org/docs/ClangFormat.html>
 - We do not follow any coding guideline to the T but welcome good style
   suggestions. (suggest through ISSUES)
@@ -154,7 +154,7 @@ does. Any push to master should be preceded by a version bump.
 ## Overview
 
 This guide provides instructions on creating and running test files for various
-run functions in the `sysim`. The goal is to understand the process of testing
+run functions in the `gaticc`. The goal is to understand the process of testing
 individual functions.
 
 ## Important Files for Writing Tests
@@ -230,14 +230,14 @@ accordingly.
 ### Example Test File 
 
 - Find example test files in the
-  [sysim/tests](https://github.com/vicharak-in/sysim/tree/master/tests)
+  [gaticc/tests](https://github.com/vicharak-in/gaticc/tree/master/tests)
 directory. For reference on how to include new tests, check the `CMakeLists.txt`
 file located in the same folder. This will help you understand the structure and
 integration of new test cases.
 
 ## Building and Running Test Files
 
-- By default, **Sysim** builds only the main project without including test files. If you want to include the tests in the build, you need to enable the `BUILD_TESTING` flag during the configuration step. Follow these steps:
+- By default, **Gaticc** builds only the main project without including test files. If you want to include the tests in the build, you need to enable the `BUILD_TESTING` flag during the configuration step. Follow these steps:
   ```
   cmake -B build -DBUILD_TESTING=ON
   cmake --build build
@@ -261,7 +261,7 @@ integration of new test cases.
 
 ## Supported Models
 
-- Sysim supports ONNX models that are hosted on our Galacatos Server. One can
-  download these models directly for use with Sysim.
+- Gaticc supports ONNX models that are hosted on our Galacatos Server. One can
+  download these models directly for use with Gaticc.
 
   [Download Supported Models](http://galactos.local:8471/)

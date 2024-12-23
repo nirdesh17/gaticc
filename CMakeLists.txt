@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
-project(sysim LANGUAGES CXX)
+project(gaticc LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) 
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(EXE_NAME sysim)
+set(EXE_NAME gaticc)
 set(LIB_NAME sim)
 set(PCH_LIBS ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 set(BOOST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost/)

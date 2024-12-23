@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# How to write a python function that can be called by sysim
+# How to write a python function that can be called by gaticc
 # 1. define a python function here as you normally would
 # 2. make sure that the return value of the function that will
 #    be exported in one of builtin types (list, tuple, int, etc.)

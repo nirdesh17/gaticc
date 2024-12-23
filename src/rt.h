@@ -52,7 +52,7 @@ public:
   int read(char *data, size_t size) override;
 };
 
-/* Used as a dupe of rah while running sysim on devices
+/* Used as a dupe of rah while running gaticc on devices
  * that do not have rah (non-vaaman devices). Used by
  * the --dry-run option, mainly for debugging
  */
