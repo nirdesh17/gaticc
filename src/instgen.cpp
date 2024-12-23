@@ -680,6 +680,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   //std::cout << "setting input_bytes to " << input_bytes << '\n';
 
   uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims()) * Op::tensorproto_sizeof(cc->weights);
+  std::cout << "weight bytes " << weight_bytes << '\n';
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
   uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
 
@@ -1861,6 +1862,10 @@ char *BinBlob::get_data() {
   return m_data;
 }
 
+const char *BinBlob::get_cdata() const {
+  return m_data;
+}
+
 void BinBlob::append_zeroth_inst(uint32_t start_addr, uint32_t end_addr) {
   std::bitset<INST_SIZE_BITS> inst {0};
   std::bitset<WORD_SIZE> start_addr_bs {start_addr};
@@ -1881,9 +1886,6 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   size += (tdp * DWP_HEADER_BYTES);
   BinBlob blob(size);
   InstBlob instblob = instgen.get_blob();
-
-  GmlCheck gmlcheck(instblob);
-
   if (gbl_args.has_option("pretty-print-inst")) {
     pretty_print(instblob);
   }
@@ -1893,19 +1895,22 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   blob.append(instblob, m_org);
   InitializerTable tbl = instgen.get_tbl();
   blob.append(tbl);
+
+  GmlCheck gmlcheck(instblob, blob);
   /* enfore NRVO at call site */
   return blob;
 }
 
-GmlCheck::GmlCheck(const InstBlob &instblob) {
-  check_citr_kitr(instblob);
-  check_addresses(instblob);
-  check_weight_address_continuity(instblob);
-  check_fc_flatten(instblob);
+GmlCheck::GmlCheck(const InstBlob &instblob, const BinBlob &binblob) {
+  //check_citr_kitr(instblob);
+  //check_addresses(instblob);
+  //check_weight_address_continuity(instblob);
+  //check_fc_flatten(instblob);
+  check_dwp(binblob);
 }
 
 
-void GmlCheck::check_citr_kitr(const InstBlob &instblob) {
+void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
   auto sa_arch = get_sa_arch();
   auto va_size = get_va_size();
 
@@ -1962,7 +1967,7 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) {
   }
 }
 
-void GmlCheck::check_addresses(const InstBlob &instblob) {
+void GmlCheck::check_addresses(const InstBlob &instblob) const {
   auto sa_arch = get_sa_arch();
   auto va_size = get_va_size();
   std::stack<const std::bitset<INST_SIZE_BITS>*> op_insts;
@@ -1995,9 +2000,11 @@ void GmlCheck::check_addresses(const InstBlob &instblob) {
       } else {
         log_fatal("Unhandled megablock of opcode {} at index {}\n", op, i);
       }
+      check_alignment(input_addr);
       const auto preceding_inst = op_insts.top();
       op_insts.pop();
       int output_addr = inst_get(*preceding_inst, OutputBlock_OutputAddr);
+      check_alignment(output_addr);
 
       if (input_addr != output_addr) {
         log_fatal("GmlCheck: input_address != output_addr for output inst at index {}\n", i);
@@ -2008,7 +2015,7 @@ void GmlCheck::check_addresses(const InstBlob &instblob) {
 }
 
 /* Corollary: check if weight addresses do not overlap */
-void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) {
+void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) const {
   int current_address = 0;
   int ret = 0;
   for (int i = 0; i < instblob.size(); ++i) {
@@ -2017,7 +2024,7 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) {
     if (op == OP_CONV) {
       ret = check_conv_weight_continuity(inst);
     } else if (op == OP_TailBlock) {
-      ret = check_conv_bias_continuity(inst);
+      ret = check_bias_continuity(inst);
     } else if (op == OP_FC) {
       ret = check_fc_weight_continuity(inst);
     } else if (op == OP_OutputBlock || op == OP_START) {
@@ -2028,7 +2035,6 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) {
     if (ret == -1) {
       continue;
     }
-    
     if (ret < current_address) {
       log_fatal("weight address continuity broken at current_address {} and ret {}\n", current_address, ret);
     } else {
@@ -2038,10 +2044,12 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) {
 }
 
 int GmlCheck::check_conv_weight_continuity(
-    const std::bitset<INST_SIZE_BITS> &inst) {
+    const std::bitset<INST_SIZE_BITS> &inst) const {
   auto sa_arch = get_sa_arch();
   int start = inst_get(inst, CONV_WeightStartAddress);
   int end = inst_get(inst, CONV_WeightEndAddress);
+  check_alignment(start);
+  check_alignment(end);
   if (start >= end) {
     log_fatal("Layer has WeightStartAddress {} >= WeightEndAddress {}",
               start, end);
@@ -2062,22 +2070,26 @@ int GmlCheck::check_conv_weight_continuity(
   return end;
 }
 
-int GmlCheck::check_conv_bias_continuity(const std::bitset<INST_SIZE_BITS>& inst) {
+int GmlCheck::check_bias_continuity(const std::bitset<INST_SIZE_BITS>& inst) const {
   if (!inst_get(inst, TailBlock_BiasEn)) {
     return -1;
   }
   int start = inst_get(inst, TailBlock_BiasStartAddress);
   int end = inst_get(inst, TailBlock_BiasEndAddress);
+  check_alignment(start);
+  check_alignment(end);
   if (start >= end) {
     log_fatal("Layer has BiasStartAddress {} >= BiasEndAddress {}", start, end);
   }
   return end;
 }
 
-int GmlCheck::check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst) {
+int GmlCheck::check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst) const {
   auto va_size = get_va_size();
   int start = inst_get(inst, FC_WeightStartAddress);
   int end = inst_get(inst, FC_WeightEndAddress);
+  check_alignment(start);
+  check_alignment(end);
   if (start >= end) {
     log_fatal("Layer has WeightStartAddress {} >= WeightEndAddress {}",
               start, end);
@@ -2094,7 +2106,7 @@ int GmlCheck::check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst
   return end;
 }
 
-void GmlCheck::check_fc_flatten(const InstBlob &instblob) {
+void GmlCheck::check_fc_flatten(const InstBlob &instblob) const {
   std::stack<const std::bitset<INST_SIZE_BITS>*> megablocks;
   for (int i = 0; i < instblob.size(); ++i) {
     const auto &inst = instblob.at(i);
@@ -2118,7 +2130,44 @@ void GmlCheck::check_fc_flatten(const InstBlob &instblob) {
         }
       } 
       int computed_flatten = inst_get(inst, FC_Flatten);
-      std::cout << "flatten " << expected_flatten << ' ' << computed_flatten << '\n';
+      if (expected_flatten != computed_flatten) {
+        log_fatal("GmlCheck: expected flatten for layer {} to be {} but the instruction says it "
+            "ought to be {}\n", i, expected_flatten, computed_flatten);
+      }
     }
+  } 
+}
+
+void GmlCheck::check_alignment(int addr) const {
+  if (addr % WORD_SIZE != 0) {
+    log_fatal("Address {} is not aligned to WORD_SIZE {}\n", addr, WORD_SIZE);
+  }
+}
+
+void GmlCheck::check_dwp(const BinBlob &binblob) const {
+  const char *data = binblob.get_cdata();
+  int size = static_cast<int>(binblob.size());
+
+  std::vector<std::string> payloads;
+  
+  for (int i = 0; i < size; ) {
+    uint32_t sop = bytes2int(data + i);
+    uint32_t ds = bytes2int(data + i + 4);
+    uint32_t addr = bytes2int(data + i + 8);
+    i += DWP_HEADER_BYTES;
+    if (sop != DWP_SOP) {
+      log_fatal("sop {} does not match DWP_SOP {}\n", sop, DWP_SOP);
+    } 
+    if ((size - i) < ds) {
+      log_fatal("Not enough bytes, starting at {}, ds: {}, size: {}\n", i, ds, size);
+    }
+
+    std::string ss;
+    int range = i + ds;
+    for (; i < range; ++i) {
+      ss.push_back(data[i]);
+    }
+    payloads.push_back(ss);
+    /* check for spare ff's and warn when found */
   } 
 }

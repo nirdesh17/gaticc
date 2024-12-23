@@ -819,13 +819,14 @@ public:
   void append(const InstBlob &instblob, uint32_t addr);
   void append(const InitializerTable &tbl);
   void append_zeroth_inst(uint32_t start_addr, uint32_t end_addr);
-  /* do not allow type that are not explicityly implemented */
+
   size_t size() const;
   void print() const;
   void pretty_print() const;
   void write(const std::string &filename) const;
 
   char *get_data();
+  const char *get_cdata() const;
   template <typename T> void append(const std::vector<T> &vec);
   /* every mega block ought to have a _input_append function */
   template <typename T>
@@ -1052,15 +1053,17 @@ public:
 };
 
 class GmlCheck {
+  void check_alignment(int addr) const;
   public:
-  GmlCheck(const InstBlob &instblob);
-  void check_citr_kitr(const InstBlob &instblob);
-  void check_addresses(const InstBlob &instblob);
-  void check_weight_address_continuity(const InstBlob &instblob);
-  int check_conv_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst);
-  int check_conv_bias_continuity(const std::bitset<INST_SIZE_BITS>& inst);
-  int check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst);
-  void check_fc_flatten(const InstBlob &instblob);
+  GmlCheck(const InstBlob &instblob, const BinBlob &binblob);
+  void check_citr_kitr(const InstBlob &instblob) const;
+  void check_addresses(const InstBlob &instblob) const;
+  void check_weight_address_continuity(const InstBlob &instblob) const;
+  int check_conv_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst) const;
+  int check_bias_continuity(const std::bitset<INST_SIZE_BITS>& inst) const;
+  int check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst) const;
+  void check_fc_flatten(const InstBlob &instblob) const;
+  void check_dwp(const BinBlob &binblob) const;
 };
 
 namespace Pass {
