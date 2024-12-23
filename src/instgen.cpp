@@ -1623,6 +1623,7 @@ void BinBlob::print() const {
 }
 
 void BinBlob::pretty_print() const {
+#if 0
   /* atleast 1 DWP packet header must be present */
   assert(m_ptr >= DWP_HEADER_BYTES);
   for (int i = 0; i < m_ptr; ) {
@@ -1654,6 +1655,7 @@ void BinBlob::pretty_print() const {
     }
     std::cout << '\n';
   }
+#endif
 }
 
 void BinBlob::write(const std::string& filename) const {

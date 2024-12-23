@@ -321,9 +321,9 @@ HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
   const unsigned char *data = (const unsigned char *)fp.get_data();
   size_t size = fp.get_size();
   assert(size > DWP_HEADER_BYTES);
-  uint32_t dwp_header = extract_byte<uint32_t>(data, size, 0, 4);
-  uint32_t ds = extract_byte<uint32_t>(data, size, 4, 8); /* in bytes */
-  uint32_t addr = extract_byte<uint32_t>(data, size, 8, 12);
+  uint32_t dwp_header = bytes2int(data);
+  uint32_t ds = bytes2int(data + 4);
+  uint32_t addr = bytes2int(data + 8);
   assert(dwp_header == DWP_SOP);
   int total_instructions = (ds / (INST_SIZE_BITS / 8));
   /* i starts at 1 to skip the zeroth instruction */
