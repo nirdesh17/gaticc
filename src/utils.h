@@ -813,11 +813,24 @@ T extract_byte(const FromT *data, size_t size, int n, int m) {
   assert(m-n == sizeof(T));
   T ret = 0;
   for (int i = n, j = (sizeof(T)-1); i < m; ++i, --j) {
-    T tmp = static_cast<T>(data[i]);
+    int tmp = static_cast<int>(data[i]);
     tmp <<= (j*8);
     ret |= tmp;
   }
   return ret;
+}
+
+template <typename T>
+uint32_t bytes2int(const T* data) {
+  uint32_t value = 0;
+  value |=  (unsigned char)(data[0]);
+  value <<= 8;
+  value |=  (unsigned char)(data[1]);
+  value <<= 8;
+  value |=  (unsigned char)(data[2]);
+  value <<= 8;
+  value |=  (unsigned char)(data[3]);
+  return value;
 }
 
 inline int string_hash(const std::string& s) {
@@ -837,5 +850,5 @@ std::bitset<sz> extract_bitset(const T *data, size_t size, int n, int m) {
   return ret;
 }
 
-char** argv_create(int argc, ...);
+std::pair<int, char **> argv_create(const std::vector<std::string> &opts);
 void argv_delete(int argc, char **argv);

@@ -253,18 +253,26 @@ void check_c_return_val(void* val, const char *err) {
   }
 }
 
-char** argv_create(int argc, ...) {
-  char **ptr = new char*[argc];
-  va_list ap;
-  va_start(ap, argc);
-  for (int i = 0; i < argc; ++i) {
-    char *p = va_arg(ap, char*);
-    size_t plen = strlen(p);
-    ptr[i] = new char[plen];
-    strncpy(ptr[i], p, plen);
+/* args:
+ *  vector<string> {
+ *  "-c", "build/tests/models/fcv_1_20_int8.onnx", 
+ *  "--ramsize", "512", 
+ *  "--sa-arch", "9,4,4", 
+ *  "--vasize", "32", 
+ *  "--accbuf-size", "4096", 
+ *  "--pretty-print-inst"
+ *  };
+ *
+ * Return a char** that can be passed to gbl_args.parse()
+ */
+std::pair<int, char **> argv_create(const std::vector<std::string> &opts) {
+  char **ptr = new char *[opts.size()];
+  for (int i = 0; i < opts.size(); ++i) {
+    const char *p = opts.at(i).c_str();
+    ptr[i] = new char[opts.at(i).size()];
+    strcpy(ptr[i], p);
   }
-  va_end(ap);
-  return ptr;
+  return std::pair<int, char **>{opts.size(), ptr};
 }
 
 void argv_delete(int argc, char **argv) {

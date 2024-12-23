@@ -10,7 +10,7 @@
 // #include <vector>
 #include "instgen.h"
 
-void dispatch_simulator(const Op::Parser &parser) {
+static void dispatch_simulator(const Op::Parser &parser) {
   if (!gbl_args.has_option("loadpy")) {
     log_fatal("Option --loadpy needs to be specified for simulation\n");
     gbl_args.print_usage();
@@ -33,7 +33,7 @@ void dispatch_simulator(const Op::Parser &parser) {
   Executor e(engine, parser);
 }
 
-void dispatch_timeest(const Op::Parser &parser) {
+static void dispatch_timeest(const Op::Parser &parser) {
   std::string arch_list = gbl_args["timeest"].as<std::string>();
   std::vector<int> mnk = parse_csv_string<int>(arch_list);
   assert(mnk.size() != 0 && "Ill formatted dimension string to --timeest, "
@@ -43,7 +43,7 @@ void dispatch_timeest(const Op::Parser &parser) {
   parser.time_estimate(mnk.at(0), mnk.at(1), mnk.at(2));
 }
 
-void dispatch_info_ops() {
+static void dispatch_info_ops() {
   std::string s = gbl_args["info"].as<std::string>();
   Op::Parser parser(s);
   if (gbl_args.has_option("summary")) {
@@ -55,7 +55,7 @@ void dispatch_info_ops() {
   }
 }
 
-void dispatch_compile_ops() {
+static void dispatch_compile_ops() {
   std::string s = gbl_args["compile"].as<std::string>();
   Op::Parser parser(s);
   GmlGen gmlgen(GATI_INST_ORG);
@@ -71,17 +71,38 @@ void dispatch_compile_ops() {
   }
 }
 
-void dispatch_sim_ops() {
+static void dispatch_sim_ops() {
   std::string s = gbl_args["sim"].as<std::string>();
   Op::Parser parser(s);
   dispatch_simulator(parser);
 }
 
-void dispatch_run_ops() {
+static void dispatch_run_ops() {
   if (!gbl_args.has_option("run_onnx")) {
     log_fatal("couldn't find onnx file. Use --run-onnx to provide one or see help\n");
   }
   auto onnx_file = gbl_args["run_onnx"].as<std::string>();
   Op::Parser parser(onnx_file);
   Runner runner(parser);
+}
+
+int dispatch() {
+  if (gbl_args.has_option("help")) {
+    gbl_args.print_usage();
+    return 0;
+  } else if (gbl_args.has_option("version")) {
+    gbl_args.print_version();
+    return 0;
+  } else if (gbl_args.has_option("info")) {
+    dispatch_info_ops();
+  } else if (gbl_args.has_option("compile")) {
+    dispatch_compile_ops();
+  } else if (gbl_args.has_option("sim")) {
+    dispatch_sim_ops();
+  } else if (gbl_args.has_option("run")) {
+    dispatch_run_ops();
+  } else {
+    log_fatal("Don't know what to do. See sysim -h\n"); 
+  }
+  return 0;
 }
