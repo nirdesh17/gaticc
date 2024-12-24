@@ -1001,6 +1001,15 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   std::vector<int> input_rows_cols = get_true_rc_inputs(cc);
   assert(input_rows_cols[0] == 1 && "input must be a vector");
   check_overflow(input_rows_cols[1], FC_InputRows_COUNT);
+  if (!gbl_args.has_option("fcbuf-size")) {
+    log_fatal("option --fcbuf-size missing from the command line, see help manual\n");
+  }
+
+  int fcbuf_size = gbl_args["fcbuf-size"].as<int>();
+  if (input_rows_cols[1] > fcbuf_size) {
+    log_fatal("In fc, input_row_size {}, exceeds provided FC input buffer size {}\n", input_rows_cols[1],
+        fcbuf_size);
+  }
   std::bitset<FC_InputRows_COUNT> fc_input_rows{input_rows_cols[1]};
   bitset_range_set(gemm_inst, fc_input_rows, FC_InputRows_LOW,
                    FC_InputRows_HIGH);
