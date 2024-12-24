@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <valarray>
+#include <type_traits>
 
 template <typename T>
 class Relu {
@@ -333,16 +334,31 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
 }
 
 template <typename inputT, typename outputT>
-inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim, int max_lim) {
+inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
+                           int max_lim) {
+  /* TODO: shift val is hardcoded to be 16 here */
+  if ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) &&
+      (std::is_same<inputT, int32_t>())) {
+    // std::cout << "using fpga quant\n";
+    /* fpga quantization */
+    float inverted = 1 / scale;
+    int int_scale = (int)((float)inverted * (float)65536);
+    inputT ret = (inputT)((((int)v * int_scale) + (1 << 15)) >> 16);
+    return (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
+  } else {
+    inputT rounded = std::round(((float)v / scale + zero_point));
+    return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
+  }
+
 #if 0
   /* fpga quantization */
   float inverted = 1/scale;
   int int_scale = (int) ((float) inverted * (float) 65536);
   outputT ret = (outputT) (((int) v * int_scale + (1<<15)) >> 16);
   return ret;
-#endif
   inputT rounded = std::round(((float) v / scale + zero_point));
   return (outputT) std::clamp<inputT>(rounded, min_lim, max_lim);
+#endif
 }
 
 template <typename inputT, typename outputT>
