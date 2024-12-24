@@ -41,6 +41,8 @@ class Rah {
 public:
   virtual int write(const char *data, size_t size) = 0;
   virtual int read(char *data, size_t size) = 0;
+  virtual ~Rah() {
+  }
 };
 
 class RealRah : public Rah {
