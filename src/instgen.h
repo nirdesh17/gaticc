@@ -403,6 +403,13 @@ inline void pretty_print_tailblock(const std::bitset<INST_SIZE_BITS>& inst) {
 
 /* ============ INST END ======================*/
 
+#define check_overflow(value, bits) \
+  do {\
+    if (value >= (2<<bits)) {\
+      log_fatal("value {} ({}) overflows a {} bit ({}) field\n", value, #value, bits, #bits);\
+    }\
+  } while(0)
+
 enum ENGINES {
   ENGINE_UNKNOWN,
   ENGINE_SA,

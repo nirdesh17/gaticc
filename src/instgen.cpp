@@ -988,16 +988,19 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   std::vector<int> rows_cols = get_true_rc_weights(cc);
   //std::cout << "setting weight rows to " << rows_cols[0] << '\n';
 
+  check_overflow(rows_cols[0], FC_WeightRows_COUNT);
   std::bitset<FC_WeightRows_COUNT> fc_weight_rows{rows_cols[0]};
   bitset_range_set(gemm_inst, fc_weight_rows, FC_WeightRows_LOW,
                    FC_WeightRows_HIGH);
 
+  check_overflow(rows_cols[1], FC_WeightCols_COUNT);
   std::bitset<FC_WeightCols_COUNT> fc_weight_cols{rows_cols[1]};
   bitset_range_set(gemm_inst, fc_weight_cols, FC_WeightCols_LOW,
                    FC_WeightCols_HIGH);
 
   std::vector<int> input_rows_cols = get_true_rc_inputs(cc);
   assert(input_rows_cols[0] == 1 && "input must be a vector");
+  check_overflow(input_rows_cols[1], FC_InputRows_COUNT);
   std::bitset<FC_InputRows_COUNT> fc_input_rows{input_rows_cols[1]};
   bitset_range_set(gemm_inst, fc_input_rows, FC_InputRows_LOW,
                    FC_InputRows_HIGH);
