@@ -680,7 +680,6 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   //std::cout << "setting input_bytes to " << input_bytes << '\n';
 
   uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims()) * Op::tensorproto_sizeof(cc->weights);
-  std::cout << "weight bytes " << weight_bytes << '\n';
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
   uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
 
@@ -1904,10 +1903,10 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
 }
 
 GmlCheck::GmlCheck(const InstBlob &instblob, const BinBlob &binblob) {
-  //check_citr_kitr(instblob);
-  //check_addresses(instblob);
-  //check_weight_address_continuity(instblob);
-  //check_fc_flatten(instblob);
+  check_citr_kitr(instblob);
+  check_addresses(instblob);
+  check_weight_address_continuity(instblob);
+  check_fc_flatten(instblob);
   check_dwp(binblob);
 }
 
@@ -2060,8 +2059,8 @@ int GmlCheck::check_conv_weight_continuity(
   int ic = inst_get(inst, CONV_IC);
   int kw = inst_get(inst, CONV_KW);
   int kh = inst_get(inst, CONV_KH);
-  int expected_weight_size = ceil_mod(kn, sa_arch[SA_ARCH_COLS]) *
-                             ceil_mod(ic, sa_arch[SA_ARCH_N]) * kw * kh;
+  int expected_weight_size = ceil_mod(ceil_mod(kn, sa_arch[SA_ARCH_COLS]) *
+                             ceil_mod(ic, sa_arch[SA_ARCH_N]) * kw * kh, WORD_SIZE);
 
   int computed_weight_size = end - start;
   if (computed_weight_size != expected_weight_size) {
@@ -2098,7 +2097,7 @@ int GmlCheck::check_fc_weight_continuity(const std::bitset<INST_SIZE_BITS>& inst
   }
   int wr = inst_get(inst, FC_WeightRows);
   int wc = inst_get(inst, FC_WeightCols);
-  int expected_weight_size = ceil_mod(wr, va_size) * ceil_mod(wc, va_size);
+  int expected_weight_size = ceil_mod(ceil_mod(wr, va_size) * ceil_mod(wc, va_size), WORD_SIZE);
   int computed_weight_size = end - start;
   if (computed_weight_size != expected_weight_size) {
     log_fatal("For FC instruction, computed_weight_size {} does not match "
@@ -2156,10 +2155,10 @@ void GmlCheck::check_dwp(const BinBlob &binblob) const {
     uint32_t sop = bytes2int(data + i);
     uint32_t ds = bytes2int(data + i + 4);
     uint32_t addr = bytes2int(data + i + 8);
-    i += DWP_HEADER_BYTES;
     if (sop != DWP_SOP) {
-      log_fatal("sop {} does not match DWP_SOP {}\n", sop, DWP_SOP);
+      log_fatal("sop at index {} with value {} does not match DWP_SOP {}\n", i, sop, DWP_SOP);
     } 
+    i += DWP_HEADER_BYTES;
     if ((size - i) < ds) {
       log_fatal("Not enough bytes, starting at {}, ds: {}, size: {}\n", i, ds, size);
     }

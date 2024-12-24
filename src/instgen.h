@@ -865,6 +865,8 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
   auto aligned_dims = aligned_conv_weight_dims(dims);
   auto sa_arch = get_sa_arch();
+  auto aligned_size = ceil_mod(aligned_conv_weight(dims) * sizeof(T), WORD_SIZE);
+  auto deficit_zeros = aligned_size - prod(aligned_dims.begin(), aligned_dims.end(), 1);
 
   T zero = 0;
   int kheight = aligned_dims[TENSOR_4D_HEIGHT];
@@ -918,6 +920,9 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
       }
     }
   }
+  for (int i = 0; i < deficit_zeros; ++i) {
+    append(zero);
+  }
 }
 template <typename T> void BinBlob::sa_align_aux_pointwise(const Tensor<T> *tensor) {
   log_fatal("shouldnt reach here, pointwise alignment un-implemented\n");
@@ -927,12 +932,14 @@ template <typename T> void BinBlob::conv_bias_align_aux(const Tensor<T> *tensor)
   auto dims = tensor->get_dims();
   assert(dims.size() == 1);
   size_t size = dims[TENSOR_4D_BATCH];
-  size_t aligned_size = aligned_conv_bias(dims);
+  size_t aligned_size = ceil_mod(aligned_conv_bias(dims) * sizeof(T), WORD_SIZE);
+  size_t bytes = size * sizeof(T);
+  size_t deficit_bytes = aligned_size - bytes;
   for (size_t i = 0; i < size; ++i) {
     append(tensor->at(i));
   }
-  T zero = 0;
-  for (size_t i = 0; i < (aligned_size - size); ++i) {
+  uint8_t zero = 0;
+  for (size_t i = 0; i < deficit_bytes; ++i) {
     append(zero);
   }
 }
