@@ -15,7 +15,7 @@ extern "C" void exit_on_failure(int sig) {
   exit(EXIT_FAILURE);
 }
 
-/* Must be called before any other functions in sysim 
+/* Must be called before any other functions in gaticc 
  * Returns a void* to silent -Wconversion-null created when
  * import_array() macro is expanded, which optionally returns
  * a NULL when conditions are not met.

@@ -226,7 +226,7 @@ void Argparse::print_usage() const {
     }
   };
 
-  std::cout <<  BOLD("USAGE: sysim [OPTIONS]\n\n");
+  std::cout <<  BOLD("USAGE: gaticc [OPTIONS]\n\n");
   std::cout << argparser << '\n';
   std::cout << BOLD("USAGE EXAMPLES:\n\n");
   print_ss_vector(_usage_examples);

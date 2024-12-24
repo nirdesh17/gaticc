@@ -11,7 +11,7 @@
  */
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define PY_ARRAY_UNIQUE_SYMBOL sysim_ARRAY_API
+#define PY_ARRAY_UNIQUE_SYMBOL gaticc_ARRAY_API
 
 #include "numpy/arrayobject.h"
 #include "numpy/ndarraytypes.h"

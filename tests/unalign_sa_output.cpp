@@ -146,7 +146,7 @@ void global_init(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
   int ac = 3;
-  char **av = argv_create(ac, "sysim", "--sa-arch", "9,4,4");
+  char **av = argv_create(ac, "gaticc", "--sa-arch", "9,4,4");
   global_init(ac, av);
   import_array();
   bool status1 = unalign_sa_output();

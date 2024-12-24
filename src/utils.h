@@ -287,51 +287,51 @@ class Argparse {
       {"Run simulation given an onnx model and inputs. The simulation is run "
        "on the CPU. "
        "Useful to extract intermidiate outputs of layers",
-       "sysim -s path/to/model.onnx --loadpy <py_file> "
+       "gaticc -s path/to/model.onnx --loadpy <py_file> "
        "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
        "--venv-path ~/path/to/lib/python{version}/site-packages"},
       {"Run simulation but dispatch an intermidiate layer. Find layer "
        "names through model summary",
-       "sysim -s path/to/model.onnx --loadpy <py_file> "
+       "gaticc -s path/to/model.onnx --loadpy <py_file> "
        "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
        "--venv-path ~/path/to/lib/python{version}/site-packages "
        "--dispatch <layer1>,<layer2>,<layer3>"},
       {"Run simulation but dispatch all layers. Dispatch also stores "
        "an numpy pickled tensor for intermidiate outputs can be found "
        "in <layer_name>.tensor.npy",
-       "sysim -s path/to/model.onnx --loadpy <py_file> "
+       "gaticc -s path/to/model.onnx --loadpy <py_file> "
        "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
        "--venv-path ~/path/to/lib/python{version}/site-packages "
        "--dispatch all"},
       {"Get a summary of a onnx model",
-       "sysim -i path/to/model.onnx --summary"},
+       "gaticc -i path/to/model.onnx --summary"},
       {"Get a theoretical time estimate for a model",
-       "sysim -i path/to/model.onnx --timeest <sa_arch>  "
+       "gaticc -i path/to/model.onnx --timeest <sa_arch>  "
        "(e.g. --timeest 9,4,4)"},
       {"Compile a model into a gml file",
-       "sysim -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
+       "gaticc -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
        "--accbuf-size 4096 --fcbuf-size 32768 -o model.gml"},
       {"Pretty print generated instructions",
-       "sysim -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
+       "gaticc -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
        "--accbuf-size 4096 --fcbuf-size 32768 --pretty-print-inst"},
       {"Print the complete blob in hex",
-       "sysim -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
+       "gaticc -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
        "--accbuf-size 4096 --fcbuf-size 32768 --pretty-print-blob"},
-      {"Run an inference", "sysim -r model.gml --run-onnx model.onnx --loadpy "
+      {"Run an inference", "gaticc -r model.gml --run-onnx model.onnx --loadpy "
                            "<py_file> --preprocfn <preprocess_fn> "
                            "--postprocfn <postprocess_fn> --venv-path "
                            "~/path/to/lib/python{version}/site-packages "
                            "--sa-arch <sa-arch> --ramsize <ramsize> --vasize "
                            "<vasize> --accbuf-size <accbuf-size> --fcbuf-size {fcbuf-size}"},
       {"Run an inference but provide immediate image as input",
-       "sysim -r model.gml --run-onnx model.onnx --inputpath img.jpg --loadpy "
+       "gaticc -r model.gml --run-onnx model.onnx --inputpath img.jpg --loadpy "
        "<py_file> --preprocfn <preprocess_fn>(img) "
        "--postprocfn <postprocess_fn> --venv-path "
        "~/path/to/lib/python{version}/site-packages "
        "--sa-arch <sa-arch> --ramsize <ramsize> --vasize "
        "<vasize> --accbuf-size <accbuf-size> --fcbuf-size <fcbuf-size>"},
       {"Run an inference but receive outputs over UART",
-       "sysim -r model.gml --run-onnx model.onnx --loadpy <py_file> "
+       "gaticc -r model.gml --run-onnx model.onnx --loadpy <py_file> "
        "--preprocfn <preprocess_fn> "
        "--postprocfn <postprocess_fn> --venv-path "
        "~/path/to/lib/python{version}/site-packages "
@@ -340,7 +340,7 @@ class Argparse {
        "--receive-over-uart <baudrate>"},
       {"Run an inference but dispatch intermidiate layers and receive over "
        "UART",
-       "sysim -r model.gml --run-onnx model.onnx --loadpy <py_file> "
+       "gaticc -r model.gml --run-onnx model.onnx --loadpy <py_file> "
        "--preprocfn <preprocess_fn> "
        "--postprocfn <postprocess_fn> --venv-path "
        "~/path/to/lib/python{version}/site-packages "
@@ -350,43 +350,38 @@ class Argparse {
   };
 
   SSVector _concepts = {
-      {"What does sysim do and how to use it for inference",
-       "Sysim's main purpose is to do two things: compile and run. "
-       "In compile, sysim creates a .gml file from an .onnx file. The gml "
-       "file contains re-ordered tensors and instructions. Gml can be "
-       "generated "
-       "by following the 'Compile model' usage example above. "
-       "A gml file is used by sysim to start a run, in which it takes inputs, "
-       "sends it to the FPGA along with the model (gml), then receives the "
-       "outputs. "
-       "Run can be executed by following the 'Run an Inference' example above"},
-      {"What are the --loadpy, --preprocfn, --postprocfn options",
-       "Sysim has an integrated python interpreter which allows calling into "
-       "python functions "
-       "as most people use python for ML work, they already have scripts to "
-       "pre/post process their "
-       "inputs/outputs, sysim allows users to use the same scripts without "
-       "re-writing them. "
-       "--loadpy is used to provide the script and --pre/postproc are used to "
-       "provide the "
-       "functions to be called for pre/post processing. An example python file "
-       "is provided in "
-       "src/ml_inference.py and can be used"},
-      {"What are the primary options",
-       "Sysim has primary options (-s, -i, -c, -r). Almost all other options "
-       "are suboptions "
-       "of these primary options. These are related to the four primary "
-       "features of "
-       "sysim: simulation, info, compilation and run."},
-      {"Where to get the models from?", "Refer to the sysim project README"},
-      {"What are --ramsize, --sa-arch --vasize?",
-       "These are parameter based on which Gati is organized. These parameters "
-       "affect address generation, alignment etc. They come directly from the "
-       "architecture, thus, in order to answer why --accbuf-size is set to "
-       "4096 "
-       "in many examples, you need to understand the architecture or talk to "
-       "architecture "
-       "people"},
+    {"What does gaticc do and how to use it for inference",
+     "Gaticc's main purpose is to do two things: compile and run. "
+     "In compile, gaticc creates a .gml file from an .onnx file. The gml "
+     "file contains re-ordered tensors and instructions. Gml can be generated "
+     "by following the 'Compile model' usage example above. "
+     "A gml file is used by gaticc to start a run, in which it takes inputs, "
+     "sends it to the FPGA along with the model (gml), then receives the outputs. "
+     "Run can be executed by following the 'Run an Inference' example above"
+    },
+    {"What are the --loadpy, --preprocfn, --postprocfn options",
+     "Gaticc has an integrated python interpreter which allows calling into python functions "
+     "as most people use python for ML work, they already have scripts to pre/post process their "
+     "inputs/outputs, gaticc allows users to use the same scripts without re-writing them. "
+     "--loadpy is used to provide the script and --pre/postproc are used to provide the "
+     "functions to be called for pre/post processing. An example python file is provided in "
+     "src/ml_inference.py and can be used"
+    },
+    {"What are the primary options",
+     "Gaticc has primary options (-s, -i, -c, -r). Almost all other options are suboptions "
+     "of these primary options. These are related to the four primary features of "
+     "gaticc: simulation, info, compilation and run."
+    },
+    {"Where to get the models from?",
+     "Refer to the gaticc project README"
+    },
+    {"What are --ramsize, --sa-arch --vasize?",
+     "These are parameter based on which Gati is organized. These parameters "
+     "affect address generation, alignment etc. They come directly from the "
+     "architecture, thus, in order to answer why --accbuf-size is set to 4096 "
+     "in many examples, you need to understand the architecture or talk to architecture "
+     "people"
+    },
   };
 
 public:
