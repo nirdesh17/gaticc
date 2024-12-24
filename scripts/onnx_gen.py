@@ -32,6 +32,7 @@ class RandomDataReader(CalibrationDataReader):
     def get_next(self):
         return next(self.data, None)
 
+
 def gen(num_layers, num_channels=input_dims[1], num_classes=random.randint(10,1000), description=None):
     layers = []
     feature_map_size = input_dims[2];  
@@ -112,7 +113,30 @@ def gen_onnx(num_models, nums_layers=(3, 100), description=None):
 
     return onnx_models
 
+class DefaultDataReader(CalibrationDataReader):
+    def __init__(self, idims, num_samples=10):
+        self.data = iter([{"input": torch.randn(idims).numpy()} for _ in range(num_samples)])
 
-num_models = 1 # Number of models to generate
-onnx_models = gen_onnx(num_models, description=model_description if model_description else None)
-print(onnx_models)
+    def get_next(self):
+        return next(self.data, None)
+
+def foo():
+    dummy_input = torch.randn((1, 144))
+    model = nn.Sequential(*[nn.Linear(144, 10)])
+    opath =  "fc_1_144_int8.onnx"
+    torch.onnx.export(model, dummy_input, opath, opset_version=11, input_names=["input"], output_names=["output"])
+    ddr = DefaultDataReader((1,144), num_samples=1)  
+    # if needed to quantize in different precision, change the weight_type and activation_type.
+    quantize_static(
+        opath, opath, ddr,
+        weight_type=QuantType.QInt8,
+        activation_type=QuantType.QInt8,  
+        quant_format=QuantFormat.QOperator,
+        extra_options={"ActivationSymmetric": True}
+    )
+
+#num_models = 1 # Number of models to generate
+#onnx_models = gen_onnx(num_models, description=model_description if model_description else None)
+#print(onnx_models)
+
+foo()

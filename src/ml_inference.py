@@ -30,6 +30,19 @@ def preprocess(image):
     img = np.expand_dims(img, axis=0)
     return img
 
+def alt_preprocess(image):
+    if not os.path.exists(image):
+        raise OSError("File not found: {}".format(image))
+    img = Image.open(image)
+    img = img.resize((211,211))
+    img = np.array(img.convert('RGB'))
+    # scale b/w 0 and 1
+    img = img / 255.
+    img = np.transpose(img, axes=[2, 0, 1])
+    img = img.astype(np.float32)
+    img = np.expand_dims(img, axis=0)
+    return img
+
 def gen_imagenet():
     image_list = ['images/dog.jpg', 'images/ray.jpg', 'images/snail.jpg']
     preprocessed_images = [preprocess(image) for image in image_list]
@@ -1159,3 +1172,4 @@ def post(num):
     m = np.argmax(num)
     print(f"number: {m}")
     return m
+
