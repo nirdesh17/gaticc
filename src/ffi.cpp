@@ -1,4 +1,3 @@
-#include "pch.h"
 #define NO_IMPORT_ARRAY
 #include "numpy_init.h"
 

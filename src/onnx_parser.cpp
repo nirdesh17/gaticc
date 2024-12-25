@@ -1,8 +1,7 @@
-#include "pch.h"
-
 // #include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "utils.h"
+#include <queue>
 // #include <algorithm>
 // #include <cerrno>
 // #include <cstring>
@@ -68,7 +67,7 @@ uint32_t Op::LayerBase::get_weight_size() {
 
 
 /* Get a array of ints from attr and store into array */
-void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
+static void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&
          "expected attributes of type INTS");
   auto ints = attr.ints();
@@ -1542,8 +1541,6 @@ std::vector<int> Op::get_tensorproto_shape(const onnx::TensorProto &t) {
   return ret_dims;
 }
 
-#define sa_odims(i, k, s, p) ((i - k + 2 * p) / s)
-
 long Op::Model::time_estimate(int M, int N, int K) const {
   Op::VertexIterator vb, ve;
   std::tie(vb, ve) = boost::vertices(g);
@@ -1687,27 +1684,6 @@ void Op::Model::deduce_types(const std::vector<TPDT>& input_types) {
       }
     }
   }
-#if 0
-  //TODO: remove this
-  /* Iterate over all nodes, search for input and output
-   * nodes that are not initializers, store their types
-   * in LayerBase->*_type  */
-  for (const auto &i : gproto.node()) {
-    auto itr = name_vertex_map.find(i.name());
-    Op::LayerBase *l = g[itr->second];
-    set_input_type(i, l);
-    set_output_type(i, l);
-    // assert(l->input_type != onnx::TensorProto_DataType_UNDEFINED && "Input
-    // type cannot be Undefined"); assert(l->output_type !=
-    // onnx::TensorProto_DataType_UNDEFINED && "Output type cannot be
-    // Undefined");
-    if (l->input_type == onnx::TensorProto_DataType_UNDEFINED) {
-      log_fatal("Failed Type Deduction. Input type for layer: %s cannot be \n"
-                "UNDEFINED",
-                l->name.c_str());
-    }
-  }
-#endif
 }
 
 void Op::Model::set_input_type(const onnx::NodeProto &node, Op::LayerBase *l) {

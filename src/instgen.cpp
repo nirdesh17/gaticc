@@ -1,11 +1,10 @@
-#include "pch.h"
-
 #include "instgen.h"
 #include "utils.h"
 #include "onnx_parser.h"
-#include "sim.h"
 #include "executor.h"
 #include <stack>
+#include <queue>
+//
 // #include <cstring>
 // #include <queue>
 // #include <set>
@@ -636,27 +635,35 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   std::bitset<CONV_Opcode_COUNT> opcode{OP_CONV};
   bitset_range_set(conv_inst, opcode, CONV_Opcode_LOW, CONV_Opcode_HIGH);
 
+  check_overflow(cc->input_dims[TENSOR_4D_WIDTH], CONV_IW_COUNT);
   std::bitset<CONV_IW_COUNT> iw{cc->input_dims[TENSOR_4D_WIDTH]};
   bitset_range_set(conv_inst, iw, CONV_IW_LOW, CONV_IW_HIGH);
 
+  check_overflow(cc->input_dims[TENSOR_4D_HEIGHT], CONV_IH_COUNT);
   std::bitset<CONV_IH_COUNT> ih{cc->input_dims[TENSOR_4D_HEIGHT]};
   bitset_range_set(conv_inst, ih, CONV_IH_LOW, CONV_IH_HIGH);
 
+  check_overflow(cc->output_dims[TENSOR_4D_WIDTH], CONV_OW_COUNT);
   std::bitset<CONV_OW_COUNT> ow{cc->output_dims[TENSOR_4D_WIDTH]};
   bitset_range_set(conv_inst, ow, CONV_OW_LOW, CONV_OW_HIGH);
 
+  check_overflow(cc->output_dims[TENSOR_4D_HEIGHT], CONV_OH_COUNT);
   std::bitset<CONV_OH_COUNT> oh{cc->output_dims[TENSOR_4D_HEIGHT]};
   bitset_range_set(conv_inst, oh, CONV_OH_LOW, CONV_OH_HIGH);
 
+  check_overflow(cc->input_dims[TENSOR_4D_CHANNELS], CONV_IC_COUNT);
   std::bitset<CONV_IC_COUNT> ic{cc->input_dims[TENSOR_4D_CHANNELS]};
   bitset_range_set(conv_inst, ic, CONV_IC_LOW, CONV_IC_HIGH);
 
+  check_overflow(cc->m_cp.kn, CONV_KN_COUNT);
   std::bitset<CONV_KN_COUNT> kn{cc->m_cp.kn};
   bitset_range_set(conv_inst, kn, CONV_KN_LOW, CONV_KN_HIGH);
 
+  check_overflow(cc->m_cp.k[TENSOR_2D_WIDTH], CONV_KW_COUNT);
   std::bitset<CONV_KW_COUNT> kw{cc->m_cp.k[TENSOR_2D_WIDTH]};
   bitset_range_set(conv_inst, kw, CONV_KW_LOW, CONV_KW_HIGH);
 
+  check_overflow(cc->m_cp.k[TENSOR_2D_HEIGHT], CONV_KH_COUNT);
   std::bitset<CONV_KH_COUNT> kh{cc->m_cp.k[TENSOR_2D_HEIGHT]};
   bitset_range_set(conv_inst, kh, CONV_KH_LOW, CONV_KH_HIGH);
 
@@ -1627,8 +1634,7 @@ BinBlob::~BinBlob() {
 
 void BinBlob::print() const {
   for (int i = 0; i < m_ptr; ++i) {
-    printf("%.02x ", m_data[i]);
-    //std::cout << std::hex << m_data[i] << ' ';
+    std::cout << std::hex << m_data[i] << ' ';
   }
   std::cout << '\n';
 }

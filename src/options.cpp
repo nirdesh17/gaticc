@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "executor.h"
 #include "ffi.h"
 #include "onnx_parser.h"
@@ -27,7 +26,7 @@ static void dispatch_simulator(const Op::Parser &parser) {
   }
   std::string mod_arg = gbl_args["loadpy"].as<std::string>();
   std::string mod_name = extract_basename(mod_arg).stem().string();
-  std::filesystem::path mod_path = extract_dirname(mod_arg);
+  auto mod_path = extract_dirname(mod_arg);
 
   PyEngine engine(mod_name, mod_path);
   Executor e(engine, parser);

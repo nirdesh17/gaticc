@@ -1,9 +1,7 @@
 #pragma once
 #include "onnx.pb.h"
-#include "onnx_parser.h"
 #include "utils.h"
 #include <iostream>
-#include <thread>
 #include <vector>
 
 /* TODO: iterator mechanism for tensors

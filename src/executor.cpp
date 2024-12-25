@@ -1,4 +1,3 @@
-#include "pch.h"
 #define NO_IMPORT_ARRAY
 #include "numpy_init.h"
 
@@ -592,8 +591,6 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
               Op::get_tensorproto_dtype_name(output_type));
   }
 }
-
-MinMaxCounter<int> minmaxcnt;
 
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {

@@ -80,13 +80,6 @@ bool TensorPool::has_value(int index) { return pool.at(index).has_value(); }
 
 void TensorPool::resize(int size) { pool.resize(size); }
 
-Point::Point(int a, int b) : first{a}, second{b} {}
-
-std::ostream &operator<<(std::ostream &os, const Point &p) {
-  os << p.first << ',' << p.second;
-  return os;
-}
-
 /* path: such as "/usr/bin/file.txt"
  * returns: "file.txt"
  */
@@ -124,6 +117,18 @@ bool is_broadcastable(const std::vector<int> &shape1,
 
   return false;
 }
+
+std::vector<float> compute_output_scale(const std::vector<float>& x_scale,
+    const std::vector<float>& w_scale, const std::vector<float>& y_scale) {
+  auto new_x_scale = broadcast_vec(x_scale, w_scale.size());
+  auto new_y_scale = broadcast_vec(y_scale, w_scale.size());
+  std::vector<float> ret(w_scale.size());
+  for (int i = 0; i < w_scale.size(); ++i) {
+    ret[i] = new_y_scale[i] / (new_x_scale[i] * w_scale[i] );
+  }
+  return ret;
+}
+
 
 std::vector<int> get_dims_after_pad(std::vector<int> current_dims,
                                     const std::vector<int> &pad) {
@@ -175,10 +180,11 @@ std::vector<int> get_sa_arch() {
   }
   std::string arch_list = gbl_args["sa-arch"].as<std::string>();
   std::vector<int> mnk = parse_csv_string<int>(arch_list);
-  assert(mnk.size() != 0 && "Ill formatted dimension string to --sa_arch, "
-                            "expects string like m,n,k");
-  assert(mnk.size() == 3 &&
-         "Systolic Array shape should be 3 dimensional M, N, K");
+  if (mnk.size() == 0 || mnk.size() != 3) {
+    log_fatal("Ill formatted dimension string to --sa-arch: {}, expects "
+              "3-vector string like m,n,k",
+              arch_list);
+  }
   return mnk;
 }
 

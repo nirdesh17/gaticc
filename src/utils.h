@@ -3,13 +3,9 @@
 #include <any>
 #include <chrono>
 #include <cmath>
-#include <cstdarg>
 #include <cstdint>
-#include <cstdio>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <list>
 #include <typeinfo>
 #include <unistd.h>
 #include <filesystem>
@@ -129,13 +125,6 @@ inline void log_warn(const char *p) {
 
 void check_c_return_val(int val, const char *err);
 void check_c_return_val(void* val, const char *err);
-
-
-struct SaDims {
-  int rows;
-  int cols;
-  int num;
-};
 
 /* Wrapper over argagg library */
 class Argparse {
@@ -404,83 +393,9 @@ public:
  */
 extern Argparse gbl_args;
 
-struct Point {
-  int first;
-  int second;
-  Point(int a, int b);
-};
-std::ostream& operator<<(std::ostream &os, const Point& p);
-
-template <typename T> class Mat {
-  std::vector<std::vector<T>> data;
-
-public:
-  std::vector<T> &at(int index) { return data.at(index); }
-  const std::vector<T> &at(int index) const { return data.at(index); }
-  T &at(int i, int j) { return data.at(i).at(j); }
-  const T &at(int i, int j) const { return data.at(i).at(j); }
-  void push_back(std::vector<T> &v) { data.push_back(v); }
-  void push_back(std::vector<T> &&v) { data.push_back(v); }
-
-  int size(int index) { return data.at(index).size(); };
-  int size() const { return data.size(); };
-
-  Mat(int size, const std::vector<T> &value) { data.resize(size, value); }
-  Mat(int size) { data.resize(size); }
-  Mat() {}
-
-  std::vector<T> flatten() {
-    std::vector<T> flattened;
-    for (auto const &v : data) {
-      flattened.insert(flattened.end(), v.begin(), v.end());
-    }
-    return flattened;
-  }
-
-  typename std::vector<std::vector<T>>::iterator begin() {
-    return data.begin();
-  }
-
-  typename std::vector<std::vector<T>>::iterator end() { return data.end(); }
-
-  void print() {
-    for (auto i : data) {
-      for (auto j : i) {
-        std::cout << j << '\t';
-      }
-      std::cout << '\n';
-    }
-    std::cout << '\n';
-  }
-};
-
-/* convert v into 2d array (Mat) of dims (rows,column) */
-template <typename T> Mat<T> v2mat(std::vector<T> &v, int rows, int columns) {
-  Mat<T> m;
-  for (int i = 0; i < rows; ++i) {
-    std::vector<T> vv;
-    for (int j = 0; j < columns; ++j) {
-      vv.push_back(v.at(i * columns + j));
-    }
-    m.push_back(vv);
-  }
-  return m;
-}
-
-template <typename T>
-std::vector<T> mat2v(Mat<T> const &m, int rows, int columns) {
-  std::vector<T> v;
-  for (int i = 0; i < m.size(); i++) {
-    for (int j = 0; j < m.at(0).size(); j++) {
-      v.push_back(m.at(i, j));
-    }
-  }
-  return v;
-}
-
 template <typename T>
 void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
-  printf("%s:\n", s);
+  std::cout << s << '\n';
   for (auto i : v) {
     for (auto j : i) {
       std::cout << j << '\t';
@@ -514,7 +429,7 @@ template <typename T> inline bool is_float_like(T v) {
  * reasons, makes sense to use on linear containers.
  */
 template <typename Container> void print_vec(const char *s, Container const &v) {
-  printf("%s: ", s);
+  std::cout << s << ": ";
   int newline_cnt = 0;
   std::cout << std::setprecision(8) << std::fixed;
   for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
@@ -549,7 +464,7 @@ template <typename T> bool xcmp(T a, T b) {
 template <typename expectedT, typename computedT>
 bool generate_report(const char *test_name, std::vector<expectedT> &expected,
                      std::vector<computedT> &computed) {
-  printf("Test Name: %s ", test_name);
+  std::cout << "Test Name: " << test_name << ' ';
   bool status = false;
   assert(expected.size() == computed.size() && "expected - computed unequal");
   for (int i = 0; i < expected.size(); ++i) {
@@ -559,7 +474,11 @@ bool generate_report(const char *test_name, std::vector<expectedT> &expected,
                 << computed.at(i) << '\n';
     }
   }
-  printf("Status: %s\n", (status) ? "Pass" : "Fail");
+  if (status) {
+    std::cout << "Status: " << "Pass" << '\n';
+  } else {
+    std::cout << "Status: " << "Fail" << '\n';
+  }
   return status;
 }
 
@@ -596,7 +515,7 @@ public:
     long rss;
     {
       std::string ignore;
-      std::ifstream ifs("/proc/self/stat", std::ios_base::in);
+      std::ifstream ifs("/proc/self/stat");
       ifs >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
           ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
           ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >>
@@ -775,6 +694,8 @@ std::vector<T> broadcast_vec(const std::vector<T> &in, int new_size) {
     return in;
   }
 }
+std::vector<float> compute_output_scale(const std::vector<float>& x_scale,
+    const std::vector<float>& w_scale, const std::vector<float>& y_scale);
 
 /* example:
  *  bitset_range_set(dest, src, 0, 3)

@@ -5,12 +5,9 @@
 #include <string>
 #include <vector>
 #include <bitset>
-#include <tuple>
 
 #include "boost/graph/adjacency_list.hpp"
 #include "boost/graph/graph_traits.hpp"
-#include <utility>
-
 #include "google/protobuf/arena.h"
 
 #include "onnx.pb.h"

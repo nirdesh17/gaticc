@@ -9,20 +9,11 @@
 #endif
 #include "Python.h"
 #include <algorithm>
-#include "boost/graph/adjacency_list.hpp"
-#include "boost/graph/graph_traits.hpp"
 #include <cmath>
 #include <cstdint>
-#include <filesystem>
-#include <functional>
 #include <iostream>
-#include <iterator>
-#include <numeric>
-#include <queue>
-#include <utility>
 #include <vector>
-#include <algorithm>
-#include <cmath>
+#include <thread>
 #include <valarray>
 #include <type_traits>
 
@@ -319,9 +310,6 @@ void tensor_vector_add(Tensor<outputT> *output, const Tensor<inputT> *input_tens
   }
 }
 
-std::vector<float> compute_output_scale(const std::vector<float>& x_scale,
-    const std::vector<float>& w_scale, const std::vector<float>& y_scale);
-
 template <typename inputT, typename outputT>
 inline outputT clip(inputT v, int min_lim, int max_lim) {
   if (v < min_lim) {
@@ -454,27 +442,6 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::QLinearConv *c
   w_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->w_zero_point), cc->output_dims[TENSOR_4D_CHANNELS]);
   x_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->x_zero_point), cc->input_dims[TENSOR_4D_CHANNELS]);
 }
-
-template <typename T>
-class MinMaxCounter {
-  T max;
-  T min;
-  public:
-  MinMaxCounter(): max{0}, min{0} {
-  }
-  void note(T v) {
-    if (v > max) {
-      max = v;
-    }
-    if (v < min) {
-      min = v;
-    }
-  }
-  void report() {
-    std::cout << "max " << max << " min " << min << '\n';
-  }
-};
-
 
 template <typename inputT, typename weightT, typename outputT>
 void ConvEngine<inputT, weightT, outputT>::_kernel(int k,

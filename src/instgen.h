@@ -1,6 +1,5 @@
 #pragma once
 
-#include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "tensor.h"
 #include <bitset>

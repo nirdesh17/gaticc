@@ -1,10 +1,7 @@
-#include "pch.h"
 #include "numpy_init.h"
-// #include "Python.h"
-#include "ffi.h"
+#include "Python.h"
 #include "utils.h"
 #include <csignal>
-// #include <filesystem>
 #include "options.h"
 
 /* instance of the gbl_args extern declaration in utils.h */
