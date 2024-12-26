@@ -9,3 +9,5 @@ exe/
 *.gch
 *.gml
 *.a
+third_party
+tags
