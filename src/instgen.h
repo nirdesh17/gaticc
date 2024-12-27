@@ -606,17 +606,17 @@ std::vector<int> aligned_conv_weight_dims(const T &wdims) {
 }
 
 template <typename T>
-uint32_t aligned_conv_weight(const T &wdims) {
+int aligned_conv_weight(const T &wdims) {
   auto w = aligned_conv_weight_dims(wdims);
-  uint32_t ret = prod(w.begin(), w.end(), 1); 
+  int ret = prod(w.begin(), w.end(), 1); 
   return ret;
 }
 
 template <typename T>
-uint32_t aligned_conv_bias(const T &dims) {
+int aligned_conv_bias(const T &dims) {
   assert(dims.size() == 1);
   auto sa_arch = get_sa_arch();
-  uint32_t ret = ceil_mod(dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+  int ret = ceil_mod(dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
   return ret;
 }
 
@@ -664,7 +664,7 @@ std::vector<int> aligned_conv_input_dims(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_conv_input(const T &dims) {
+int aligned_conv_input(const T &dims) {
   auto i = aligned_conv_input_dims(dims);
   assert(i.size() == 4);
   int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_in_mod()) *
@@ -685,7 +685,7 @@ std::vector<int> aligned_conv_output_dims(const T &dims) {
 
 
 template <typename T>
-uint32_t aligned_conv_output(const T &dims) {
+int aligned_conv_output(const T &dims) {
   auto i = aligned_conv_output_dims(dims);
   assert(i.size() == 4);
   int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_out_mod()) * i[TENSOR_4D_CHANNELS];
@@ -693,7 +693,7 @@ uint32_t aligned_conv_output(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_conv_acc(const T &dims) {
+int aligned_conv_acc(const T &dims) {
   auto sa_arch = get_sa_arch();
   int ret = dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH] * sa_arch[1] * ACC_SIZE;
   ret = ceil_mod(ret, get_conv_acc_mod());
@@ -714,7 +714,7 @@ std::vector<int> aligned_fc_weight_dims(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_fc_weight(const T &dims) {
+int aligned_fc_weight(const T &dims) {
   auto w = aligned_fc_weight_dims(dims);
   int ret = prod(w.begin(), w.end(), 1); 
   ret = ceil_mod(ret, WORD_SIZE);
@@ -722,7 +722,7 @@ uint32_t aligned_fc_weight(const T &dims) {
 }
 
 template <typename T>
-uint32_t aligned_fc_bias(const T &dims) {
+int aligned_fc_bias(const T &dims) {
   assert(dims.size() == 1);
   auto sa_arch = get_sa_arch();
   auto va_size = get_va_size();
@@ -738,7 +738,7 @@ uint32_t aligned_fc_bias(const T &dims) {
    * In total, there'll be 3 alignments: first wrt va_size, then wrt
    * sa_cols, then wrt AXI_ADDR_WIDTH
    */
-  uint32_t ret = ceil_mod(dims[0], va_size);
+  int ret = ceil_mod(dims[0], va_size);
   ret = ceil_mod(ret, sa_arch[SA_ARCH_COLS]);
   return ret;
 }
@@ -748,12 +748,12 @@ std::vector<int> aligned_fc_io_dims(const T &dims) {
   assert(dims.size() == 2);
   assert(dims[0] == 1);
   int va_size = get_va_size();
-  uint32_t ret = ceil_mod(dims[1], va_size);
+  int ret = ceil_mod(dims[1], va_size);
   return std::vector<int>{1, ret};
 }
 
 template <typename T>
-uint32_t aligned_fc_io(const T &dims) {
+int aligned_fc_io(const T &dims) {
   auto ret = aligned_fc_io_dims(dims);
   return ret[1];
 }

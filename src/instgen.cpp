@@ -15,7 +15,7 @@
 // #include <string>
 
 static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
-                                           "QGemm", "Flatten"};
+                                           "QGemm", "Flatten", "QLinearAveragePool"};
 
 static std::set<std::string> megablock_tbl{"QLinearConv", "QGemm"};
 
@@ -54,7 +54,7 @@ template <typename T> using CmpFunc = std::function<bool(T, T)>;
 template <typename T> using CmpApplyFunc = std::function<T(T, T)>;
 
 template <typename T>
-std::vector<T> collapse_identical_adjacent(const std::vector<T> &v,
+static std::vector<T> collapse_identical_adjacent(const std::vector<T> &v,
                                            CmpFunc<T> cmp,
                                            CmpApplyFunc<T> cmp_apply) {
   std::stack<T> s;
@@ -79,7 +79,7 @@ template <typename T> using FlagFunc = std::function<bool(T)>;
 
 /* Insert `v` where `func` returns true */
 template <typename T>
-std::vector<T> insert_inst(const std::vector<T> &v, FlagFunc<T> func, T val) {
+static std::vector<T> insert_inst(const std::vector<T> &v, FlagFunc<T> func, T val) {
   std::vector<T> ret;
   for (int i = 0; i < v.size(); ++i) {
     if (func(v.at(i)) && i != 0) {
@@ -90,7 +90,7 @@ std::vector<T> insert_inst(const std::vector<T> &v, FlagFunc<T> func, T val) {
   return ret;
 }
 
-std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
+static std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
   std::vector<Op::LayerBase *> execution_order;
   std::queue<Op::Vertex> S;
   S.push(Op::get_root_node(&gcopy));
@@ -114,7 +114,7 @@ std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
   return execution_order;
 }
 
-std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g) {
+static std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g) {
   std::vector<Op::Vertex> ret;
   auto edges = boost::in_edges(v, g);
   for (auto itr = edges.first; itr != edges.second; ++itr) {
@@ -124,7 +124,7 @@ std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g) {
   return ret;
 }
 
-std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g) {
+static std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g) {
   std::vector<Op::Vertex> ret;
   auto edges = boost::out_edges(v, g);
   for (auto itr = edges.first; itr != edges.second; ++itr) {
@@ -134,7 +134,7 @@ std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g) {
   return ret;
 }
 
-void connect_parents_to_children(const std::vector<Op::Vertex> &parents,
+static void connect_parents_to_children(const std::vector<Op::Vertex> &parents,
                                  const std::vector<Op::Vertex> &children,
                                  Op::Graph &g) {
   for (Op::Vertex i : parents) {
@@ -145,7 +145,7 @@ void connect_parents_to_children(const std::vector<Op::Vertex> &parents,
 }
 
 /* remove a vertex but connect its parents to its children */
-void safe_remove_vertex(Op::Vertex v, Op::Graph &g) {
+static void safe_remove_vertex(Op::Vertex v, Op::Graph &g) {
   std::vector<Op::Vertex> src_vertices = get_parents(v, g);
   std::vector<Op::Vertex> dest_vertices = get_children(v, g);
   connect_parents_to_children(src_vertices, dest_vertices, g);
@@ -312,7 +312,7 @@ void Pass::adjust_scale_shift_gemm(Op::Graph graph) {
 }
 
 /* true if 'l' does not change the shape of its inputs */
-bool is_shape_preserving(Op::LayerBase *l) {
+static bool is_shape_preserving(Op::LayerBase *l) {
   return l->input_dims == l->output_dims;
 }
 
@@ -431,7 +431,7 @@ int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst) {
       inst, CONV_Opcode_LOW, CONV_Opcode_HIGH));
 }
 
-bool cmp_opcodes(std::bitset<INST_SIZE_BITS> i1, 
+static bool cmp_opcodes(std::bitset<INST_SIZE_BITS> i1, 
     std::bitset<INST_SIZE_BITS> i2) {
   int op1 = extract_opcode(i1);
   int op2 = extract_opcode(i2);
@@ -439,13 +439,13 @@ bool cmp_opcodes(std::bitset<INST_SIZE_BITS> i1,
 }
 
 /* OR two instructions together, return the result */
-std::bitset<INST_SIZE_BITS> or_inst(std::bitset<INST_SIZE_BITS> i1, 
+static std::bitset<INST_SIZE_BITS> or_inst(std::bitset<INST_SIZE_BITS> i1, 
     std::bitset<INST_SIZE_BITS> i2) {
   std::bitset<INST_SIZE_BITS> ret = i1 | i2;
   return ret;
 }
 
-std::bitset<INST_SIZE_BITS> gen_start_inst(int layer_num, int total_layers) {
+static std::bitset<INST_SIZE_BITS> gen_start_inst(int layer_num, int total_layers) {
   std::bitset<INST_SIZE_BITS> start_inst;
 
   std::bitset<START_Opcode_COUNT> opcode {OP_START};
@@ -460,7 +460,7 @@ std::bitset<INST_SIZE_BITS> gen_start_inst(int layer_num, int total_layers) {
   return start_inst;
 }
 
-int count_total_megablocks(const InstBlob &insts) {
+static int count_total_megablocks(const InstBlob &insts) {
   int cnt = 0;
   for (const auto &i: insts) {
     int opcode = extract_opcode(i);
@@ -490,19 +490,22 @@ InstBlob Pass::insert_start_inst(const InstBlob &insts) {
 }
 
 
-void check_quantized(const Op::Graph graph){
-    auto vp = boost::vertices(graph);
-    for(auto it=vp.first; it!=vp.second; ++it){
-      const auto& node = graph[*it];
-      std::string op_type = node->op_type();
-      std::string out_type = onnx::TensorProto_DataType_Name(node->output_type);
-      if((op_type.find("Conv")!=std::string::npos || op_type.find("Gemm")!=std::string::npos) && node->output_type!=onnx::TensorProto_DataType_INT8 && node->output_type!=onnx::TensorProto_DataType_UINT8){
-        std::string message = "Found layer of type " + op_type +
-                      " that has " + out_type +
-                      " type as input/output unsupported by underlying acceleration hardware. Consider quantizing the model to have INT8/UINT8 type";
-        log_fatal(message.c_str());
-      }
-    }   
+static void check_quantized(const Op::Graph graph) {
+  auto vp = boost::vertices(graph);
+  for (auto it = vp.first; it != vp.second; ++it) {
+    const auto &node = graph[*it];
+    std::string op_type = node->op_type();
+    std::string out_type = onnx::TensorProto_DataType_Name(node->output_type);
+    if ((op_type.find("Conv") != std::string::npos ||
+         op_type.find("Gemm") != std::string::npos) &&
+        node->output_type != onnx::TensorProto_DataType_INT8 &&
+        node->output_type != onnx::TensorProto_DataType_UINT8) {
+      log_fatal("Found layer of type {} that has {} as input/output "
+                "unsupported by underlying acceleration hardware. Consider "
+                "quantizing the model to have INT8/UINT8 type",
+                op_type, out_type);
+    }
+  }
 }
 
 InstGen::InstGen(const Op::Parser &parser) {
@@ -585,7 +588,7 @@ int Op::Layer::QuantizeLinear::get_inst(InstBlob &insts, AddressGen &gen, Initia
 /* Generic gen_quant, used by conv and fc as their quantization routines
  * are same
  */
-std::bitset<INST_SIZE_BITS> gen_quant(const std::vector<float> &x_scale,
+static std::bitset<INST_SIZE_BITS> gen_quant(const std::vector<float> &x_scale,
                                       const std::vector<float> &w_scale,
                                       const std::vector<float> &y_scale,
                                       const std::vector<int> &zero_points) {
@@ -628,7 +631,7 @@ std::bitset<INST_SIZE_BITS> gen_quant(const std::vector<float> &x_scale,
   return quant_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
+static std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
                                           AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> conv_inst;
 
@@ -659,6 +662,10 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   std::bitset<CONV_KN_COUNT> kn{cc->m_cp.kn};
   bitset_range_set(conv_inst, kn, CONV_KN_LOW, CONV_KN_HIGH);
 
+  if (cc->m_cp.k[TENSOR_2D_HEIGHT] != 3 && cc->m_cp.k[TENSOR_2D_WIDTH] != 3) {
+    log_fatal("In layer {}, kernel sizes other than 3x3 are not supported, got {}x{}\n", cc->name,
+        cc->m_cp.k[TENSOR_2D_HEIGHT], cc->m_cp.k[TENSOR_2D_WIDTH]);
+  }
   check_overflow(cc->m_cp.k[TENSOR_2D_WIDTH], CONV_KW_COUNT);
   std::bitset<CONV_KW_COUNT> kw{cc->m_cp.k[TENSOR_2D_WIDTH]};
   bitset_range_set(conv_inst, kw, CONV_KW_LOW, CONV_KW_HIGH);
@@ -667,7 +674,12 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   std::bitset<CONV_KH_COUNT> kh{cc->m_cp.k[TENSOR_2D_HEIGHT]};
   bitset_range_set(conv_inst, kh, CONV_KH_LOW, CONV_KH_HIGH);
 
-  assert(cc->m_cp.stride[TENSOR_2D_HEIGHT] == cc->m_cp.stride[TENSOR_2D_WIDTH]);
+  if (cc->m_cp.stride[TENSOR_2D_HEIGHT] != cc->m_cp.stride[TENSOR_2D_WIDTH]) {
+    log_fatal("In layer {}, strides need to be symmetrical (same), got {}x{}\n", 
+        cc->name, cc->m_cp.stride[TENSOR_2D_HEIGHT], cc->m_cp.stride[TENSOR_2D_WIDTH]);
+  }
+  check_overflow(cc->m_cp.stride[TENSOR_2D_HEIGHT], CONV_Stride_COUNT);
+  check_overflow(cc->m_cp.stride[TENSOR_2D_HEIGHT], CONV_Stride_COUNT);
   std::bitset<CONV_Stride_COUNT> stride{cc->m_cp.stride[TENSOR_2D_HEIGHT]};
   bitset_range_set(conv_inst, stride, CONV_Stride_LOW, CONV_Stride_HIGH);
 
@@ -711,7 +723,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   return conv_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
+static std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
                                           AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> bias_inst;
 
@@ -752,7 +764,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv *cc,
   return bias_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
+static std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
                                             AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> output_inst;
 
@@ -859,7 +871,7 @@ std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv *cc,
   return output_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_conv_quant(const Op::Layer::QLinearConv *cc,
+static std::bitset<INST_SIZE_BITS> gen_conv_quant(const Op::Layer::QLinearConv *cc,
                                            AddressGen &gen) {
   using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
@@ -959,7 +971,7 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen, InitializerTa
  * This here is an artifact of tightly integrated
  * onnx<->IR design. This needs fixing TODO.
  */
-std::vector<int> get_true_rc_weights(const Op::Layer::QGemm *cc) {
+static std::vector<int> get_true_rc_weights(const Op::Layer::QGemm *cc) {
   std::vector<int> ret(2);
   if (cc->m_cp.transB) {
     ret[0] = cc->m_cp.wc;
@@ -971,7 +983,7 @@ std::vector<int> get_true_rc_weights(const Op::Layer::QGemm *cc) {
   return ret;
 }
 
-std::vector<int> get_true_rc_inputs(const Op::Layer::QGemm *cc) {
+static std::vector<int> get_true_rc_inputs(const Op::Layer::QGemm *cc) {
   std::vector<int> ret(2);
   if (cc->m_cp.transA) {
     ret[0] = cc->input_dims[1];
@@ -984,7 +996,7 @@ std::vector<int> get_true_rc_inputs(const Op::Layer::QGemm *cc) {
 }
 
 
-std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
+static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
                                         AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> gemm_inst;
 
@@ -1038,6 +1050,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
                  cc->former_layer_dims[TENSOR_4D_HEIGHT];
   }
   //std::cout << "imagedims set  to " << image_dims << '\n';
+  check_overflow(image_dims, FC_ImageDim_COUNT);
   std::bitset<FC_ImageDim_COUNT> image_dims_set{image_dims};
   bitset_range_set(gemm_inst, image_dims_set, FC_ImageDim_LOW,
                    FC_ImageDim_HIGH);
@@ -1046,9 +1059,9 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
 
   int vec2mat_cols = 0;
   if (former_layer_conv) {
-    vec2mat_cols = std::ceil(((float)aligned_conv_output(cc->former_layer_dims) / (float)vasize));
+    vec2mat_cols = ceil_div(aligned_conv_output(cc->former_layer_dims), vasize);
   } else {
-    vec2mat_cols = std::ceil(((float)aligned_fc_io(cc->input_dims) / (float) vasize));
+    vec2mat_cols = ceil_div(aligned_fc_io(cc->input_dims), vasize);
   }
 
   std::bitset<FC_Vec2MatCols_COUNT> v2mc {vec2mat_cols};
@@ -1100,7 +1113,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   return gemm_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
+static std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
                                           AddressGen &gen) {
   std::bitset<INST_SIZE_BITS> output_inst;
 
@@ -1131,7 +1144,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
 
   auto true_inputs = get_true_rc_weights(cc);
   int va_size = get_va_size();
-  int kernel_iterations = (int)std::ceil((float)true_inputs[TENSOR_2D_COLS] / (float)va_size);
+  int kernel_iterations = ceil_div(true_inputs[TENSOR_2D_COLS], va_size);
   std::bitset<OutputBlock_KernelItr_COUNT> kitr{kernel_iterations};
   bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
                    OutputBlock_KernelItr_HIGH);
@@ -1156,7 +1169,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
   return output_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
+static std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
                                         AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> bias_inst;
 
@@ -1196,7 +1209,7 @@ std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
   return bias_inst;
 }
 
-std::bitset<INST_SIZE_BITS> gen_fc_quant(const Op::Layer::QGemm *cc,
+static std::bitset<INST_SIZE_BITS> gen_fc_quant(const Op::Layer::QGemm *cc,
                                          AddressGen &gen) {
   using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
@@ -1330,6 +1343,57 @@ int Op::Layer::LogSoftmax::get_inst(InstBlob& blob, AddressGen& gen, Initializer
   if (this->device != DEVICE_CPU) {
     log_fatal("Operator LogSoftmax can't run on the FPGA\n");
   }
+  return 0;
+}
+
+void Op::Layer::QLinearAveragePool::get_opcodes(std::vector<int>& op_codes) {
+  op_codes.push_back(OP_TailBlock);
+}
+
+uint32_t Op::Layer::QLinearAveragePool::get_weight_size() {
+  /* as average pool is a weight-less operation */
+  return 0;
+}
+
+int Op::Layer::QLinearAveragePool::get_inst(InstBlob& insts, AddressGen& gen, InitializerTable &tbl) {
+  assert(this->device == DEVICE_FPGA);
+  std::bitset<INST_SIZE_BITS> average_pool_inst;
+
+  std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
+  bitset_range_set(average_pool_inst, opcode, TailBlock_Opcode_LOW,
+                   TailBlock_Opcode_HIGH);
+
+  /* enable relu */
+  std::bitset<TailBlock_PoolEn_COUNT> poolen{1};
+  bitset_range_set(average_pool_inst, poolen, TailBlock_PoolEn_LOW,
+                   TailBlock_PoolEn_HIGH);
+
+  std::bitset<TailBlock_PoolType_COUNT> pool_type{POOL_AVERAGE};
+  bitset_range_set(average_pool_inst, pool_type, TailBlock_PoolType_LOW,
+                   TailBlock_PoolType_HIGH);
+
+  std::bitset<TailBlock_PoolWidth_COUNT> pool_width{m_cp.k[TENSOR_2D_WIDTH]};
+  bitset_range_set(average_pool_inst, pool_width, TailBlock_PoolWidth_LOW,
+                   TailBlock_PoolWidth_HIGH);
+
+  std::bitset<TailBlock_PoolHeight_COUNT> pool_height{m_cp.k[TENSOR_2D_HEIGHT]};
+  bitset_range_set(average_pool_inst, pool_height, TailBlock_PoolHeight_LOW,
+                   TailBlock_PoolHeight_HIGH);
+
+  assert_all_equal(m_cp.stride, 2);
+  std::bitset<TailBlock_PoolStride_COUNT> pool_stride{
+      m_cp.stride[TENSOR_2D_HEIGHT]};
+  bitset_range_set(average_pool_inst, pool_stride, TailBlock_PoolStride_LOW,
+                   TailBlock_PoolStride_HIGH);
+
+  assert_all_equal(m_cp.pad, 4);
+  std::bitset<TailBlock_PoolPadding_COUNT> pool_pad{m_cp.pad[I_LEFT]};
+  bitset_range_set(average_pool_inst, pool_pad, TailBlock_PoolPadding_LOW,
+                   TailBlock_PoolPadding_HIGH);
+
+  insts.push_back(average_pool_inst);
+
+  /* as average pool does not insert any dwp packets in the blob */
   return 0;
 }
 
@@ -1522,7 +1586,7 @@ uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg) {
 
 /* bitset to hex */
 template <std::size_t sz>
-std::string b2h(const std::bitset<sz>& binary) {
+static std::string b2h(const std::bitset<sz>& binary) {
     std::stringstream hex_stream;
     hex_stream << std::hex << std::setfill('0');
     for (int i = sz-1; i >= 0; i -= 8) {

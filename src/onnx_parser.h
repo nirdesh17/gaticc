@@ -99,10 +99,7 @@ struct GemmParams {
   int transB;
 };
 
-/* TODO: PoolParams, a better name?
- * used by AveragePool too
- */
-struct MaxpoolParams {
+struct PoolParams {
   int k[2];      /* kernel width/height */
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
@@ -263,7 +260,7 @@ struct Gemm : public LayerBase {
 
 struct Maxpool : public LayerBase {
   const char *m_optype = "Maxpool";
-  MaxpoolParams m_cp;
+  PoolParams m_cp;
   Maxpool();
   const char *op_type() const override;
   const char *params() const override;
@@ -531,6 +528,26 @@ struct LogSoftmax : public LayerBase {
   int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
 };
 
+struct QLinearAveragePool : public LayerBase {
+  const char *m_optype = "QLinearAveragePool";
+  PoolParams m_cp;
+  QLinearAveragePool();
+  float x_scale;
+  float y_scale;
+  std::variant<uint8_t,int8_t> x_zero_points;
+  std::variant<uint8_t,int8_t> y_zero_points;
+
+  const char *op_type() const override;
+  const char *params() const override;
+  void run(TensorPool &tensor_pool) override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
+  void get_opcodes(std::vector<int>& op_codes) override;
+  uint32_t get_weight_size() override;
+  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
+};
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS,
@@ -577,12 +594,12 @@ inline int sa_odims_cols(Op::ConvParams const &cp, const std::vector<int>& input
   return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] + cp.pad[I_DOWN]) / cp.stride[TENSOR_2D_WIDTH]) + 1;
 }
 
-inline int mp_odims_row(Op::MaxpoolParams const &cp, const std::vector<int>& input_dims) {
+inline int mp_odims_row(Op::PoolParams const &cp, const std::vector<int>& input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
   return ((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] + cp.pad[I_LEFT] + cp.pad[I_RIGHT]) / cp.stride[TENSOR_2D_HEIGHT]) + 1;
 }
 
-inline int mp_odims_cols(Op::MaxpoolParams const &cp, const std::vector<int>& input_dims) {
+inline int mp_odims_cols(Op::PoolParams const &cp, const std::vector<int>& input_dims) {
   return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] + cp.pad[I_DOWN]) / cp.stride[TENSOR_2D_WIDTH]) + 1;
 }
 

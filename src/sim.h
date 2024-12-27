@@ -46,7 +46,7 @@ void Relu<T>::exec(const Tensor<T> *input, Tensor<T> *output) {
 
 template <typename T>
 void maxpool(const Tensor<T> *input, Tensor<T> *output,
-             const Op::MaxpoolParams &mp) {
+             const Op::PoolParams &mp) {
   int input_batch = input->dims_at(TENSOR_4D_BATCH);
   int input_depth = input->dims_at(TENSOR_4D_CHANNELS);
   int input_height = input->dims_at(TENSOR_4D_HEIGHT);
@@ -580,5 +580,56 @@ void logsoftmax(Tensor<T> *output, Tensor<T> *input, int axis) {
   assert(out_slice.size() == slice.size());
   for (int i = 0; i < out_slice.size(); ++i) {
     out_slice.set(i, std::log(exp_v.at(i) / reduced_sum));
+  }
+}
+
+template <typename T>
+static T avg(std::vector<T> v) {
+  if (v.size() == 1) {
+    return v.at(0);
+  }
+  int iterations = ceil(log2f(v.size()));
+  for (int j = 0; j < iterations; ++j) {
+    std::vector<T> new_vec;
+    for (int i = 0; i < v.size() - (v.size() % 2); i += 2) {
+      int tmp = v.at(i) + v.at(i + 1);
+      tmp >>= 1;
+      new_vec.push_back(tmp);
+    }
+    if (v.size() % 2 != 0) {
+      new_vec.push_back(v.at(v.size() - 1));
+    }
+    v = new_vec;
+  }
+  return v.at(0);
+}
+
+template <typename T>
+static void average_pool(const Tensor<T> *input, Tensor<T> *output,
+             const Op::PoolParams &mp) {
+  int input_batch = input->dims_at(TENSOR_4D_BATCH);
+  int input_depth = input->dims_at(TENSOR_4D_CHANNELS);
+  int input_height = input->dims_at(TENSOR_4D_HEIGHT);
+  int input_width = input->dims_at(TENSOR_4D_WIDTH);
+  int output_batch = input_batch;
+  int output_depth = input_depth;
+  int output_height = mp_odims_row(mp, input->get_dims());
+  int output_width = mp_odims_cols(mp, input->get_dims());
+
+  for (int d = 0; d < output_depth; ++d) {
+    for (int i = 0; i < output_height; ++i) {
+      for (int j = 0; j < output_width; ++j) {
+        std::vector<T> vals;
+        for (int m = 0; m < mp.k[0]; ++m) {
+          for (int n = 0; n < mp.k[1]; ++n) {
+            std::vector<int> in_index {input_batch-1, d, i * mp.k[0] + m, j * mp.k[1] + n};
+            vals.push_back(input->at(in_index));
+          }
+        }
+        T avg_val = avg(vals);
+        std::vector<int> out_index {input_batch-1, d, i, j};
+        output->insert(out_index, avg_val);
+      }
+    }
   }
 }
