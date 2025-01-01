@@ -351,12 +351,13 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
 
 template <typename inputT, typename outputT>
 inline outputT dequantize_fn(inputT v, float scale, int zero_point) {
-  return ((v * scale) + zero_point);
+  return ((v - zero_point) * scale); 
 }
 
 template <typename inputT, typename outputT>
 void quantize(const Tensor<inputT> *input, Tensor<outputT> *output, const std::vector<float>& scales, const std::vector<int>& zero_point) {
 
+  print_vec("zero points ", zero_point);
   int min_lim = 0;
   int max_lim = 0;
   if (typeid(outputT) == typeid(uint8_t)) {
