@@ -1014,11 +1014,11 @@ void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr,
   // std::vector<int> sa_arch = {9, 4, 4};
   assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
   auto aligned_dims = aligned_conv_input_dims(tensor->get_dims());
-  print_vec("aligned dim ", aligned_dims);
   auto sa_arch = get_sa_arch();
 
-  int single_chan_size =
-      aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
+	int og_chan_size = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_HEIGHT];
+  int single_chan_size = ceil_mod(og_chan_size, get_conv_in_mod());
+
   int chan_ata_time =
       ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
   int sections = ceil_div(sa_arch[SA_ARCH_N] * single_chan_size,
@@ -1037,9 +1037,8 @@ void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr,
           for (int l = 0; l < elements; ++l) {
             int chan_n = (i * sa_arch[SA_ARCH_N]) + k;
             int elem_n = (j * sa_arch[SA_ARCH_N]) + l;
-            int index = (b * batch_size) + (chan_n * single_chan_size) + elem_n;
-            // std::cout << "index " << index;
-            if (elem_n >= single_chan_size ||
+            int index = (b * batch_size) + (chan_n * og_chan_size) + elem_n;
+            if (elem_n >= og_chan_size ||
                 chan_n >= tensor->dims_at(TENSOR_4D_CHANNELS)) {
               append(zero);
             } else {
