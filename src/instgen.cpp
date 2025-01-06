@@ -636,35 +636,53 @@ std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *cc,
   std::bitset<CONV_Opcode_COUNT> opcode{OP_CONV};
   bitset_range_set(conv_inst, opcode, CONV_Opcode_LOW, CONV_Opcode_HIGH);
 
+  check_overflow(cc->input_dims[TENSOR_4D_WIDTH], CONV_IW_COUNT);
   std::bitset<CONV_IW_COUNT> iw{cc->input_dims[TENSOR_4D_WIDTH]};
   bitset_range_set(conv_inst, iw, CONV_IW_LOW, CONV_IW_HIGH);
 
+  check_overflow(cc->input_dims[TENSOR_4D_HEIGHT], CONV_IH_COUNT);
   std::bitset<CONV_IH_COUNT> ih{cc->input_dims[TENSOR_4D_HEIGHT]};
   bitset_range_set(conv_inst, ih, CONV_IH_LOW, CONV_IH_HIGH);
 
+  check_overflow(cc->output_dims[TENSOR_4D_WIDTH], CONV_OW_COUNT);
   std::bitset<CONV_OW_COUNT> ow{cc->output_dims[TENSOR_4D_WIDTH]};
   bitset_range_set(conv_inst, ow, CONV_OW_LOW, CONV_OW_HIGH);
 
+  check_overflow(cc->output_dims[TENSOR_4D_HEIGHT], CONV_OH_COUNT);
   std::bitset<CONV_OH_COUNT> oh{cc->output_dims[TENSOR_4D_HEIGHT]};
   bitset_range_set(conv_inst, oh, CONV_OH_LOW, CONV_OH_HIGH);
 
+  check_overflow(cc->input_dims[TENSOR_4D_CHANNELS], CONV_IC_COUNT);
   std::bitset<CONV_IC_COUNT> ic{cc->input_dims[TENSOR_4D_CHANNELS]};
   bitset_range_set(conv_inst, ic, CONV_IC_LOW, CONV_IC_HIGH);
 
+  check_overflow(cc->m_cp.kn, CONV_KN_COUNT);
   std::bitset<CONV_KN_COUNT> kn{cc->m_cp.kn};
   bitset_range_set(conv_inst, kn, CONV_KN_LOW, CONV_KN_HIGH);
 
+  check_overflow(cc->m_cp.k[TENSOR_2D_WIDTH], CONV_KW_COUNT);
   std::bitset<CONV_KW_COUNT> kw{cc->m_cp.k[TENSOR_2D_WIDTH]};
   bitset_range_set(conv_inst, kw, CONV_KW_LOW, CONV_KW_HIGH);
 
+  check_overflow(cc->m_cp.k[TENSOR_2D_HEIGHT], CONV_KH_COUNT);
   std::bitset<CONV_KH_COUNT> kh{cc->m_cp.k[TENSOR_2D_HEIGHT]};
   bitset_range_set(conv_inst, kh, CONV_KH_LOW, CONV_KH_HIGH);
 
-  assert(cc->m_cp.stride[TENSOR_2D_HEIGHT] == cc->m_cp.stride[TENSOR_2D_WIDTH]);
+  if (cc->m_cp.stride[TENSOR_2D_HEIGHT] != cc->m_cp.stride[TENSOR_2D_WIDTH]) {
+    log_fatal("Found asymmetrical strides for layer {}, ({},{})\n",
+        cc->name, cc->m_cp.stride[TENSOR_2D_HEIGHT], cc->m_cp.stride[TENSOR_4D_WIDTH]);
+  }
+  check_overflow(cc->m_cp.stride[TENSOR_2D_HEIGHT], CONV_Stride_COUNT);
   std::bitset<CONV_Stride_COUNT> stride{cc->m_cp.stride[TENSOR_2D_HEIGHT]};
   bitset_range_set(conv_inst, stride, CONV_Stride_LOW, CONV_Stride_HIGH);
 
-  assert_all_equal(cc->m_cp.pad, 4);
+  int pad_cnt = cc->m_cp.pad[I_LEFT];
+  for (int i = 0; i < 4; ++i) {
+    if (cc->m_cp.pad[I_LEFT] != pad_cnt) {
+      log_fatal("For layer {}, all pads need to be equal\n", cc->m_cp.pad[I_LEFT]);
+    }
+  }
+  check_overflow(cc->m_cp.pad[I_LEFT], CONV_Pad_COUNT);
   std::bitset<CONV_Pad_COUNT> pad{cc->m_cp.pad[I_LEFT]};
   bitset_range_set(conv_inst, pad, CONV_Pad_LOW, CONV_Pad_HIGH);
 
@@ -922,21 +940,32 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen, InitializerTa
   bitset_range_set(maxpool_inst, pool_type, TailBlock_PoolType_LOW,
                    TailBlock_PoolType_HIGH);
 
+  check_overflow(m_cp.k[TENSOR_2D_WIDTH], TailBlock_PoolWidth_COUNT);
   std::bitset<TailBlock_PoolWidth_COUNT> pool_width{m_cp.k[TENSOR_2D_WIDTH]};
   bitset_range_set(maxpool_inst, pool_width, TailBlock_PoolWidth_LOW,
                    TailBlock_PoolWidth_HIGH);
 
+  check_overflow(m_cp.k[TENSOR_2D_HEIGHT], TailBlock_PoolHeight_COUNT);
   std::bitset<TailBlock_PoolHeight_COUNT> pool_height{m_cp.k[TENSOR_2D_HEIGHT]};
   bitset_range_set(maxpool_inst, pool_height, TailBlock_PoolHeight_LOW,
                    TailBlock_PoolHeight_HIGH);
 
-  assert_all_equal(m_cp.stride, 2);
+  if (m_cp.stride[TENSOR_2D_HEIGHT] != m_cp.stride[TENSOR_2D_WIDTH]) {
+    log_fatal("Strides need to be symmetric for layer {}\n", this->name);
+  }
+  check_overflow(m_cp.stride[TENSOR_2D_HEIGHT], TailBlock_PoolStride_COUNT);
   std::bitset<TailBlock_PoolStride_COUNT> pool_stride{
       m_cp.stride[TENSOR_2D_HEIGHT]};
   bitset_range_set(maxpool_inst, pool_stride, TailBlock_PoolStride_LOW,
                    TailBlock_PoolStride_HIGH);
 
-  assert_all_equal(m_cp.pad, 4);
+  int pad_cnt = m_cp.pad[I_LEFT];
+  for (int i = 0; i < 4; ++i) {
+    if (m_cp.pad[I_LEFT] != pad_cnt) {
+      log_fatal("Pads for layer {} should all be equal\n", this->name);
+    }
+  }
+  check_overflow(m_cp.pad[I_LEFT], TailBlock_PoolPadding_COUNT);
   std::bitset<TailBlock_PoolPadding_COUNT> pool_pad{m_cp.pad[I_LEFT]};
   bitset_range_set(maxpool_inst, pool_pad, TailBlock_PoolPadding_LOW,
                    TailBlock_PoolPadding_HIGH);
