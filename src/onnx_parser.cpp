@@ -1,8 +1,7 @@
-#include "pch.h"
-
 // #include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "utils.h"
+#include <queue>
 // #include <algorithm>
 // #include <cerrno>
 // #include <cstring>
@@ -68,7 +67,7 @@ uint32_t Op::LayerBase::get_weight_size() {
 
 
 /* Get a array of ints from attr and store into array */
-void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
+static void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&
          "expected attributes of type INTS");
   auto ints = attr.ints();
@@ -1262,6 +1261,101 @@ void Op::Layer::LogSoftmax::infer_type(const std::vector<TPDT>& input_types) {
   this->output_type = input_types.at(0);
 }
 
+Op::Layer::QLinearAveragePool::QLinearAveragePool() {
+  /* zero initialize */
+  m_cp = {};
+  /* overwrite with sane defaults */
+  m_cp.stride[TENSOR_2D_HEIGHT]   = 1;
+  m_cp.stride[TENSOR_2D_WIDTH]    = 1;
+  m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
+  m_cp.dilation[TENSOR_2D_WIDTH]  = 1;
+  x_scale = 0;
+  y_scale = 0;
+}
+
+const char *Op::Layer::QLinearAveragePool::op_type() const {
+  return m_optype;
+}
+
+const char *Op::Layer::QLinearAveragePool::params() const {
+  static char ret[128];
+  sprintf(ret,
+          "(IC,IW,IH: %d,%d,%d) (KS: %d,%d), (pad: %d,%d,%d,%d), (stride: "
+          "%d,%d), (dilation: %d, %d)",
+          this->input_dims[TENSOR_4D_CHANNELS],
+          this->input_dims[TENSOR_4D_WIDTH], this->input_dims[TENSOR_4D_HEIGHT],
+          m_cp.k[TENSOR_2D_HEIGHT], m_cp.k[TENSOR_2D_WIDTH], m_cp.pad[I_LEFT],
+          m_cp.pad[I_UP], m_cp.pad[I_RIGHT], m_cp.pad[I_DOWN],
+          m_cp.stride[TENSOR_2D_HEIGHT], m_cp.stride[TENSOR_2D_WIDTH],
+          m_cp.dilation[TENSOR_2D_WIDTH], m_cp.dilation[TENSOR_2D_HEIGHT]);
+  return ret;
+}
+
+void Op::Layer::QLinearAveragePool::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "kernel_shape") {
+      assert(itr->ints().size() == 2 &&
+             "expected kernel shape to be 2 integers");
+      parse_onnx_ints(*itr, m_cp.k);
+    } else if (itr->name() == "strides") {
+      assert(itr->ints().size() == 2 &&
+             "expected strides shape to be 2 integers");
+      parse_onnx_ints(*itr, m_cp.stride);
+    } else if (itr->name() == "pads") {
+      assert(itr->ints().size() == 4 && "expected pads shape to be 4 integers");
+      parse_onnx_ints(*itr, m_cp.pad);
+    } else if (itr->name() == "ceil_mode") {
+      if (itr->has_i()) {
+         int ceil_mode = static_cast<int>(itr->i());
+         if (ceil_mode != 0) {
+           log_fatal("Unsupported ceil_mode {} in layer {}\n", ceil_mode, node.name());
+         }
+      } 
+    } else if (itr->name() == "channels_last") {
+      if (itr->has_i()) {
+        int channels_last = static_cast<int>(itr->i());
+        if (channels_last != 0) {
+           log_fatal("Unsupported channels_last {} in layer {}\n", channels_last, node.name());
+        }
+      }
+    } else if (itr->name() == "count_include_pad") {
+      if (itr->has_i()) {
+        int count_include_pad = static_cast<int>(itr->i());
+        if (count_include_pad != 1) {
+           log_fatal("Unsupported count_include_pad {} in layer {}\n", count_include_pad, node.name());
+        }
+      }
+    } else if (itr->name() == "auto_pad") {
+      if (itr->has_s()) {
+        auto auto_pad = itr->s();
+        auto expected_auto_pad = "NOTSET";
+        if (auto_pad != expected_auto_pad) {
+          log_fatal("Unsupported auto_pad type {}, expected auto pad to be {} in layer {}\n",
+              auto_pad, expected_auto_pad, node.name());
+        } 
+      }
+    }
+  }
+}
+
+void Op::Layer::QLinearAveragePool::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
+void Op::Layer::QLinearAveragePool::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims[0];
+  assert(input_dims[0].size() == 4);
+  this->output_dims.resize(4);
+  this->output_dims[0] = input_dims[0][0];
+  this->output_dims[1] = input_dims[0][1];
+  this->output_dims[2] = mp_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[3] = mp_odims_cols(this->m_cp, input_dims[0]);
+}
+
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
@@ -1542,8 +1636,6 @@ std::vector<int> Op::get_tensorproto_shape(const onnx::TensorProto &t) {
   return ret_dims;
 }
 
-#define sa_odims(i, k, s, p) ((i - k + 2 * p) / s)
-
 long Op::Model::time_estimate(int M, int N, int K) const {
   Op::VertexIterator vb, ve;
   std::tie(vb, ve) = boost::vertices(g);
@@ -1687,27 +1779,6 @@ void Op::Model::deduce_types(const std::vector<TPDT>& input_types) {
       }
     }
   }
-#if 0
-  //TODO: remove this
-  /* Iterate over all nodes, search for input and output
-   * nodes that are not initializers, store their types
-   * in LayerBase->*_type  */
-  for (const auto &i : gproto.node()) {
-    auto itr = name_vertex_map.find(i.name());
-    Op::LayerBase *l = g[itr->second];
-    set_input_type(i, l);
-    set_output_type(i, l);
-    // assert(l->input_type != onnx::TensorProto_DataType_UNDEFINED && "Input
-    // type cannot be Undefined"); assert(l->output_type !=
-    // onnx::TensorProto_DataType_UNDEFINED && "Output type cannot be
-    // Undefined");
-    if (l->input_type == onnx::TensorProto_DataType_UNDEFINED) {
-      log_fatal("Failed Type Deduction. Input type for layer: %s cannot be \n"
-                "UNDEFINED",
-                l->name.c_str());
-    }
-  }
-#endif
 }
 
 void Op::Model::set_input_type(const onnx::NodeProto &node, Op::LayerBase *l) {
@@ -2018,6 +2089,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QGemm(), node);
   } else if (opt == "LogSoftmax") {
     m_model.add(new Op::Layer::LogSoftmax(), node);
+  } else if (opt == "QLinearAveragePool") {
+    m_model.add(new Op::Layer::QLinearAveragePool(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }

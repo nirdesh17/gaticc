@@ -53,7 +53,7 @@ bool maxpool_1x3x6x6()
     };
     TensorCreate<float> output_tensor(output_dims);
 
-    Op::MaxpoolParams maxpool_params = {{2, 2}, {0, 0, 0, 0}, {2, 2},{0 ,0}};
+    Op::PoolParams maxpool_params = {{2, 2}, {0, 0, 0, 0}, {2, 2},{0 ,0}};
 
     Op::Layer::Maxpool maxpool_layer;
     maxpool_layer.m_cp = maxpool_params;

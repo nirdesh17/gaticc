@@ -7,6 +7,7 @@
 #include <string>
 #include "instgen.h"
 #include <filesystem>
+#include <dlfcn.h>
 
 
 #define RAH_SO_STRING "librah.so"

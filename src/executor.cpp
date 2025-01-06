@@ -1,4 +1,3 @@
-#include "pch.h"
 #define NO_IMPORT_ARRAY
 #include "numpy_init.h"
 
@@ -30,7 +29,7 @@ DispatchTable::DispatchTable() {
   }
 }
 
-void check_dispatch_table_validity(const std::vector<std::string> &tbl,
+static void check_dispatch_table_validity(const std::vector<std::string> &tbl,
                                    const Op::Graph &graph) {
   std::vector<std::string> graph_nodes;
   auto vitr = boost::vertices(graph);
@@ -124,7 +123,7 @@ Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
 
 /* helper function for Op::Layer::Conv::run() */
 template <typename inputT, typename weightT, typename outputT>
-void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Conv *cc = dynamic_cast<Op::Layer::Conv *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -165,7 +164,7 @@ void Op::Layer::Conv::run(TensorPool &tensor_pool) {
 }
 
 /* helper function for Op::Layer::Conv::run() */
-template <typename T> void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
+template <typename T> static void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Relu *cc = dynamic_cast<Op::Layer::Relu *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -208,7 +207,7 @@ void Op::Layer::Relu::run(TensorPool &tensor_pool) {
 }
 
 template <typename T>
-void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Maxpool *cc = dynamic_cast<Op::Layer::Maxpool *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
@@ -246,7 +245,7 @@ void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
 }
 
 template <typename T>
-void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Flatten *cc = dynamic_cast<Op::Layer::Flatten *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
@@ -284,7 +283,7 @@ void Op::Layer::Flatten::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename outputT>
-void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Gemm *cc = dynamic_cast<Op::Layer::Gemm *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -329,7 +328,7 @@ void Op::Layer::Gemm::run(TensorPool &tensor_pool) {
 }
 
 template <typename T>
-void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Dropout *cc = dynamic_cast<Op::Layer::Dropout *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
@@ -368,7 +367,7 @@ void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
 }
 
 template <typename T>
-void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Reshape *cc = dynamic_cast<Op::Layer::Reshape *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
@@ -413,7 +412,7 @@ void Op::Layer::Reshape::run(TensorPool &tensor_pool) {
 }
 
 template <typename T>
-void run_transpose(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_transpose(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Transpose *cc = dynamic_cast<Op::Layer::Transpose *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
@@ -452,7 +451,7 @@ void Op::Layer::Transpose::run(TensorPool &tensor_pool) {
 
 /* TODO: refactor to share this with gemm */
 template <typename inputT, typename outputT>
-void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::MatMul *cc = dynamic_cast<Op::Layer::MatMul *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -497,7 +496,7 @@ void Op::Layer::MatMul::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename outputT>
-void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Add *cc = dynamic_cast<Op::Layer::Add *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -548,7 +547,7 @@ void Op::Layer::Add::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename outputT>
-void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QuantizeLinear *cc = dynamic_cast<Op::Layer::QuantizeLinear *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
@@ -593,10 +592,8 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
   }
 }
 
-MinMaxCounter<int> minmaxcnt;
-
 template <typename inputT, typename weightT, typename intrT, typename outputT>
-void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -658,7 +655,7 @@ void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename outputT>
-void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::DequantizeLinear *cc = dynamic_cast<Op::Layer::DequantizeLinear *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
@@ -706,7 +703,7 @@ void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename weightT, typename intrT, typename outputT>
-void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearMatMul *cc = dynamic_cast<Op::Layer::QLinearMatMul *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -764,7 +761,7 @@ void Op::Layer::QLinearMatMul::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename intrT, typename outputT>
-void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearAdd *cc = dynamic_cast<Op::Layer::QLinearAdd *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -819,7 +816,7 @@ void Op::Layer::QLinearAdd::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename weightT, typename intrT, typename outputT>
-void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -872,6 +869,10 @@ void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
              weight_type == onnx::TensorProto_DataType_INT8 &&
              bias_type == onnx::TensorProto_DataType_INT8) {
     run_qgemm<uint8_t, int8_t, int8_t, uint8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
+      weight_type == onnx::TensorProto_DataType_UINT8 &&
+      bias_type == onnx::TensorProto_DataType_INT32) {
+    run_qgemm<uint8_t, uint8_t, int8_t, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type),
@@ -880,7 +881,7 @@ void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename outputT>
-void run_logsoftmax(Op::LayerBase *l, TensorPool &tensor_pool) {
+static void run_logsoftmax(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::LogSoftmax *cc = dynamic_cast<Op::Layer::LogSoftmax *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -914,3 +915,38 @@ void Op::Layer::LogSoftmax::run(TensorPool &tensor_pool) {
   }
 }
 
+template <typename T>
+static void run_qlinearaveragepool(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::QLinearAveragePool *cc = dynamic_cast<Op::Layer::QLinearAveragePool *>(l);
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+
+  average_pool<T>(input, output, cc->m_cp);
+
+  if (l->dispatch) {
+    pickle_tensor(output, l->name + ".tensor");
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
+  }
+}
+
+void Op::Layer::QLinearAveragePool::run(TensorPool &tensor_pool) {
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type == output_type);
+
+  if (input_type == onnx::TensorProto_DataType_INT8) {
+    run_qlinearaveragepool<int8_t>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_UINT8) {
+    run_qlinearaveragepool<uint8_t>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}

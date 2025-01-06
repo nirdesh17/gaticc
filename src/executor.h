@@ -3,7 +3,7 @@
 #define NO_IMPORT_ARRAY
 #include "numpy_init.h"
 
-#include "onnx.pb.h"
+//#include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "ffi.h"
 

@@ -1,9 +1,7 @@
 #pragma once
 #include "onnx.pb.h"
-#include "onnx_parser.h"
 #include "utils.h"
 #include <iostream>
-#include <thread>
 #include <vector>
 
 /* TODO: iterator mechanism for tensors
@@ -44,6 +42,7 @@ public:
   virtual int size() const = 0;
   virtual std::vector<T> get() const = 0;
   virtual void print() const = 0;
+  virtual std::vector<int> get_strides() const = 0;
   /* Derived classes implement this and return whether delete can be called
    * on the underlying tensor. For derived types (such as TensorExtant and
    * TensorSlice) that wrap around some other type and do not fully own their
@@ -154,6 +153,7 @@ public:
    * underlying data
    */
   std::vector<T> get() const override;
+  std::vector<int> get_strides() const override;
   void print() const override;
   ~TensorExtant();
 };
@@ -227,6 +227,10 @@ template <typename T> std::vector<T> TensorExtant<T>::get() const {
     ret[i] = data[i];
   }
   return ret;
+}
+
+template <typename T> std::vector<int> TensorExtant<T>::get_strides() const {
+  return stride;
 }
 
 template <typename T>
@@ -318,6 +322,8 @@ public:
 
   std::vector<T> get() const override { return vec; }
 
+  std::vector<int> get_strides() const override { return stride; }
+
   void set(int index, T val) override { vec.at(index) = val; }
 
   virtual Tensor<T>& operator=(const Tensor<T>& rhs) {
@@ -374,6 +380,7 @@ public:
   std::vector<T> get() const override;
   void print() const override;
   bool freeable() const override;
+  std::vector<int> get_strides() const override;
 
   ~TensorSlice();
 
@@ -462,6 +469,12 @@ std::vector<T> TensorSlice<T>::get() const {
     ret[i] = at(i);
   }
   return ret;
+}
+
+template <typename T>
+std::vector<int> TensorSlice<T>::get_strides() const {
+  log_fatal("get_stride() for TensorSlice is unimplemented\n");
+  return std::vector<int>{};
 }
 
 template <typename T>
