@@ -45,7 +45,8 @@ std::vector<int> permute(const std::vector<int> &v,
  * and so on till
  *  ii = [2,3,1]
  */
-void increment_shape(std::vector<int> &ii, const std::vector<int> &limit_shape) {
+void increment_shape(std::vector<int> &ii,
+                     const std::vector<int> &limit_shape) {
   assert(ii.size() == limit_shape.size());
   int current_index = ii.size() - 1;
   while (current_index >= 0) {
@@ -62,19 +63,37 @@ void increment_shape(std::vector<int> &ii, const std::vector<int> &limit_shape) 
   }
 }
 
-/* Deduces and removes -1/0 from old_shape to return 
+/* Deduces and removes -1/0 from old_shape to return
  * a correct new_shape.
  * See https://onnx.ai/onnx/operators/onnx__Reshape.html#reshape
  *
  * TODO: handle 0s in shape (does not do it presently)
  */
-std::vector<int64_t> deduce_new_shape(std::vector<int64_t> old_shape, int input_total_size) {
+std::vector<int64_t> deduce_new_shape(std::vector<int64_t> old_shape,
+                                      int input_total_size) {
   auto itr = std::find(old_shape.begin(), old_shape.end(), -1);
   if (itr != old_shape.end()) {
     int remaining_size = std::abs(prod(old_shape.begin(), old_shape.end(), 1));
-    assert(input_total_size % remaining_size == 0 && "unable to deduce new shape");
+    assert(input_total_size % remaining_size == 0 &&
+           "unable to deduce new shape");
     int remaining_dim = input_total_size / remaining_size;
-    *itr = remaining_dim; 
+    *itr = remaining_dim;
   }
   return old_shape;
+}
+
+int calc_shift_val(float inverted) {
+  int shift_val = 16;
+  double min_diff = std::numeric_limits<double>::max();
+  for (int shift = 1; shift <= 24; shift++) {
+    int int_scale = floor(inverted * (1 << shift));
+    double check = ((double)(int_scale) / (double)(1 << shift));
+    double ok = (check / inverted);
+    double diff = (1 - ok);
+    if (diff < min_diff && diff >= 0) {
+      min_diff = diff;
+      shift_val = shift;
+    }
+  }
+  return shift_val;
 }
