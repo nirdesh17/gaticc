@@ -33,13 +33,8 @@ static void dispatch_simulator(const Op::Parser &parser) {
 }
 
 static void dispatch_timeest(const Op::Parser &parser) {
-  std::string arch_list = gbl_args["timeest"].as<std::string>();
-  std::vector<int> mnk = parse_csv_string<int>(arch_list);
-  assert(mnk.size() != 0 && "Ill formatted dimension string to --timeest, "
-                            "expects string like 9,8,8");
-  assert(mnk.size() == 3 &&
-         "Systolic Array shape should be 3 dimensional M, N, K");
-  parser.time_estimate(mnk.at(0), mnk.at(1), mnk.at(2));
+  Op::Graph graph = parser.get_graph();
+  time_estimate(graph);
 }
 
 static void dispatch_info_ops() {

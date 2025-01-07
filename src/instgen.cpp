@@ -982,37 +982,6 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen, InitializerTa
   return 0;
 }
 
-/* get true row/cols dimensions when transB is
- * applied on cc dimension. transB is a field in
- * an onnx::NodeProto present in the onnx file.
- * This here is an artifact of tightly integrated
- * onnx<->IR design. This needs fixing TODO.
- */
-static std::vector<int> get_true_rc_weights(const Op::Layer::QGemm *cc) {
-  std::vector<int> ret(2);
-  if (cc->m_cp.transB) {
-    ret[0] = cc->m_cp.wc;
-    ret[1] = cc->m_cp.wr;
-  } else {
-    ret[0] = cc->m_cp.wr;
-    ret[1] = cc->m_cp.wc;
-  }
-  return ret;
-}
-
-static std::vector<int> get_true_rc_inputs(const Op::Layer::QGemm *cc) {
-  std::vector<int> ret(2);
-  if (cc->m_cp.transA) {
-    ret[0] = cc->input_dims[1];
-    ret[1] = cc->input_dims[0];
-  } else {
-    ret[0] = cc->input_dims[0];
-    ret[1] = cc->input_dims[1];
-  }
-  return ret;
-}
-
-
 static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
                                         AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> gemm_inst;

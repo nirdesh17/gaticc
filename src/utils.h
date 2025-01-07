@@ -140,7 +140,7 @@ class Argparse {
            {"--timeest"},
            "print estimated time that a model would take based on FLOP counts "
            "(this does not account for latencies such as that of DRAM)"
-           "Args: [comma separated arch config]",
+           "Args: [frequency (int)]",
            1},
           {"info",
            {"-i", "--info"},
@@ -186,8 +186,7 @@ class Argparse {
           {"sa-arch",
            {"--sa-arch"},
            "systolic array architecture. Args: [comma sep values]. accepts "
-           "args "
-           "like --timeest",
+           "args ",
            1},
           {"ramsize",
            {"--ramsize"},
@@ -295,8 +294,8 @@ class Argparse {
       {"Get a summary of a onnx model",
        "gaticc -i path/to/model.onnx --summary"},
       {"Get a theoretical time estimate for a model",
-       "gaticc -i path/to/model.onnx --timeest <sa_arch>  "
-       "(e.g. --timeest 9,4,4)"},
+       "gaticc -i path/to/model.onnx --timeest <frequency>  "
+       "(e.g. --timeest 100)"},
       {"Compile a model into a gml file",
        "gaticc -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
        "--accbuf-size 4096 --fcbuf-size 32768 -o model.gml"},

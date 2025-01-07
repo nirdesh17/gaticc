@@ -199,6 +199,7 @@ struct LayerBase {
   bool dispatch;
 };
 
+
 namespace Layer {
 
 struct Conv : public LayerBase {
@@ -559,6 +560,8 @@ using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 
 /* Auxillary functions (no where else to put them...) */
 
+bool is_conv_like(std::string op_type);
+bool is_gemm_like(std::string op_type);
 void print_opgraph(Op::Graph gcopy);
 bool is_root_node(Op::Vertex v, const Op::Graph *g);
 bool are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g);
@@ -583,6 +586,12 @@ int tensorproto_sizeof(const onnx::TensorProto *t);
 int tpdt_sizeof(TPDT v);
 /* compare t1 and t2 */
 bool dtype_eq(int32_t t1, TPDT t2);
+
+std::vector<int> get_true_rc_weights(const Op::LayerBase *l);
+std::vector<int> get_true_rc_inputs(const Op::LayerBase *l);
+
+  /* Return the total cycles required by the entire model */
+long time_estimate(Op::Graph graph);
 
 inline int sa_odims_row(Op::ConvParams const &cp, const std::vector<int>& input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
@@ -655,8 +664,7 @@ public:
   /* Print a summary of the network (traversed like a graph in topological
    * order) */
   void summary(void) const;
-  /* Return the total cycles equired by the entire model */
-  long time_estimate(int M, int N, int K) const;
+
 
   size_t size(void);
   size_t size(void) const;
@@ -685,7 +693,6 @@ public:
   Parser(std::string const &filename);
   void summary(void) const;
   void bare_summary(void) const;
-  long time_estimate(int M, int N, int K) const;
   std::vector<LayerBase *> get_execution_order(void) const;
   TPDT get_model_input_type(void) const;
   TPDT get_model_output_type(void) const;
@@ -712,7 +719,7 @@ public:
   RegisterAllocator(Op::Graph g);
 };
 
-template <typename T> bool isa(Op::LayerBase *l) {
+template <typename T> bool isa(const Op::LayerBase *l) {
   return dynamic_cast<T>(l) ? true : false;
 }
 

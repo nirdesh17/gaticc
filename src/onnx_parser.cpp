@@ -1636,56 +1636,50 @@ std::vector<int> Op::get_tensorproto_shape(const onnx::TensorProto &t) {
   return ret_dims;
 }
 
-long Op::Model::time_estimate(int M, int N, int K) const {
+long Op::time_estimate(Op::Graph graph) {
   Op::VertexIterator vb, ve;
-  std::tie(vb, ve) = boost::vertices(g);
+  std::tie(vb, ve) = boost::vertices(graph);
   long cycles = 0;
+
+  auto sa_arch = get_sa_arch();
+  int va_size = get_va_size();
+
+  if (!gbl_args.has_option("timeest")) {
+    log_fatal("--timeest expects frequency as an argument, see --help\n");
+  }
+  int frequency = gbl_args["timeest"].as<int>();
+
   for (auto itr = vb; itr != ve; ++itr) {
-    LayerBase *node = g[*itr];
-    if (node->op_type() == "Conv") {
-      Op::Layer::Conv *c = (Op::Layer::Conv *)node;
-      int available_pe_columns = 0;
-      int input_columns = sa_odims_row(c->m_cp, c->input_dims) * sa_odims_cols(c->m_cp, c->input_dims);
-
-      if (c->input_dims[TENSOR_4D_CHANNELS] == 1) {
-        // depth wise default
-        available_pe_columns = K;
-      }
-#if 0
-      else if (c->m_cp.k[0] == 1 && c->m_cp.k[1] == 1) {
-        // point wise optimization
-        available_pe_columns = (1 * 32 * 18);
-      }
-#endif
-      else if (c->m_cp.k[0] > 3 && c->m_cp.k[1] > 3) {
-        // kernels greater than 3x3
-        available_pe_columns = K;
+    LayerBase *node = graph[*itr];
+    if (is_conv_like(node->op_type())) {
+      int input_columns = node->output_dims[TENSOR_4D_WIDTH] *
+                          node->output_dims[TENSOR_4D_HEIGHT];
+      int available_pe_columns = sa_arch[SA_ARCH_COLS] * sa_arch[SA_ARCH_N];
+      int channels = node->input_dims[TENSOR_4D_CHANNELS];
+      int kernels = 0;
+      if (isa<const Op::Layer::Conv *>(node)) {
+        kernels = dynamic_cast<const Op::Layer::Conv *>(node)->m_cp.kn;
+      } else if (isa<const Op::Layer::QLinearConv *>(node)) {
+        kernels = dynamic_cast<const Op::Layer::QLinearConv *>(node)->m_cp.kn;
       } else {
-        // all other types of convolutions
-        available_pe_columns = N * K;
+        log_fatal("dunno what typa conv this ({}) is, mate\n", node->name);
       }
-
-      int t =
-          ((c->input_dims[TENSOR_4D_CHANNELS] * c->m_cp.kn) / available_pe_columns) * input_columns;
+      int t = ((channels * kernels) / available_pe_columns) * input_columns;
       cycles += t;
-      std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-      Op::print_node(*itr, &g);
-    } else if (node->op_type() == "Gemm") {
-      Op::Layer::Gemm *gemm_node = (Op::Layer::Gemm *)node;
-      assert(gemm_node->m_cp.wc == gemm_node->input_dims[TENSOR_2D_WIDTH]);
-      int available_pe_columns = (N * K > 32) ? 32 : N * K;
-      int t = (gemm_node->m_cp.wr / available_pe_columns) * gemm_node->input_dims[TENSOR_2D_WIDTH];
+      std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
+      Op::print_node(*itr, &graph);
+    } else if (is_gemm_like(node->op_type())) {
+      auto wr_wc = get_true_rc_weights(node);
+      int available_pe_columns = va_size;
+      int t = ((float)wr_wc[1] / (float)available_pe_columns) * wr_wc[0];
       cycles += t;
-      std::cout << "Time: " << (float)t / 1e5 << "ms\n";
-      Op::print_node(*itr, &g);
-    } else if (node->op_type() == "Add") {
-      Op::Layer::Add *add_node = (Op::Layer::Add *)node;
-      std::cout << add_node->params() << '\n';
+      std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
+      Op::print_node(*itr, &graph);
     }
   }
-  std::cout << "Total Estimated time for convolutions: " << (float)cycles / 1e5
-            << "ms\n";
-  return (float)cycles;
+  std::cout << "Total Estimated time for convolutions: "
+            << (float)cycles / (frequency * 1e3) << "ms\n";
+  return cycles;
 }
 
 void Op::Model::bare_summary(void) const {
@@ -1999,6 +1993,58 @@ bool Op::dtype_eq(int32_t t1, TPDT t2) {
     return ptr_dtype == t2;
 }
 
+std::vector<int> Op::get_true_rc_weights(const Op::LayerBase *node) {
+  std::vector<int> ret(2, 0);
+  if (Op::isa<const Op::Layer::Gemm *>(node)) {
+    const Op::Layer::Gemm *g = dynamic_cast<const Op::Layer::Gemm *>(node);
+    if (g->m_cp.transB) {
+      ret[TENSOR_2D_HEIGHT] = g->m_cp.wc;
+      ret[TENSOR_2D_WIDTH] = g->m_cp.wr;
+    } else {
+      ret[TENSOR_2D_HEIGHT] = g->m_cp.wr;
+      ret[TENSOR_2D_WIDTH] = g->m_cp.wc;
+    }
+  } else if (Op::isa<const Op::Layer::QGemm *>(node)) {
+    const Op::Layer::QGemm *g = dynamic_cast<const Op::Layer::QGemm *>(node);
+    if (g->m_cp.transB) {
+      ret[TENSOR_2D_HEIGHT] = g->m_cp.wc;
+      ret[TENSOR_2D_WIDTH] = g->m_cp.wr;
+    } else {
+      ret[TENSOR_2D_HEIGHT] = g->m_cp.wr;
+      ret[TENSOR_2D_WIDTH] = g->m_cp.wc;
+    }
+  } else {
+    log_fatal("dunno what typa gemm this ({}) is, mate\n", node->name);
+  }
+  return ret;
+}
+
+std::vector<int> Op::get_true_rc_inputs(const Op::LayerBase *node) {
+  std::vector<int> ret(2, 0);
+  if (Op::isa<const Op::Layer::Gemm *>(node)) {
+    const Op::Layer::Gemm *g = dynamic_cast<const Op::Layer::Gemm *>(node);
+    if (g->m_cp.transA) {
+      ret[TENSOR_2D_HEIGHT] = g->input_dims[TENSOR_2D_WIDTH];
+      ret[TENSOR_2D_WIDTH] = g->input_dims[TENSOR_2D_HEIGHT];
+    } else {
+      ret[TENSOR_2D_HEIGHT] = g->input_dims[TENSOR_2D_HEIGHT];
+      ret[TENSOR_2D_WIDTH] = g->input_dims[TENSOR_2D_WIDTH];
+    }
+  } else if (Op::isa<const Op::Layer::QGemm *>(node)) {
+    const Op::Layer::QGemm *g = dynamic_cast<const Op::Layer::QGemm *>(node);
+    if (g->m_cp.transA) {
+      ret[TENSOR_2D_HEIGHT] = g->input_dims[TENSOR_2D_WIDTH];
+      ret[TENSOR_2D_WIDTH] = g->input_dims[TENSOR_2D_HEIGHT];
+    } else {
+      ret[TENSOR_2D_HEIGHT] = g->input_dims[TENSOR_2D_HEIGHT];
+      ret[TENSOR_2D_WIDTH] = g->input_dims[TENSOR_2D_WIDTH];
+    }
+  } else {
+    log_fatal("dunno what typa gemm this ({}) is, mate\n", node->name);
+  }
+  return ret;
+}
+
 std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return execution_order;
 }
@@ -2024,9 +2070,28 @@ void Op::print_opgraph(Op::Graph gcopy) {
     }
   }
 }
-/* TODO: make this algorithm (used by summary() and get_execution_order()
- * common) with callbacks
- */
+
+
+/* Conv and its derivatives */
+static std::vector<std::string> conv_like_tbl {
+  "Conv", "QLinearConv"
+};
+
+bool Op::is_conv_like(std::string op_type) {
+  return std::find(conv_like_tbl.cbegin(), conv_like_tbl.cend(), op_type) !=
+         conv_like_tbl.cend();
+}
+
+/* Gemm and its derivatives */
+static std::vector<std::string> gemm_like_tbl {
+  "QGemm", "Gemm"
+};
+
+bool Op::is_gemm_like(std::string op_type) {
+  return std::find(gemm_like_tbl.cbegin(), gemm_like_tbl.cend(), op_type) !=
+         gemm_like_tbl.cend();
+}
+
 void Op::Model::summary(void) const {
   print_opgraph(g);
 }
@@ -2141,9 +2206,6 @@ Op::Parser::Parser(std::string const &filename) {
 
 void Op::Parser::summary() const { m_model.bare_summary(); }
 void Op::Parser::bare_summary() const { m_model.bare_summary(); }
-long Op::Parser::time_estimate(int M, int N, int K) const {
-  return m_model.time_estimate(M, N, K);
-}
 
 std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const {
   return m_model.get_execution_order();
