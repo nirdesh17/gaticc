@@ -58,22 +58,6 @@ enum DEVICES {
   DEVICE_FPGA
 };
 
-inline const char *get_device_name(int device) {
-  switch (device) {
-    case DEVICE_UNKNOWN:
-      return "DEVICE_UNKNOWN";
-      break;
-    case DEVICE_CPU:
-      return "DEVICE_CPU";
-      break;
-    case DEVICE_FPGA:
-      return "DEVICE_FPGA";
-      break;
-    default:
-      log_fatal("unknown device enum {}, can't get name\n", device);
-      break;
-  }
-}
 
 /* aot declaration, definition in instgen.h */
 class AddressGen;
@@ -560,6 +544,7 @@ using Neighbours = std::pair<Op::AdjacencyIterator, Op::AdjacencyIterator>;
 
 /* Auxillary functions (no where else to put them...) */
 
+const char *get_device_name(int device);
 bool is_conv_like(std::string op_type);
 bool is_gemm_like(std::string op_type);
 void print_opgraph(Op::Graph gcopy);

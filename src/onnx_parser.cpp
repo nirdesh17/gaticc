@@ -1552,23 +1552,27 @@ void Op::print_node(const LayerBase *node) {
             << Op::get_tensorproto_dtype_name(node->input_type) << '\n';
   std::cout << "Output Type: "
             << Op::get_tensorproto_dtype_name(node->output_type) << '\n';
-  const char *device = (node->device == DEVICE_CPU) ? "CPU" : "FPGA";
-  switch (node->device) {
-    case DEVICE_UNKNOWN:
-      device = "UNKNOWN";
-      break;
-    case DEVICE_FPGA:
-      device = "FPGA";
-      break;
-    case DEVICE_CPU:
-      device = "CPU";
-      break;
-    default:
-      log_fatal("illegal device number for layer {}\n", node->name);
-  }
+  const char *device = get_device_name(node->device);
   std::cout << "Device " <<  device << '\n';
   print_vec("Input dims", node->input_dims);
   print_vec("Output dims", node->output_dims);
+}
+
+const char *Op::get_device_name(int device) {
+  switch (device) {
+    case DEVICE_UNKNOWN:
+      return "DEVICE_UNKNOWN";
+      break;
+    case DEVICE_CPU:
+      return "DEVICE_CPU";
+      break;
+    case DEVICE_FPGA:
+      return "DEVICE_FPGA";
+      break;
+    default:
+      log_fatal("unknown device enum {}, can't get name\n", device);
+      break;
+  }
 }
 
 const char *Op::get_tensorproto_dtype_name(TPDT type) {
