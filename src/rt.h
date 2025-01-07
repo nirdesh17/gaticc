@@ -179,7 +179,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
       assert(l->device != DEVICE_UNKNOWN);
 
       l->dispatch = hdt.should_dispatch(l);
-      log_info("Running layer {} on {}\n", l->name, get_device_name(l->device));
+      log_info("Running layer {} on {}\n", l->name, Op::get_device_name(l->device));
       if (l->device == DEVICE_CPU && sent == false) {
         l->run(tensor_pool);
       } 

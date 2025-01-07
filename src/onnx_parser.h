@@ -523,7 +523,7 @@ struct QLinearAveragePool : public LayerBase {
   std::variant<uint8_t,int8_t> y_zero_points;
 
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;

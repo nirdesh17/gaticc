@@ -1292,18 +1292,18 @@ const char *Op::Layer::QLinearAveragePool::op_type() const {
   return m_optype;
 }
 
-const char *Op::Layer::QLinearAveragePool::params() const {
+std::string Op::Layer::QLinearAveragePool::params() const {
+  std::stringstream ss;
   static char ret[128];
-  sprintf(ret,
-          "(IC,IW,IH: %d,%d,%d) (KS: %d,%d), (pad: %d,%d,%d,%d), (stride: "
-          "%d,%d), (dilation: %d, %d)",
-          this->input_dims[TENSOR_4D_CHANNELS],
-          this->input_dims[TENSOR_4D_WIDTH], this->input_dims[TENSOR_4D_HEIGHT],
-          m_cp.k[TENSOR_2D_HEIGHT], m_cp.k[TENSOR_2D_WIDTH], m_cp.pad[I_LEFT],
-          m_cp.pad[I_UP], m_cp.pad[I_RIGHT], m_cp.pad[I_DOWN],
-          m_cp.stride[TENSOR_2D_HEIGHT], m_cp.stride[TENSOR_2D_WIDTH],
-          m_cp.dilation[TENSOR_2D_WIDTH], m_cp.dilation[TENSOR_2D_HEIGHT]);
-  return ret;
+  ss << "(IC,IW,IH: " << this->input_dims[TENSOR_4D_CHANNELS] << 
+          this->input_dims[TENSOR_4D_WIDTH] << this->input_dims[TENSOR_4D_HEIGHT]
+          << ") (KS: " <<  m_cp.k[TENSOR_2D_HEIGHT] << m_cp.k[TENSOR_2D_WIDTH] << ") "
+          << "(pad: " << m_cp.pad[I_LEFT] << m_cp.pad[I_UP] << 
+          m_cp.pad[I_RIGHT] << m_cp.pad[I_DOWN] << ") " << "(stride: " <<
+          m_cp.stride[TENSOR_2D_HEIGHT] << m_cp.stride[TENSOR_2D_WIDTH] <<
+          "(dilation: " << m_cp.dilation[TENSOR_2D_WIDTH] << 
+          m_cp.dilation[TENSOR_2D_HEIGHT] << "\n";
+  return ss.str();
 }
 
 void Op::Layer::QLinearAveragePool::set_attributes(const onnx::NodeProto &node) {
@@ -1552,7 +1552,7 @@ void Op::print_node(const LayerBase *node) {
             << Op::get_tensorproto_dtype_name(node->input_type) << '\n';
   std::cout << "Output Type: "
             << Op::get_tensorproto_dtype_name(node->output_type) << '\n';
-  const char *device = get_device_name(node->device);
+  const char *device = Op::get_device_name(node->device);
   std::cout << "Device " <<  device << '\n';
   print_vec("Input dims", node->input_dims);
   print_vec("Output dims", node->output_dims);

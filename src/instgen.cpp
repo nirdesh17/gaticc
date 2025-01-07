@@ -693,6 +693,12 @@ static std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *c
   std::bitset<CONV_Pad_COUNT> pad{cc->m_cp.pad[I_LEFT]};
   bitset_range_set(conv_inst, pad, CONV_Pad_LOW, CONV_Pad_HIGH);
 
+  std::bitset<CONV_PadSides_COUNT> pad_side;
+  for (int i = 0; i < CONV_PadSides_COUNT; ++i) {
+    pad_side[i] = cc->m_cp.pad[i] > 0 ? 1 : 0;
+  }
+  bitset_range_set(conv_inst, pad_side, CONV_PadSides_LOW, CONV_PadSides_HIGH);
+
   assert(cc->inputs.size() == 1);
   auto sa_arch = get_sa_arch();
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
