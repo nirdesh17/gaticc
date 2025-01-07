@@ -115,7 +115,7 @@ struct LayerBase {
    * the layer takes. Layers without any parameters may not override
    * this.
    */
-  virtual const char *params() const;
+  virtual std::string params() const;
   /* Initializers are onnx::TensorProto objects that contains
    * weights of a weighted layer (for eg, conv, gemm, batchnorm).
    * Classes that override this function should be weighted layers
@@ -211,7 +211,7 @@ struct Conv : public LayerBase {
   Conv();
   ConvParams m_cp;
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
@@ -237,7 +237,7 @@ struct Clip : public LayerBase {
   int m_max;
   Clip();
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
 };
@@ -250,7 +250,7 @@ struct Gemm : public LayerBase {
   GemmParams m_cp;
   Gemm();
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
@@ -264,7 +264,7 @@ struct Maxpool : public LayerBase {
   PoolParams m_cp;
   Maxpool();
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void run(TensorPool &tensor_pool) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
@@ -291,7 +291,7 @@ struct Dropout : public LayerBase {
   float drop;
   Dropout();
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
@@ -338,7 +338,7 @@ struct ReorderOutput : public LayerBase {
 struct Reshape : public LayerBase {
   const char *m_optype = "Reshape";
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   std::vector<int64_t> new_shape;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
@@ -348,7 +348,7 @@ struct Reshape : public LayerBase {
 struct QuantizeLinear : public LayerBase {
   const char *m_optype = "QuantizeLinear";
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   float scale;
   /* TODO: float8e etc types missing */
   std::variant<uint8_t,int8_t,uint16_t,int16_t> zero_point;
@@ -370,7 +370,7 @@ struct QuantizeLinear : public LayerBase {
 struct DequantizeLinear : public LayerBase {
   const char *m_optype = "DequantizeLinear";
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   std::variant<float,double> scale;
   int zero_point;
   int axis;
@@ -400,7 +400,7 @@ struct QLinearMatMul : public LayerBase {
   std::vector<std::variant<int8_t,uint8_t>> b_zero_point;
   std::vector<std::variant<int8_t,uint8_t>> y_zero_point;
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
@@ -429,7 +429,7 @@ struct Transpose : public LayerBase {
   const onnx::TensorProto *addend;
   const char *m_optype = "Transpose";
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   std::vector<int> perm;
   void set_attributes(const onnx::NodeProto &node) override;
   void run(TensorPool &tensor_pool) override;
@@ -441,7 +441,7 @@ struct MatMul : public LayerBase {
   GemmParams m_cp;
   MatMul();
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void run(TensorPool &tensor_pool) override;
@@ -468,7 +468,7 @@ struct QGemm : public LayerBase {
   std::vector<std::variant<int8_t,uint8_t>> y_zero_point;
   QGemm();
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
@@ -500,7 +500,7 @@ struct QLinearConv : public LayerBase {
   std::vector<float> y_scale;
   std::vector<std::variant<int8_t,uint8_t>>  y_zero_point;
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
@@ -516,7 +516,7 @@ struct QLinearConv : public LayerBase {
 struct LogSoftmax : public LayerBase {
   const char *m_optype = "LogSoftmax";
   const char *op_type() const override;
-  const char *params() const override;
+  std::string params() const override;
   int axis;
   LogSoftmax();
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
