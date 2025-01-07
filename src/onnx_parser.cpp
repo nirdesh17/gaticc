@@ -38,7 +38,7 @@
  */
 
 const char *Op::LayerBase::op_type() const { return "(null)"; }
-const char *Op::LayerBase::params() const { return "(null)"; }
+std::string Op::LayerBase::params() const { return "(null)"; }
 void Op::LayerBase::set_initializer_params(int n, const onnx::TensorProto &t) {}
 void Op::LayerBase::set_value_info_params(const onnx::ValueInfoProto &t) {}
 void Op::LayerBase::run(TensorPool &tensor_pool) {
@@ -88,13 +88,17 @@ Op::Layer::Conv::Conv() {
 }
 
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
-const char *Op::Layer::Conv::params() const {
-  static char ret[256];
-  sprintf(ret, "(IW,IH: %d,%d), (KN,IC,KW,KH: %d,%d,%d,%d), (S,P,D: %d,%d,%d)",
-          this->input_dims[TENSOR_4D_WIDTH], this->input_dims[TENSOR_4D_HEIGHT],
-          m_cp.kn, this->input_dims[TENSOR_4D_CHANNELS], m_cp.k[TENSOR_2D_WIDTH], m_cp.k[TENSOR_2D_HEIGHT],
-          m_cp.stride[TENSOR_2D_WIDTH], m_cp.pad[I_LEFT],
-          m_cp.dilation[TENSOR_2D_WIDTH]);
+std::string Op::Layer::Conv::params() const {
+  std::string ret;
+  std::stringstream ss;
+  ss << "(IW,IH: " << this->input_dims[TENSOR_4D_WIDTH] << ","
+     << this->input_dims[TENSOR_4D_HEIGHT] << ") "
+     << "(KN,IC,KH,KW: " << m_cp.kn << ","
+     << this->input_dims[TENSOR_4D_CHANNELS] << "," << m_cp.k[TENSOR_2D_WIDTH]
+     << "," << m_cp.k[TENSOR_2D_HEIGHT] << ") "
+     << "(S,P,D: " << m_cp.stride[TENSOR_2D_WIDTH] << "," << m_cp.pad[I_LEFT]
+     << "," << m_cp.dilation[TENSOR_2D_WIDTH] << ") ";
+  ret = ss.str();
   return ret;
 }
 
@@ -184,9 +188,11 @@ Op::Layer::Clip::Clip() {
   m_max = INT_MAX;
 }
 const char *Op::Layer::Clip::op_type() const { return m_optype; }
-const char *Op::Layer::Clip::params() const {
-  static char ret[64];
-  sprintf(ret, "Clip: (%d, %d)", m_min, m_max);
+std::string Op::Layer::Clip::params() const {
+  std::string ret;
+  std::stringstream ss;
+  ss << "Clip: (" << m_min << ", " << m_max << ")";
+  ret = ss.str();
   return ret;
 }
 
@@ -209,11 +215,14 @@ Op::Layer::Gemm::Gemm() { m_cp = {};
   m_cp.transB = 0;
 }
 const char *Op::Layer::Gemm::op_type() const { return m_optype; }
-const char *Op::Layer::Gemm::params() const {
-  static char ret[128];
-  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d alpha,beta,transA,transB: %f,%f,%d,%d",
-          this->input_dims[TENSOR_2D_HEIGHT], this->input_dims[TENSOR_2D_WIDTH],
-          m_cp.wr, m_cp.wc, m_cp.alpha, m_cp.beta, m_cp.transA, m_cp.transB);
+std::string Op::Layer::Gemm::params() const {
+  static std::string ret;
+  std::stringstream ss;
+  ss << "IH,IW,WR,WC: " << this->input_dims[TENSOR_2D_HEIGHT] << ","
+     << this->input_dims[TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc
+     << " alpha,beta,transA,transB: " << m_cp.alpha << "," << m_cp.beta << ","
+     << m_cp.transA << "," << m_cp.transB;
+  ret = ss.str();
   return ret;
 }
 
@@ -298,17 +307,16 @@ Op::Layer::Maxpool::Maxpool() {
 }
 
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
-const char *Op::Layer::Maxpool::params() const {
-  static char ret[128];
-  sprintf(ret,
-          "(IC,IW,IH: %d,%d,%d) (KS: %d,%d), (pad: %d,%d,%d,%d), (stride: "
-          "%d,%d), (dilation: %d, %d)",
-          this->input_dims[TENSOR_4D_CHANNELS],
-          this->input_dims[TENSOR_4D_WIDTH], this->input_dims[TENSOR_4D_HEIGHT],
-          m_cp.k[TENSOR_2D_HEIGHT], m_cp.k[TENSOR_2D_WIDTH], m_cp.pad[I_LEFT],
-          m_cp.pad[I_UP], m_cp.pad[I_RIGHT], m_cp.pad[I_DOWN],
-          m_cp.stride[TENSOR_2D_HEIGHT], m_cp.stride[TENSOR_2D_WIDTH],
-          m_cp.dilation[TENSOR_2D_WIDTH], m_cp.dilation[TENSOR_2D_HEIGHT]);
+std::string Op::Layer::Maxpool::params() const {
+  std::string ret;
+  std::stringstream ss;
+  ss << "(IC,IW,IH: " << this->input_dims[TENSOR_4D_CHANNELS] << ","
+     << this->input_dims[TENSOR_4D_WIDTH] << "," << this->input_dims[TENSOR_4D_HEIGHT] << ") "
+     << "(KS: " << m_cp.k[TENSOR_2D_HEIGHT] << "," << m_cp.k[TENSOR_2D_WIDTH] << ") "
+     << "(pad: " << m_cp.pad[I_LEFT] << "," << m_cp.pad[I_UP] << "," << m_cp.pad[I_RIGHT] << "," << m_cp.pad[I_DOWN] << ") "
+     << "(stride: " << m_cp.stride[TENSOR_2D_HEIGHT] << "," << m_cp.stride[TENSOR_2D_WIDTH] << ") "
+     << "(dilation: " << m_cp.dilation[TENSOR_2D_WIDTH] << "," << m_cp.dilation[TENSOR_2D_HEIGHT] << ")";
+  ret = ss.str();
   return ret;
 }
 
@@ -384,9 +392,11 @@ void Op::Layer::Flatten::infer_type(const std::vector<TPDT>& input_types) {
 
 Op::Layer::Dropout::Dropout() { drop = 0.f; }
 const char *Op::Layer::Dropout::op_type() const { return m_optype; }
-const char *Op::Layer::Dropout::params() const {
-  static char ret[64];
-  sprintf(ret, "Drop: %f", drop);
+std::string Op::Layer::Dropout::params() const {
+  std::string ret;
+  std::stringstream ss;
+  ss << "Drop: " << drop;
+  ret = ss.str();
   return ret;
 }
 
@@ -459,16 +469,15 @@ const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }
 
 const char *Op::Layer::Reshape::op_type() const { return m_optype; }
 
-const char *Op::Layer::Reshape::params() const {
-  static char ret[128];
-  std::memset(ret, '\0', 128);
+std::string Op::Layer::Reshape::params() const {
+  std::string ret;
   std::stringstream ss;
   ss << "(shape: ";
   for (int64_t i : new_shape) {
     ss << i << ", ";
   }
   ss << ")";
-  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  ret = ss.str();
   return ret;
 }
 
@@ -504,15 +513,17 @@ Op::Layer::DequantizeLinear::DequantizeLinear():
 
 const char *Op::Layer::DequantizeLinear::op_type() const { return m_optype; }
 
-const char *Op::Layer::DequantizeLinear::params() const {
-  static char ret[64];
+std::string Op::Layer::DequantizeLinear::params() const {
+  std::string ret;
+  std:: stringstream ss;
   if (std::holds_alternative<float>(scale)) {
-    sprintf(ret, "Scale: %f, Zero Point: %d", std::get<float>(scale), zero_point);
+    ss << "Scale: " << std::get<float>(scale) << ", Zero Point: " << zero_point;
   } else if (std::holds_alternative<double>(scale)) {
-    sprintf(ret, "Scale: %f, Zero Point: %d", std::get<double>(scale), zero_point);
+    ss << "Scale: " << std::get<double>(scale) << ", Zero Point: " << zero_point;
   } else {
     log_fatal("cannot format zero point of unknown type for layer {}\n", this->name);
   }
+  ret = ss.str();
   return ret;
 }
 
@@ -574,15 +585,17 @@ void Op::Layer::DequantizeLinear::infer_shape(const std::vector<std::vector<int>
 
 const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
 
-const char *Op::Layer::QuantizeLinear::params() const {
-  static char ret[64];
+std::string Op::Layer::QuantizeLinear::params() const {
+  std::string ret;
+  std::stringstream ss;
   if (std::holds_alternative<int8_t>(zero_point)) {
-    sprintf(ret, "Scale: %f, Zero Point: %d", scale, std::get<int8_t>(zero_point));
+    ss << "Scale: " << scale << ", Zero Point: " << (int) std::get<int8_t>(zero_point);
   } else if (std::holds_alternative<uint8_t>(zero_point)) {
-    sprintf(ret, "Scale: %f, Zero Point: %d", scale, std::get<uint8_t>(zero_point));
+    ss << "Scale: " << scale << ", Zero Point: " << (int) std::get<uint8_t>(zero_point);
   } else {
     log_fatal("cannot format zero point of unknown type for layer {}\n", this->name);
   }
+  ret = ss.str();
   return ret;
 }
 
@@ -671,10 +684,8 @@ Op::Layer::QLinearConv::QLinearConv() {
 }
 
 const char *Op::Layer::QLinearConv::op_type() const { return m_optype; }
-const char *Op::Layer::QLinearConv::params() const {
-  static char ret[768];
-  std::memset(ret, '\0', 768);
-
+std::string Op::Layer::QLinearConv::params() const {
+  std::string ret;
   std::stringstream ss;
   ss << "(IW,IH: " << this->input_dims[TENSOR_4D_WIDTH] << ","
      << this->input_dims[TENSOR_4D_HEIGHT] << ") "
@@ -712,7 +723,7 @@ const char *Op::Layer::QLinearConv::params() const {
   for (int i : pipelined_output_dims) {
     ss << i << ' ';
   }
-  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  ret= ss.str();
   return ret;
 }
 
@@ -826,11 +837,13 @@ void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT>& input_types) {
 
 Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
 const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
-const char *Op::Layer::QLinearMatMul::params() const {
-  static char ret[128];
-  /* TODO: refactor this */
-  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d, scale,zp %f", this->input_dims[TENSOR_2D_HEIGHT],
-          this->input_dims[TENSOR_2D_WIDTH], m_cp.wr, m_cp.wc, y_scale[0]);
+std::string Op::Layer::QLinearMatMul::params() const {
+  std::string ret;
+  std::stringstream ss;
+  ss << "IH,IW,WR,WC: " << this->input_dims[TENSOR_2D_HEIGHT] << ","
+     << this->input_dims[TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc
+     << " scale,zp: " << y_scale[0] ;
+  ret = ss.str();
   return ret;
 }
 
@@ -1013,16 +1026,15 @@ void Op::Layer::QLinearAdd::infer_type(const std::vector<TPDT>& input_types) {
 
 const char *Op::Layer::Transpose::op_type() const { return m_optype; }
 
-const char *Op::Layer::Transpose::params() const {
-  static char ret[128];
-  std::memset(ret, '\0', 128);
+std::string Op::Layer::Transpose::params() const {
+  std::string ret;
   std::stringstream ss;
   ss << "(perm: ";
   for (int64_t i : perm) {
     ss << i << ", ";
   }
   ss << ")";
-  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  ret = ss.str();
   return ret;
 }
 
@@ -1046,10 +1058,12 @@ Op::Layer::MatMul::MatMul() { m_cp = {}; }
 
 const char *Op::Layer::MatMul::op_type() const { return m_optype; }
 
-const char *Op::Layer::MatMul::params() const {
-  static char ret[64];
-  sprintf(ret, "IH,IW,WR,WC: %d,%d,%d,%d", this->input_dims[TENSOR_2D_HEIGHT],
-          this->input_dims[TENSOR_2D_WIDTH], m_cp.wr, m_cp.wc);
+std::string Op::Layer::MatMul::params() const {
+  std::string ret;
+  std::stringstream ss; 
+  ss << "IH,IW,WR,WC: " << this->input_dims[TENSOR_2D_HEIGHT] << ","
+     << this->input_dims[TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc;
+  ret = ss.str();
   return ret;
 }
 
@@ -1081,9 +1095,8 @@ Op::Layer::QGemm::QGemm() { m_cp = {};
   m_cp.transB = 0;
 }
 const char *Op::Layer::QGemm::op_type() const { return m_optype; }
-const char *Op::Layer::QGemm::params() const {
-  static char ret[512];
-  std::memset(ret, '\0', 512);
+std::string Op::Layer::QGemm::params() const {
+  std::string ret;
   std::stringstream ss;
   ss << "IH,IW,WR,WC: " 
   << this->input_dims[TENSOR_2D_HEIGHT] << ' ' << this->input_dims[TENSOR_2D_WIDTH] << ' '
@@ -1096,7 +1109,7 @@ const char *Op::Layer::QGemm::params() const {
   for (int i : former_layer_dims) {
     ss << i << ' ';
   }
-  std::memcpy(ret, ss.str().c_str(), ss.str().size());
+  ret=ss.str();
   return ret;
 }
 
@@ -1229,9 +1242,11 @@ const char *Op::Layer::LogSoftmax::op_type() const {
   return m_optype;
 }
 
-const char *Op::Layer::LogSoftmax::params() const {
-  static char pbuf[128];
-  sprintf(pbuf, "Axis: %d\n", axis);
+std::string Op::Layer::LogSoftmax::params() const {
+  std::string pbuf;
+  std::stringstream ss;
+  ss << "Axis: " << axis;
+  pbuf = ss.str();
   return pbuf;
 }
 
