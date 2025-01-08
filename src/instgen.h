@@ -234,6 +234,27 @@
 struct Table {
   std::map<std::string, int> tbl;
   std::vector<std::string> order;
+  void clear() {
+    tbl.clear();
+    order.clear();
+  }
+  bool is_empty() const { return tbl.empty() && order.empty(); }
+};
+
+struct pretty_data {
+  Table conv;
+  Table fc;
+  Table outputblock;
+  Table startblock;
+  Table tailblock;
+
+  void clear() {
+    conv.clear();
+    fc.clear();
+    outputblock.clear();
+    startblock.clear();
+    tailblock.clear();
+  }
 };
 void print_table(const Table &tbl);
 inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
@@ -590,9 +611,16 @@ public:
   std::vector<Op::LayerBase *> get_exec_order() const;
 };
 
-
 void pretty_print(const InstBlob &blob);
-void pretty_print(const std::bitset<INST_SIZE_BITS>& inst);
+void pretty_print(const std::bitset<INST_SIZE_BITS> &inst);
+void pretty_print_html(const InstBlob &blob, std::vector<pretty_data> &data);
+void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
+                       std::vector<pretty_data> &data, pretty_data &inst_data);
+void generate_html(const std::vector<pretty_data> &data,
+                   const std::string &filename);
+std::string generate_pretty(const pretty_data &pd, int index);
+std::string generate_table_html(const std::string &tableName,
+                                const Table &table);
 
 template <typename T>
 std::vector<int> aligned_conv_weight_dims(const T &wdims) {

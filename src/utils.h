@@ -218,6 +218,10 @@ class Argparse {
            {"--pretty-print-inst"},
            "pretty print only instructions",
            0},
+          {"pretty-print-inst-html",
+           {"--pretty-print-inst-html"},
+           "generate html file to store instructions",
+           0},
           {"pretty-print-inst-raw",
            {"--pretty-print-inst-raw"},
            "pretty print instructions in raw hex",
@@ -381,6 +385,13 @@ class Argparse {
      "architecture, thus, in order to answer why --accbuf-size is set to 4096 "
      "in many examples, you need to understand the architecture or talk to architecture "
      "people"
+    },
+    {"How to view pretty-print.html?",
+     "To view this HTML file, start a simple HTTP server in the file's "
+     "directory on the remote server using the command: python3 -m http.server 8080 "
+     "Then, open your browser and enter the URL http://<server-ip>:8080/filename.html "
+     "replacing <server-ip> with your server's IP address. "
+     "This will display the HTML content in your browser"
     },
   };
 
