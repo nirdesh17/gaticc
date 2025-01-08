@@ -1003,6 +1003,10 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen,
   bitset_range_set(maxpool_inst, pool_pad, TailBlock_PoolPadding_LOW,
                    TailBlock_PoolPadding_HIGH);
 
+
+  std::bitset<TailBlock_PoolModCount_COUNT> modcount {input_dims[TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT]};
+  bitset_range_set(maxpool_inst, modcount, TailBlock_PoolModCount_LOW, TailBlock_PoolModCount_HIGH);
+
   insts.push_back(maxpool_inst);
 
   return 0;
@@ -1404,6 +1408,9 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob& insts, AddressGen& gen, In
   bitset_range_set(average_pool_inst, pool_pad, TailBlock_PoolPadding_LOW,
                    TailBlock_PoolPadding_HIGH);
 
+  std::bitset<TailBlock_PoolModCount_COUNT> modcount {input_dims[TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT]};
+  bitset_range_set(average_pool_inst, modcount, TailBlock_PoolModCount_LOW, TailBlock_PoolModCount_HIGH);
+
   insts.push_back(average_pool_inst);
 
   /* as average pool does not insert any dwp packets in the blob */
@@ -1599,16 +1606,14 @@ uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg) {
 
 /* bitset to hex */
 template <std::size_t sz>
-static std::string b2h(const std::bitset<sz>& binary) {
-    std::stringstream hex_stream;
-    hex_stream << std::hex << std::setfill('0');
-    for (int i = sz-1; i >= 0; i -= 8) {
-      uint32_t value = 0;
-      for (int j = i; j > (i-8); --j) {
-        value <<= 1;
-        value |= binary[j];
-      }
-      hex_stream << std::setw(2) << value;
+static std::string b2h(const std::bitset<sz> &binary) {
+  std::stringstream hex_stream;
+  hex_stream << std::hex << std::setfill('0');
+  for (int i = sz - 1; i >= 0; i -= 8) {
+    uint32_t value = 0;
+    for (int j = i; j > (i - 8); --j) {
+      value <<= 1;
+      value |= binary[j];
     }
     hex_stream << std::setw(2) << value;
   }
