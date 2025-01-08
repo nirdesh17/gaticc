@@ -145,9 +145,8 @@ void global_init(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-  int ac = 3;
-  char **av = argv_create(ac, "gaticc", "--sa-arch", "9,4,4");
-  global_init(ac, av);
+  auto ac_av = argv_create(std::vector<std::string>{"gaticc", "--sa-arch", "9,4,4"});
+  global_init(ac_av.first, ac_av.second);
   import_array();
   bool status1 = unalign_sa_output();
   bool status2 = unalign_sa_output2();
