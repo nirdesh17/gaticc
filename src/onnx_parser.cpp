@@ -349,6 +349,21 @@ void Op::Layer::Maxpool::set_attributes(const onnx::NodeProto &node) {
     } else if (itr->name() == "dilations") {
       assert(itr->ints().size() == 2 && "expected dilations to be 2 integers");
       parse_onnx_ints(*itr, m_cp.dilation);
+    } else if (itr->name() == "ceil_mode") {
+      if (itr->has_i()) {
+         int ceil_mode = static_cast<int>(itr->i());
+         if (ceil_mode != 0) {
+           log_fatal("Unsupported ceil_mode {} in layer {}\n", ceil_mode, node.name());
+         }
+      } 
+    } else if (itr->name() == "storage_order") {
+      if (itr->has_i()) {
+         int order = static_cast<int>(itr->i());
+         if (order != 0) {
+           log_fatal("Unsupported storage_order {} in layer {}\n", order, node.name());
+         }
+      } 
+
     }
   }
 }
