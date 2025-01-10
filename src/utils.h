@@ -8,6 +8,7 @@
 #include <iostream>
 #include <typeinfo>
 #include <unistd.h>
+#include <array>
 #include <filesystem>
 #include <map>
 #include <cassert>
@@ -783,3 +784,19 @@ std::bitset<sz> extract_bitset(const T *data, size_t size, int n, int m) {
 
 std::pair<int, char **> argv_create(const std::vector<std::string> &opts);
 void argv_delete(int argc, char **argv);
+
+template <int sz>
+constexpr std::array<int8_t, sz/8> get_byte_vector(const std::bitset<sz> num) {
+  static_assert(sz % 8 == 0, "Size must be a multiple of 8");
+  std::array<int8_t, sz/8> ret = {};
+  for (int i = 0; i < ret.size(); ++i) {
+    int8_t byte = 0;
+    for (int bit = 0; bit < 8; ++bit) {
+      if (num[i * 8 + bit]) {
+        byte |= (1 << bit);
+      }
+    }
+    ret[ret.size()-1-i] = byte;
+  }
+  return ret;
+}

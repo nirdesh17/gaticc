@@ -52,13 +52,13 @@ std::vector<char> cvt_32248(int v) {
   return buf;
 }
 
-static const std::vector<char> META_SOP = {0xff, 0xff, 0xff, 0xff, 0xff, 0x0ff};
-static const std::vector<char> META_TYPE_RESET = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-static const std::vector<char> META_TYPE_DISPATCH = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
-static const std::vector<char> META_TYPE_PAYLOAD_SIZE = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
-
-static const std::vector<char> META_CONST_DISPATCH_RAH = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-static const std::vector<char> META_CONST_DISPATCH_UART = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+//static const std::vector<char> META_SOP = {0xff, 0xff, 0xff, 0xff, 0xff, 0x0ff};
+//static const std::vector<char> META_TYPE_RESET = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+//static const std::vector<char> META_TYPE_DISPATCH = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+//static const std::vector<char> META_TYPE_PAYLOAD_SIZE = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
+//
+//static const std::vector<char> META_CONST_DISPATCH_RAH = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+//static const std::vector<char> META_CONST_DISPATCH_UART = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
 
 
 RealRah::RealRah() {
@@ -102,14 +102,19 @@ int RealRah::write(const char *data, size_t size) {
  * TODO: document the META protocol
  * 'size' here is the size of payload in bytes 
  */
-int RealRah::write_meta(const std::vector<char> &type,
+int RealRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
                     const std::vector<char> &data) {
+
+  constexpr std::bitset<META_WIDTH_BITS> meta_sop_set {META_SOP};
+  constexpr auto meta_sop_arr {get_byte_vector<META_WIDTH_BITS>(meta_sop_set)};
+
+  const auto type_arr {get_byte_vector<META_WIDTH_BITS>(type)};
 
   std::vector<char> size_buf{cvt_32248(static_cast<int>(data.size()))};
   std::vector<char> packet;
-  packet.insert(packet.end(), META_SOP.begin(), META_SOP.end());
+  packet.insert(packet.end(), meta_sop_arr.begin(), meta_sop_arr.end());
   packet.insert(packet.end(), size_buf.begin(), size_buf.end());
-  packet.insert(packet.end(), type.begin(), type.end());
+  packet.insert(packet.end(), type_arr.begin(), type_arr.end());
 
   for (char i : data) {
     packet.push_back(i);
@@ -138,7 +143,7 @@ int RealRah::read(char *data, size_t size) {
   return (*read_fn)(RAH_APP_ID, data, size);
 }
 
-int FakeRah::write_meta(const std::vector<char> &type,
+int FakeRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
                     const std::vector<char> &data) {
   return static_cast<int>(data.size());
 }
@@ -245,11 +250,22 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
   const char *data = fp.get_data();
   size_t size = fp.get_size();
 
+  constexpr std::bitset<META_WIDTH_BITS> d_uart {META_CONST_DISPATCH_UART};
+  constexpr std::bitset<META_WIDTH_BITS> d_rah {META_CONST_DISPATCH_RAH};
+
+  constexpr auto d_uart_arr {get_byte_vector<META_WIDTH_BITS>(d_uart)};
+  constexpr auto d_rah_arr {get_byte_vector<META_WIDTH_BITS>(d_rah)};
+
+
+  std::vector<char> d_uart_vec(d_uart_arr.begin(), d_uart_arr.end());
+  std::vector<char> d_rah_vec(d_rah_arr.begin(), d_rah_arr.end());
+
   log_info("setting dispatch type\n");
   if (gbl_args.has_option("receive-over-uart")) {
-    rah.write_meta(META_TYPE_DISPATCH, META_CONST_DISPATCH_UART);
+      
+    rah.write_meta(META_TYPE_DISPATCH, d_uart_vec);
   } else {
-    rah.write_meta(META_TYPE_DISPATCH, META_CONST_DISPATCH_RAH);
+    rah.write_meta(META_TYPE_DISPATCH, d_rah_vec);
   }
 
   log_info("writing model weights to FPGA dram\n");

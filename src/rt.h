@@ -59,7 +59,7 @@ public:
   virtual int read(char *data, size_t size) = 0;
   virtual ~Rah() {
   }
-  virtual int write_meta(const std::vector<char>& type, const std::vector<char>& data) = 0;
+  virtual int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) = 0;
 };
 
 class RealRah : public Rah {
@@ -69,7 +69,7 @@ public:
   ~RealRah();
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
-  int write_meta(const std::vector<char>& type, const std::vector<char>& data) override;
+  int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) override;
 };
 
 /* Used as a dupe of rah while running gaticc on devices
@@ -79,7 +79,7 @@ public:
 class FakeRah : public Rah {
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
-  int write_meta(const std::vector<char>& type, const std::vector<char>& data) override;
+  int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) override;
 };
 
 /* Like dispatch table, but reads binarized instructions and creates a table
