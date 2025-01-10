@@ -860,19 +860,11 @@ void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
   } else if (input_type == onnx::TensorProto_DataType_INT8 &&
              weight_type == onnx::TensorProto_DataType_INT8 &&
              bias_type == onnx::TensorProto_DataType_INT32) {
-    run_qgemm<int8_t, int8_t, int, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
-             weight_type == onnx::TensorProto_DataType_UINT8 &&
-             bias_type == onnx::TensorProto_DataType_INT8) {
-    run_qgemm<int8_t, uint8_t, int8_t, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
-             weight_type == onnx::TensorProto_DataType_INT8 &&
-             bias_type == onnx::TensorProto_DataType_INT8) {
-    run_qgemm<uint8_t, int8_t, int8_t, uint8_t>(this, tensor_pool);
+    run_qgemm<int8_t, int8_t, int32_t, int8_t>(this, tensor_pool);
   } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
       weight_type == onnx::TensorProto_DataType_UINT8 &&
       bias_type == onnx::TensorProto_DataType_INT32) {
-    run_qgemm<uint8_t, uint8_t, int8_t, uint8_t>(this, tensor_pool);
+    run_qgemm<uint8_t, uint8_t, int32_t, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type),

@@ -233,8 +233,10 @@ void VA<inputT, weightT, biasT, outputT>::run(const Tensor<inputT> *input,
         /* TODO: use Tensor->at that returns a reference and += operator
          * part of tensor refactor
          */
-        dst += (input->at(i * M + k) - a_zero_point) *
-               (weights->at(k * K + j) - b_zero_point);
+        outputT a_int = static_cast<outputT>(input->at(i * M + k));
+        outputT b_int = static_cast<outputT>(weights->at(k * K + j));
+        dst += (a_int - a_zero_point) *
+               (b_int - b_zero_point);
       }
       /* For gemm */
       if (bias != nullptr) {
@@ -339,10 +341,12 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
       (std::is_same<inputT, int32_t>())) {
     // std::cout << "using fpga quant\n";
     /* fpga quantization */
-    int int_scale = (int)((float)inverted * (float)(1 << shift_val));
-    inputT ret =
-        (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
-    return (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
+    //int int_scale = (int)((float)inverted * (float)(1 << shift_val));
+    //inputT ret =
+    //    (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
+    //outputT r = (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
+    inputT intr = std::round((v * inverted) + zero_point);
+    return (inputT) intr;
   } else {
     inputT rounded = std::round(((float)v / scale + zero_point));
     return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
@@ -369,7 +373,6 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output,
               const std::vector<float> &scales,
               const std::vector<int> &zero_point) {
 
-  print_vec("zero points ", zero_point);
   int min_lim = 0;
   int max_lim = 0;
   if (typeid(outputT) == typeid(uint8_t)) {
@@ -504,7 +507,7 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
   std::vector<int> i_strides = input->get_strides();
 
   auto w_zp = w_zero_points.at(k);
-  //auto x_zp = x_zero_points.at(k);
+  auto x_zp = x_zero_points.at(0);
 
   for (int ibi = 0; ibi < nb; ++ibi) {
     for (int ici = 0; ici < ic; ++ici) {
@@ -521,8 +524,11 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
                          (ohi + khi) * i_strides[2] +
                          (owi + kwi) * i_strides[3];
 
-              outputT val2 = (outputT)(input->at(in_index)) *
-                             (outputT)(weights->at(w_index) - w_zp);
+              outputT x_int = static_cast<outputT>(input->at(in_index));
+              x_int = x_int - x_zp;
+              outputT w_int = static_cast<outputT>(weights->at(w_index));
+              w_int = w_int - w_zp;
+              outputT val2 = x_int * w_int;
               acc += val2;
             }
           }
@@ -535,7 +541,7 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
 
 template <typename inputT, typename weightT, typename outputT>
 void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
-  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec);
+  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec, static_cast<inputT>(x_zero_points.at(0)));
 
   std::vector<std::thread> tc;
   for (int k = 0; k < kn; ++k) {

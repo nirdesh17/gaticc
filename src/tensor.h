@@ -523,7 +523,7 @@ Tensor<T>* tensor_sub_zp(const Tensor<T> *input, const std::vector<int>& zp) {
 
 
 template <typename T>
-Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads) {
+Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads, T pad_val = 0) {
   assert(input->dims_size() == 4 && "tensor_pad assumes 4d inputs");
   std::vector<int> new_dims = get_dims_after_pad(input->get_dims(), pads);
   Tensor<T> *output = new TensorCreate<T>(new_dims);
@@ -533,7 +533,7 @@ Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads) {
         for (int l = 0; l < new_dims[3]; ++l) {
           std::vector<int> out_index {i, j, k, l};
           if (islying(k, l, input->dims_at(2), input->dims_at(3), pads)) {
-            output->insert(out_index, 0);
+            output->insert(out_index, pad_val);
           } else {
             std::vector<int> in_index {i, j, k-pads[1], l-pads[0]};
             output->insert(out_index, input->at(in_index));
