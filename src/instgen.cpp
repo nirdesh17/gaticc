@@ -48,6 +48,15 @@ bool is_megablock_op_code(int i) {
   return false;
 }
 
+bool changes_dimension_count(const Op::LayerBase *l) {
+  int c1 = l->input_dims.size();
+  int c2 = l->output_dims.size();
+  if (c1 != c2) {
+    return true;
+  }
+  return false;
+}
+
 bool is_op_type(const Op::LayerBase *l, const char *op_type) {
   return std::strcmp(l->op_type(), op_type) == 0;
 }
@@ -357,7 +366,7 @@ void Pass::extract_conv_true_odims(Op::Graph gcopy) {
     if (is_op_type(l, "QLinearConv")) {
       cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
       cc->pipelined_output_dims = l->output_dims;
-    } else if (is_megablock(l)) {
+    } else if (is_megablock(l) || changes_dimension_count(l)) {
       cc = nullptr;
     } else if (cc != nullptr) {
       cc->pipelined_output_dims = l->output_dims;

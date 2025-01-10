@@ -500,6 +500,9 @@ using IOAddrTbl = std::map<std::string, IOAddrPair>;
 bool is_megablock(const Op::LayerBase *l);
 bool is_miniblock(const Op::LayerBase *l);
 
+/* This layer modifies the dimensions of its input */
+bool changes_dimension_count(const Op::LayerBase *l);
+
 /* InstGen generates according to the ISA
  *
  * It does this in multiple different passes passing over the execution order
