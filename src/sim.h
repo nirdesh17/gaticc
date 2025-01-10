@@ -504,7 +504,7 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
   std::vector<int> i_strides = input->get_strides();
 
   auto w_zp = w_zero_points.at(k);
-  //auto x_zp = x_zero_points.at(k);
+  auto x_zp = x_zero_points.at(0);
 
   for (int ibi = 0; ibi < nb; ++ibi) {
     for (int ici = 0; ici < ic; ++ici) {
@@ -521,8 +521,11 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
                          (ohi + khi) * i_strides[2] +
                          (owi + kwi) * i_strides[3];
 
-              outputT val2 = (outputT)(input->at(in_index)) *
-                             (outputT)(weights->at(w_index) - w_zp);
+              outputT x_int = static_cast<outputT>(input->at(in_index));
+              x_int = x_int - x_zp;
+              outputT w_int = static_cast<outputT>(weights->at(w_index));
+              w_int = w_int - w_zp;
+              outputT val2 = x_int * w_int;
               acc += val2;
             }
           }
@@ -535,7 +538,7 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
 
 template <typename inputT, typename weightT, typename outputT>
 void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
-  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec);
+  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec, x_zero_points.at(0));
 
   std::vector<std::thread> tc;
   for (int k = 0; k < kn; ++k) {
