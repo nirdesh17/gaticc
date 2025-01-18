@@ -105,6 +105,9 @@ int RealRah::write(const char *data, size_t size) {
   log_info("writing via rah, size {}\n", size);
   /* send the actual data */
   int r = (*write_fn)(RAH_APP_ID, data, size);
+  if (r < size) {
+    log_fatal("Failed to write all data to rah. Expected size: {}, Actual size: {}", size, r);
+  }
   return r;
 }
 
@@ -210,8 +213,21 @@ Runner::~Runner() {
  * is running
  * TODO: implement this, will probably require bitman?
  */
+
+void RealRah::isVersionCompatible() {
+  typedef int (*version_check_fn_t)();
+  version_check_fn_t version_check_fn =
+      get_dlsym<version_check_fn_t>(m_handle, "rah_check_version_compatible");
+  if (!version_check_fn) {
+    log_fatal("CPU Rah version is not compatible with FPGA CPU\n");
+  }
+}
+
 void Runner::scan() {
   log_info("scanning for rah services no cap fr\n");
+  RealRah rah;
+  rah.isVersionCompatible();
+  log_info("Version check passed!\n");
 }
 
 /* Loads aligned and padded weights to the FPGA's DRAM */

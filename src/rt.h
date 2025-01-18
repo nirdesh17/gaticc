@@ -42,6 +42,8 @@ class Rah {
 public:
   virtual int write(const char *data, size_t size) = 0;
   virtual int read(char *data, size_t size) = 0;
+  virtual void isVersionCompatible() { 
+  }
   virtual ~Rah() {
   }
 };
@@ -53,6 +55,7 @@ public:
   ~RealRah();
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
+  void isVersionCompatible() override;
 };
 
 /* Used as a dupe of rah while running gaticc on devices
