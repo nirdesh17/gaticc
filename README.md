@@ -255,6 +255,30 @@ integration of new test cases.
   ctest
   ```
 
+## Guide for Testing Models
+
+- Ensure the environment variable `GATICC_PATH` is set to the root directory :
+
+   ```bash
+   export GATICC_PATH=/path/to/gaticc/
+   ```
+
+- To test all models in the `model_zoo` folder:
+
+  1. Build and run `tests/runtime.cpp` manually, or
+  2. Use `ctest` for automated testing:
+
+- To test Specific Model(s)
+
+  - set the `TEST_MODEL` environment variable with the names of the desired models (comma-separated). For example:
+
+    ```bash
+    export TEST_MODEL="vgg_16_224_int8,cfc_5_51_int8"
+    ```
+
+- Then run the test as described above.
+- All results summary will be generated and displayed after the tests complete.
+
 > [!NOTE]  
 > The `BUILD_TESTING` flag is set to `OFF` by default. If tests are not
 > required, you can skip enabling this flag.

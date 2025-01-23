@@ -61,6 +61,10 @@ Tensor<T> *read_model_input(const PyEngine &engine) {
   if (gbl_args.has_option("input_path")) {
     std::string image_path = gbl_args["input_path"].as<std::string>();
     PyObject *args = Py_BuildValue("(s)", image_path.c_str());
+    if (gbl_args.has_option("size")) {
+      int size = gbl_args["size"].as<int>();
+      args = Py_BuildValue("(s,i)", image_path.c_str(), size);
+    }
     if (!gbl_args.has_option("preprocfn")) {
       log_fatal("Need --preprocfn \"proc_name\" with --input_path\n");
     }

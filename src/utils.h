@@ -183,6 +183,10 @@ class Argparse {
            "specify input to model as a resident file path (one file at a "
            "time)",
            1},
+          {"size", 
+           {"--size"}, 
+           "specify input image size",
+           1},
           {"sa-arch",
            {"--sa-arch"},
            "systolic array architecture. Args: [comma sep values]. accepts "

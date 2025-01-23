@@ -2,12 +2,7 @@
 
 set -e
 
-if [ -z "$1" ]; then
-  echo "Usage: $0 <destination directory>"
-  exit 1
-fi
-
-dest_dir="$1"
+dest_dir="model_zoo"
 
 # Define the URL of the models.zip file
 models_url="http://galactos.local:8471/models.zip"
