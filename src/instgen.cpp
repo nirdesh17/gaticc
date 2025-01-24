@@ -216,8 +216,17 @@ Op::Graph Pass::create_megablock_graph(Op::Graph graph) {
   return graph;
 }
 
-/* addresses are only used by megablocks (i.e. blocks that directly
- * access dram). this pass calls the register allocator algorithm
+Op::LayerBase *Op::get_last_layer(const Op::Parser &parser) {
+  auto graph = parser.get_graph();
+  auto mega_block = Pass::create_megablock_graph(graph);
+  auto [vertex_it, vertex_end] = boost::vertices(mega_block);
+  vertex_it = vertex_end;
+  --vertex_it;
+  return mega_block[*vertex_it];
+}
+
+/* addresses are only used by megablocks (i.e. blocks that directly 
+ * access dram). this pass calls the register allocator algorithm 
  * on a modified graph that only contains megablocks
  */
 Op::Graph Pass::reassign_registers(Op::Graph graph) {

@@ -79,7 +79,6 @@ class Runner {
   TensorPool tensor_pool;
   Op::Parser *m_parser;
   const PyEngine *m_engine;
-
   void scan();
   void device_init();
   void load_model(Rah &rah, const Fstream &fp);
@@ -95,13 +94,13 @@ class Runner {
 
   template <typename T>
   void send_input(Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor, uint32_t addr);
-  void receive_output(Rah &rah, Op::LayerBase *l);
+  void receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer);
   void fake_exec(Op::LayerBase *l);
   void read_uart(BinBlob &blob, int uart_baud, int expected_size);
 
   template <typename T>
   void receive_output_aux(const T *data,
-                                  const std::vector<int> &dims, Op::LayerBase *l);
+                                  const std::vector<int> &dims, Op::LayerBase *l, bool is_last_layer);
 
   template <typename T>
   void compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path& path);
@@ -151,6 +150,9 @@ template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
 void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
+
+  Op::LayerBase *last_layer = Op::get_last_layer(*m_parser);
+  bool is_last_layer = true;
   Pass::extract_conv_true_odims(graph);
   AddressGen generator(graph);
 
@@ -196,11 +198,15 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
       
       if (l->device == DEVICE_FPGA && sent == true) {
         if (l->dispatch) {
-          log_info("l->dispatch {} for layer {}\n", l->dispatch, l->name.c_str());
+          log_info("l->dispatch {} for layer {}\n", l->dispatch,
+                   l->name.c_str());
         }
         if (l->dispatch == true) {
+          if (l->name != last_layer->name) {
+            is_last_layer = false;
+          }
           log_info("receiving output\n");
-          receive_output(rah, l);
+          receive_output(rah, l, is_last_layer);
           log_info("receiving output finish\n");
         } else {
           fake_exec(l);
@@ -301,7 +307,7 @@ void unalign_va_output(Tensor<T> *tensor, const T *data) {
 /* Converts a byte stream into a tensor and un-aligns if if necessary */
 template <typename T>
 void Runner::receive_output_aux(const T *data,
-                                const std::vector<int> &dims, Op::LayerBase *l) {
+                                const std::vector<int> &dims, Op::LayerBase *l, bool is_last_layer) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
   
   std::vector<int> odims;
@@ -329,7 +335,7 @@ void Runner::receive_output_aux(const T *data,
   tensor_pool.set<Tensor<T> *>(l->outputs.at(0), tensor);
 
   if (l->dispatch) {
-  	write_model_output<T>(*m_engine, tensor);
+  	write_model_output<T>(*m_engine, tensor, is_last_layer);
   }
   if (gbl_args.has_option("compare-layer")) {
     std::string arg = gbl_args["compare-layer"].as<std::string>();

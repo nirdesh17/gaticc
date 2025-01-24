@@ -180,7 +180,7 @@ struct LayerBase {
   /* 1 if current node's outputs need to be received from the FPGA or
    * dumped by the simulator
    */
-  bool dispatch;
+  bool dispatch;  
 };
 
 
@@ -708,5 +708,6 @@ template <typename T> bool isa(const Op::LayerBase *l) {
   return dynamic_cast<T>(l) ? true : false;
 }
 
+Op::LayerBase *get_last_layer(const Op::Parser &parser);
 } // namespace Op
 

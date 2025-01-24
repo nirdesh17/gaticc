@@ -262,7 +262,7 @@ void Runner::read_uart(BinBlob &blob, int uart_baud, int expected_size) {
   Py_XDECREF(args);
 }
 
-void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
+void Runner::receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer) {
   int expected_hash = string_hash(l->name);
   uint32_t expected_data_size = 0;
 
@@ -308,10 +308,10 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l) {
   //check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0 /* expected hash */);
   if (l->output_type == onnx::TensorProto_DataType_INT8) {
     const int8_t *real_data = reinterpret_cast<const int8_t*>(data + DWP_HEADER_BYTES);
-    receive_output_aux<int8_t>(real_data, expected_dims, l);
+    receive_output_aux<int8_t>(real_data, expected_dims, l, is_last_layer);
   } else if (l->output_type == onnx::TensorProto_DataType_UINT8) {
     const uint8_t *real_data = reinterpret_cast<const uint8_t*>(data + DWP_HEADER_BYTES);
-    receive_output_aux<uint8_t>(real_data, expected_dims, l);
+    receive_output_aux<uint8_t>(real_data, expected_dims, l, is_last_layer);
   } else {
     log_fatal("can't compute with tensor of type {}\n", Op::get_tensorproto_dtype_name(l->output_type));
   }

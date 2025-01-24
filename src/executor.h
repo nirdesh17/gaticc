@@ -6,7 +6,6 @@
 //#include "onnx.pb.h"
 #include "onnx_parser.h"
 #include "ffi.h"
-
 /* From libpython */
 #ifndef PY_SSIZE_T_CLEAN
 #define PY_SSIZE_T_CLEAN
@@ -48,7 +47,6 @@ class Executor {
   template <typename inputT, typename outputT>
   void execute(PyEngine &engine, const Op::Parser &parser);
 
-
   void print_extra_info(const Op::LayerBase *l);
 
 public:
@@ -86,9 +84,18 @@ Tensor<T> *read_model_input(const PyEngine &engine) {
 }
 
 template <typename T>
-void write_model_output(const PyEngine &engine, Tensor<T> *out) {
-  assert(gbl_args.has_option("postprocfn") && "post process function is required");
+void write_model_output(const PyEngine &engine, Tensor<T> *out,
+                        bool is_last_layer) {
+  if (!gbl_args.has_option("postprocfn")) {
+    log_fatal("post process function is required\n");
+  }
   std::string postprocfn = gbl_args["postprocfn"].as<std::string>();
+  if (is_last_layer == false) {
+    if (!gbl_args.has_option("dispatch_fn")) {
+      log_fatal("dispatch function is required\n");
+    }
+    postprocfn = gbl_args["dispatch_fn"].as<std::string>();
+  }
   PyObject *t = t2np<T>(out);
   PyObject *arr = Py_BuildValue("(O)", t);
   PyObject *ret = engine.call_func(postprocfn, arr);
@@ -99,9 +106,11 @@ void write_model_output(const PyEngine &engine, Tensor<T> *out) {
 template <typename inputT, typename outputT>
 void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
   Tensor<inputT> *full_batch = read_model_input<inputT>(engine);
-
   /* TODO: add checks here if inputs is batched and matches expected dims */
   std::vector<Op::LayerBase *> order = parser.get_execution_order();
+
+  Op::LayerBase *last_layer = Op::get_last_layer(parser);
+  bool is_last_layer = true;
 
   tensor_pool.free();
   /* Implicit assumption here that the first layer's input is
@@ -116,10 +125,13 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
     l->dispatch = dispatch_table.should_dispatch(l);
     l->run(tensor_pool);
 
+    if (l->name != last_layer->name) {
+      is_last_layer = false;
+    }
     if (parser.has_graph_output(l)) {
       Tensor<outputT> *out =
           tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
-      write_model_output<outputT>(engine, out);
+      write_model_output<outputT>(engine, out, is_last_layer);
     }
   }
   tt.stop();
