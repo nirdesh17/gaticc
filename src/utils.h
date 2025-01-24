@@ -377,8 +377,8 @@ class Argparse {
     {"How to view pretty-print.html?",
      "To view this HTML file, start a simple HTTP server in the file's "
      "directory on the remote server using the command: python3 -m http.server 8080 "
-     "Then, open your browser and enter the URL http://<server-ip>:8080/filename.html "
-     "replacing <server-ip> with your server's IP address. "
+     "Then, open your browser and enter the URL http://<server-ip>:8080/pretty-print.html "
+     "replacing <server-ip> with your machine's IP address. "
      "This will display the HTML content in your browser"
     },
   };

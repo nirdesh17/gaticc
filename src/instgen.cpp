@@ -1622,6 +1622,15 @@ uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg) {
   return ps_reg_addr;
 }
 
+void Table::clear() {
+  tbl.clear();
+  order.clear();
+}
+
+bool Table::is_empty() const {
+  return tbl.empty() && order.empty(); 
+}
+
 /* bitset to hex */
 template <std::size_t sz>
 static std::string b2h(const std::bitset<sz> &binary) {
@@ -1668,14 +1677,7 @@ void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
   }
 }
 
-void pretty_print_html(const InstBlob &blob, std::vector<pretty_data> &data) {
-  pretty_data inst_data;
-  for (const std::bitset<INST_SIZE_BITS> &i : blob) {
-    pretty_print_html(i, data, inst_data);
-  }
-}
-
-void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
+static void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
                        std::vector<pretty_data> &data, pretty_data &inst_data) {
   int op_code = extract_opcode(inst);
   switch (op_code) {
@@ -1700,6 +1702,94 @@ void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
     log_fatal("can't pretty print instruction with opcode {}\n", op_code);
     break;
   }
+}
+
+static std::string generate_table_html(const std::string &tableName,
+                                const Table &table) {
+  if (table.is_empty())
+    return "";
+
+  std::ostringstream html;
+  html << "<div class='collapsible'>" << tableName << "</div>\n";
+  html << "<div class='content'>\n";
+  html << "<ul>\n";
+
+  for (const auto &key : table.order) {
+    if (table.tbl.count(key)) {
+      html << "<li>" << key << ": " << table.tbl.at(key) << "</li>\n";
+    }
+  }
+
+  html << "</ul>\n</div>\n";
+  return html.str();
+}
+
+static std::string generate_pretty(const pretty_data &pd, int index) {
+  std::ostringstream html;
+  html << "<div class='collapsible'>v Layer " << index << "</div>\n";
+  html << "<div class='content'>\n";
+
+  html << generate_table_html("v  Convolution", pd.conv);
+  html << generate_table_html("v  Fully Connected", pd.fc);
+  html << generate_table_html("v  Output Block", pd.outputblock);
+  html << generate_table_html("v  Tail Block", pd.tailblock);
+  html << generate_table_html("v  Start Block", pd.startblock);
+
+  html << "</div>\n";
+  return html.str();
+}
+
+static void generate_html(const std::vector<pretty_data> &data,
+                          const std::string &filename) {
+  std::ofstream file(filename);
+  if (!file.is_open()) {
+    log_fatal("Could not open file {}\n", filename);
+  }
+
+  file << "<!DOCTYPE html>\n<html>\n<head>\n";
+  file << "<style>\n";
+  file << "body { font-family: monospace; }\n";
+  file << ".collapsible { cursor: pointer; padding: 10px; background-color: "
+          "#f1f1f1; border: 1px solid #ddd; margin-top: 5px; }\n";
+  file << ".content { display: none; padding: 10px; border-left: 1px solid "
+          "#ddd; margin-left: 10px; }\n";
+  file << ".content ul { list-style-type: none; padding-left: 0; }\n";
+  file << "</style>\n";
+  file << "<script>\n";
+  file << "document.addEventListener('DOMContentLoaded', function() {\n";
+  file << "  const coll = document.querySelectorAll('.collapsible');\n";
+  file << "  coll.forEach(function(el) {\n";
+  file << "    el.addEventListener('click', function() {\n";
+  file << "      this.nextElementSibling.style.display = "
+          "this.nextElementSibling.style.display === 'block' ? 'none' : "
+          "'block';\n";
+  file << "    });\n";
+  file << "  });\n";
+  file << "});\n";
+  file << "</script>\n";
+  file << "</head>\n<body>\n";
+
+  for (int i = 0; i < data.size(); i++) {
+    file << generate_pretty(data[i], i);
+  }
+
+  file << "</body>\n</html>\n";
+
+  file.close();
+  std::cout << "HTML file generated: " << filename << "\n";
+  std::cout << "Run python -m http.server 5587 to start the server\n";
+  std::cout
+      << "Open http://localhost:5587/pretty-print.html in your browser to "
+         "view it\n";
+}
+
+void pretty_print_html(const InstBlob &blob) {
+  std::vector<pretty_data> data;
+  pretty_data inst_data;
+  for (const std::bitset<INST_SIZE_BITS> &i : blob) {
+    pretty_print_html(i, data, inst_data);
+  }
+  generate_html(data, "pretty-print.html");
 }
 
 void pretty_print(const InstBlob &blob) {
@@ -1746,81 +1836,6 @@ void print_table(const Table &tbl) {
   std::cout << '\n';
 }
 
-void generate_html(const std::vector<pretty_data> &data,
-                   const std::string &filename) {
-  std::ofstream file(filename);
-  if (!file.is_open()) {
-    std::cerr << "Could not open file " << filename << std::endl;
-    return;
-  }
-
-  file << "<!DOCTYPE html>\n<html>\n<head>\n";
-  file << "<style>\n";
-  file << "body { font-family: monospace; }\n";
-  file << ".collapsible { cursor: pointer; padding: 10px; background-color: "
-          "#f1f1f1; border: 1px solid #ddd; margin-top: 5px; }\n";
-  file << ".content { display: none; padding: 10px; border-left: 1px solid "
-          "#ddd; margin-left: 10px; }\n";
-  file << ".content ul { list-style-type: none; padding-left: 0; }\n";
-  file << "</style>\n";
-  file << "<script>\n";
-  file << "document.addEventListener('DOMContentLoaded', function() {\n";
-  file << "  const coll = document.querySelectorAll('.collapsible');\n";
-  file << "  coll.forEach(function(el) {\n";
-  file << "    el.addEventListener('click', function() {\n";
-  file << "      this.nextElementSibling.style.display = "
-          "this.nextElementSibling.style.display === 'block' ? 'none' : "
-          "'block';\n";
-  file << "    });\n";
-  file << "  });\n";
-  file << "});\n";
-  file << "</script>\n";
-  file << "</head>\n<body>\n";
-
-  for (int i = 0; i < data.size(); i++) {
-    file << generate_pretty(data[i], i);
-  }
-
-  file << "</body>\n</html>\n";
-
-  file.close();
-  std::cout << "HTML file generated: " << filename << "\n";
-}
-
-std::string generate_pretty(const pretty_data &pd, int index) {
-  std::ostringstream html;
-  html << "<div class='collapsible'>v Layer " << index << "</div>\n";
-  html << "<div class='content'>\n";
-
-  html << generate_table_html("v  Convolution", pd.conv);
-  html << generate_table_html("v  Fully Connected", pd.fc);
-  html << generate_table_html("v  Output Block", pd.outputblock);
-  html << generate_table_html("v  Start Block", pd.startblock);
-  html << generate_table_html("v  Tail Block", pd.tailblock);
-
-  html << "</div>\n";
-  return html.str();
-}
-
-std::string generate_table_html(const std::string &tableName,
-                                const Table &table) {
-  if (table.is_empty())
-    return "";
-
-  std::ostringstream html;
-  html << "<div class='collapsible'>" << tableName << "</div>\n";
-  html << "<div class='content'>\n";
-  html << "<ul>\n";
-
-  for (const auto &key : table.order) {
-    if (table.tbl.count(key)) {
-      html << "<li>" << key << ": " << table.tbl.at(key) << "</li>\n";
-    }
-  }
-
-  html << "</ul>\n</div>\n";
-  return html.str();
-}
 
 void InitializerTable::push_back(uint32_t addr, const onnx::TensorProto *data, int engine, std::map<std::string,std::any> metadata) {
   InitAddrRow row {.addr {addr}, .data {data}, .engine {engine}, .metadata {metadata}};
@@ -2106,9 +2121,7 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
     pretty_print(instblob);
   }
   if (gbl_args.has_option("pretty-print-inst-html")) {
-    std::vector<pretty_data> data;
-    pretty_print_html(instblob,data);
-    generate_html(data,"pretty-print.html");
+    pretty_print_html(instblob);
   }
   if (gbl_args.has_option("pretty-print-inst-raw")) {
     pretty_print_inst_raw(instblob);
