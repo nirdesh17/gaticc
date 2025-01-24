@@ -832,10 +832,9 @@ static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   using variantT = std::variant<int8_t,uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
 
-  VA<inputT, weightT, int32_t, intrT> va(*cc);
-  /* TODO: get architecture size from gbl_args */
   Timer<std::chrono::milliseconds> tt;
   tt.start();
+  VA<inputT, weightT, int32_t, intrT> va(*cc);
   va.run(input, intr_output.get());
   std::vector<float> scales = compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
@@ -860,19 +859,11 @@ void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
   } else if (input_type == onnx::TensorProto_DataType_INT8 &&
              weight_type == onnx::TensorProto_DataType_INT8 &&
              bias_type == onnx::TensorProto_DataType_INT32) {
-    run_qgemm<int8_t, int8_t, int, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
-             weight_type == onnx::TensorProto_DataType_UINT8 &&
-             bias_type == onnx::TensorProto_DataType_INT8) {
-    run_qgemm<int8_t, uint8_t, int8_t, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
-             weight_type == onnx::TensorProto_DataType_INT8 &&
-             bias_type == onnx::TensorProto_DataType_INT8) {
-    run_qgemm<uint8_t, int8_t, int8_t, uint8_t>(this, tensor_pool);
+    run_qgemm<int8_t, int8_t, int32_t, int8_t>(this, tensor_pool);
   } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
       weight_type == onnx::TensorProto_DataType_UINT8 &&
       bias_type == onnx::TensorProto_DataType_INT32) {
-    run_qgemm<uint8_t, uint8_t, int8_t, uint8_t>(this, tensor_pool);
+    run_qgemm<uint8_t, uint8_t, int32_t, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type),
