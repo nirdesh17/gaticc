@@ -515,7 +515,7 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
         for (int owi = 0; owi < ow; ++owi) {
           out_index = ibi * o_strides[0] + k * o_strides[1] +
                   ohi * o_strides[2] + owi * o_strides[3];
-          int acc = output->at(out_index);
+          outputT acc = output->at(out_index);
           for (int khi = 0; khi < kh; ++khi) {
             for (int kwi = 0; kwi < kw; ++kwi) {
               w_index = k * w_strides[0] + ici * w_strides[1] +
@@ -525,11 +525,14 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
                          (owi + kwi) * i_strides[3];
 
               outputT x_int = static_cast<outputT>(input->at(in_index));
-              x_int = x_int - x_zp;
+              //x_int = x_int - x_zp;
               outputT w_int = static_cast<outputT>(weights->at(w_index));
-              w_int = w_int - w_zp;
+              //w_int = w_int - w_zp;
               outputT val2 = x_int * w_int;
               acc += val2;
+              acc -= (w_zp * x_int);
+              acc -= (x_zp * w_int);
+              acc += (x_zp * w_zp);
             }
           }
           output->set(out_index, acc);
