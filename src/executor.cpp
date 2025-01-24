@@ -832,10 +832,9 @@ static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   using variantT = std::variant<int8_t,uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
 
-  VA<inputT, weightT, int32_t, intrT> va(*cc);
-  /* TODO: get architecture size from gbl_args */
   Timer<std::chrono::milliseconds> tt;
   tt.start();
+  VA<inputT, weightT, int32_t, intrT> va(*cc);
   va.run(input, intr_output.get());
   std::vector<float> scales = compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);

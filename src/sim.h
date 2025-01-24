@@ -341,12 +341,14 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
       (std::is_same<inputT, int32_t>())) {
     // std::cout << "using fpga quant\n";
     /* fpga quantization */
-    //int int_scale = (int)((float)inverted * (float)(1 << shift_val));
-    //inputT ret =
-    //    (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
-    //outputT r = (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
-    inputT intr = std::round((v * inverted) + zero_point);
-    return (inputT) intr;
+    int int_scale = (int)((float)inverted * (float)(1 << shift_val));
+    inputT ret =
+        (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
+    outputT r = (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
+    return r;
+
+    //inputT intr = std::round((v * inverted) + zero_point);
+    //return (inputT) intr;
   } else {
     inputT rounded = std::round(((float)v / scale + zero_point));
     return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
@@ -516,6 +518,8 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
           out_index = ibi * o_strides[0] + k * o_strides[1] +
                   ohi * o_strides[2] + owi * o_strides[3];
           outputT acc = output->at(out_index);
+          outputT x_int_sum = 0;
+          outputT w_int_sum = 0;
           for (int khi = 0; khi < kh; ++khi) {
             for (int kwi = 0; kwi < kw; ++kwi) {
               w_index = k * w_strides[0] + ici * w_strides[1] +
@@ -525,16 +529,16 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
                          (owi + kwi) * i_strides[3];
 
               outputT x_int = static_cast<outputT>(input->at(in_index));
-              //x_int = x_int - x_zp;
+              x_int_sum += x_int;
               outputT w_int = static_cast<outputT>(weights->at(w_index));
-              //w_int = w_int - w_zp;
+              w_int_sum += w_int;
               outputT val2 = x_int * w_int;
               acc += val2;
-              acc -= (w_zp * x_int);
-              acc -= (x_zp * w_int);
-              acc += (x_zp * w_zp);
             }
           }
+          acc -= (w_zp * x_int_sum);
+          acc -= (x_zp * w_int_sum);
+          acc += (x_zp * w_zp * kh * kw);
           output->set(out_index, acc);
         }
       }
