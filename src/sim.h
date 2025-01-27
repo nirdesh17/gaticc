@@ -344,6 +344,7 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
     int int_scale = (int)((float)inverted * (float)(1 << shift_val));
     inputT ret =
         (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
+    ret += zero_point;
     outputT r = (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
     return r;
 
