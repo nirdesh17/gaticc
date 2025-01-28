@@ -447,9 +447,9 @@ void Op::Layer::Add::infer_shape(const std::vector<std::vector<int>> &input_dims
   assert(input_dims.size() >= 1);
   auto og = input_dims[0];
   /* all inputs should be equal to the first input in size */
-  auto compare_fn = [&og](const std::vector<int> &v) { 
-    assert(v == og); };
-  std::for_each(input_dims.begin(), input_dims.end(), compare_fn);
+  //auto compare_fn = [&og](const std::vector<int> &v) { 
+  //  assert(v == og); };
+  //std::for_each(input_dims.begin(), input_dims.end(), compare_fn);
   this->input_dims = input_dims[0];                                                       
   this->output_dims = input_dims[0];
 }
@@ -2344,7 +2344,7 @@ void Op::Parser::pass_save_nodes(const onnx::GraphProto &graph) {
 Op::Parser::~Parser() { loaded_model.close(); }
 
 Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
-  register_set.resize(default_size, AVAILABLE);
+  register_set.resize(default_size, 0);
   clear_regs(g);
 
   std::queue<Op::Vertex> S;
@@ -2356,8 +2356,11 @@ Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
     S.pop();
 
     if (Op::is_root_node(n, &g)) {
-      node->inputs.push_back(acquire());
-      node->outputs.push_back(acquire());
+      node->inputs.push_back(acquire(node->name));
+      node->outputs.push_back(acquire(node->name));
+      if (register_set.at(node->inputs.at(0)) == 1) {
+        relinquish(node->inputs.at(0));
+      }
     }
 
     auto out_edges = boost::out_edges(n, g);
@@ -2374,20 +2377,26 @@ Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
   }
 }
 
-Op::VirtualAddress Op::RegisterAllocator::acquire(void) {
+Op::VirtualAddress Op::RegisterAllocator::acquire(const std::string &node_name) {
   // find the first available register
-  auto itr = std::find(register_set.begin(), register_set.end(), AVAILABLE);
+  auto itr = std::find(register_set.begin(), register_set.end(), 0);
   if (itr != register_set.end()) {
-    *itr = OCCUPIED;
-    return itr - register_set.begin();
+    Op::VirtualAddress reg_num = itr - register_set.begin();
+    ref(node_name, reg_num);
+    return reg_num;
   } else {
     log_fatal("Out of registers!\n");
     return -1; // will never reach here
   }
 }
 
+void Op::RegisterAllocator::ref(const std::string &node_name, Op::VirtualAddress a) {
+  register_set.at(a) = string_hash(node_name);
+}
+
 void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
-  register_set.at(a) = AVAILABLE;
+  assert(register_set.at(a) != 0 && "relinquishing an already empty register");
+  register_set.at(a) = 0;
 }
 
 void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
@@ -2396,10 +2405,14 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
   Op::LayerBase *dst_node = (*g)[target];
 
   dst_node->inputs.push_back(src_node->outputs.at(0));
-  if (boost::out_degree(source, *g) == 1) {
-    relinquish(src_node->inputs.at(0));
+  if (boost::out_degree(source, *g) == 1) { 
+    Op::VirtualAddress reg_val = src_node->inputs.at(0);
+    if (register_set.at(reg_val) == string_hash(src_node->name)) {
+      relinquish(src_node->inputs.at(0));
+    }
   }
-  dst_node->outputs.push_back(acquire());
+  dst_node->outputs.push_back(acquire(dst_node->name));
+  ref(dst_node->name, dst_node->inputs.at(0));
 }
 
 void Op::RegisterAllocator::clear_regs(Op::Graph g) {

@@ -692,15 +692,14 @@ public:
 };
 
 class RegisterAllocator {
-  const bool AVAILABLE = 1;
-  const bool OCCUPIED = 0;
   /* default size of the register set */
   const int default_size = 512;
-  std::vector<bool> register_set;
+  std::vector<int> register_set;
 
   void traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target);
-  VirtualAddress acquire(void);
+  VirtualAddress acquire(const std::string& node_name);
   void relinquish(VirtualAddress a);
+  void ref(const std::string& node_name, VirtualAddress a);
   void clear_regs(Op::Graph g);
 
 public:
