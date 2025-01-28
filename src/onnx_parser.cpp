@@ -448,12 +448,16 @@ void Op::Layer::Add::infer_shape(const std::vector<std::vector<int>> &input_dims
   auto og = input_dims[0];
   /* all inputs should be equal to the first input in size */
   auto compare_fn = [&og](const std::vector<int> &v) { 
-    print_vec("v", v);
-    print_vec("og", og);
     assert(v == og); };
   std::for_each(input_dims.begin(), input_dims.end(), compare_fn);
   this->input_dims = input_dims[0];                                                       
   this->output_dims = input_dims[0];
+}
+
+void Op::Layer::Add::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
 }
 
 const char *Op::Layer::GlobalAveragePool::op_type() const { return m_optype; }
@@ -471,12 +475,24 @@ void Op::Layer::GlobalAveragePool::infer_shape(
   this->output_dims[3] = 1;
 }
 
+void Op::Layer::GlobalAveragePool::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
 const char *Op::Layer::BatchNorm::op_type() const { return m_optype; }
 
 void Op::Layer::BatchNorm::infer_shape(const std::vector<std::vector<int>>& input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims[0];
   this->output_dims= input_dims[0];
+}
+
+void Op::Layer::BatchNorm::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
 }
 
 const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }

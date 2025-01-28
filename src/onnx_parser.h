@@ -290,12 +290,14 @@ struct Add : public LayerBase {
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct GlobalAveragePool : public LayerBase {
   const char *m_optype = "GlobalAveragePool";
   const char *op_type() const override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct BatchNorm : public LayerBase {
@@ -311,6 +313,7 @@ struct BatchNorm : public LayerBase {
   const onnx::TensorProto *var;
   /* TODO: get  TensorProtos above */
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct ReorderOutput : public LayerBase {
