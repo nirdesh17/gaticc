@@ -2395,8 +2395,9 @@ void Op::RegisterAllocator::ref(const std::string &node_name, Op::VirtualAddress
 }
 
 void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
-  assert(register_set.at(a) != 0 && "relinquishing an already empty register");
-  register_set.at(a) = 0;
+  if (register_set.at(a) != 0) {
+    register_set.at(a) = 0;
+  }
 }
 
 void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
@@ -2405,14 +2406,26 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
   Op::LayerBase *dst_node = (*g)[target];
 
   dst_node->inputs.push_back(src_node->outputs.at(0));
-  if (boost::out_degree(source, *g) == 1) { 
-    Op::VirtualAddress reg_val = src_node->inputs.at(0);
-    if (register_set.at(reg_val) == string_hash(src_node->name)) {
-      relinquish(src_node->inputs.at(0));
+  int od = boost::out_degree(source, *g);
+  if (od == 1) { 
+    for (Op::VirtualAddress reg_val : src_node->inputs) {
+      if (register_set.at(reg_val) == string_hash(src_node->name)) {
+        relinquish(reg_val);
+      }
     }
   }
-  dst_node->outputs.push_back(acquire(dst_node->name));
-  ref(dst_node->name, dst_node->inputs.at(0));
+  int id = src_node->inputs.size();
+  if (id > 1 && od == 1) {
+    /* relinquish all inputs unconditionally */
+    for (Op::VirtualAddress reg_val : src_node->inputs) {
+      relinquish(reg_val);
+    }
+  }
+  
+  if (dst_node->outputs.size() == 0) {
+    dst_node->outputs.push_back(acquire(dst_node->name));
+    ref(dst_node->name, dst_node->inputs.at(0));
+  }
 }
 
 void Op::RegisterAllocator::clear_regs(Op::Graph g) {
