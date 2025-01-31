@@ -1325,7 +1325,6 @@ const char *Op::Layer::QLinearAveragePool::op_type() const {
 
 std::string Op::Layer::QLinearAveragePool::params() const {
   std::stringstream ss;
-  static char ret[128];
   ss << "(IC,IW,IH: " << this->input_dims[TENSOR_4D_CHANNELS] << 
           this->input_dims[TENSOR_4D_WIDTH] << this->input_dims[TENSOR_4D_HEIGHT]
           << ") (KS: " <<  m_cp.k[TENSOR_2D_HEIGHT] << m_cp.k[TENSOR_2D_WIDTH] << ") "
@@ -1439,6 +1438,91 @@ void Op::Layer::ReduceMean::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
   this->output_type = input_types[0];
+}
+
+Op::Layer::AveragePool::AveragePool() {
+  /* zero initialize */
+  m_cp = {};
+  /* overwrite with sane defaults */
+  m_cp.stride[TENSOR_2D_HEIGHT]   = 1;
+  m_cp.stride[TENSOR_2D_WIDTH]    = 1;
+  m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
+  m_cp.dilation[TENSOR_2D_WIDTH]  = 1;
+}
+
+const char *Op::Layer::AveragePool::op_type() const {
+  return m_optype;
+}
+
+std::string Op::Layer::AveragePool::params() const {
+  std::stringstream ss;
+  ss << "(IC,IW,IH: " << this->input_dims[TENSOR_4D_CHANNELS] << 
+          this->input_dims[TENSOR_4D_WIDTH] << this->input_dims[TENSOR_4D_HEIGHT]
+          << ") (KS: " <<  m_cp.k[TENSOR_2D_HEIGHT] << m_cp.k[TENSOR_2D_WIDTH] << ") "
+          << "(pad: " << m_cp.pad[I_LEFT] << m_cp.pad[I_UP] << 
+          m_cp.pad[I_RIGHT] << m_cp.pad[I_DOWN] << ") " << "(stride: " <<
+          m_cp.stride[TENSOR_2D_HEIGHT] << m_cp.stride[TENSOR_2D_WIDTH] <<
+          "(dilation: " << m_cp.dilation[TENSOR_2D_WIDTH] << 
+          m_cp.dilation[TENSOR_2D_HEIGHT] << "\n";
+  return ss.str();
+}
+
+void Op::Layer::AveragePool::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "kernel_shape") {
+      assert(itr->ints().size() == 2 &&
+             "expected kernel shape to be 2 integers");
+      parse_onnx_ints(*itr, m_cp.k);
+    } else if (itr->name() == "strides") {
+      assert(itr->ints().size() == 2 &&
+             "expected strides shape to be 2 integers");
+      parse_onnx_ints(*itr, m_cp.stride);
+    } else if (itr->name() == "pads") {
+      assert(itr->ints().size() == 4 && "expected pads shape to be 4 integers");
+      parse_onnx_ints(*itr, m_cp.pad);
+    } else if (itr->name() == "ceil_mode") {
+      if (itr->has_i()) {
+         int ceil_mode = static_cast<int>(itr->i());
+         if (ceil_mode != 0) {
+           log_fatal("Unsupported ceil_mode {} in layer {}\n", ceil_mode, node.name());
+         }
+      } 
+    } else if (itr->name() == "count_include_pad") {
+      if (itr->has_i()) {
+        int count_include_pad = static_cast<int>(itr->i());
+        if (count_include_pad != 1) {
+           log_fatal("Unsupported count_include_pad {} in layer {}\n", count_include_pad, node.name());
+        }
+      }
+    } else if (itr->name() == "auto_pad") {
+      if (itr->has_s()) {
+        auto auto_pad = itr->s();
+        auto expected_auto_pad = "NOTSET";
+        if (auto_pad != expected_auto_pad) {
+          log_fatal("Unsupported auto_pad type {}, expected auto pad to be {} in layer {}\n",
+              auto_pad, expected_auto_pad, node.name());
+        } 
+      }
+    }
+  }
+}
+
+void Op::Layer::AveragePool::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
+void Op::Layer::AveragePool::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims[0];
+  assert(input_dims[0].size() == 4);
+  this->output_dims.resize(4);
+  this->output_dims[0] = input_dims[0][0];
+  this->output_dims[1] = input_dims[0][1];
+  this->output_dims[2] = mp_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[3] = mp_odims_cols(this->m_cp, input_dims[0]);
 }
 
 /* Auxillary Graph Functions */
@@ -2249,6 +2333,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Abs(), node);
   } else if (opt == "ReduceMean") {
     m_model.add(new Op::Layer::ReduceMean(), node);
+  } else if (opt == "AveragePool") {
+    m_model.add(new Op::Layer::AveragePool(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }
