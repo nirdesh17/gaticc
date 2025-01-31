@@ -1417,6 +1417,30 @@ void Op::Layer::Abs::infer_type(const std::vector<TPDT>& input_types) {
   this->output_type = input_types[0];
 }
 
+Op::Layer::ReduceMean::ReduceMean(): m_axis {-1}, m_keepdims {1} {
+}
+
+const char *Op::Layer::ReduceMean::op_type() const {
+  return m_optype;
+}
+
+std::string Op::Layer::ReduceMean::params() const {
+  std::stringstream ss;
+  ss << "axis: " << m_axis << " keepdims: " << m_keepdims;
+  return ss.str();
+}
+
+void Op::Layer::ReduceMean::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  this->input_dims = input_dims[0];
+  this->output_dims = reduced_shape(this->input_dims, m_axis, m_keepdims);
+}
+
+void Op::Layer::ReduceMean::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
@@ -2223,6 +2247,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QLinearAveragePool(), node);
   } else if (opt == "Abs") {
     m_model.add(new Op::Layer::Abs(), node);
+  } else if (opt == "ReduceMean") {
+    m_model.add(new Op::Layer::ReduceMean(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }

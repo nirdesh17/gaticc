@@ -789,3 +789,5 @@ std::bitset<sz> extract_bitset(const T *data, size_t size, int n, int m) {
 
 std::pair<int, char **> argv_create(const std::vector<std::string> &opts);
 void argv_delete(int argc, char **argv);
+
+std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis, int keepdims);

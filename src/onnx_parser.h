@@ -544,6 +544,20 @@ struct Abs : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
+struct ReduceMean : public LayerBase {
+  const char *m_optype = "ReduceMean";
+  const char *op_type() const override;
+  std::string params() const override;
+
+  int m_axis;
+  int m_keepdims;
+  ReduceMean();
+  //void run(TensorPool &tensor_pool) override;
+  //void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
+};
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS,

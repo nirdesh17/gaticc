@@ -288,3 +288,18 @@ void argv_delete(int argc, char **argv) {
   delete argv;
 }
 
+std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis, int keepdims) {
+  assert(reduction_axis < dims.size());
+  std::vector<int> new_shape;
+  for (int i = 0; i < dims.size(); ++i) {
+    if (i == reduction_axis) {
+      if (keepdims) {
+        new_shape.push_back(1);
+      }
+      continue;
+    }
+    new_shape.push_back(dims.at(i));
+  }
+  return new_shape;
+}
+
