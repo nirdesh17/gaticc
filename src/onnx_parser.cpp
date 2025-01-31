@@ -1402,6 +1402,21 @@ void Op::Layer::QLinearAveragePool::infer_shape(const std::vector<std::vector<in
   this->output_dims[3] = mp_odims_cols(this->m_cp, input_dims[0]);
 }
 
+const char *Op::Layer::Abs::op_type() const {
+  return m_optype;
+}
+
+void Op::Layer::Abs::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  this->input_dims = input_dims[0];
+  this->output_dims = input_dims[0];
+}
+
+void Op::Layer::Abs::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
@@ -2206,6 +2221,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::LogSoftmax(), node);
   } else if (opt == "QLinearAveragePool") {
     m_model.add(new Op::Layer::QLinearAveragePool(), node);
+  } else if (opt == "Abs") {
+    m_model.add(new Op::Layer::Abs(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }
