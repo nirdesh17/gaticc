@@ -289,7 +289,12 @@ void argv_delete(int argc, char **argv) {
 }
 
 std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis, int keepdims) {
-  assert(reduction_axis < dims.size());
+  if (reduction_axis == -1) {
+    return std::vector<int>{1};
+  }
+  if (reduction_axis >= dims.size()) {
+    log_fatal("in reduced_shape(), axis {} greater than total dims {}\n", reduction_axis, dims.size());
+  }
   std::vector<int> new_shape;
   for (int i = 0; i < dims.size(); ++i) {
     if (i == reduction_axis) {

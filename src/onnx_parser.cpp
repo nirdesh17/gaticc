@@ -545,6 +545,14 @@ void Op::Layer::Reshape::set_initializer_params(int n, const onnx::TensorProto &
 }
 
 void Op::Layer::Reshape::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  this->input_dims = input_dims[0];
+  this->output_dims = input_dims[0];
+}
+
+void Op::Layer::Reshape::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
 }
 
 Op::Layer::DequantizeLinear::DequantizeLinear():
@@ -1449,6 +1457,21 @@ void Op::Layer::ReduceMean::infer_type(const std::vector<TPDT>& input_types) {
   this->output_type = input_types[0];
 }
 
+void Op::Layer::ReduceMean::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axes") {
+      std::vector<int> axes;
+      parse_onnx_ints(*itr, axes);
+      m_axis = axes.at(0);
+    } else if (itr->name() == "keepdims") {
+      if (itr->has_i()) {
+         m_keepdims = static_cast<int>(itr->i());
+      } 
+    } 
+  }
+}
+
 Op::Layer::AveragePool::AveragePool() {
   /* zero initialize */
   m_cp = {};
@@ -1564,6 +1587,17 @@ void Op::Layer::Gather::infer_shape(const std::vector<std::vector<int>>& input_d
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims[0];
   this->output_dims.resize(this->input_dims.size());
+}
+
+void Op::Layer::Gather::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axis") {
+      if (itr->has_i()) {
+         m_axis = static_cast<int>(itr->i());
+      } 
+    } 
+  }
 }
 
 const char* Op::Layer::Unsqueeze::op_type() const {

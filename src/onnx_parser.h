@@ -322,6 +322,7 @@ struct ReorderOutput : public LayerBase {
   /* TODO: this layer, what even is this? */
 };
 
+/* https://onnx.ai/onnx/operators/onnx__Reshape.html */
 struct Reshape : public LayerBase {
   const char *m_optype = "Reshape";
   const char *op_type() const override;
@@ -330,6 +331,7 @@ struct Reshape : public LayerBase {
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
 struct QuantizeLinear : public LayerBase {
@@ -554,7 +556,7 @@ struct ReduceMean : public LayerBase {
   int m_keepdims;
   ReduceMean();
   //void run(TensorPool &tensor_pool) override;
-  //void set_attributes(const onnx::NodeProto &node) override;
+  void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
 };
@@ -581,11 +583,16 @@ struct Shape : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
+/* https://onnx.ai/onnx/operators/onnx__Gather.html */
 struct Gather : public LayerBase {
   const char *m_optype = "Gather";
 
+  int m_axis;
+  int m_keepdims;
+
   const char *op_type() const override;
   //void run(TensorPool &tensor_pool) override;
+  void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
 };
