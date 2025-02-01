@@ -1541,6 +1541,21 @@ void Op::Layer::Shape::infer_shape(const std::vector<std::vector<int>>& input_di
   this->output_dims.resize(this->input_dims.size());
 }
 
+const char* Op::Layer::Gather::op_type() const {
+  return m_optype;
+}
+
+void Op::Layer::Gather::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = onnx::TensorProto_DataType_INT64;
+}
+
+void Op::Layer::Gather::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims[0];
+  this->output_dims.resize(this->input_dims.size());
+}
 
 /* Auxillary Graph Functions */
 
@@ -2354,6 +2369,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::AveragePool(), node);
   } else if (opt == "Shape") {
     m_model.add(new Op::Layer::Shape(), node);
+  } else if (opt == "Gather") {
+    m_model.add(new Op::Layer::Gather(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }

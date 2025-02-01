@@ -581,6 +581,24 @@ struct Shape : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
+struct Gather : public LayerBase {
+  const char *m_optype = "Gather";
+
+  const char *op_type() const override;
+  //void run(TensorPool &tensor_pool) override;
+  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
+};
+
+struct Unsqueeze : public LayerBase {
+  const char *m_optype = "Unsqueeze";
+
+  const char *op_type() const override;
+  //void run(TensorPool &tensor_pool) override;
+  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
+};
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS,
