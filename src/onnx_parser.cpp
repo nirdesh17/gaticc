@@ -76,6 +76,15 @@ static void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   }
 }
 
+static void parse_onnx_ints(const onnx::AttributeProto &attr, std::vector<int>& attr_array) { 
+  assert(attr.type() == onnx::AttributeProto::INTS &&
+         "expected attributes of type INTS");
+  auto ints = attr.ints();
+  for (int i = 0; i < ints.size(); ++i) {
+    attr_array.push_back(ints.at(i));
+  }
+}
+
 Op::Layer::Conv::Conv() {
   /* zero initialize */
   m_cp = {};
@@ -1557,6 +1566,32 @@ void Op::Layer::Gather::infer_shape(const std::vector<std::vector<int>>& input_d
   this->output_dims.resize(this->input_dims.size());
 }
 
+const char* Op::Layer::Unsqueeze::op_type() const {
+  return m_optype;
+}
+
+void Op::Layer::Unsqueeze::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
+void Op::Layer::Unsqueeze::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims[0];
+  this->output_dims = unsqueeze_shape(this->input_dims, axis);
+}
+
+void Op::Layer::Unsqueeze::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    // odd spelling for 'axis', i know
+    if (itr->name() == "axes") {
+      parse_onnx_ints(*itr, axis);
+    } 
+  }
+}
+
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
@@ -2371,6 +2406,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Shape(), node);
   } else if (opt == "Gather") {
     m_model.add(new Op::Layer::Gather(), node);
+  } else if (opt == "Unsqueeze") {
+    m_model.add(new Op::Layer::Unsqueeze(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }

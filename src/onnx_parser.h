@@ -590,11 +590,15 @@ struct Gather : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
+/* https://onnx.ai/onnx/operators/onnx__Unsqueeze.html */
 struct Unsqueeze : public LayerBase {
   const char *m_optype = "Unsqueeze";
 
+  std::vector<int> axis;
+
   const char *op_type() const override;
   //void run(TensorPool &tensor_pool) override;
+  void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
 };

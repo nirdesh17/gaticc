@@ -303,3 +303,18 @@ std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis,
   return new_shape;
 }
 
+std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector<int>& indices) {
+  std::vector<int> new_shape;
+  for (int i = 0, j = 0; i < dims.size() + indices.size(); ++i) {
+    if (std::find(indices.cbegin(), indices.cend(), i) != indices.cend()) {
+      new_shape.push_back(1);
+    } else {
+      if (j >= dims.size()) {
+        std::cout << "oob\n";
+      }
+      new_shape.push_back(dims.at(j++));
+    }
+  }
+  return new_shape;
+}
+

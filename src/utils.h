@@ -791,3 +791,4 @@ std::pair<int, char **> argv_create(const std::vector<std::string> &opts);
 void argv_delete(int argc, char **argv);
 
 std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis, int keepdims);
+std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector<int>& indices);
