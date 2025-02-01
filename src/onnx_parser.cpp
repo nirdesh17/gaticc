@@ -1592,6 +1592,33 @@ void Op::Layer::Unsqueeze::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
+const char* Op::Layer::Concat::op_type() const {
+  return m_optype;
+}
+
+void Op::Layer::Concat::infer_type(const std::vector<TPDT>& input_types) {
+  assert(input_types.size() >= 1); 
+  this->input_type = input_types[0];
+  this->output_type = input_types[0];
+}
+
+void Op::Layer::Concat::infer_shape(const std::vector<std::vector<int>>& input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims[0];
+  this->output_dims = concat_shape(input_dims, m_axis);
+}
+
+void Op::Layer::Concat::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axis") {
+      if (itr->has_i()) {
+         m_axis = static_cast<int>(itr->i());
+      } 
+    } 
+  }
+}
+
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
@@ -1658,6 +1685,14 @@ bool Op::Model::is_initializer(const std::string &s) const {
   return false;
 }
 
+bool Op::Model::is_constant(const std::string &s) const {
+  auto itr = constant_pool.find(s);
+  if (itr != constant_pool.end()) {
+    return true;
+  }
+  return false;
+}
+
 bool Op::Model::is_graph_output(const std::string &s) const {
   auto itr = graph_output_map.find(s);
   if (itr != graph_output_map.end()) {
@@ -1667,9 +1702,6 @@ bool Op::Model::is_graph_output(const std::string &s) const {
 }
 
 void Op::Model::connect(const onnx::NodeProto &node) {
-  if (node.name() == "resnetv24_stage1_conv0_fwd") {
-    int stop_here = 1;
-  }
   /* find the Op::Vertex for `node` */
   Op::Vertex current_node;
   auto itr = name_vertex_map.find(node.name());
@@ -1683,13 +1715,14 @@ void Op::Model::connect(const onnx::NodeProto &node) {
     /* for inputs that are not initializers or inputs to the
      * graph, connect them to the current node
      */
-    if (!is_initializer(i) && !is_graph_input(i)) {
+    if (!is_initializer(i) && !is_graph_input(i) && !is_constant(i)) {
       auto itr = output_map.find(i);
+      auto itr2 = constant_pool.find(i);
       if (itr != output_map.end()) {
         /* connect */
         boost::add_edge(itr->second, current_node, g);
       } else {
-        log_fatal("Coudn't find node {} in output_map\n", i);
+        log_fatal("Coudn't find node {} in output_map or constant_pool\n", i);
       }
     }
   }
@@ -2345,7 +2378,9 @@ Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
 }
 
 void Op::Model::add_to_constant_pool(const onnx::NodeProto &node) {
-  constant_pool.insert({node.name(), node});
+  for (const auto &i : node.output()) {
+    constant_pool.insert({i, node});
+  }
 }
 
 void Op::Parser::add_operator(onnx::NodeProto &node) {
@@ -2408,6 +2443,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Gather(), node);
   } else if (opt == "Unsqueeze") {
     m_model.add(new Op::Layer::Unsqueeze(), node);
+  } else if (opt == "Concat") {
+    m_model.add(new Op::Layer::Concat(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }

@@ -792,3 +792,4 @@ void argv_delete(int argc, char **argv);
 
 std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis, int keepdims);
 std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector<int>& indices);
+std::vector<int> concat_shape(const std::vector<std::vector<int>>& dims, int axis);

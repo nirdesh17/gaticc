@@ -603,6 +603,21 @@ struct Unsqueeze : public LayerBase {
   void infer_type(const std::vector<TPDT>& input_types) override;
 };
 
+/* https://onnx.ai/onnx/operators/onnx__Concat.html */
+struct Concat : public LayerBase {
+  const char *m_optype = "Concat";
+
+  int m_axis;
+
+  const char *op_type() const override;
+  //void run(TensorPool &tensor_pool) override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_type(const std::vector<TPDT>& input_types) override;
+};
+
+
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS,
@@ -685,6 +700,7 @@ class Model {
   bool is_graph_input(const std::string &s) const;
   bool is_graph_output(const std::string &s) const;
   bool is_initializer(const std::string &s) const;
+  bool is_constant(const std::string &s) const;
 
   void set_input_type(const onnx::NodeProto &node, Op::LayerBase *l);
   void set_output_type(const onnx::NodeProto &node, Op::LayerBase *l);

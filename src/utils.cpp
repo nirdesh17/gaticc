@@ -310,7 +310,7 @@ std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector
       new_shape.push_back(1);
     } else {
       if (j >= dims.size()) {
-        std::cout << "oob\n";
+        log_fatal("Index {} is out of bounds of tensors of dim size {}\n", j, dims.size());
       }
       new_shape.push_back(dims.at(j++));
     }
@@ -318,3 +318,30 @@ std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector
   return new_shape;
 }
 
+std::vector<int> concat_shape(const std::vector<std::vector<int>> &dims,
+                              int axis) {
+  const auto &first_dims = dims.at(0);
+  std::vector<int> new_shape{first_dims};
+  for (int i = 1; i < dims.size(); ++i) {
+    if (dims.at(i).size() != first_dims.size()) {
+      log_fatal(
+          "all dims must be of the same size, got dim of size {} at index {}\n",
+          dims.at(i).size(), i);
+    }
+
+    for (int j = 0; j < new_shape.size(); ++j) {
+      if (j == axis) {
+        new_shape.at(j) += dims.at(i).at(j);
+      } else {
+        if (new_shape.at(j) != dims.at(i).at(j)) {
+          log_fatal(
+              "all the input array dimensions except for the concatenation "
+              "axis must match exactly, but along dimension {}, the array at "
+              "index {} has size {} and the array at index 0 has size {}",
+              i, j, dims.at(i).at(j), new_shape.at(j));
+        }
+      }
+    }
+  }
+  return new_shape;
+}
