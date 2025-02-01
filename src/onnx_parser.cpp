@@ -1570,7 +1570,7 @@ void Op::Layer::Shape::infer_type(const std::vector<TPDT>& input_types) {
 void Op::Layer::Shape::infer_shape(const std::vector<std::vector<int>>& input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims[0];
-  this->output_dims.resize(this->input_dims.size());
+  this->output_dims.push_back(this->input_dims.size());
 }
 
 const char* Op::Layer::Gather::op_type() const {
