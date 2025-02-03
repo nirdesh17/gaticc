@@ -304,6 +304,17 @@ void Op::Layer::Gemm::infer_type(const std::vector<TPDT>& input_types) {
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
+static std::stringstream get_pool_params(const std::vector<int>& idims, const Op::PoolParams &m_cp) {
+  std::stringstream ss;
+  ss << "(IC,IW,IH: " << idims[TENSOR_4D_CHANNELS] << ","
+     << idims[TENSOR_4D_WIDTH] << "," << idims[TENSOR_4D_HEIGHT] << ") "
+     << "(KS: " << m_cp.k[TENSOR_2D_HEIGHT] << "," << m_cp.k[TENSOR_2D_WIDTH] << ") "
+     << "(pad: " << m_cp.pad[I_LEFT] << "," << m_cp.pad[I_UP] << "," << m_cp.pad[I_RIGHT] << "," << m_cp.pad[I_DOWN] << ") "
+     << "(stride: " << m_cp.stride[TENSOR_2D_HEIGHT] << "," << m_cp.stride[TENSOR_2D_WIDTH] << ") "
+     << "(dilation: " << m_cp.dilation[TENSOR_2D_WIDTH] << "," << m_cp.dilation[TENSOR_2D_HEIGHT] << ")";
+  return ss;
+}
+
 Op::Layer::Maxpool::Maxpool() {
   /* zero initialize */
   m_cp = {};
@@ -316,16 +327,7 @@ Op::Layer::Maxpool::Maxpool() {
 
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
 std::string Op::Layer::Maxpool::params() const {
-  std::string ret;
-  std::stringstream ss;
-  ss << "(IC,IW,IH: " << this->input_dims[TENSOR_4D_CHANNELS] << ","
-     << this->input_dims[TENSOR_4D_WIDTH] << "," << this->input_dims[TENSOR_4D_HEIGHT] << ") "
-     << "(KS: " << m_cp.k[TENSOR_2D_HEIGHT] << "," << m_cp.k[TENSOR_2D_WIDTH] << ") "
-     << "(pad: " << m_cp.pad[I_LEFT] << "," << m_cp.pad[I_UP] << "," << m_cp.pad[I_RIGHT] << "," << m_cp.pad[I_DOWN] << ") "
-     << "(stride: " << m_cp.stride[TENSOR_2D_HEIGHT] << "," << m_cp.stride[TENSOR_2D_WIDTH] << ") "
-     << "(dilation: " << m_cp.dilation[TENSOR_2D_WIDTH] << "," << m_cp.dilation[TENSOR_2D_HEIGHT] << ")";
-  ret = ss.str();
-  return ret;
+  return get_pool_params(this->input_dims, this->m_cp).str();
 }
 
 void Op::Layer::Maxpool::set_value_info_params(const onnx::ValueInfoProto &t) {
@@ -1341,16 +1343,7 @@ const char *Op::Layer::QLinearAveragePool::op_type() const {
 }
 
 std::string Op::Layer::QLinearAveragePool::params() const {
-  std::stringstream ss;
-  ss << "(IC,IW,IH: " << this->input_dims[TENSOR_4D_CHANNELS] << 
-          this->input_dims[TENSOR_4D_WIDTH] << this->input_dims[TENSOR_4D_HEIGHT]
-          << ") (KS: " <<  m_cp.k[TENSOR_2D_HEIGHT] << m_cp.k[TENSOR_2D_WIDTH] << ") "
-          << "(pad: " << m_cp.pad[I_LEFT] << m_cp.pad[I_UP] << 
-          m_cp.pad[I_RIGHT] << m_cp.pad[I_DOWN] << ") " << "(stride: " <<
-          m_cp.stride[TENSOR_2D_HEIGHT] << m_cp.stride[TENSOR_2D_WIDTH] <<
-          "(dilation: " << m_cp.dilation[TENSOR_2D_WIDTH] << 
-          m_cp.dilation[TENSOR_2D_HEIGHT] << "\n";
-  return ss.str();
+  return get_pool_params(this->input_dims, this->m_cp).str();
 }
 
 void Op::Layer::QLinearAveragePool::set_attributes(const onnx::NodeProto &node) {
@@ -1487,16 +1480,7 @@ const char *Op::Layer::AveragePool::op_type() const {
 }
 
 std::string Op::Layer::AveragePool::params() const {
-  std::stringstream ss;
-  ss << "(IC,IW,IH: " << this->input_dims[TENSOR_4D_CHANNELS] << 
-          this->input_dims[TENSOR_4D_WIDTH] << this->input_dims[TENSOR_4D_HEIGHT]
-          << ") (KS: " <<  m_cp.k[TENSOR_2D_HEIGHT] << m_cp.k[TENSOR_2D_WIDTH] << ") "
-          << "(pad: " << m_cp.pad[I_LEFT] << m_cp.pad[I_UP] << 
-          m_cp.pad[I_RIGHT] << m_cp.pad[I_DOWN] << ") " << "(stride: " <<
-          m_cp.stride[TENSOR_2D_HEIGHT] << m_cp.stride[TENSOR_2D_WIDTH] <<
-          "(dilation: " << m_cp.dilation[TENSOR_2D_WIDTH] << 
-          m_cp.dilation[TENSOR_2D_HEIGHT] << "\n";
-  return ss.str();
+  return get_pool_params(this->input_dims, this->m_cp).str();
 }
 
 void Op::Layer::AveragePool::set_attributes(const onnx::NodeProto &node) {
@@ -1573,6 +1557,9 @@ void Op::Layer::Shape::infer_shape(const std::vector<std::vector<int>>& input_di
   this->output_dims.push_back(this->input_dims.size());
 }
 
+Op::Layer::Gather::Gather(): m_axis {0} , m_indices {nullptr} {
+}
+
 const char* Op::Layer::Gather::op_type() const {
   return m_optype;
 }
@@ -1586,7 +1573,7 @@ void Op::Layer::Gather::infer_type(const std::vector<TPDT>& input_types) {
 void Op::Layer::Gather::infer_shape(const std::vector<std::vector<int>>& input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims[0];
-  this->output_dims.resize(this->input_dims.size());
+  this->output_dims = input_dims[0];
 }
 
 void Op::Layer::Gather::set_attributes(const onnx::NodeProto &node) {
@@ -2413,6 +2400,7 @@ Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
 
 void Op::Model::add_to_constant_pool(const onnx::NodeProto &node) {
   for (const auto &i : node.output()) {
+    std::cout << "const " << i << '\n';
     constant_pool.insert({i, node});
   }
 }

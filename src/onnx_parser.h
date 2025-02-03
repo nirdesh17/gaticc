@@ -12,6 +12,7 @@
 
 #include "onnx.pb.h"
 #include "utils.h"
+#include "tensor.h"
 
 
 /* Indices for accessing dimensions. I_BATCH should be read as
@@ -587,8 +588,9 @@ struct Shape : public LayerBase {
 struct Gather : public LayerBase {
   const char *m_optype = "Gather";
 
+  Gather();
   int m_axis;
-  int m_keepdims;
+  Tensor<int> *m_indices;
 
   const char *op_type() const override;
   //void run(TensorPool &tensor_pool) override;
