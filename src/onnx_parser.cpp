@@ -1564,6 +1564,12 @@ const char* Op::Layer::Gather::op_type() const {
   return m_optype;
 }
 
+std::string Op::Layer::Gather::params() const {
+  std::stringstream ss;
+  ss << "[dynamic out shape] axis: " << m_axis;
+  return ss.str();
+}
+
 void Op::Layer::Gather::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
