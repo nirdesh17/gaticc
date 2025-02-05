@@ -666,7 +666,10 @@ bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
                            int expected_dims);
 std::vector<int> get_dims_from_value_info(const onnx::ValueInfoProto &v);
 std::vector<std::vector<int>> get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g);
-std::vector<TPDT> get_types_of_in_edges(Op::Vertex v, const Op::Graph &g);
+std::vector<TPDT> get_types_of_in_edges(Op::Vertex v, const Op::Graph &g, const std::vector<std::string>& i_nodes);
+std::vector<std::string>
+get_input_nodes(const onnx::NodeProto &np, const Op::Graph &g,
+                const std::map<std::string, Op::Vertex>& output_map);
 /* size in bytes */
 int tensorproto_sizeof(const onnx::TensorProto *t);
 /* size in bytes */
@@ -709,7 +712,8 @@ class Model {
   std::map<std::string, const onnx::ValueInfoProto &> graph_output_map;
   std::map<std::string, const onnx::ValueInfoProto &> graph_input_map;
   /* All 'Constants' in the onnx model are looked up using this table */
-  std::map<std::string, const onnx::NodeProto &> constant_pool;
+  std::map<std::string, onnx::NodeProto> constant_pool;
+  std::map<std::string, onnx::NodeProto> name_node_map;
 
   std::vector<LayerBase *> execution_order;
 
@@ -737,7 +741,8 @@ public:
   void save_attribute(const onnx::NodeProto &node);
 
   void add(LayerBase *layer, const onnx::NodeProto &node);
-  void add_to_constant_pool(const onnx::NodeProto &node);
+  void add_to_constant_pool(onnx::NodeProto node);
+  void add_to_name_node(onnx::NodeProto node);
   void connect(const onnx::NodeProto &node);
   void save_first_layer_input_dims(const onnx::ValueInfoProto &t);
 

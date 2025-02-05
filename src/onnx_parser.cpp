@@ -610,6 +610,9 @@ void Op::Layer::Reshape::infer_shape(const std::vector<std::vector<int>>& input_
 
 void Op::Layer::Reshape::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
+  if (this->input_type != onnx::TensorProto_DataType_UNDEFINED && this->output_type != onnx::TensorProto_DataType_UNDEFINED) {
+    return;
+  }
   this->input_type = input_types[0];
   this->output_type = input_types[0];
 }
@@ -2122,7 +2125,13 @@ void Op::Model::deduce_types(const std::vector<TPDT>& input_types) {
     auto out_edges = boost::out_edges(n, gcopy);
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
       Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      auto in_types = Op::get_types_of_in_edges(dest_vertex, gcopy);
+      auto itr2 = name_node_map.find(gcopy[dest_vertex]->name);
+      if (itr2 == name_node_map.end()) {
+        log_fatal("could not find {} in name_node_map\n", gcopy[dest_vertex]->name);
+      }
+      onnx::NodeProto &np = itr2->second;
+      auto i_nodes = Op::get_input_nodes(np, g, output_map);
+      auto in_types = Op::get_types_of_in_edges(dest_vertex, gcopy, i_nodes);
       gcopy[dest_vertex]->infer_type(in_types);
       boost::remove_edge(*itr, gcopy);
       if (boost::in_degree(dest_vertex, gcopy) == 0) {
@@ -2251,12 +2260,39 @@ std::vector<std::vector<int>> Op::get_dims_of_in_edges(Op::Vertex v, const Op::G
   return ret;
 }
 
-std::vector<TPDT> Op::get_types_of_in_edges(Op::Vertex v, const Op::Graph &g) {
-  std::vector<TPDT> ret;
+std::vector<std::string>
+Op::get_input_nodes(const onnx::NodeProto &np, const Op::Graph &g,
+                const std::map<std::string, Op::Vertex>& output_map) {
+  std::vector<std::string> ret;
+  for (const auto &i : np.input()) {
+    auto itr = output_map.find(i);
+    if (itr == output_map.end()) {
+      continue;
+    }
+    Op::Vertex v = itr->second;
+    ret.push_back(g[v]->name);
+  }
+  return ret;
+}
+
+std::vector<TPDT>
+Op::get_types_of_in_edges(Op::Vertex v, const Op::Graph &g,
+                          const std::vector<std::string> &i_nodes) {
+  std::cout << "this node " << g[v]->name << '\n';
+  if (g[v]->name == "/Reshape") {
+    int stop_here = 1;
+  }
+
+  std::vector<TPDT> ret(i_nodes.size());
+  std::unordered_map<std::string, int> name_index;
+  int index = 0;
+  for (const auto &i : i_nodes) {
+    name_index.insert({i, index++});
+  }
   auto in_edges = boost::in_edges(v, g);
   for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
     Op::Vertex src_vertex = boost::source(*itr, g);
-    ret.push_back(g[src_vertex]->output_type);
+    ret.at(name_index[g[src_vertex]->name]) = g[src_vertex]->output_type;
   }
   return ret;
 }
@@ -2461,11 +2497,14 @@ Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
   return boost::adjacent_vertices(v, g);
 }
 
-void Op::Model::add_to_constant_pool(const onnx::NodeProto &node) {
+void Op::Model::add_to_constant_pool(onnx::NodeProto node) {
   for (const auto &i : node.output()) {
-    std::cout << "const " << i << '\n';
     constant_pool.insert({i, node});
   }
+}
+
+void Op::Model::add_to_name_node(onnx::NodeProto node) {
+  name_node_map.insert({node.name(), node});
 }
 
 void Op::Parser::add_operator(onnx::NodeProto &node) {
@@ -2646,9 +2685,11 @@ void Op::Parser::pass_save_initializers(const onnx::GraphProto &graph) {
 void Op::Parser::pass_save_nodes(const onnx::GraphProto &graph) {
   auto nodes = graph.node();
   /* add constants */
-  for (auto i : nodes) {
+  for (const auto& i : nodes) {
     if (i.op_type() == "Constant") {
       m_model.add_to_constant_pool(i);
+    } else {
+      m_model.add_to_name_node(i);
     }
   }
   for (auto i : nodes) {
