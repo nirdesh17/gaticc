@@ -1,19 +1,18 @@
 #pragma once
+#include <bitset>
 #include <fstream>
 #include <functional>
 #include <map>
 #include <string>
 #include <vector>
-#include <bitset>
 
 #include "boost/graph/adjacency_list.hpp"
 #include "boost/graph/graph_traits.hpp"
 #include "google/protobuf/arena.h"
 
 #include "onnx.pb.h"
-#include "utils.h"
 #include "tensor.h"
-
+#include "utils.h"
 
 /* Indices for accessing dimensions. I_BATCH should be read as
  * index for BATCH dimension
@@ -25,7 +24,7 @@
 #define TENSOR_4D_BATCH 0
 #define TENSOR_4D_CHANNELS 1
 #define TENSOR_4D_HEIGHT 2
-#define TENSOR_4D_WIDTH 3 
+#define TENSOR_4D_WIDTH 3
 
 #define TENSOR_2D_HEIGHT 0
 #define TENSOR_2D_WIDTH 1
@@ -42,7 +41,7 @@
  *  UP, RIGHT, DOWN
  */
 
-#define I_LEFT 0  
+#define I_LEFT 0
 #define I_RIGHT 2
 #define I_UP 1
 #define I_DOWN 3
@@ -53,17 +52,12 @@
 using TPDT = onnx::TensorProto_DataType;
 using InstBlob = std::vector<std::bitset<INST_SIZE_BITS>>;
 
-enum DEVICES {
-  DEVICE_UNKNOWN,
-  DEVICE_CPU,
-  DEVICE_FPGA
-};
-
+enum DEVICES { DEVICE_UNKNOWN, DEVICE_CPU, DEVICE_FPGA };
 
 /* aot declaration, definition in instgen.h */
 class AddressGen;
 class InitializerTable;
- 
+
 /* Onnx Parser external interface */
 namespace Op {
 
@@ -125,23 +119,23 @@ struct LayerBase {
 
   virtual void run(TensorPool &tensor_pool);
 
-  virtual void infer_shape(const std::vector<std::vector<int>>& input_dims);
+  virtual void infer_shape(const std::vector<std::vector<int>> &input_dims);
 
-  virtual void infer_type(const std::vector<TPDT>& input_types);
+  virtual void infer_type(const std::vector<TPDT> &input_types);
 
   /* push one or more INST_SIZE_BITS instruction in `insts`, how many
    * are decided by the override. return total dwp_packets required
    * by this instruction
    */
-  virtual int get_inst(InstBlob& insts, AddressGen& gen, InitializerTable &tbl);
+  virtual int get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl);
   /* push one or more opcodes corresponding to instructions
    * that this layer generates.
-   * for example, Conv layer generates any where from 
+   * for example, Conv layer generates any where from
    * 3 or 4 instructions: conv,output,start or conv,output,tail,start
    * each override pushes opcodes corresponding to the instructions
    * that shall be generated that layer
    */
-  virtual void get_opcodes(std::vector<int>& op_codes);
+  virtual void get_opcodes(std::vector<int> &op_codes);
 
   /* Return total elements present in weights and biases
    * of each layer, aligned according to underlying
@@ -152,7 +146,7 @@ struct LayerBase {
 
   /* aligned shapes are new shapes aligned with DRAM word
    * size and SA/VA sizes that a layer will posess
-   * when executing on the fpga. Layers that do not 
+   * when executing on the fpga. Layers that do not
    * modify shape, will, for now, emit un-aligned dims
    */
   virtual std::vector<int> aligned_input();
@@ -181,9 +175,8 @@ struct LayerBase {
   /* 1 if current node's outputs need to be received from the FPGA or
    * dumped by the simulator
    */
-  bool dispatch;  
+  bool dispatch;
 };
-
 
 namespace Layer {
 
@@ -201,19 +194,19 @@ struct Conv : public LayerBase {
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void run(TensorPool &tensor_pool) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct Relu : public LayerBase {
   const char *m_optype = "Relu";
   const char *op_type() const override;
   void run(TensorPool &tensor_pool) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
 
 struct Clip : public LayerBase {
@@ -224,7 +217,7 @@ struct Clip : public LayerBase {
   const char *op_type() const override;
   std::string params() const override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
 };
 
 struct Gemm : public LayerBase {
@@ -239,8 +232,8 @@ struct Gemm : public LayerBase {
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
 };
 
@@ -253,22 +246,22 @@ struct Maxpool : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
 
 struct Flatten : public LayerBase {
   const char *m_optype = "Flatten";
   const char *op_type() const override;
   void run(TensorPool &tensor_pool) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
 
 struct Dropout : public LayerBase {
@@ -279,8 +272,8 @@ struct Dropout : public LayerBase {
   std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct Add : public LayerBase {
@@ -290,15 +283,15 @@ struct Add : public LayerBase {
   const char *op_type() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct GlobalAveragePool : public LayerBase {
   const char *m_optype = "GlobalAveragePool";
   const char *op_type() const override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct BatchNorm : public LayerBase {
@@ -320,8 +313,8 @@ struct BatchNorm : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct ReorderOutput : public LayerBase {
@@ -338,8 +331,8 @@ struct Reshape : public LayerBase {
   std::vector<int64_t> new_shape;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct QuantizeLinear : public LayerBase {
@@ -348,7 +341,7 @@ struct QuantizeLinear : public LayerBase {
   std::string params() const override;
   float scale;
   /* TODO: float8e etc types missing */
-  std::variant<uint8_t,int8_t,uint16_t,int16_t> zero_point;
+  std::variant<uint8_t, int8_t, uint16_t, int16_t> zero_point;
   int axis;
   int block_size;
   int output_dtype;
@@ -356,11 +349,11 @@ struct QuantizeLinear : public LayerBase {
   QuantizeLinear();
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
 };
 
@@ -368,21 +361,20 @@ struct DequantizeLinear : public LayerBase {
   const char *m_optype = "DequantizeLinear";
   const char *op_type() const override;
   std::string params() const override;
-  std::variant<float,double> scale;
+  std::variant<float, double> scale;
   int zero_point;
   int axis;
   int block_size;
   DequantizeLinear();
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
-
 
 struct QLinearMatMul : public LayerBase {
   const onnx::TensorProto *weights;
@@ -393,15 +385,15 @@ struct QLinearMatMul : public LayerBase {
   std::vector<float> a_scale;
   std::vector<float> b_scale;
   std::vector<float> y_scale;
-  std::vector<std::variant<int8_t,uint8_t>> a_zero_point;
-  std::vector<std::variant<int8_t,uint8_t>> b_zero_point;
-  std::vector<std::variant<int8_t,uint8_t>> y_zero_point;
+  std::vector<std::variant<int8_t, uint8_t>> a_zero_point;
+  std::vector<std::variant<int8_t, uint8_t>> b_zero_point;
+  std::vector<std::variant<int8_t, uint8_t>> y_zero_point;
   const char *op_type() const override;
   std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_value_info_params(const onnx::ValueInfoProto &t) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
 };
 
@@ -417,8 +409,8 @@ struct QLinearAdd : public LayerBase {
   const char *m_optype = "QLinearAdd";
   const char *op_type() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
 };
 
@@ -451,29 +443,29 @@ struct QGemm : public LayerBase {
   TPDT weight_type;
   TPDT bias_type;
   GemmParams m_cp;
-  /* Occasionally, a conv follows a gemm, in such a case, the FPGA needs to 
+  /* Occasionally, a conv follows a gemm, in such a case, the FPGA needs to
    * know this so convolution's output order can be transposed into a linear
    * order that gemm expects. Dims of said former conv layer, is stored
-   * in this the vector 'former_layer_dims'. 
+   * in this the vector 'former_layer_dims'.
    */
   std::vector<int> former_layer_dims;
   std::vector<float> a_scale;
   std::vector<float> b_scale;
   std::vector<float> y_scale;
-  std::vector<std::variant<int8_t,uint8_t>> a_zero_point;
-  std::vector<std::variant<int8_t,uint8_t>> b_zero_point;
-  std::vector<std::variant<int8_t,uint8_t>> y_zero_point;
+  std::vector<std::variant<int8_t, uint8_t>> a_zero_point;
+  std::vector<std::variant<int8_t, uint8_t>> b_zero_point;
+  std::vector<std::variant<int8_t, uint8_t>> y_zero_point;
   QGemm();
   const char *op_type() const override;
   std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   std::vector<int> aligned_input() override;
   std::vector<int> aligned_output() override;
 };
@@ -495,16 +487,16 @@ struct QLinearConv : public LayerBase {
   std::vector<float> w_scale;
   std::vector<std::variant<int8_t, uint8_t>> w_zero_point;
   std::vector<float> y_scale;
-  std::vector<std::variant<int8_t,uint8_t>>  y_zero_point;
+  std::vector<std::variant<int8_t, uint8_t>> y_zero_point;
   const char *op_type() const override;
   std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   std::vector<int> aligned_input() override;
   std::vector<int> aligned_output() override;
@@ -518,12 +510,12 @@ struct LogSoftmax : public LayerBase {
   LogSoftmax();
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
 
 struct QLinearAveragePool : public LayerBase {
@@ -532,27 +524,26 @@ struct QLinearAveragePool : public LayerBase {
   QLinearAveragePool();
   float x_scale;
   float y_scale;
-  std::variant<uint8_t,int8_t> x_zero_points;
-  std::variant<uint8_t,int8_t> y_zero_points;
+  std::variant<uint8_t, int8_t> x_zero_points;
+  std::variant<uint8_t, int8_t> y_zero_points;
 
   const char *op_type() const override;
   std::string params() const override;
   void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
-  void get_opcodes(std::vector<int>& op_codes) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
-  int get_inst(InstBlob& blob, AddressGen& gen, InitializerTable &tbl) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
-
 
 struct Abs : public LayerBase {
   const char *m_optype = "Abs";
   const char *op_type() const override;
-  //void run(TensorPool &tensor_pool) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  // void run(TensorPool &tensor_pool) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct ReduceMean : public LayerBase {
@@ -563,10 +554,10 @@ struct ReduceMean : public LayerBase {
   int m_axis;
   int m_keepdims;
   ReduceMean();
-  //void run(TensorPool &tensor_pool) override;
+  // void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct AveragePool : public LayerBase {
@@ -576,19 +567,19 @@ struct AveragePool : public LayerBase {
 
   const char *op_type() const override;
   std::string params() const override;
-  //void run(TensorPool &tensor_pool) override;
+  // void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct Shape : public LayerBase {
   const char *m_optype = "Shape";
 
   const char *op_type() const override;
-  //void run(TensorPool &tensor_pool) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  // void run(TensorPool &tensor_pool) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 /* https://onnx.ai/onnx/operators/onnx__Gather.html */
@@ -601,10 +592,10 @@ struct Gather : public LayerBase {
 
   const char *op_type() const override;
   std::string params() const override;
-  //void run(TensorPool &tensor_pool) override;
+  // void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 /* https://onnx.ai/onnx/operators/onnx__Unsqueeze.html */
@@ -614,10 +605,10 @@ struct Unsqueeze : public LayerBase {
   std::vector<int> axis;
 
   const char *op_type() const override;
-  //void run(TensorPool &tensor_pool) override;
+  // void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 /* https://onnx.ai/onnx/operators/onnx__Concat.html */
@@ -627,13 +618,11 @@ struct Concat : public LayerBase {
   int m_axis;
 
   const char *op_type() const override;
-  //void run(TensorPool &tensor_pool) override;
+  // void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
-  void infer_type(const std::vector<TPDT>& input_types) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
-
-
 
 } // namespace Layer
 
@@ -657,19 +646,21 @@ void print_node(Op::Vertex v, const Op::Graph *g);
 Vertex get_root_node(const Op::Graph *g);
 const char *get_tensorproto_dtype_name(TPDT type);
 std::vector<int> get_tensorproto_shape(const onnx::TensorProto &t);
-TPDT
-get_type_from_value_info(const onnx::ValueInfoProto &v);
+TPDT get_type_from_value_info(const onnx::ValueInfoProto &v);
 TPDT get_type_from_tensor_proto(const onnx::TensorProto &v);
 const onnx::TensorShapeProto &
 get_tensor_shape_proto(const onnx::ValueInfoProto &t);
 bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
                            int expected_dims);
 std::vector<int> get_dims_from_value_info(const onnx::ValueInfoProto &v);
-std::vector<std::vector<int>> get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g);
-std::vector<TPDT> get_types_of_in_edges(Op::Vertex v, const Op::Graph &g, const std::vector<std::string>& i_nodes);
+std::vector<std::vector<int>> get_dims_of_in_edges(Op::Vertex v,
+                                                   const Op::Graph &g);
+std::vector<TPDT>
+get_types_of_in_edges(Op::Vertex v, const Op::Graph &g,
+                      const std::vector<std::string> &i_nodes);
 std::vector<std::string>
 get_input_nodes(const onnx::NodeProto &np, const Op::Graph &g,
-                const std::map<std::string, Op::Vertex>& output_map);
+                const std::map<std::string, Op::Vertex> &output_map);
 /* size in bytes */
 int tensorproto_sizeof(const onnx::TensorProto *t);
 /* size in bytes */
@@ -680,26 +671,41 @@ bool dtype_eq(int32_t t1, TPDT t2);
 std::vector<int> get_true_rc_weights(const Op::LayerBase *l);
 std::vector<int> get_true_rc_inputs(const Op::LayerBase *l);
 
-  /* Return the total cycles required by the entire model */
+/* Return the total cycles required by the entire model */
 long time_estimate(Op::Graph graph);
 
-inline int sa_odims_row(Op::ConvParams const &cp, const std::vector<int>& input_dims) {
+inline int sa_odims_row(Op::ConvParams const &cp,
+                        const std::vector<int> &input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
-  return ((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] + cp.pad[I_LEFT] + cp.pad[I_RIGHT]) / cp.stride[TENSOR_2D_HEIGHT]) + 1;
+  return ((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] +
+           cp.pad[I_LEFT] + cp.pad[I_RIGHT]) /
+          cp.stride[TENSOR_2D_HEIGHT]) +
+         1;
 }
 
-
-inline int sa_odims_cols(Op::ConvParams const &cp, const std::vector<int>& input_dims) {
-  return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] + cp.pad[I_DOWN]) / cp.stride[TENSOR_2D_WIDTH]) + 1;
+inline int sa_odims_cols(Op::ConvParams const &cp,
+                         const std::vector<int> &input_dims) {
+  return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] +
+           cp.pad[I_DOWN]) /
+          cp.stride[TENSOR_2D_WIDTH]) +
+         1;
 }
 
-inline int mp_odims_row(Op::PoolParams const &cp, const std::vector<int>& input_dims) {
+inline int mp_odims_row(Op::PoolParams const &cp,
+                        const std::vector<int> &input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
-  return ((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] + cp.pad[I_LEFT] + cp.pad[I_RIGHT]) / cp.stride[TENSOR_2D_HEIGHT]) + 1;
+  return ((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] +
+           cp.pad[I_LEFT] + cp.pad[I_RIGHT]) /
+          cp.stride[TENSOR_2D_HEIGHT]) +
+         1;
 }
 
-inline int mp_odims_cols(Op::PoolParams const &cp, const std::vector<int>& input_dims) {
-  return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] + cp.pad[I_DOWN]) / cp.stride[TENSOR_2D_WIDTH]) + 1;
+inline int mp_odims_cols(Op::PoolParams const &cp,
+                         const std::vector<int> &input_dims) {
+  return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] +
+           cp.pad[I_DOWN]) /
+          cp.stride[TENSOR_2D_WIDTH]) +
+         1;
 }
 
 class Model {
@@ -717,7 +723,6 @@ class Model {
 
   std::vector<LayerBase *> execution_order;
 
-
   bool is_graph_input(const std::string &s) const;
   bool is_graph_output(const std::string &s) const;
   bool is_initializer(const std::string &s) const;
@@ -731,8 +736,8 @@ class Model {
 public:
   void create_execution_order(void);
   void update_registers(void);
-  void deduce_types(const std::vector<TPDT>& input_types);
-  void deduce_shapes(const std::vector<int>& input_dims);
+  void deduce_types(const std::vector<TPDT> &input_types);
+  void deduce_shapes(const std::vector<int> &input_dims);
 
   void save_graph_inputs(const onnx::ValueInfoProto &t);
   void save_graph_outputs(const onnx::ValueInfoProto &t);
@@ -757,7 +762,6 @@ public:
   /* Print a summary of the network (traversed like a graph in topological
    * order) */
   void summary(void) const;
-
 
   size_t size(void);
   size_t size(void) const;
@@ -802,9 +806,9 @@ class RegisterAllocator {
   std::vector<int> register_set;
 
   void traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target);
-  VirtualAddress acquire(const std::string& node_name);
+  VirtualAddress acquire(const std::string &node_name);
   void relinquish(VirtualAddress a);
-  void ref(const std::string& node_name, VirtualAddress a);
+  void ref(const std::string &node_name, VirtualAddress a);
   void clear_regs(Op::Graph g);
 
 public:
@@ -817,4 +821,3 @@ template <typename T> bool isa(const Op::LayerBase *l) {
 
 Op::LayerBase *get_last_layer(const Op::Parser &parser);
 } // namespace Op
-
