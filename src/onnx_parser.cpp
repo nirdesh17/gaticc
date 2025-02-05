@@ -178,8 +178,8 @@ void Op::Layer::Conv::infer_shape(
 
 void Op::Layer::Conv::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
@@ -194,8 +194,8 @@ void Op::Layer::Relu::infer_shape(
 
 void Op::Layer::Relu::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 Op::Layer::Clip::Clip() {
@@ -311,8 +311,8 @@ void Op::Layer::Gemm::infer_shape(
 
 void Op::Layer::Gemm::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
@@ -411,8 +411,8 @@ void Op::Layer::Maxpool::infer_shape(
 
 void Op::Layer::Maxpool::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 const char *Op::Layer::Flatten::op_type() const { return m_optype; }
@@ -429,8 +429,8 @@ void Op::Layer::Flatten::infer_shape(
 
 void Op::Layer::Flatten::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 Op::Layer::Dropout::Dropout() { drop = 0.f; }
@@ -459,8 +459,8 @@ void Op::Layer::Dropout::infer_shape(
 
 void Op::Layer::Dropout::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 Op::Layer::Add::Add() { addend = nullptr; }
@@ -486,8 +486,8 @@ void Op::Layer::Add::infer_shape(
 
 void Op::Layer::Add::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 const char *Op::Layer::GlobalAveragePool::op_type() const { return m_optype; }
@@ -508,8 +508,8 @@ void Op::Layer::GlobalAveragePool::infer_shape(
 void Op::Layer::GlobalAveragePool::infer_type(
     const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 const char *Op::Layer::BatchNorm::op_type() const { return m_optype; }
@@ -529,8 +529,8 @@ void Op::Layer::BatchNorm::infer_shape(
 
 void Op::Layer::BatchNorm::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 enum BN_INITIALIZERS {
@@ -637,12 +637,17 @@ void Op::Layer::Reshape::infer_shape(
 
 void Op::Layer::Reshape::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  if (this->input_type != onnx::TensorProto_DataType_UNDEFINED &&
-      this->output_type != onnx::TensorProto_DataType_UNDEFINED) {
-    return;
+  if (this->input_type.size() == 0) {
+    this->input_type.resize(input_types.size());
   }
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  for (int i = 0; i < input_types.size(); ++i) {
+    if (input_types[i] != onnx::TensorProto_DataType_UNDEFINED) {
+      this->input_type[i] = input_types[i];
+    }
+  }
+  if (input_types.at(0) != onnx::TensorProto_DataType_UNDEFINED) {
+    this->output_type.push_back(input_types.at(0));
+  }
 }
 
 Op::Layer::DequantizeLinear::DequantizeLinear()
@@ -706,11 +711,11 @@ void Op::Layer::DequantizeLinear::set_attributes(const onnx::NodeProto &node) {
 void Op::Layer::DequantizeLinear::infer_type(
     const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
+  this->input_type = input_types;
   if (std::holds_alternative<float>(this->scale)) {
-    this->output_type = onnx::TensorProto_DataType_FLOAT;
+    this->output_type.push_back(onnx::TensorProto_DataType_FLOAT);
   } else if (std::holds_alternative<double>(this->scale)) {
-    this->output_type = onnx::TensorProto_DataType_DOUBLE;
+    this->output_type.push_back(onnx::TensorProto_DataType_DOUBLE);
   } else {
     log_fatal("could not deduce output type for layer {}\n", this->name);
   }
@@ -769,11 +774,11 @@ void Op::Layer::QuantizeLinear::infer_shape(
 void Op::Layer::QuantizeLinear::infer_type(
     const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
+  this->input_type = input_types;
   if (std::holds_alternative<int8_t>(this->zero_point)) {
-    this->output_type = onnx::TensorProto_DataType_INT8;
+    this->output_type.push_back(onnx::TensorProto_DataType_INT8);
   } else if (std::holds_alternative<uint8_t>(this->zero_point)) {
-    this->output_type = onnx::TensorProto_DataType_UINT8;
+    this->output_type.push_back(onnx::TensorProto_DataType_UINT8);
   } else {
     log_fatal("could not deduce output type for layer {}\n", this->name);
   }
@@ -971,9 +976,9 @@ void Op::Layer::QLinearConv::infer_shape(
 
 void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
+  this->input_type = input_types;
   /* TODO: get output type from y_zero_point */
-  this->output_type = input_types[0];
+  this->output_type = input_types;
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
@@ -1086,8 +1091,8 @@ void Op::Layer::QLinearMatMul::infer_shape(
 void Op::Layer::QLinearMatMul::infer_type(
     const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
@@ -1169,8 +1174,8 @@ void Op::Layer::QLinearAdd::infer_shape(
 
 void Op::Layer::QLinearAdd::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 const char *Op::Layer::Transpose::op_type() const { return m_optype; }
@@ -1378,8 +1383,8 @@ void Op::Layer::QGemm::infer_shape(
 
 void Op::Layer::QGemm::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
   this->bias_type = Op::get_type_from_tensor_proto(*this->bias);
 }
@@ -1422,8 +1427,8 @@ void Op::Layer::LogSoftmax::infer_shape(
 }
 
 void Op::Layer::LogSoftmax::infer_type(const std::vector<TPDT> &input_types) {
-  this->input_type = input_types.at(0);
-  this->output_type = input_types.at(0);
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 Op::Layer::QLinearAveragePool::QLinearAveragePool() {
@@ -1500,8 +1505,8 @@ void Op::Layer::QLinearAveragePool::set_attributes(
 void Op::Layer::QLinearAveragePool::infer_type(
     const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 void Op::Layer::QLinearAveragePool::infer_shape(
@@ -1526,8 +1531,8 @@ void Op::Layer::Abs::infer_shape(
 
 void Op::Layer::Abs::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 Op::Layer::ReduceMean::ReduceMean() : m_axis{-1}, m_keepdims{1} {}
@@ -1548,8 +1553,8 @@ void Op::Layer::ReduceMean::infer_shape(
 
 void Op::Layer::ReduceMean::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 void Op::Layer::ReduceMean::set_attributes(const onnx::NodeProto &node) {
@@ -1629,8 +1634,8 @@ void Op::Layer::AveragePool::set_attributes(const onnx::NodeProto &node) {
 
 void Op::Layer::AveragePool::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 void Op::Layer::AveragePool::infer_shape(
@@ -1649,8 +1654,8 @@ const char *Op::Layer::Shape::op_type() const { return m_optype; }
 
 void Op::Layer::Shape::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = onnx::TensorProto_DataType_INT64;
+  this->input_type = input_types;
+  this->output_type.push_back(onnx::TensorProto_DataType_INT64);
 }
 
 void Op::Layer::Shape::infer_shape(
@@ -1672,8 +1677,8 @@ std::string Op::Layer::Gather::params() const {
 
 void Op::Layer::Gather::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = onnx::TensorProto_DataType_INT64;
+  this->input_type = input_types;
+  this->output_type.push_back(onnx::TensorProto_DataType_INT64);
 }
 
 void Op::Layer::Gather::infer_shape(
@@ -1698,8 +1703,8 @@ const char *Op::Layer::Unsqueeze::op_type() const { return m_optype; }
 
 void Op::Layer::Unsqueeze::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 void Op::Layer::Unsqueeze::infer_shape(
@@ -1723,8 +1728,8 @@ const char *Op::Layer::Concat::op_type() const { return m_optype; }
 
 void Op::Layer::Concat::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
-  this->input_type = input_types[0];
-  this->output_type = input_types[0];
+  this->input_type = input_types;
+  this->output_type = input_types;
 }
 
 void Op::Layer::Concat::infer_shape(
@@ -1928,10 +1933,16 @@ void Op::print_node(const LayerBase *node) {
     std::cout << i << ' ';
   }
   std::cout << '\n';
-  std::cout << "Input Type: "
-            << Op::get_tensorproto_dtype_name(node->input_type) << '\n';
-  std::cout << "Output Type: "
-            << Op::get_tensorproto_dtype_name(node->output_type) << '\n';
+  std::cout << "Input Type: ";
+  for (const auto &i : node->input_type) {
+    std::cout << Op::get_tensorproto_dtype_name(i) << ' ';
+  }
+  std::cout << '\n';
+  std::cout << "Output Type: ";
+  for (const auto &i : node->output_type) {
+    std::cout << Op::get_tensorproto_dtype_name(i) << ' ';
+  }
+  std::cout << '\n';
   const char *device = Op::get_device_name(node->device);
   std::cout << "Device " << device << '\n';
   print_vec("Input dims", node->input_dims);
@@ -2189,13 +2200,13 @@ void Op::Model::set_input_type(const onnx::NodeProto &node, Op::LayerBase *l) {
     if (!is_initializer(input)) {
       auto vitr = value_info_map.find(input);
       if (vitr != value_info_map.end()) {
-        l->input_type = get_type_from_value_info(vitr->second);
+        l->input_type.push_back(get_type_from_value_info(vitr->second));
         break;
       }
       /* Same, if is found in graph_input/graph_output map */
       auto gi_itr = graph_input_map.find(input);
       if (gi_itr != graph_input_map.end()) {
-        l->input_type = get_type_from_value_info(gi_itr->second);
+        l->input_type.push_back(get_type_from_value_info(gi_itr->second));
         break;
       }
       log_fatal(
@@ -2211,12 +2222,12 @@ void Op::Model::set_output_type(const onnx::NodeProto &node, Op::LayerBase *l) {
     if (!is_initializer(output)) {
       auto vitr = value_info_map.find(output);
       if (vitr != value_info_map.end()) {
-        l->output_type = get_type_from_value_info(vitr->second);
+        l->output_type.push_back(get_type_from_value_info(vitr->second));
         break;
       }
       const auto go_itr = graph_output_map.find(output);
       if (go_itr != graph_output_map.end()) {
-        l->output_type = get_type_from_value_info(go_itr->second);
+        l->output_type.push_back(get_type_from_value_info(go_itr->second));
         break;
       }
       log_fatal("Couldn't find {} for node {} in value_info_map or "
@@ -2318,11 +2329,6 @@ Op::get_input_nodes(const onnx::NodeProto &np, const Op::Graph &g,
 std::vector<TPDT>
 Op::get_types_of_in_edges(Op::Vertex v, const Op::Graph &g,
                           const std::vector<std::string> &i_nodes) {
-  std::cout << "this node " << g[v]->name << '\n';
-  if (g[v]->name == "/Reshape") {
-    int stop_here = 1;
-  }
-
   std::vector<TPDT> ret(i_nodes.size());
   std::unordered_map<std::string, int> name_index;
   int index = 0;
@@ -2332,7 +2338,14 @@ Op::get_types_of_in_edges(Op::Vertex v, const Op::Graph &g,
   auto in_edges = boost::in_edges(v, g);
   for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
     Op::Vertex src_vertex = boost::source(*itr, g);
-    ret.at(name_index[g[src_vertex]->name]) = g[src_vertex]->output_type;
+    if (g[src_vertex]->name == "/Concat") {
+      int stop_here = 1;
+    }
+    std::cout << "output " << g[v]->name << ' ' << g[src_vertex]->name << '\n';
+    int idex = name_index[g[src_vertex]->name];
+    if (g[src_vertex]->output_type.size() > 0) {
+      ret.at(idex) = g[src_vertex]->output_type[0];
+    }
   }
   return ret;
 }
@@ -2659,12 +2672,12 @@ Op::Graph Op::Parser::get_graph() const { return m_model.get_graph(); }
 
 TPDT Op::Parser::get_model_input_type(void) const {
   std::vector<Op::LayerBase *> order = get_execution_order();
-  return order.at(0)->input_type;
+  return order.at(0)->input_type[0];
 }
 
 TPDT Op::Parser::get_model_output_type(void) const {
   std::vector<Op::LayerBase *> order = get_execution_order();
-  return order.at(order.size() - 1)->output_type;
+  return order.at(order.size() - 1)->output_type[0];
 }
 
 /* get the maximum register that was ever used in the

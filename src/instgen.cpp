@@ -194,7 +194,7 @@ std::vector<Op::LayerBase *> Pass::remove_dqxq(Op::Graph graph) {
         safe_remove_vertex(*vi, graph);
         continue;
       }
-      if (l->input_type != l->output_type) {
+      if (l->input_type[0] != l->output_type[0]) {
         log_fatal("could not remove layer {}\n", l->name);
       }
     }
@@ -531,11 +531,11 @@ static void check_quantized(const Op::Graph graph) {
   for (auto it = vp.first; it != vp.second; ++it) {
     const auto &node = graph[*it];
     std::string op_type = node->op_type();
-    std::string out_type = onnx::TensorProto_DataType_Name(node->output_type);
+    std::string out_type = onnx::TensorProto_DataType_Name(node->output_type[0]);
     if ((op_type.find("Conv") != std::string::npos ||
          op_type.find("Gemm") != std::string::npos) &&
-        node->output_type != onnx::TensorProto_DataType_INT8 &&
-        node->output_type != onnx::TensorProto_DataType_UINT8) {
+        node->output_type[0] != onnx::TensorProto_DataType_INT8 &&
+        node->output_type[0] != onnx::TensorProto_DataType_UINT8) {
       log_fatal("Found layer of type {} that has {} as input/output "
                 "unsupported by underlying acceleration hardware. Consider "
                 "quantizing the model to have INT8/UINT8 type",
@@ -730,7 +730,7 @@ static std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *c
   auto sa_arch = get_sa_arch();
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
   uint32_t input_bytes =
-      aligned_conv_input(cc->input_dims) * Op::tpdt_sizeof(cc->input_type);
+      aligned_conv_input(cc->input_dims) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
   // std::cout << "setting input_addr_start to " << input_addr_start << '\n';
@@ -822,7 +822,7 @@ static std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv 
 
   uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
   uint32_t output_bytes =
-      aligned_conv_output(cc->output_dims) * Op::tpdt_sizeof(cc->output_type);
+      aligned_conv_output(cc->output_dims) * Op::tpdt_sizeof(cc->output_type[0]);
   uint32_t output_addr_end = output_addr_start + output_bytes;
 
   std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
@@ -1107,10 +1107,10 @@ static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   uint32_t input_bytes = 0;
   if (cc->former_layer_dims.size() == 4) {
     input_bytes = aligned_conv_output(cc->former_layer_dims) *
-                  Op::tpdt_sizeof(cc->input_type);
+                  Op::tpdt_sizeof(cc->input_type[0]);
   } else if (cc->former_layer_dims.size() == 0) {
     input_bytes =
-        aligned_fc_io(cc->input_dims) * Op::tpdt_sizeof(cc->input_type);
+        aligned_fc_io(cc->input_dims) * Op::tpdt_sizeof(cc->input_type[0]);
   } else {
     log_fatal("unknown size info in former layer dims of size {}, could "
               "potentially be "
@@ -1165,7 +1165,7 @@ static std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
   assert(cc->outputs.size() == 1);
   uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
   uint32_t output_bytes =
-      aligned_fc_io(cc->output_dims) * Op::tpdt_sizeof(cc->output_type);
+      aligned_fc_io(cc->output_dims) * Op::tpdt_sizeof(cc->output_type[0]);
   uint32_t output_addr_end =
       ceil_mod(output_addr_start + output_bytes, WORD_SIZE);
 
@@ -1523,13 +1523,13 @@ int AddressGen::get_io_region_register_size(
     if (is_megablock(l)) {
       auto inp_dims = l->aligned_input();
       uint32_t tmp_inp = prod(inp_dims.begin(), inp_dims.end(), 1) *
-                         Op::tpdt_sizeof(l->input_type);
+                         Op::tpdt_sizeof(l->input_type[0]);
       if (tmp_inp > largest_dim) {
         largest_dim = tmp_inp;
       }
       auto outp_dims = l->aligned_output();
       uint32_t tmp_outp = prod(outp_dims.begin(), outp_dims.end(), 1) *
-                          Op::tpdt_sizeof(l->output_type);
+                          Op::tpdt_sizeof(l->output_type[0]);
       if (tmp_outp > largest_dim) {
         largest_dim = tmp_outp;
       }

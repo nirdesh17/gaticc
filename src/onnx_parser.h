@@ -158,8 +158,8 @@ struct LayerBase {
   /* Assertion: A node may have many inputs/outputs but all of the
    * same type
    */
-  TPDT input_type;
-  TPDT output_type;
+  std::vector<TPDT> input_type;
+  std::vector<TPDT> output_type;
 
   /* Dimensions of the input feature map */
   std::vector<int> input_dims;

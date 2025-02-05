@@ -290,9 +290,9 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer) {
 	} else {
 		dims = l->output_dims;
 	}
-	expected_data_size = aligned_conv_output(dims) * Op::tpdt_sizeof(l->output_type);
+	expected_data_size = aligned_conv_output(dims) * Op::tpdt_sizeof(l->output_type[0]);
   } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 || strcmp(l->op_type(), "QGemm") == 0) {
-    expected_data_size = aligned_fc_io(l->output_dims) * Op::tpdt_sizeof(l->output_type);
+    expected_data_size = aligned_fc_io(l->output_dims) * Op::tpdt_sizeof(l->output_type[0]);
   } else {
   	log_fatal("Unhandled layer of type: {}\n", l->op_type());
   }
@@ -322,14 +322,14 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer) {
   }
 
   //check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0 /* expected hash */);
-  if (l->output_type == onnx::TensorProto_DataType_INT8) {
+  if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
     const int8_t *real_data = reinterpret_cast<const int8_t*>(data + DWP_HEADER_BYTES);
     receive_output_aux<int8_t>(real_data, expected_dims, l, is_last_layer);
-  } else if (l->output_type == onnx::TensorProto_DataType_UINT8) {
+  } else if (l->output_type[0] == onnx::TensorProto_DataType_UINT8) {
     const uint8_t *real_data = reinterpret_cast<const uint8_t*>(data + DWP_HEADER_BYTES);
     receive_output_aux<uint8_t>(real_data, expected_dims, l, is_last_layer);
   } else {
-    log_fatal("can't compute with tensor of type {}\n", Op::get_tensorproto_dtype_name(l->output_type));
+    log_fatal("can't compute with tensor of type {}\n", Op::get_tensorproto_dtype_name(l->output_type[0]));
   }
 }
 

@@ -93,8 +93,8 @@ void DispatchTable::print() {
 void Executor::print_extra_info(const Op::LayerBase *l) {
   if (gbl_args.has_option("verbose")) {
     std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
-              << Op::get_tensorproto_dtype_name(l->input_type) << ' '
-              << Op::get_tensorproto_dtype_name(l->output_type) << '\n';
+              << Op::get_tensorproto_dtype_name(l->input_type[0]) << ' '
+              << Op::get_tensorproto_dtype_name(l->output_type[0]) << '\n';
   }
 }
 
@@ -150,16 +150,16 @@ static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Conv::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_conv<float, float, float>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -189,20 +189,20 @@ template <typename T> static void run_relu(Op::LayerBase *l, TensorPool &tensor_
 }
 
 void Op::Layer::Relu::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(input_type == output_type);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_relu<float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
     run_relu<int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
     run_relu<int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -225,22 +225,22 @@ static void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(input_type == output_type);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_maxpool<float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
     run_maxpool<int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
     run_maxpool<int>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
     run_maxpool<uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -266,19 +266,19 @@ static void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Flatten::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(input_type == output_type);
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_flatten<float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
     run_flatten<int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
     run_flatten<int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -311,19 +311,19 @@ static void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Gemm::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_gemm<float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
-             output_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+             output_type[0] == onnx::TensorProto_DataType_INT32) {
     run_gemm<int8_t, int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -349,20 +349,20 @@ static void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(input_type == output_type);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_dropout<float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
     run_dropout<int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
     run_dropout<int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -394,20 +394,20 @@ static void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Reshape::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(input_type == output_type);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_reshape<float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
     run_reshape<int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
     run_reshape<int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -432,20 +432,20 @@ static void run_transpose(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Transpose::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(input_type == output_type);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_transpose<float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
     run_transpose<int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
     run_transpose<int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -479,19 +479,19 @@ static void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::MatMul::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_matmul<float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
-             output_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+             output_type[0] == onnx::TensorProto_DataType_INT32) {
     run_matmul<int8_t, int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -530,19 +530,19 @@ static void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::Add::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_add<float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
-             output_type == onnx::TensorProto_DataType_INT32) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+             output_type[0] == onnx::TensorProto_DataType_INT32) {
     run_add<int8_t, int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -576,19 +576,19 @@ static void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
 
 
 void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_UINT8) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_UINT8) {
     run_quantize_linear<float, uint8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_INT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_INT8) {
     run_quantize_linear<float, int8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -631,26 +631,26 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
 
 
 void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT && 
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT && 
       weight_type == onnx::TensorProto_DataType_FLOAT) {
     run_qconv<float, float, float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
       weight_type == onnx::TensorProto_DataType_UINT8) {
     run_qconv<uint8_t, uint8_t, int, uint8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
       weight_type == onnx::TensorProto_DataType_INT8) {
     run_qconv<int8_t, int8_t, int, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
       weight_type == onnx::TensorProto_DataType_INT8) {
     std::cout << "this was chosen \n";
     run_qconv<uint8_t, int8_t, int, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -686,19 +686,19 @@ static void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_UINT8 &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_dequantize_linear<uint8_t, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_dequantize_linear<int8_t, float>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -738,25 +738,25 @@ static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::QLinearMatMul::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_qmatmul<float, float, float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
              weight_type == onnx::TensorProto_DataType_INT8) {
     run_qmatmul<int8_t, int8_t, int, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
              weight_type == onnx::TensorProto_DataType_UINT8) {
     run_qmatmul<int8_t, uint8_t, int, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
              weight_type == onnx::TensorProto_DataType_INT8) {
     run_qmatmul<uint8_t, int8_t, int, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -798,20 +798,20 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::QLinearAdd::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_qadd<float, float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
     run_qadd<int8_t, int, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
     run_qadd<uint8_t, int, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -850,24 +850,24 @@ static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_qgemm<float, float, float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
              weight_type == onnx::TensorProto_DataType_INT8 &&
              bias_type == onnx::TensorProto_DataType_INT32) {
     run_qgemm<int8_t, int8_t, int32_t, int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8 &&
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
       weight_type == onnx::TensorProto_DataType_UINT8 &&
       bias_type == onnx::TensorProto_DataType_INT32) {
     run_qgemm<uint8_t, uint8_t, int32_t, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -886,23 +886,23 @@ static void run_logsoftmax(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::LogSoftmax::run(TensorPool &tensor_pool) {
-  if (input_type == onnx::TensorProto_DataType_UNDEFINED) {
-    log_fatal("input_type for layer {} UNDEFINED", this->name);
+  if (input_type[0] == onnx::TensorProto_DataType_UNDEFINED) {
+    log_fatal("input_type[0] for layer {} UNDEFINED", this->name);
   }
-  if (output_type == onnx::TensorProto_DataType_UNDEFINED) {
-    log_fatal("output_type for layer {} UNDEFINED", this->name);
+  if (output_type[0] == onnx::TensorProto_DataType_UNDEFINED) {
+    log_fatal("output_type[0] for layer {} UNDEFINED", this->name);
   }
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_logsoftmax<float, float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_DOUBLE &&
-             output_type == onnx::TensorProto_DataType_DOUBLE) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_DOUBLE &&
+             output_type[0] == onnx::TensorProto_DataType_DOUBLE) {
     run_logsoftmax<double, double>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -927,18 +927,18 @@ static void run_qlinearaveragepool(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::QLinearAveragePool::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(input_type == output_type);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
 
-  if (input_type == onnx::TensorProto_DataType_INT8) {
+  if (input_type[0] == onnx::TensorProto_DataType_INT8) {
     run_qlinearaveragepool<int8_t>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_UINT8) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
     run_qlinearaveragepool<uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
@@ -968,18 +968,18 @@ static void run_batchnorm(Op::LayerBase *l, TensorPool &tensor_pool) {
 }
 
 void Op::Layer::BatchNorm::run(TensorPool &tensor_pool) {
-  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
-  assert(input_type == output_type);
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_batchnorm<float>(this, tensor_pool);
-  } else if (input_type == onnx::TensorProto_DataType_DOUBLE) {
+  } else if (input_type[0] == onnx::TensorProto_DataType_DOUBLE) {
     run_batchnorm<double>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
 
