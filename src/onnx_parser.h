@@ -308,11 +308,18 @@ struct BatchNorm : public LayerBase {
    * These are not used during inference, hence the omission of
    * params() override.
    */
+  float epsilon;
+  float momentum;
+
   const onnx::TensorProto *scale;
   const onnx::TensorProto *B;
   const onnx::TensorProto *mean;
   const onnx::TensorProto *var;
-  /* TODO: get  TensorProtos above */
+
+  std::string params() const override;
+  void run(TensorPool &tensor_pool) override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void infer_shape(const std::vector<std::vector<int>>& input_dims) override;
   void infer_type(const std::vector<TPDT>& input_types) override;
 };

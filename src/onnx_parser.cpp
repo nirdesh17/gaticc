@@ -494,6 +494,12 @@ void Op::Layer::GlobalAveragePool::infer_type(const std::vector<TPDT>& input_typ
 
 const char *Op::Layer::BatchNorm::op_type() const { return m_optype; }
 
+std::string Op::Layer::BatchNorm::params() const {
+  std::stringstream ss;
+  ss << "momentum: " << momentum << " epsilon: " << epsilon;
+  return ss.str();
+}
+
 void Op::Layer::BatchNorm::infer_shape(const std::vector<std::vector<int>>& input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims[0];
@@ -504,6 +510,57 @@ void Op::Layer::BatchNorm::infer_type(const std::vector<TPDT>& input_types) {
   assert(input_types.size() >= 1); 
   this->input_type = input_types[0];
   this->output_type = input_types[0];
+}
+
+enum BN_INITIALIZERS {
+  BN_X = 0,
+  BN_SCALE = 1,
+  BN_BIAS = 2,
+  BN_INPUT_MEAN = 3,
+  BN_INPUT_VAR = 4,
+};
+
+void Op::Layer::BatchNorm::set_initializer_params(int n, const onnx::TensorProto &t) {
+  switch (n) {
+    case BN_X:
+      break;
+    case BN_SCALE:
+      this->scale = &t;
+      break;
+    case BN_BIAS:
+      this->B = &t;
+      break;
+    case BN_INPUT_MEAN:
+      this->mean = &t;
+      break;
+    case BN_INPUT_VAR:
+      this->var = &t;
+      break;
+    default:
+      log_fatal("unknown initializer for layer {}\n", this->name);
+      break;
+  }
+}
+
+void Op::Layer::BatchNorm::set_attributes(const onnx::NodeProto &node) {
+  auto attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "epsilon") {
+      if (itr->has_f()) {
+        epsilon = itr->f();
+      }
+    } else if (itr->name() == "momentum") {
+      if (itr->has_f()) {
+        momentum = itr->f();
+      }
+    } else if (itr->name() == "training_mode") {
+      if (itr->has_i()) {
+        if (itr->i() == 1) {
+          log_fatal("In node {}, training_mode = 1 is not supported\n", node.name());
+        }
+      }
+    }
+  }
 }
 
 const char *Op::Layer::ReorderOutput::op_type() const { return m_optype; }

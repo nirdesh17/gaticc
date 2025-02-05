@@ -65,3 +65,13 @@ TensorExtant<uint8_t>::TensorExtant(const onnx::TensorProto *ptr) {
     log_fatal("Unable to deduce type for tensor or un-implemented: {}\n", ptr->name());
   }
 }
+
+template <>
+TensorExtant<double>::TensorExtant(const onnx::TensorProto *ptr) {
+  init_dims(ptr);
+  if (Op::dtype_eq(ptr->data_type(), onnx::TensorProto_DataType_DOUBLE)) {
+    data = (const double *) (ptr->raw_data().c_str());
+  } else {
+    log_fatal("Unable to deduce type for tensor or un-implemented: {}\n", ptr->name());
+  }
+}

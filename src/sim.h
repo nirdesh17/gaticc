@@ -664,7 +664,7 @@ static T avg(std::vector<T> v) {
 }
 
 template <typename T>
-static void average_pool(const Tensor<T> *input, Tensor<T> *output,
+void average_pool(const Tensor<T> *input, Tensor<T> *output,
              const Op::PoolParams &mp) {
   int input_batch = input->dims_at(TENSOR_4D_BATCH);
   int input_depth = input->dims_at(TENSOR_4D_CHANNELS);
@@ -690,5 +690,15 @@ static void average_pool(const Tensor<T> *input, Tensor<T> *output,
         output->insert(out_index, avg_val);
       }
     }
+  }
+}
+
+template <typename T>
+void batchnorm(const Tensor<T> *input, Tensor<T> *output, float epsilon, float momentum, const Tensor<T> *scale, const Tensor<T> *bias, const Tensor<T> *mean, const Tensor<T> *var) {
+  std::vector<int> index(input->dims_size(), 0);
+  std::vector<int> dims {input->get_dims()};
+  for (int i = 0; i < input->size(); ++i) {
+    print_vec("batchnorm ", index);
+    increment_shape(index, dims);
   }
 }

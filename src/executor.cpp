@@ -941,3 +941,46 @@ void Op::Layer::QLinearAveragePool::run(TensorPool &tensor_pool) {
               Op::get_tensorproto_dtype_name(output_type));
   }
 }
+
+template <typename T>
+static void run_batchnorm(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::BatchNorm *cc = dynamic_cast<Op::Layer::BatchNorm *>(l);
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+  
+  std::unique_ptr<Tensor<T>> scale {new TensorExtant<T>(cc->scale)};
+  std::unique_ptr<Tensor<T>> bias {new TensorExtant<T>(cc->B)};
+  std::unique_ptr<Tensor<T>> mean {new TensorExtant<T>(cc->mean)};
+  std::unique_ptr<Tensor<T>> var {new TensorExtant<T>(cc->var)};
+  batchnorm<T>(input, output, cc->epsilon, cc->momentum, scale.get(), bias.get(), mean.get(), var.get());
+
+  if (l->dispatch) {
+    pickle_tensor(output, l->name + ".tensor");
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
+  }
+
+}
+
+void Op::Layer::BatchNorm::run(TensorPool &tensor_pool) {
+  assert(input_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type == output_type);
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+    run_batchnorm<float>(this, tensor_pool);
+  } else if (input_type == onnx::TensorProto_DataType_DOUBLE) {
+    run_batchnorm<double>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}
+
+

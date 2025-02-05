@@ -30,6 +30,23 @@ def preprocess(image):
     img = np.expand_dims(img, axis=0)
     return img
 
+def preprocess_cifar(image):
+    if not os.path.exists(image):
+        raise OSError("File not found: {}".format(image))
+    img = Image.open(image)
+    img = img.resize((32, 32))
+    img = np.array(img.convert('RGB'))
+    img = img / 255.0
+    # Normalize using CIFAR-10/100 mean and std
+    # Mean and std values for CIFAR-10/100 (calculated over the dataset)
+    mean = [0.4914, 0.4822, 0.4465]  # Mean for CIFAR-10/100
+    std = [0.2470, 0.2435, 0.2616]   # Std for CIFAR-10/100
+    img = (img - mean) / std
+    img = np.transpose(img, axes=[2, 0, 1])
+    img = img.astype(np.float32)
+    img = np.expand_dims(img, axis=0)
+    return img
+
 def alt_preprocess(image):
     if not os.path.exists(image):
         raise OSError("File not found: {}".format(image))
