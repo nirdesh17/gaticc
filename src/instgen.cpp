@@ -18,9 +18,9 @@
 // #include <string>
 
 static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
-                                           "QGemm", "Flatten", "QLinearAveragePool"};
+                                           "QGemm", "Flatten", "QLinearAveragePool", "Conv", "Gemm"};
 
-static std::set<std::string> megablock_tbl{"QLinearConv", "QGemm"};
+static std::set<std::string> megablock_tbl{"QLinearConv", "QGemm", "Conv", "Gemm"};
 
 static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC};
 

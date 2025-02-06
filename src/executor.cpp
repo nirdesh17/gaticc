@@ -983,4 +983,42 @@ void Op::Layer::BatchNorm::run(TensorPool &tensor_pool) {
   }
 }
 
+template <typename T>
+static void run_abs(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Abs *cc = dynamic_cast<Op::Layer::Abs *>(l);
+  if (tensor_pool.has_value(cc->outputs.at(0))) {
+    tensor_pool.free(cc->outputs.at(0));
+  }
+  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+  
+  xabs<T>(input, output);
 
+  if (l->dispatch) {
+    pickle_tensor(output, l->name + ".tensor");
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
+  }
+}
+
+void Op::Layer::Abs::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_abs<float>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_DOUBLE) {
+    run_abs<double>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_abs<int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
+    run_abs<int>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}

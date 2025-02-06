@@ -2341,7 +2341,6 @@ Op::get_types_of_in_edges(Op::Vertex v, const Op::Graph &g,
     if (g[src_vertex]->name == "/Concat") {
       int stop_here = 1;
     }
-    std::cout << "output " << g[v]->name << ' ' << g[src_vertex]->name << '\n';
     int idex = name_index[g[src_vertex]->name];
     if (g[src_vertex]->output_type.size() > 0) {
       ret.at(idex) = g[src_vertex]->output_type[0];

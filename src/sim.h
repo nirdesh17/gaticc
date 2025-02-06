@@ -697,8 +697,23 @@ template <typename T>
 void batchnorm(const Tensor<T> *input, Tensor<T> *output, float epsilon, float momentum, const Tensor<T> *scale, const Tensor<T> *bias, const Tensor<T> *mean, const Tensor<T> *var) {
   std::vector<int> index(input->dims_size(), 0);
   std::vector<int> dims {input->get_dims()};
+  if (dims.size() != 4) {
+    log_fatal("BatchNorm does only supports dims of 4\n");
+  }
   for (int i = 0; i < input->size(); ++i) {
-    print_vec("batchnorm ", index);
+    int chan_n = index.at(TENSOR_4D_CHANNELS);
+    T v = ((input->at(index) - mean->at(chan_n)) / sqrt(var->at(chan_n) + epsilon)) * scale->at(chan_n) + bias->at(chan_n);
+    output->insert(index, v);
+    increment_shape(index, dims);
+  }
+}
+
+template <typename T>
+void xabs(const Tensor<T> *input, Tensor<T> *output) {
+  std::vector<int> index(input->dims_size(), 0);
+  std::vector<int> dims {input->get_dims()};
+  for (int i = 0; i < input->size(); ++i) {
+    output->insert(index, std::abs(input->at(index)));
     increment_shape(index, dims);
   }
 }
