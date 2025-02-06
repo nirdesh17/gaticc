@@ -3,6 +3,7 @@
 #include "utils.h"
 #include <cstdarg>
 #include "version.h"
+#include "instructions.h"
 #include <regex>
 // #include <cstdint>
 // #include <typeinfo>
@@ -245,6 +246,7 @@ void Argparse::print_version() const {
   std::cerr << "Gaticc: " << GATICC_VERSION << '\n';
   std::cerr << "Boost: " << GATICC_BOOST_VERSION << '\n';
   std::cerr << "Protobuf: " << GATICC_PROTOBUF_VERSION << '\n';
+  std::cerr << "ISA Version: " << ISA_VERSION << '\n';
 }
 
 void check_c_return_val(int val, const char *err) {
