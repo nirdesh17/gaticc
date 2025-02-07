@@ -1548,7 +1548,9 @@ std::string Op::Layer::ReduceMean::params() const {
 void Op::Layer::ReduceMean::infer_shape(
     const std::vector<std::vector<int>> &input_dims) {
   this->input_dims = input_dims[0];
-  this->output_dims = reduced_shape(this->input_dims, m_axis, m_keepdims);
+  //this->output_dims = reduced_shape(this->input_dims, m_axis, m_keepdims);
+  log_warn("Using a hacky (incorrect) implementation of reduce_mean. Inputs pass through\n");
+  this->output_dims = input_dims[0];
 }
 
 void Op::Layer::ReduceMean::infer_type(const std::vector<TPDT> &input_types) {

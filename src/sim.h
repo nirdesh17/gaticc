@@ -717,3 +717,8 @@ void xabs(const Tensor<T> *input, Tensor<T> *output) {
     increment_shape(index, dims);
   }
 }
+
+template <typename T>
+void reduce_mean(const Tensor<T> *input, Tensor<T> *output, int axis, int keepdims) {
+  *output = *input;
+}
