@@ -125,9 +125,12 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
     l->dispatch = dispatch_table.should_dispatch(l);
     l->run(tensor_pool);
 
-    if (l->name != last_layer->name) {
-      is_last_layer = false;
+    if (l->dispatch) {
+      if (l->name != last_layer->name) {
+        is_last_layer = false;
+      }
     }
+
     if (parser.has_graph_output(l)) {
       Tensor<outputT> *out =
           tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
