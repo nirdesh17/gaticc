@@ -568,7 +568,7 @@ struct AveragePool : public LayerBase {
 
   const char *op_type() const override;
   std::string params() const override;
-  // void run(TensorPool &tensor_pool) override;
+  void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;

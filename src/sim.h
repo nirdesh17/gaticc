@@ -48,7 +48,6 @@ void Relu<T>::exec(const Tensor<T> *input, Tensor<T> *output) {
 template <typename T>
 void maxpool(const Tensor<T> *input, Tensor<T> *output,
              const Op::PoolParams &mp) {
-  /* TODO: add this to average pool */
   int pad_present = 0;
   for (int i = 0; i < 4; ++i) {
     if (mp.pad[i] != 0) {
@@ -664,6 +663,9 @@ void logsoftmax(Tensor<T> *output, Tensor<T> *input, int axis) {
   }
 }
 
+/* FPGA style binary average calculation without division
+ * operations
+ */
 template <typename T>
 static T avg(std::vector<T> v) {
   if (v.size() == 1) {
@@ -688,30 +690,49 @@ static T avg(std::vector<T> v) {
 template <typename T>
 void average_pool(const Tensor<T> *input, Tensor<T> *output,
              const Op::PoolParams &mp) {
-  int input_batch = input->dims_at(TENSOR_4D_BATCH);
-  int input_depth = input->dims_at(TENSOR_4D_CHANNELS);
-  int input_height = input->dims_at(TENSOR_4D_HEIGHT);
-  int input_width = input->dims_at(TENSOR_4D_WIDTH);
-  int output_batch = input_batch;
-  int output_depth = input_depth;
+  int pad_present = 0;
+  for (int i = 0; i < 4; ++i) {
+    if (mp.pad[i] != 0) {
+      pad_present = 1;
+      break;
+    }
+  }
+
+  const Tensor<T> *padded_input;
+  if (pad_present) {
+    padded_input = tensor_pad(
+        input, std::vector<int>{mp.pad[0], mp.pad[1], mp.pad[2], mp.pad[3]});
+  } else {
+    padded_input = input;
+  }
+
+  int input_height = padded_input->dims_at(TENSOR_4D_HEIGHT);
+  int input_width = padded_input->dims_at(TENSOR_4D_WIDTH);
+  int output_batch = padded_input->dims_at(TENSOR_4D_BATCH);
+  int output_depth = padded_input->dims_at(TENSOR_4D_CHANNELS);
   int output_height = mp_odims_row(mp, input->get_dims());
   int output_width = mp_odims_cols(mp, input->get_dims());
 
-  for (int d = 0; d < output_depth; ++d) {
-    for (int i = 0; i < output_height; ++i) {
-      for (int j = 0; j < output_width; ++j) {
+  for (int ici = 0; ici < output_depth; ++ici) {
+    for (int ihi = 0; ihi < output_height * mp.stride[TENSOR_2D_HEIGHT]; ihi += mp.stride[TENSOR_2D_HEIGHT]) {
+      for (int iwi = 0; iwi < output_width * mp.stride[TENSOR_2D_WIDTH]; iwi += mp.stride[TENSOR_2D_WIDTH]) {
         std::vector<T> vals;
-        for (int m = 0; m < mp.k[0]; ++m) {
-          for (int n = 0; n < mp.k[1]; ++n) {
-            std::vector<int> in_index {input_batch-1, d, i * mp.k[0] + m, j * mp.k[1] + n};
-            vals.push_back(input->at(in_index));
+        for (int khi = 0; khi < mp.k[TENSOR_2D_HEIGHT]; ++khi) {
+          for (int kwi = 0; kwi < mp.k[TENSOR_2D_WIDTH]; ++kwi) {
+            std::vector<int> in_index{0, ici, (ihi + khi), (iwi + kwi)};
+            vals.push_back(padded_input->at(in_index));
           }
         }
         T avg_val = avg(vals);
-        std::vector<int> out_index {input_batch-1, d, i, j};
+        std::vector<int> out_index{0, ici, ihi / mp.stride[TENSOR_2D_HEIGHT],
+                                   iwi / mp.stride[TENSOR_2D_WIDTH]};
         output->insert(out_index, avg_val);
       }
     }
+  }
+
+  if (pad_present) {
+    delete padded_input;
   }
 }
 
