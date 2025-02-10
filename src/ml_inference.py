@@ -1172,3 +1172,34 @@ def post(num):
     print(f"number: {m}")
     return m
 
+
+cifar10_labels = {
+    0: 'airplane',
+    1: 'automobile',
+    2: 'bird',
+    3: 'cat',
+    4: 'deer',
+    5: 'dog',
+    6: 'frog',
+    7: 'horse',
+    8: 'ship',
+    9: 'truck'
+}
+
+def pre_cifar10(image):
+    if not os.path.exists(image):
+        raise OSError(f"File not found: {image}")
+    img = Image.open(image).convert('RGB')
+    img = img.resize((32, 32))
+    img_array = np.array(img).astype(np.float32) / 255.0
+    mean = np.array([0.4914, 0.4822, 0.4465], dtype=np.float32)
+    std = np.array([0.2470, 0.2435, 0.2616], dtype=np.float32)
+    img_array = (img_array - mean) / std
+    img_array = np.transpose(img_array, (2, 0, 1))
+    return img_array.reshape(1, 3, 32, 32) 
+
+
+def post_cifar10(arr):
+    label = np.argmax(arr)
+    print(f"{cifar10_labels[label]}")
+    return label
