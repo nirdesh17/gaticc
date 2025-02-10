@@ -96,7 +96,7 @@ int dispatch() {
   } else if (gbl_args.has_option("run")) {
     dispatch_run_ops();
   } else {
-    log_fatal("Don't know what to do. See sysim -h\n"); 
+    log_fatal("Don't know what to do. See gaticc -h\n"); 
   }
   return 0;
 }
