@@ -8,6 +8,7 @@
 #include <iostream>
 #include <typeinfo>
 #include <unistd.h>
+#include <array>
 #include <filesystem>
 #include <map>
 #include <cassert>
@@ -730,6 +731,11 @@ unsigned long bitset_range_get(const std::bitset<b2N>& src, int start, int stop)
   return ret.to_ulong();
 }
 
+template <std::size_t b2N>
+uint8_t bitset_byte_get(const std::bitset<b2N>& src, int n) {
+  return static_cast<uint8_t>(bitset_range_get<8, b2N>(src, n * 8, (n * 8 + 8 - 1)));
+}
+
 template <typename T>
 void assert_all_equal(const T *arr, int size) {
   assert(size > 0);
@@ -793,3 +799,19 @@ void argv_delete(int argc, char **argv);
 std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis, int keepdims);
 std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector<int>& indices);
 std::vector<int> concat_shape(const std::vector<std::vector<int>>& dims, int axis);
+
+template <int sz>
+constexpr std::array<int8_t, sz/8> get_byte_vector(const std::bitset<sz> num) {
+  static_assert(sz % 8 == 0, "Size must be a multiple of 8");
+  std::array<int8_t, sz/8> ret = {};
+  for (int i = 0; i < ret.size(); ++i) {
+    int8_t byte = 0;
+    for (int bit = 0; bit < 8; ++bit) {
+      if (num[i * 8 + bit]) {
+        byte |= (1 << bit);
+      }
+    }
+    ret[ret.size()-1-i] = byte;
+  }
+  return ret;
+}

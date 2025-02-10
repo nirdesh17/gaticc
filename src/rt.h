@@ -37,6 +37,21 @@ public:
   size_t get_size() const;
 };
 
+#define META_WIDTH_BITS 48
+#define META_WIDTH_BYTES (META_WIDTH_BITS/8)
+#define META_FIELD_WIDTH_BYTES 6
+#define META_HEADER_BYTES 18 /* 6 bytes of each field * 3 total fields in header */
+
+
+//#define META_SOP 0xffffffffffff
+//#define META_TYPE_RESET 0x00000000
+//#define META_TYPE_DISPATCH 0x00000001
+//#define META_TYPE_PAYLOAD_SIZE 0x00000002
+//
+//#define META_CONST_DISPATCH_RAH 0x00000000 /* default */
+//#define META_CONST_DISPATCH_UART 0x00000001
+
+std::vector<char> cvt_32248(int v);
 
 class Rah {
 public:
@@ -46,6 +61,7 @@ public:
   }
   virtual ~Rah() {
   }
+  virtual int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) = 0;
 };
 
 class RealRah : public Rah {
@@ -56,6 +72,7 @@ public:
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
   void isVersionCompatible() override;
+  int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) override;
 };
 
 /* Used as a dupe of rah while running gaticc on devices
@@ -65,6 +82,7 @@ public:
 class FakeRah : public Rah {
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
+  int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) override;
 };
 
 /* Like dispatch table, but reads binarized instructions and creates a table
@@ -82,7 +100,8 @@ class Runner {
   TensorPool tensor_pool;
   Op::Parser *m_parser;
   const PyEngine *m_engine;
-  void scan();
+
+  void scan(Rah &rah);
   void device_init();
   void load_model(Rah &rah, const Fstream &fp);
   void infer_loop(Rah &rah, const Fstream &fp);
