@@ -1189,3 +1189,5 @@ def post(num):
     print(f"number: {m}")
     return m
 
+def identity(arr):
+    return arr
