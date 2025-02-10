@@ -177,6 +177,9 @@ int FakeRah::read(char *data, size_t size) {
   return size;
 }
 
+void FakeRah::check_version() {
+}
+
 void Runner::check_args() {
   if (!gbl_args.has_option("loadpy")) {
     log_fatal("Option --loadpy needs to be specified\n");
@@ -241,7 +244,7 @@ Runner::~Runner() {
  * TODO: implement this, will probably require bitman?
  */
 
-void RealRah::isVersionCompatible() {
+void RealRah::check_version() {
   typedef int (*version_check_fn_t)();
   version_check_fn_t version_check_fn =
       get_dlsym<version_check_fn_t>(m_handle, "rah_check_version_compatible");
@@ -250,10 +253,9 @@ void RealRah::isVersionCompatible() {
   }
 }
 
-void Runner::scan() {
+void Runner::scan(Rah &rah) {
   log_info("scanning for rah services no cap fr\n");
-  RealRah rah;
-  rah.isVersionCompatible();
+  rah.check_version();
   log_info("Version check passed!\n");
   std::vector<char> empty;
   rah.write_meta(META_TYPE_RESET, empty);

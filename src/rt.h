@@ -57,8 +57,7 @@ class Rah {
 public:
   virtual int write(const char *data, size_t size) = 0;
   virtual int read(char *data, size_t size) = 0;
-  virtual void isVersionCompatible() { 
-  }
+  virtual void check_version() = 0;
   virtual ~Rah() {
   }
   virtual int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) = 0;
@@ -71,7 +70,7 @@ public:
   ~RealRah();
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
-  void isVersionCompatible() override;
+  void check_version() override;
   int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) override;
 };
 
@@ -83,6 +82,7 @@ class FakeRah : public Rah {
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
   int write_meta(const std::bitset<META_WIDTH_BITS> type, const std::vector<char>& data) override;
+  void check_version() override;
 };
 
 /* Like dispatch table, but reads binarized instructions and creates a table
