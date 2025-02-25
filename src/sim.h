@@ -363,14 +363,12 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
     // std::cout << "using fpga quant\n";
     /* fpga quantization */
     int int_scale = (int)((float)inverted * (float)(1 << shift_val));
-    inputT ret =
-        (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
-    ret += zero_point;
-    outputT r = (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
-    return r;
-
-    //inputT intr = std::round((v * inverted) + zero_point);
-    //return (inputT) intr;
+    int64_t prod = v * int_scale;
+    int64_t prod_sum = prod + (1 << (shift_val - 1));
+    int64_t prod_rs = prod_sum >> shift_val;
+    
+    //inputT ret = (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
+    return (outputT)std::clamp<int64_t>(prod_rs, min_lim, max_lim);
   } else {
     inputT rounded = std::round(((float)v / scale + zero_point));
     return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
