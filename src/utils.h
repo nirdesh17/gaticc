@@ -36,97 +36,6 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& obj)
   return os;
 }
 
-/* has format specifier i.e. {} */
-inline bool has_fs(const char* p) {
-  if (*p == '\0' || *(p+1) == '\0') {
-    return false;
-  }
-  if (*p == '{' && *(p+1) == '}') {
-    return true;
-  }
-  return false;
-}
-
-inline void log(const char *p) {
-  while (*p) {
-    if (has_fs(p)) {
-      std::cerr << "insufficient arguments for print";
-      abort();
-    }
-    std::cout << *p;
-    ++p;
-  }
-}
-
-template <typename T>
-void log(const char *p, T v) {
-  while (*p) {
-    const char s = *p;
-    ++p;
-    if (has_fs(p-1)) {
-      std::cout << v;
-      ++p;
-      log(p);
-      break;
-    } else {
-      std::cout << s;
-    }
-  }
-}
-
-template <typename T, typename... Args>
-void log(const char *p, T v, Args... args) {
-  while (*p) {
-    const char s = *p;
-    p++;
-    if (has_fs(p-1)) {
-      std::cout << v;
-      ++p;
-      log(p, args...);
-      break;
-    } else {
-      std::cout << s;
-    }
-  }
-}
-
-template <typename T, typename... Args>
-void log(const char *type, const char *p, T v, Args... args) {
-  std::cout << type << " ";
-  log(p, v, args...);
-}
-
-template <typename T, typename... Args>
-void log_info(const char *p, T v, Args... args) {
-  log("INFO:",  p, v, args...);
-}
-
-inline void log_info(const char *p) {
-  log_info("{}", p);
-}
-
-template <typename T, typename... Args>
-[[noreturn]] void log_fatal(const char *p, T v, Args... args) {
-  log("FATAL:",  p, v, args...);
-  exit(1);
-}
-
-[[noreturn]] inline void log_fatal(const char *p) {
-  log_fatal("{}", p);
-}
-
-template <typename T, typename... Args>
-void log_warn(const char *p, T v, Args... args) {
-  log("WARNING:",  p, v, args...);
-}
-
-inline void log_warn(const char *p) {
-  log_warn("{}", p);
-}
-
-void check_c_return_val(int val, const char *err);
-void check_c_return_val(void* val, const char *err);
-
 /* Wrapper over argagg library */
 class Argparse {
   argagg::parser_results args;
@@ -403,6 +312,100 @@ public:
  * operator[] on gbl_args.
  */
 extern Argparse gbl_args;
+
+/* has format specifier i.e. {} */
+inline bool has_fs(const char* p) {
+  if (*p == '\0' || *(p+1) == '\0') {
+    return false;
+  }
+  if (*p == '{' && *(p+1) == '}') {
+    return true;
+  }
+  return false;
+}
+
+inline void log(const char *p) {
+  while (*p) {
+    if (has_fs(p)) {
+      std::cerr << "insufficient arguments for print";
+      abort();
+    }
+    std::cout << *p;
+    ++p;
+  }
+}
+
+template <typename T>
+void log(const char *p, T v) {
+  while (*p) {
+    const char s = *p;
+    ++p;
+    if (has_fs(p-1)) {
+      std::cout << v;
+      ++p;
+      log(p);
+      break;
+    } else {
+      std::cout << s;
+    }
+  }
+}
+
+template <typename T, typename... Args>
+void log(const char *p, T v, Args... args) {
+  while (*p) {
+    const char s = *p;
+    p++;
+    if (has_fs(p-1)) {
+      std::cout << v;
+      ++p;
+      log(p, args...);
+      break;
+    } else {
+      std::cout << s;
+    }
+  }
+}
+
+template <typename T, typename... Args>
+void log(const char *type, const char *p, T v, Args... args) {
+  std::cout << type << " ";
+  log(p, v, args...);
+}
+
+template <typename T, typename... Args>
+void log_info(const char *p, T v, Args... args) {
+  if (gbl_args.has_option("verbose")) {
+    log("INFO:",  p, v, args...);
+  }
+}
+
+inline void log_info(const char *p) {
+  log_info("{}", p);
+}
+
+template <typename T, typename... Args>
+[[noreturn]] void log_fatal(const char *p, T v, Args... args) {
+  log("FATAL:",  p, v, args...);
+  exit(1);
+}
+
+[[noreturn]] inline void log_fatal(const char *p) {
+  log_fatal("{}", p);
+}
+
+template <typename T, typename... Args>
+void log_warn(const char *p, T v, Args... args) {
+  log("WARNING:",  p, v, args...);
+}
+
+inline void log_warn(const char *p) {
+  log_warn("{}", p);
+}
+
+void check_c_return_val(int val, const char *err);
+void check_c_return_val(void* val, const char *err);
+
 
 template <typename T>
 void print_vec_vec(const char *s, std::vector<std::vector<T>> const &v) {
