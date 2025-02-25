@@ -103,15 +103,42 @@ std::vector<int64_t> deduce_new_shape(std::vector<int64_t> old_shape,
 
 int calc_shift_val(float inverted) {
   int shift_val = 16;
+  std::vector<int> values = {
+    512, 2147483647, 1023, 178956970, 256, 987654321, 768, 134217728, 900, 50331648,
+    100, 268435456, 750, 100663296, 50, 67108864, 1022, 33554432, 200, 16777216,
+    600, 8388608, 300, 4194304, 400, 2097152, 850, 1048576, 923, 524288,
+    650, 262144, 450, 131072, 700, 65536, 123, 32768, 333, 16384,
+    432, 8192, 876, 4096, 64, 2048, 987, 1024, 999, 1
+};
+  // double min_diff = std::numeric_limits<double>::max();
+  // for (int shift = 1; shift <= 100; shift++) {
+  //   int int_scale = floor(inverted * (1 << shift));
+  //   double check = ((double)(int_scale) / (double)(1 << shift));
+  //   double ok = (check / inverted);
+  //   double diff = (1 - ok);
+  //   if (diff < min_diff && diff >= 0) {
+  //     min_diff = diff;
+  //     shift_val = shift;
+  //   }
+  // }
   double min_diff = std::numeric_limits<double>::max();
-  for (int shift = 1; shift <= 24; shift++) {
-    int int_scale = floor(inverted * (1 << shift));
-    double check = ((double)(int_scale) / (double)(1 << shift));
-    double ok = (check / inverted);
-    double diff = (1 - ok);
-    if (diff < min_diff && diff >= 0) {
-      min_diff = diff;
-      shift_val = shift;
+  for (int shift = 1; shift <= 100; shift++)
+  {
+    // std::cout<<"shift: "<<shift<<std::endl;
+    double mean_diff1 = 0;;
+    for(int i=0;i<50;i++)
+    {
+      int int_scale = floor(inverted * (1 << shift));
+      double check = ((values[i]*(double)(int_scale)+(1<<(shift-1))) / (double)(1 << shift));
+      double ori=values[i]*inverted;
+      // std::cout<<(int)check<<" "<<(int)ori<<std::endl;
+      mean_diff1+=abs(ori-check);
+    }
+    double mean_diff=mean_diff1/50;
+    if(mean_diff<min_diff)
+    {
+      min_diff=mean_diff;
+      shift_val=shift;
     }
   }
   return shift_val;
