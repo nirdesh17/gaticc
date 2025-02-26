@@ -79,12 +79,12 @@ RealRah::~RealRah() {
 
 int RealRah::write(const char *data, size_t size) {
   /* clear buffers before writing */
-  typedef int (*clear_fn_t) (const uint8_t);
+  typedef int (*clear_fn_t)(const uint8_t);
   clear_fn_t clear_fn = get_dlsym<clear_fn_t>(m_handle, "rah_clear_buffer");
   log_info("clear buffers before read\n");
   (*clear_fn)(RAH_APP_ID);
 
-  typedef int (*write_fn_t) (const uint8_t, const char*, const unsigned long);
+  typedef int (*write_fn_t)(const uint8_t, const char *, const unsigned long);
   write_fn_t write_fn = get_dlsym<write_fn_t>(m_handle, "rah_write");
 
   log_info("writing meta app, size {}\n", size);
@@ -93,9 +93,15 @@ int RealRah::write(const char *data, size_t size) {
 
   log_info("writing via rah, size {}\n", size);
   /* send the actual data */
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
   int r = (*write_fn)(RAH_APP_ID, data, size);
+  tt.stop();
+  log_info("Data write time: {}\n", tt.difference().count());
   if (r < size) {
-    log_fatal("Failed to write all data to rah. Expected size: {}, Actual size: {}", size, r);
+    log_fatal(
+        "Failed to write all data to rah. Expected size: {}, Actual size: {}",
+        size, r);
   }
   return r;
 }
@@ -106,12 +112,12 @@ int RealRah::write(const char *data, size_t size) {
  * 'size' here is the size of payload in bytes 
  */
 int RealRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
-                    const std::vector<char> &data) {
+                        const std::vector<char> &data) {
 
-  constexpr std::bitset<META_WIDTH_BITS> meta_sop_set {META_SOP};
-  constexpr auto meta_sop_arr {get_byte_vector<META_WIDTH_BITS>(meta_sop_set)};
+  constexpr std::bitset<META_WIDTH_BITS> meta_sop_set{META_SOP};
+  constexpr auto meta_sop_arr{get_byte_vector<META_WIDTH_BITS>(meta_sop_set)};
 
-  const auto type_arr {get_byte_vector<META_WIDTH_BITS>(type)};
+  const auto type_arr{get_byte_vector<META_WIDTH_BITS>(type)};
 
   std::vector<char> size_buf{cvt_32248(static_cast<int>(data.size()))};
   std::vector<char> packet;
@@ -123,13 +129,17 @@ int RealRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
     packet.push_back(i);
   }
 
-  typedef int (*clear_fn_t) (const uint8_t);
+  typedef int (*clear_fn_t)(const uint8_t);
   clear_fn_t clear_fn = get_dlsym<clear_fn_t>(m_handle, "rah_clear_buffer");
   (*clear_fn)(META_APP_ID);
 
-  typedef int (*write_fn_t) (const uint8_t, const char*, const unsigned long);
+  typedef int (*write_fn_t)(const uint8_t, const char *, const unsigned long);
   write_fn_t write_fn = get_dlsym<write_fn_t>(m_handle, "rah_write");
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
   int r = (*write_fn)(META_APP_ID, packet.data(), packet.size());
+  tt.stop();
+  log_info("Meta packet write time: {}\n", tt.difference().count());
   return r;
 }
 
@@ -333,52 +343,65 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer) {
   uint32_t expected_data_size = 0;
 
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
-	std::vector<int> dims;
-	Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
-	if (cc->pipelined_output_dims.size() != 0) {
-		dims = cc->pipelined_output_dims;
-	} else {
-		dims = l->output_dims;
-	}
-	expected_data_size = aligned_conv_output(dims) * Op::tpdt_sizeof(l->output_type[0]);
-  } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 || strcmp(l->op_type(), "QGemm") == 0) {
-    expected_data_size = aligned_fc_io(l->output_dims) * Op::tpdt_sizeof(l->output_type[0]);
+    std::vector<int> dims;
+    Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
+    if (cc->pipelined_output_dims.size() != 0) {
+      dims = cc->pipelined_output_dims;
+    } else {
+      dims = l->output_dims;
+    }
+    expected_data_size =
+        aligned_conv_output(dims) * Op::tpdt_sizeof(l->output_type[0]);
+  } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 ||
+             strcmp(l->op_type(), "QGemm") == 0) {
+    expected_data_size =
+        aligned_fc_io(l->output_dims) * Op::tpdt_sizeof(l->output_type[0]);
   } else {
-  	log_fatal("Unhandled layer of type: {}\n", l->op_type());
+    log_fatal("Unhandled layer of type: {}\n", l->op_type());
   }
   auto expected_dims = l->aligned_output();
   uint32_t expected_packet_size = io_tensor_packet_size(expected_data_size);
 
-  log_info("expected packet size in receive output: {}\n", expected_packet_size);
+  log_info("expected packet size in receive output: {}\n",
+           expected_packet_size);
   log_info("expected data size in receive output: {}\n", expected_data_size);
 
   BinBlob blob(expected_packet_size);
 
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
   if (gbl_args.has_option("receive-over-uart")) {
     int baud_rate = gbl_args["receive-over-uart"].as<int>();
     read_uart(blob, baud_rate, expected_packet_size);
   } else {
     rah.read(blob.get_data(), expected_packet_size);
   }
+  tt.stop();
+  log_info("Data read time: {}\n", tt.difference().count());
 
-  const unsigned char *data = (const unsigned char *) blob.get_data();
+  const unsigned char *data = (const unsigned char *)blob.get_data();
 
   if (!gbl_args.has_option("dry-run")) {
     /* dry-run is a false traversal of the run loop used for debugging,
      * correctness is not really needed all that much
      */
-    check_dwp_header(data, expected_packet_size, expected_data_size, expected_hash);
+    check_dwp_header(data, expected_packet_size, expected_data_size,
+                     expected_hash);
   }
 
-  //check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0 /* expected hash */);
+  // check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0
+  // /* expected hash */);
   if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
-    const int8_t *real_data = reinterpret_cast<const int8_t*>(data + DWP_HEADER_BYTES);
+    const int8_t *real_data =
+        reinterpret_cast<const int8_t *>(data + DWP_HEADER_BYTES);
     receive_output_aux<int8_t>(real_data, expected_dims, l, is_last_layer);
   } else if (l->output_type[0] == onnx::TensorProto_DataType_UINT8) {
-    const uint8_t *real_data = reinterpret_cast<const uint8_t*>(data + DWP_HEADER_BYTES);
+    const uint8_t *real_data =
+        reinterpret_cast<const uint8_t *>(data + DWP_HEADER_BYTES);
     receive_output_aux<uint8_t>(real_data, expected_dims, l, is_last_layer);
   } else {
-    log_fatal("can't compute with tensor of type {}\n", Op::get_tensorproto_dtype_name(l->output_type[0]));
+    log_fatal("can't compute with tensor of type {}\n",
+              Op::get_tensorproto_dtype_name(l->output_type[0]));
   }
 }
 
