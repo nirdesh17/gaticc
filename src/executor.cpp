@@ -91,11 +91,9 @@ void DispatchTable::print() {
 }
 
 void Executor::print_extra_info(const Op::LayerBase *l) {
-  if (gbl_args.has_option("verbose")) {
-    std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
-              << Op::get_tensorproto_dtype_name(l->input_type[0]) << ' '
-              << Op::get_tensorproto_dtype_name(l->output_type[0]) << '\n';
-  }
+  log_info("Running {} {} {} {}\n", l->op_type(), l->name, 
+              Op::get_tensorproto_dtype_name(l->input_type[0]),
+              << Op::get_tensorproto_dtype_name(l->output_type[0]));
 }
 
 Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
