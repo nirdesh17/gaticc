@@ -99,8 +99,9 @@ void write_model_output(const PyEngine &engine, Tensor<T> *out,
   PyObject *t = t2np<T>(out);
   PyObject *arr = Py_BuildValue("(O)", t);
   PyObject *ret = engine.call_func(postprocfn, arr);
-  long label = PyLong_AsLong(ret);
-  std::cout << label << '\n';
+  Py_XDECREF(ret);
+  Py_XDECREF(arr);
+  Py_XDECREF(t);
 }
 
 template <typename inputT, typename outputT>
