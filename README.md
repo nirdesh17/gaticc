@@ -7,19 +7,19 @@
 **Arch**:
 
 ```
-sudo pacman -S python3 python-numpy pkg-config python3-venv
+sudo pacman -S python3 python-numpy pkg-config python3-venv cmake
 ```
 
 **Fedora**:
     
 ``` 
-sudo dnf install python3-devel python3-numpy python3-venv
+sudo dnf install python3-devel python3-numpy python3-venv cmake
 ```
 
 **Ubuntu/Debian**:
 
 ```
-sudo apt install python3-dev python3-numpy pkg-config python3-venv
+sudo apt install python3-dev python3-numpy pkg-config python3-venv cmake
 ```
 
 **Python dependencies**:
@@ -70,10 +70,8 @@ cd /path/to/gaticc
 mkdir build
 cmake -B build
 cmake --build build
+sudo cmake --install build
 ```
-
-TODO: add test instructions here
-
 
 ## Usage
 
@@ -148,7 +146,6 @@ does. Any push to master should be preceded by a version bump.
   suggestions. (suggest through ISSUES)
 - You can find some here: <https://google.github.io/styleguide/cppguide.html>
 
-#
 # Guide to Writing Tests
 
 ## Overview
@@ -261,7 +258,11 @@ integration of new test cases.
 
 ## Supported Models
 
-- Gaticc supports ONNX models that are hosted on our Galacatos Server. One can
-  download these models directly for use with Gaticc.
+- These are the supported models:
 
-  [Download Supported Models](http://galactos.local:8471/)
+| Model Name | Supported |
+|------------|-----------|
+| vgg_16_224_int8.onnx | ✅ |
+| mnistpad1_6_28_int8.onnx | ✅ |
+
+-  [Download Supported Models](http://galactos.local:8471/)
