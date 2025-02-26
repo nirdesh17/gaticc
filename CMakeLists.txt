@@ -88,6 +88,10 @@ target_include_directories(${EXE_NAME} PUBLIC ${ALL_DIR})
 target_compile_options(${EXE_NAME} PRIVATE ${EXTENDED_OPTS})
 add_dependencies(${EXE_NAME} ${LIB_NAME} libprotobuf-lite pbgen)
 
+install(TARGETS ${EXE_NAME}
+    RUNTIME DESTINATION /usr/bin/
+)
+
 if (BUILD_TESTING)
   enable_testing()
   add_subdirectory(tests)
