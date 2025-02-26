@@ -90,12 +90,20 @@ def run(
 	_exec(cmd_string, sudo=True)
 	
 def match(label_file: str, prediction_file: str) -> float:
-	with open(label_file, "r") as f:
-		file_labels = [int(line.strip()) for line in f]
-	with open(prediction_file, "r") as f:
-		predicted_labels = [int(line.strip()) for line in f]
-	if len(file_labels) != len(predicted_labels):
-		raise ValueError("Label file and array must have the same number of elements.")
-	matches = sum(1 for file_label, pred_label in zip(file_labels, predicted_labels) if file_label == pred_label)
-	match_percentage = (matches / len(file_labels)) * 100
-	return match_percentage
+    with open(label_file, "r") as f:
+        file_labels = [int(line.strip()) for line in f]
+    with open(prediction_file, "r") as f:
+        predicted_labels = [int(line.strip()) for line in f]
+    if len(file_labels) != len(predicted_labels):
+        raise ValueError("Label file and array must have the same number of elements.")
+    mismatches = []
+    matches = 0
+    for idx, (file_label, pred_label) in enumerate(zip(file_labels, predicted_labels)):
+        if file_label == pred_label:
+            matches += 1
+        else:
+            mismatches.append(idx)
+    match_percentage = (matches / len(file_labels)) * 100
+    if mismatches:
+        print(f"Mismatched indices: {mismatches}")
+    return match_percentage
