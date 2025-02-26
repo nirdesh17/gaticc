@@ -65,24 +65,6 @@ def gen_imagenet():
     preprocessed_images = [preprocess(image) for image in image_list]
     return np.concatenate(preprocessed_images, axis=0)
 
-def mnist_idx_image_load(path, sample_size):
-    """ return a np.array of dims (sample_size, 28, 28, 1) """
-    image_size = 28
-    with open(path, mode='rb') as file: 
-        file.read(16)
-        buf = file.read(image_size * image_size * sample_size)
-        data = np.frombuffer(buf, dtype=np.uint8)
-        images = data.reshape(sample_size, image_size, image_size, 1)
-        return images
-
-def mnist_idx_labels_load(path, sample_size):
-    """ return a np.array of dims (sample_size) """
-    with open(path, mode='rb') as file:
-        file.read(8)
-        buf = file.read(sample_size)
-        data = np.frombuffer(buf, dtype=np.uint8)
-        return data
-
 def quantize_ui8fp32(tensor):
     assert tensor.dtype == np.uint8
     src_max = np.max(tensor)
@@ -90,31 +72,9 @@ def quantize_ui8fp32(tensor):
     scale = 1.0 / src_max - src_min
     return tensor * scale
 
-def get_mnist_image(arr, n):
-    """ get nth image from arr (which is loaded by mnist_idx_image_load() """
-    img = quantize_ui8fp32(arr[n])
-    Image.fromarray((img * 255.0).astype(np.uint8).reshape(28, 28)).save("mnist_get.png")
-    return img
-
-def mnist_image_x(x):
-    """ get xth image from mnist set """
-    images = mnist_idx_image_load("./images/t10k-images-idx3-ubyte", 10000)
-    return get_mnist_image(images, x)
-
-def mnist_label_x(x):
-    labels = mnist_idx_labels_load("./images/t10k-labels-idx1-ubyte", 10000)
-    return labels[x]
-
 def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum(axis=0)
-
-
-def load_mnist():
-    return quantize_ui8fp32(mnist_idx_image_load("images/t10k-images-idx3-ubyte", 3)).astype(np.float32)
-
-def post_mnist(arr):
-    print("Inferred number: ", np.argmax(arr.flatten()))
 
 def save_tensor(filename, arr):
     fname = filename.replace('/', '_')
@@ -1169,20 +1129,6 @@ def post_imagenet(arr):
     label = np.argmax(arr)
     print(f"{imagenet_labels[label]}")
     return label
-
-def gen_mnist():
-    arr = np.load('mnist_1000.npy')
-    arr2 = arr[0]
-    arr2 = np.expand_dims(arr2, axis=0)
-    img = Image.fromarray((arr2.reshape(28,28) * 255).astype(np.uint8))
-    img.save(f"mnist.jpg")
-    return arr2
-
-def pre_mnist(image):
-    if not os.path.exists(image):
-        raise OSError("File not found: {}".format(image))
-    img = Image.open(image)
-    return quantize_ui8fp32(np.array(img)).astype(np.float32).reshape(1,1,28,28)
 
 def post(num):
     m = np.argmax(num)
