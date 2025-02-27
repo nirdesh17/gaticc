@@ -113,6 +113,5 @@ int calc_shift_val(float inverted) {
       shift_val = shift;
     }
   }
-  std::cout << "takes shift_val " << shift_val << '\n';
   return shift_val;
 }
