@@ -189,6 +189,8 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
         "image\n", input_image->dims_size());
   }
   log_info("preprocess finish\n");
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
   for (int i = 0; i < input_image->dims_at(0); ++i) {
     tensor_pool.free();
 
@@ -241,6 +243,8 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
       }
     }
   }
+  tt.stop();
+  log_info("Infer loop, total time: {}ms\n", tt.difference().count());
 }
 
 template <typename T> void Runner::send_input(Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
