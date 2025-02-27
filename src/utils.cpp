@@ -215,6 +215,16 @@ bool Argparse::has_option(const std::string &name) const {
   return args.has_option(name);
 }
 
+/* NOTE: the 'values' are not ~set~ per se but appended to a vector
+ * of values inside. when values are retrieved with [] operator,
+ * by default, the last updated value is retrieved
+ */
+void Argparse::set_option(const char* opt_name, const char* val) {
+  argagg::option_result ag; 
+  ag.arg = val;
+  args.options[opt_name].all.push_back(ag);
+}
+
 #define BOLD(str) ("\033[1m" str "\033[0m")
 
 void Argparse::print_usage() const {
@@ -354,3 +364,4 @@ std::vector<int> concat_shape(const IVec2D &dims, int axis) {
   }
   return new_shape;
 }
+

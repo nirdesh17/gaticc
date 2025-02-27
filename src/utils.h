@@ -321,6 +321,7 @@ public:
   bool has_option(const std::string &name) const;
   void print_usage() const;
   void print_version() const;
+  void set_option(const char* opt_name, const char* val);
 };
 
 /* This is globally available for all functions. Alternatively,
