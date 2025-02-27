@@ -88,7 +88,11 @@ def save_cifar_samples(output_dir="cifar_samples", sample_sizes=[2, 5, 10, 100, 
     os.makedirs(output_dir, exist_ok=True)
 
     # Load CIFAR-10 Test Dataset
-    transform = transforms.ToTensor()
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010])
+    ])
+
     cifar_test = datasets.CIFAR10(root="./data", train=False, download=True, transform=transform)
 
     for size in sample_sizes:
