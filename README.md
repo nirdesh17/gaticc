@@ -73,6 +73,13 @@ cmake --build build
 sudo cmake --install build
 ```
 
+Additionally, make sure PYTHONPATH environment is set. 
+Do it by adding the following line to your ~/.bashrc or ~/.zshrc or .${SHELL}rc
+```
+export PYTHONPATH="${GATICC_ROOT}/python:$PYTHONPATH"
+```
+`${GATICC_ROOT}` should be replaced by absolute path/to/gaticc
+
 ## Usage
 
 See,
