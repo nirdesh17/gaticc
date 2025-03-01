@@ -325,7 +325,7 @@ std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector
   return new_shape;
 }
 
-std::vector<int> concat_shape(const std::vector<std::vector<int>> &dims,
+std::vector<int> concat_shape(const IVec2D &dims,
                               int axis) {
   const auto &first_dims = dims.at(0);
   std::vector<int> new_shape{first_dims};

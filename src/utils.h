@@ -440,7 +440,7 @@ template <typename T> inline bool is_float_like(T v) {
  * reasons, makes sense to use on linear containers.
  */
 template <typename Container> void print_vec(const char *s, Container const &v) {
-  std::cout << s << ": ";
+  std::cout << s << "[";
   int newline_cnt = 0;
   std::cout << std::setprecision(8) << std::fixed;
   for (auto itr = std::begin(v); itr != std::end(v); ++itr) {
@@ -456,7 +456,8 @@ template <typename Container> void print_vec(const char *s, Container const &v) 
     }
     newline_cnt++;
   }
-  std::cout << '\n';
+  std::cout<<"]";
+  // std::cout << '\n';
 }
 
 

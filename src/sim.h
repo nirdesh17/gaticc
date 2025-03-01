@@ -171,7 +171,7 @@ template <typename inputT, typename weightT, typename biasT, typename outputT>
 VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::Gemm &gp) {
   wrows = gp.m_cp.wr;
   wcols = gp.m_cp.wc;
-  isize = gp.input_dims[TENSOR_2D_WIDTH];
+  isize = gp.input_dims[0][TENSOR_2D_WIDTH];
   if (gp.m_cp.transB) {
     Tensor<weightT> *tmp = new TensorExtant<weightT>(gp.weights);
     auto dims = tmp->get_dims();
@@ -191,7 +191,7 @@ template <typename inputT, typename weightT, typename biasT, typename outputT>
 VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::MatMul &gp) {
   wrows = gp.m_cp.wc;
   wcols = gp.m_cp.wr;
-  isize = gp.input_dims[TENSOR_2D_WIDTH];
+  isize = gp.input_dims[0][TENSOR_2D_WIDTH];
   weights = new TensorExtant<weightT>(gp.weights);
   bias = nullptr;
   a_zero_point = 0;
@@ -202,7 +202,7 @@ template <typename inputT, typename weightT, typename biasT, typename outputT>
 VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::QLinearMatMul &gp) {
   wrows = gp.m_cp.wc;
   wcols = gp.m_cp.wr;
-  isize = gp.input_dims[TENSOR_2D_WIDTH];
+  isize = gp.input_dims[0][TENSOR_2D_WIDTH];
   weights = new TensorExtant<weightT>(gp.weights);
   bias = nullptr;
   using variantT = std::variant<int8_t, uint8_t>;
@@ -218,7 +218,7 @@ template <typename inputT, typename weightT, typename biasT, typename outputT>
 VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::QGemm &gp) {
   wrows = gp.m_cp.wr;
   wcols = gp.m_cp.wc;
-  isize = gp.input_dims[TENSOR_2D_WIDTH];
+  isize = gp.input_dims[0][TENSOR_2D_WIDTH];
   if (gp.m_cp.transB) {
     Tensor<weightT> *tmp = new TensorExtant<weightT>(gp.weights);
     auto dims = tmp->get_dims();
@@ -480,13 +480,13 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::Conv *cc) {
   kw = cc->m_cp.k[TENSOR_2D_WIDTH];
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
-  w_zero_points = std::vector<int>(cc->output_dims[TENSOR_4D_CHANNELS], 0);
-  x_zero_points = std::vector<int>(cc->input_dims[TENSOR_4D_CHANNELS], 0);
-  y_zero_points = std::vector<int>(cc->output_dims[TENSOR_4D_CHANNELS], 0);
+  w_zero_points = std::vector<int>(cc->output_dims[0][TENSOR_4D_CHANNELS], 0);
+  x_zero_points = std::vector<int>(cc->input_dims[0][TENSOR_4D_CHANNELS], 0);
+  y_zero_points = std::vector<int>(cc->output_dims[0][TENSOR_4D_CHANNELS], 0);
 
-  w_scales = std::vector<float>(cc->output_dims[TENSOR_4D_CHANNELS], 0);
-  x_scales = std::vector<float>(cc->input_dims[TENSOR_4D_CHANNELS], 0);
-  y_scales = std::vector<float>(cc->output_dims[TENSOR_4D_CHANNELS], 0);
+  w_scales = std::vector<float>(cc->output_dims[0][TENSOR_4D_CHANNELS], 0);
+  x_scales = std::vector<float>(cc->input_dims[0][TENSOR_4D_CHANNELS], 0);
+  y_scales = std::vector<float>(cc->output_dims[0][TENSOR_4D_CHANNELS], 0);
 }
 
 template <typename inputT, typename weightT, typename outputT>
@@ -500,9 +500,9 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
   using variantT = std::variant<int8_t,uint8_t>;
-  w_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->w_zero_point), cc->output_dims[TENSOR_4D_CHANNELS]);
-  x_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->x_zero_point), cc->input_dims[TENSOR_4D_CHANNELS]);
-  y_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->y_zero_point), cc->output_dims[TENSOR_4D_CHANNELS]);
+  w_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->w_zero_point), cc->output_dims[0][TENSOR_4D_CHANNELS]);
+  x_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->x_zero_point), cc->input_dims[0][TENSOR_4D_CHANNELS]);
+  y_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->y_zero_point), cc->output_dims[0][TENSOR_4D_CHANNELS]);
 
   w_scales = cc->w_scale;
   x_scales = cc->x_scale;

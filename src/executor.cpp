@@ -131,7 +131,7 @@ static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   Timer<std::chrono::milliseconds> tt;
@@ -213,7 +213,7 @@ static void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   maxpool<T>(input, output, cc->m_cp);
   if (l->dispatch) {
@@ -292,7 +292,7 @@ static void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   VA<inputT, inputT, inputT, outputT> va(*cc);
@@ -375,7 +375,7 @@ static void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
 
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
   int negative_ones =
@@ -460,7 +460,7 @@ static void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   VA<inputT, inputT, inputT, outputT> va(*cc);
@@ -553,7 +553,7 @@ static void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   std::vector<float> scales {cc->scale};
@@ -601,10 +601,10 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
 
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims)};
+  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims[0])};
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
@@ -661,7 +661,7 @@ static void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   /* TODO: make scale in quantize linear a vector by default */
@@ -711,10 +711,10 @@ static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
 
-  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims)};
+  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims[0])};
 
   using variantT = std::variant<int8_t,uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
@@ -770,10 +770,10 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims)};
+  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims[0])};
 
   Tensor<inputT> *input2;
   if (cc->inputs.size() > 1) {
@@ -824,10 +824,10 @@ static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
 
-  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims)};
+  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims[0])};
 
   using variantT = std::variant<int8_t,uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
@@ -879,7 +879,7 @@ static void run_logsoftmax(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
 
   logsoftmax(output, input, cc->axis);
@@ -913,7 +913,7 @@ static void run_qlinearaveragepool(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
   average_pool<T>(input, output, cc->m_cp);
@@ -949,7 +949,7 @@ static void run_batchnorm(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   
   std::unique_ptr<Tensor<T>> scale {new TensorExtant<T>(cc->scale)};
@@ -990,7 +990,7 @@ static void run_abs(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   
   xabs<T>(input, output);
@@ -1029,7 +1029,7 @@ static void run_reduce_mean(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
   
   reduce_mean<T>(input, output, cc->m_axis, cc->m_keepdims);
@@ -1068,7 +1068,7 @@ static void run_averagepool(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims);
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
   average_pool<T>(input, output, cc->m_cp);

@@ -47,7 +47,7 @@ void Op::LayerBase::run(TensorPool &tensor_pool) {
 void Op::LayerBase::set_attributes(const onnx::NodeProto &node) { return; }
 
 void Op::LayerBase::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   log_fatal("Shape Inference Un-implemented for this layer {}: {}\n",
             this->op_type(), this->name);
 }
@@ -165,15 +165,16 @@ void Op::Layer::Conv::set_value_info_params(const onnx::ValueInfoProto &t) {
 }
 
 void Op::Layer::Conv::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
+  this->input_dims = input_dims;
   assert(input_dims[0].size() == 4); // NCHW
-  this->output_dims.resize(4);
-  this->output_dims[0] = input_dims[0][0];
-  this->output_dims[1] = this->m_cp.kn;
-  this->output_dims[2] = sa_odims_row(this->m_cp, input_dims[0]);
-  this->output_dims[3] = sa_odims_cols(this->m_cp, input_dims[0]);
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(4);
+  this->output_dims[0][0] = input_dims[0][0];
+  this->output_dims[0][1] = this->m_cp.kn;
+  this->output_dims[0][2] = sa_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[0][3] = sa_odims_cols(this->m_cp, input_dims[0]);
 }
 
 void Op::Layer::Conv::infer_type(const std::vector<TPDT> &input_types) {
@@ -187,9 +188,9 @@ void Op::Layer::Conv::infer_type(const std::vector<TPDT> &input_types) {
 const char *Op::Layer::Relu::op_type() const { return m_optype; }
 
 void Op::Layer::Relu::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+    const IVec2D &input_dims) {
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::Relu::infer_type(const std::vector<TPDT> &input_types) {
@@ -220,9 +221,9 @@ void Op::Layer::Clip::set_attributes(const onnx::NodeProto &node) {
 }
 
 void Op::Layer::Clip::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+    const IVec2D &input_dims) {
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 Op::Layer::Gemm::Gemm() {
@@ -292,20 +293,21 @@ void Op::Layer::Gemm::set_value_info_params(const onnx::ValueInfoProto &t) {
 }
 
 void Op::Layer::Gemm::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   assert(input_dims[0].size() == 2);
-  this->input_dims = input_dims[0];
-  this->output_dims.resize(2);
-  this->output_dims.at(0) = input_dims[0].at(0);
+  this->input_dims = input_dims;
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(2);
+  this->output_dims[0].at(0) = input_dims[0].at(0);
   if (m_cp.transB) {
     assert(input_dims[0].at(1) == this->m_cp.wc &&
            "Gemm, matrix dimensions do not match");
-    this->output_dims.at(1) = this->m_cp.wr;
+  this->output_dims[0].at(1) = this->m_cp.wr;
   } else {
     assert(input_dims[0].at(1) == this->m_cp.wr &&
            "Gemm, matrix dimensions do not match");
-    this->output_dims.at(1) = this->m_cp.wc;
+    this->output_dims[0].at(1) = this->m_cp.wc;
   }
 }
 
@@ -344,7 +346,7 @@ Op::Layer::Maxpool::Maxpool() {
 
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
 std::string Op::Layer::Maxpool::params() const {
-  return get_pool_params(this->input_dims, this->m_cp).str();
+  return get_pool_params(this->input_dims[0], this->m_cp).str();
 }
 
 void Op::Layer::Maxpool::set_value_info_params(const onnx::ValueInfoProto &t) {
@@ -398,15 +400,16 @@ void Op::Layer::Maxpool::set_attributes(const onnx::NodeProto &node) {
 }
 
 void Op::Layer::Maxpool::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
+  this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
-  this->output_dims.resize(4);
-  this->output_dims[0] = input_dims[0][0];
-  this->output_dims[1] = input_dims[0][1];
-  this->output_dims[2] = mp_odims_row(this->m_cp, input_dims[0]);
-  this->output_dims[3] = mp_odims_cols(this->m_cp, input_dims[0]);
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(4);
+  this->output_dims[0][0] = input_dims[0][0];
+  this->output_dims[0][1] = input_dims[0][1];
+  this->output_dims[0][2] = mp_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[0][3] = mp_odims_cols(this->m_cp, input_dims[0]);
 }
 
 void Op::Layer::Maxpool::infer_type(const std::vector<TPDT> &input_types) {
@@ -418,13 +421,14 @@ void Op::Layer::Maxpool::infer_type(const std::vector<TPDT> &input_types) {
 const char *Op::Layer::Flatten::op_type() const { return m_optype; }
 
 void Op::Layer::Flatten::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
+  this->input_dims = input_dims;
   int total_elements = prod(input_dims[0].begin(), input_dims[0].end(), 1);
-  this->output_dims.resize(2);
-  this->output_dims.at(0) = 1;
-  this->output_dims.at(1) = total_elements;
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(2);
+  this->output_dims[0].at(0) = 1;
+  this->output_dims[0].at(1) = total_elements;
 }
 
 void Op::Layer::Flatten::infer_type(const std::vector<TPDT> &input_types) {
@@ -451,10 +455,10 @@ void Op::Layer::Dropout::set_initializer_params(int n,
 }
 
 void Op::Layer::Dropout::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::Dropout::infer_type(const std::vector<TPDT> &input_types) {
@@ -472,7 +476,7 @@ void Op::Layer::Add::set_initializer_params(int n, const onnx::TensorProto &t) {
 }
 
 void Op::Layer::Add::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   /* TODO: allow support for broadcasts */
   assert(input_dims.size() >= 1);
   auto og = input_dims[0];
@@ -480,8 +484,8 @@ void Op::Layer::Add::infer_shape(
   // auto compare_fn = [&og](const std::vector<int> &v) {
   //   assert(v == og); };
   // std::for_each(input_dims.begin(), input_dims.end(), compare_fn);
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::Add::infer_type(const std::vector<TPDT> &input_types) {
@@ -493,16 +497,17 @@ void Op::Layer::Add::infer_type(const std::vector<TPDT> &input_types) {
 const char *Op::Layer::GlobalAveragePool::op_type() const { return m_optype; }
 
 void Op::Layer::GlobalAveragePool::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   assert(input_dims[0].size() == 4 &&
          "expect GlobalAveragePool's inputs to be 4d");
-  this->input_dims = input_dims[0];
-  this->output_dims.resize(4);
-  this->output_dims[0] = input_dims[0][0];
-  this->output_dims[1] = input_dims[0][1];
-  this->output_dims[2] = 1;
-  this->output_dims[3] = 1;
+  this->input_dims = input_dims;
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(4);
+  this->output_dims[0][0] = input_dims[0][0];
+  this->output_dims[0][1] = input_dims[0][1];
+  this->output_dims[0][2] = 1;
+  this->output_dims[0][3] = 1;
 }
 
 void Op::Layer::GlobalAveragePool::infer_type(
@@ -521,10 +526,10 @@ std::string Op::Layer::BatchNorm::params() const {
 }
 
 void Op::Layer::BatchNorm::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::BatchNorm::infer_type(const std::vector<TPDT> &input_types) {
@@ -630,9 +635,9 @@ void Op::Layer::Reshape::set_initializer_params(int n,
 }
 
 void Op::Layer::Reshape::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+    const IVec2D &input_dims) {
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::Reshape::infer_type(const std::vector<TPDT> &input_types) {
@@ -722,10 +727,10 @@ void Op::Layer::DequantizeLinear::infer_type(
 }
 
 void Op::Layer::DequantizeLinear::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
@@ -765,10 +770,10 @@ Op::Layer::QuantizeLinear::QuantizeLinear()
     : scale{1.0}, axis{0}, block_size{0}, output_dtype{0}, saturate{1} {}
 
 void Op::Layer::QuantizeLinear::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::QuantizeLinear::infer_type(
@@ -833,10 +838,10 @@ const char *Op::Layer::QLinearConv::op_type() const { return m_optype; }
 std::string Op::Layer::QLinearConv::params() const {
   std::string ret;
   std::stringstream ss;
-  ss << "(IW,IH: " << this->input_dims[TENSOR_4D_WIDTH] << ","
-     << this->input_dims[TENSOR_4D_HEIGHT] << ") "
+  ss << "(IW,IH: " << this->input_dims[0][TENSOR_4D_WIDTH] << ","
+     << this->input_dims[0][TENSOR_4D_HEIGHT] << ") "
      << "(KN,IC,KH,KW: " << m_cp.kn << ","
-     << this->input_dims[TENSOR_4D_CHANNELS] << "," << m_cp.k[TENSOR_2D_WIDTH]
+     << this->input_dims[0][TENSOR_4D_CHANNELS] << "," << m_cp.k[TENSOR_2D_WIDTH]
      << "," << m_cp.k[TENSOR_2D_HEIGHT] << ") "
      << "(S,P,D: " << m_cp.stride[TENSOR_2D_WIDTH] << "," << m_cp.pad[I_LEFT]
      << "," << m_cp.dilation[TENSOR_2D_WIDTH] << ") ";
@@ -963,15 +968,16 @@ void Op::Layer::QLinearConv::set_attributes(const onnx::NodeProto &node) {
 }
 
 void Op::Layer::QLinearConv::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
+  this->input_dims = input_dims;
   assert(input_dims[0].size() == 4); // NCHW
-  this->output_dims.resize(4);
-  this->output_dims[0] = input_dims[0][0];
-  this->output_dims[1] = this->m_cp.kn;
-  this->output_dims[2] = sa_odims_row(this->m_cp, input_dims[0]);
-  this->output_dims[3] = sa_odims_cols(this->m_cp, input_dims[0]);
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(4);
+  this->output_dims[0][0] = input_dims[0][0];
+  this->output_dims[0][1] = this->m_cp.kn;
+  this->output_dims[0][2] = sa_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[0][3] = sa_odims_cols(this->m_cp, input_dims[0]);
 }
 
 void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT> &input_types) {
@@ -1076,16 +1082,17 @@ void Op::Layer::QLinearMatMul::set_value_info_params(
 }
 
 void Op::Layer::QLinearMatMul::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
 
   assert(input_dims[0].size() == 2);
-  this->input_dims = input_dims[0];
+  this->input_dims = input_dims;
   assert(input_dims[0].at(1) == this->m_cp.wr &&
          "QLinearMatMul, matrix dimensions do not match");
-  this->output_dims.resize(2);
-  this->output_dims.at(0) = input_dims[0].at(0);
-  this->output_dims.at(1) = this->m_cp.wc;
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(2);
+  this->output_dims[0].at(0) = input_dims[0].at(0);
+  this->output_dims[0].at(1) = this->m_cp.wc;
 }
 
 void Op::Layer::QLinearMatMul::infer_type(
@@ -1156,7 +1163,7 @@ void Op::Layer::QLinearAdd::set_initializer_params(int n,
 }
 
 void Op::Layer::QLinearAdd::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   std::vector<int> weight_dims = get_tensorproto_shape(*this->addend);
   if (!is_broadcastable(input_dims[0], weight_dims)) {
     log_fatal("input_dims and weight_dims can't be broadcasted for layer {}\n",
@@ -1166,10 +1173,11 @@ void Op::Layer::QLinearAdd::infer_shape(
     log_fatal("cant infer shape for layer {}, dims.size() = {} != 2\n",
               this->name, input_dims.size());
   }
-  this->input_dims = input_dims[0];
-  this->output_dims.resize(2);
-  this->output_dims.at(0) = input_dims[0].at(0);
-  this->output_dims.at(1) = input_dims[0].at(1);
+  this->input_dims = input_dims;
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(2);
+  this->output_dims[0].at(0) = input_dims[0].at(0);
+  this->output_dims[0].at(1) = input_dims[0].at(1);
 }
 
 void Op::Layer::QLinearAdd::infer_type(const std::vector<TPDT> &input_types) {
@@ -1252,8 +1260,8 @@ const char *Op::Layer::QGemm::op_type() const { return m_optype; }
 std::string Op::Layer::QGemm::params() const {
   std::string ret;
   std::stringstream ss;
-  ss << "IH,IW,WR,WC: " << this->input_dims[TENSOR_2D_HEIGHT] << ' '
-     << this->input_dims[TENSOR_2D_WIDTH] << ' ' << m_cp.wr << ' ' << m_cp.wc
+  ss << "IH,IW,WR,WC: " << this->input_dims[0][TENSOR_2D_HEIGHT] << ' '
+     << this->input_dims[0][TENSOR_2D_WIDTH] << ' ' << m_cp.wr << ' ' << m_cp.wc
      << ' ';
 
   ss << "alpha,beta,transA,transB: " << m_cp.alpha << ' ' << m_cp.beta << ' '
@@ -1364,20 +1372,21 @@ void Op::Layer::QGemm::set_attributes(const onnx::NodeProto &node) {
 }
 
 void Op::Layer::QGemm::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   assert(input_dims[0].size() == 2);
-  this->input_dims = input_dims[0];
-  this->output_dims.resize(2);
-  this->output_dims.at(0) = input_dims[0].at(0);
+  this->input_dims = input_dims;
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(2);
+  this->output_dims[0].at(0) = input_dims[0].at(0);
   if (m_cp.transB) {
     assert(input_dims[0].at(1) == this->m_cp.wc &&
            "QGemm, matrix dimensions do not match");
-    this->output_dims.at(1) = this->m_cp.wr;
+    this->output_dims[0].at(1) = this->m_cp.wr;
   } else {
     assert(input_dims[0].at(1) == this->m_cp.wr &&
            "QGemm, matrix dimensions do not match");
-    this->output_dims.at(1) = this->m_cp.wc;
+    this->output_dims[0].at(1) = this->m_cp.wc;
   }
 }
 
@@ -1421,9 +1430,9 @@ void Op::Layer::LogSoftmax::set_attributes(const onnx::NodeProto &node) {
 }
 
 void Op::Layer::LogSoftmax::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
-  this->input_dims = input_dims.at(0);
-  this->output_dims = input_dims.at(0);
+    const IVec2D &input_dims) {
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::LogSoftmax::infer_type(const std::vector<TPDT> &input_types) {
@@ -1446,7 +1455,7 @@ Op::Layer::QLinearAveragePool::QLinearAveragePool() {
 const char *Op::Layer::QLinearAveragePool::op_type() const { return m_optype; }
 
 std::string Op::Layer::QLinearAveragePool::params() const {
-  return get_pool_params(this->input_dims, this->m_cp).str();
+  return get_pool_params(this->input_dims[0], this->m_cp).str();
 }
 
 void Op::Layer::QLinearAveragePool::set_attributes(
@@ -1510,23 +1519,24 @@ void Op::Layer::QLinearAveragePool::infer_type(
 }
 
 void Op::Layer::QLinearAveragePool::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
+  this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
-  this->output_dims.resize(4);
-  this->output_dims[0] = input_dims[0][0];
-  this->output_dims[1] = input_dims[0][1];
-  this->output_dims[2] = mp_odims_row(this->m_cp, input_dims[0]);
-  this->output_dims[3] = mp_odims_cols(this->m_cp, input_dims[0]);
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(4);
+  this->output_dims[0][0] = input_dims[0][0];
+  this->output_dims[0][1] = input_dims[0][1];
+  this->output_dims[0][2] = mp_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[0][3] = mp_odims_cols(this->m_cp, input_dims[0]);
 }
 
 const char *Op::Layer::Abs::op_type() const { return m_optype; }
 
 void Op::Layer::Abs::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+    const IVec2D &input_dims) {
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::Abs::infer_type(const std::vector<TPDT> &input_types) {
@@ -1546,11 +1556,11 @@ std::string Op::Layer::ReduceMean::params() const {
 }
 
 void Op::Layer::ReduceMean::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
-  this->input_dims = input_dims[0];
+    const IVec2D &input_dims) {
+  this->input_dims = input_dims;
   //this->output_dims = reduced_shape(this->input_dims, m_axis, m_keepdims);
   log_warn("Using a hacky (incorrect) implementation of reduce_mean. Inputs pass through\n");
-  this->output_dims = input_dims[0];
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::ReduceMean::infer_type(const std::vector<TPDT> &input_types) {
@@ -1587,7 +1597,7 @@ Op::Layer::AveragePool::AveragePool() {
 const char *Op::Layer::AveragePool::op_type() const { return m_optype; }
 
 std::string Op::Layer::AveragePool::params() const {
-  return get_pool_params(this->input_dims, this->m_cp).str();
+  return get_pool_params(this->input_dims[0], this->m_cp).str();
 }
 
 void Op::Layer::AveragePool::set_attributes(const onnx::NodeProto &node) {
@@ -1641,15 +1651,15 @@ void Op::Layer::AveragePool::infer_type(const std::vector<TPDT> &input_types) {
 }
 
 void Op::Layer::AveragePool::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
+  this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
-  this->output_dims.resize(4);
-  this->output_dims[0] = input_dims[0][0];
-  this->output_dims[1] = input_dims[0][1];
-  this->output_dims[2] = mp_odims_row(this->m_cp, input_dims[0]);
-  this->output_dims[3] = mp_odims_cols(this->m_cp, input_dims[0]);
+  this->output_dims[0].resize(4);
+  this->output_dims[0][0] = input_dims[0][0];
+  this->output_dims[0][1] = input_dims[0][1];
+  this->output_dims[0][2] = mp_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[0][3] = mp_odims_cols(this->m_cp, input_dims[0]);
 }
 
 const char *Op::Layer::Shape::op_type() const { return m_optype; }
@@ -1661,10 +1671,10 @@ void Op::Layer::Shape::infer_type(const std::vector<TPDT> &input_types) {
 }
 
 void Op::Layer::Shape::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
-  this->output_dims.push_back(this->input_dims.size());
+  this->input_dims = input_dims;
+  this->output_dims[0].push_back(this->input_dims[0].size());
 }
 
 Op::Layer::Gather::Gather() : m_axis{0}, m_indices{nullptr} {}
@@ -1684,10 +1694,10 @@ void Op::Layer::Gather::infer_type(const std::vector<TPDT> &input_types) {
 }
 
 void Op::Layer::Gather::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
-  this->output_dims = input_dims[0];
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
 }
 
 void Op::Layer::Gather::set_attributes(const onnx::NodeProto &node) {
@@ -1710,10 +1720,10 @@ void Op::Layer::Unsqueeze::infer_type(const std::vector<TPDT> &input_types) {
 }
 
 void Op::Layer::Unsqueeze::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
-  this->output_dims = unsqueeze_shape(this->input_dims, axis);
+  this->input_dims = input_dims;
+  this->output_dims[0] = unsqueeze_shape(this->input_dims[0], axis);
 }
 
 void Op::Layer::Unsqueeze::set_attributes(const onnx::NodeProto &node) {
@@ -1735,10 +1745,10 @@ void Op::Layer::Concat::infer_type(const std::vector<TPDT> &input_types) {
 }
 
 void Op::Layer::Concat::infer_shape(
-    const std::vector<std::vector<int>> &input_dims) {
+    const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
-  this->input_dims = input_dims[0];
-  this->output_dims = concat_shape(input_dims, m_axis);
+  this->input_dims = input_dims;
+  this->output_dims[0] = concat_shape(input_dims, m_axis);
 }
 
 void Op::Layer::Concat::set_attributes(const onnx::NodeProto &node) {
@@ -1947,8 +1957,18 @@ void Op::print_node(const LayerBase *node) {
   std::cout << '\n';
   const char *device = Op::get_device_name(node->device);
   std::cout << "Device " << device << '\n';
-  print_vec("Input dims", node->input_dims);
-  print_vec("Output dims", node->output_dims);
+  std::cout<<"Input dims: ";
+  for(const auto &i:node->input_dims){
+      print_vec("", i);
+      std::cout<<" ";
+  }
+  std::cout<<std::endl;
+  std::cout<<"Output dims: ";
+  for(const auto &i:node->output_dims){
+    print_vec("", i);
+    std::cout<<" ";
+  }
+  std::cout<<std::endl;
 }
 
 const char *Op::get_device_name(int device) {
@@ -2064,10 +2084,10 @@ long Op::time_estimate(Op::Graph graph) {
   for (auto itr = vb; itr != ve; ++itr) {
     LayerBase *node = graph[*itr];
     if (is_conv_like(node->op_type())) {
-      int input_columns = node->output_dims[TENSOR_4D_WIDTH] *
-                          node->output_dims[TENSOR_4D_HEIGHT];
+      int input_columns = node->output_dims[0][TENSOR_4D_WIDTH] *
+                          node->output_dims[0][TENSOR_4D_HEIGHT];
       int available_pe_columns = sa_arch[SA_ARCH_COLS] * sa_arch[SA_ARCH_N];
-      int channels = node->input_dims[TENSOR_4D_CHANNELS];
+      int channels = node->input_dims[0][TENSOR_4D_CHANNELS];
       int kernels = 0;
       if (isa<const Op::Layer::Conv *>(node)) {
         kernels = dynamic_cast<const Op::Layer::Conv *>(node)->m_cp.kn;
@@ -2129,14 +2149,14 @@ void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
 
 /* recursively calls `virtual LayerBase::infer_shape` on each node and its child
  * nodes */
-void Op::Model::deduce_shapes(const std::vector<int> &input_dims) {
+void Op::Model::deduce_shapes(const IVec2D &input_dims) {
   std::queue<Op::Vertex> S;
   Op::Graph gcopy = g;
 
   auto vitr = boost::vertices(gcopy);
   Op::Vertex v = *(vitr.first);
   /* set first layer's input dims */
-  std::vector<std::vector<int>> tmp{input_dims};
+  IVec2D tmp= input_dims;
   gcopy[v]->infer_shape(tmp);
   S.push(v);
 
@@ -2149,6 +2169,7 @@ void Op::Model::deduce_shapes(const std::vector<int> &input_dims) {
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
       Op::Vertex dest_vertex = boost::target(*itr, gcopy);
       auto in_dims = Op::get_dims_of_in_edges(dest_vertex, gcopy);
+      assert(gcopy[dest_vertex] != nullptr);
       gcopy[dest_vertex]->infer_shape(in_dims);
       boost::remove_edge(*itr, gcopy);
       if (boost::in_degree(dest_vertex, gcopy) == 0) {
@@ -2302,13 +2323,15 @@ std::vector<int> Op::get_dims_from_value_info(const onnx::ValueInfoProto &v) {
   return dims;
 }
 
-std::vector<std::vector<int>> Op::get_dims_of_in_edges(Op::Vertex v,
+IVec2D Op::get_dims_of_in_edges(Op::Vertex v,
                                                        const Op::Graph &g) {
-  std::vector<std::vector<int>> ret;
+  IVec2D ret;
   auto in_edges = boost::in_edges(v, g);
   for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
     Op::Vertex src_vertex = boost::source(*itr, g);
-    ret.push_back(g[src_vertex]->output_dims);
+    for(const auto &out_dim : g[src_vertex]->output_dims ){
+      ret.push_back(out_dim);
+    }
   }
   return ret;
 }
@@ -2471,20 +2494,20 @@ std::vector<int> Op::get_true_rc_inputs(const Op::LayerBase *node) {
   if (Op::isa<const Op::Layer::Gemm *>(node)) {
     const Op::Layer::Gemm *g = dynamic_cast<const Op::Layer::Gemm *>(node);
     if (g->m_cp.transA) {
-      ret[TENSOR_2D_HEIGHT] = g->input_dims[TENSOR_2D_WIDTH];
-      ret[TENSOR_2D_WIDTH] = g->input_dims[TENSOR_2D_HEIGHT];
+      ret[TENSOR_2D_HEIGHT] = g->input_dims[0][TENSOR_2D_WIDTH];
+      ret[TENSOR_2D_WIDTH] = g->input_dims[0][TENSOR_2D_HEIGHT];
     } else {
-      ret[TENSOR_2D_HEIGHT] = g->input_dims[TENSOR_2D_HEIGHT];
-      ret[TENSOR_2D_WIDTH] = g->input_dims[TENSOR_2D_WIDTH];
+      ret[TENSOR_2D_HEIGHT] = g->input_dims[0][TENSOR_2D_HEIGHT];
+      ret[TENSOR_2D_WIDTH] = g->input_dims[0][TENSOR_2D_WIDTH];
     }
   } else if (Op::isa<const Op::Layer::QGemm *>(node)) {
     const Op::Layer::QGemm *g = dynamic_cast<const Op::Layer::QGemm *>(node);
     if (g->m_cp.transA) {
-      ret[TENSOR_2D_HEIGHT] = g->input_dims[TENSOR_2D_WIDTH];
-      ret[TENSOR_2D_WIDTH] = g->input_dims[TENSOR_2D_HEIGHT];
+      ret[TENSOR_2D_HEIGHT] = g->input_dims[0][TENSOR_2D_WIDTH];
+      ret[TENSOR_2D_WIDTH] = g->input_dims[0][TENSOR_2D_HEIGHT];
     } else {
-      ret[TENSOR_2D_HEIGHT] = g->input_dims[TENSOR_2D_HEIGHT];
-      ret[TENSOR_2D_WIDTH] = g->input_dims[TENSOR_2D_WIDTH];
+      ret[TENSOR_2D_HEIGHT] = g->input_dims[0][TENSOR_2D_HEIGHT];
+      ret[TENSOR_2D_WIDTH] = g->input_dims[0][TENSOR_2D_WIDTH];
     }
   } else {
     log_fatal("dunno what typa gemm this ({}) is, mate\n", node->name);
@@ -2657,7 +2680,13 @@ Op::Parser::Parser(std::string const &filename) {
   }
   m_model.deduce_types(input_types);
   /* first layer's input dims */
-  std::vector<int> input_dims = get_dims_from_value_info(m_graph.input().at(0));
+  google::protobuf::RepeatedPtrField<onnx::ValueInfoProto> m_graph_inputs = m_graph.input();
+  IVec2D input_dims;
+  for(int i=0;i<m_graph_inputs.size();i++){
+    std::vector<int> tmp_dims= get_dims_from_value_info(m_graph.input()[i]);
+    input_dims.push_back(tmp_dims);
+  }
+
   m_model.deduce_shapes(input_dims);
   pass_set_device(get_graph());
 }
