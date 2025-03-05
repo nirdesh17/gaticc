@@ -1096,6 +1096,8 @@ void Op::Layer::QLinearMatMul::infer_type(
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
+Op::Layer::QLinearAdd::QLinearAdd() { addend = nullptr; }
+
 const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
 
 enum QLA_INITIALIZERS {
@@ -1157,23 +1159,33 @@ void Op::Layer::QLinearAdd::set_initializer_params(int n,
 
 void Op::Layer::QLinearAdd::infer_shape(
     const std::vector<std::vector<int>> &input_dims) {
-  std::vector<int> weight_dims = get_tensorproto_shape(*this->addend);
-  if (!is_broadcastable(input_dims[0], weight_dims)) {
-    log_fatal("input_dims and weight_dims can't be broadcasted for layer {}\n",
-              this->name);
+  if (this->output_dims.size() != 0) {
+    return;
   }
-  if (input_dims[0].size() != 2) {
-    log_fatal("cant infer shape for layer {}, dims.size() = {} != 2\n",
+  if (this->addend != nullptr) {
+    std::vector<int> weight_dims = get_tensorproto_shape(*this->addend);
+    if (!is_broadcastable(input_dims[0], weight_dims)) {
+      log_fatal("input_dims and weight_dims can't be broadcasted for layer {}\n",
+          this->name);
+    }
+  }
+  if (input_dims[0].size() != 4) {
+    log_fatal("cant infer shape for layer {}, dims.size() = {} != 4\n",
               this->name, input_dims.size());
   }
   this->input_dims = input_dims[0];
-  this->output_dims.resize(2);
+  this->output_dims.resize(4);
   this->output_dims.at(0) = input_dims[0].at(0);
   this->output_dims.at(1) = input_dims[0].at(1);
+  this->output_dims.at(2) = input_dims[0].at(2);
+  this->output_dims.at(3) = input_dims[0].at(3);
 }
 
 void Op::Layer::QLinearAdd::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
+  if (this->input_type.size() != 0) {
+    return;
+  }
   this->input_type = input_types;
   this->output_type = input_types;
 }

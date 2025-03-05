@@ -405,7 +405,7 @@ struct QLinearAdd : public LayerBase {
   int b_zp;
   std::vector<float> o_scale;
   std::vector<std::variant<int8_t, uint8_t>> zero_point;
-
+  QLinearAdd();
   const char *m_optype = "QLinearAdd";
   const char *op_type() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
