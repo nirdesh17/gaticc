@@ -49,8 +49,8 @@ bool is_megablock_op_code(int i) {
 }
 
 bool changes_dimension_count(const Op::LayerBase *l) {
-  int c1 = l->input_dims.size();
-  int c2 = l->output_dims.size();
+  int c1 = l->input_dims[0].size();
+  int c2 = l->output_dims[0].size();
   if (c1 != c2) {
     return true;
   }
@@ -345,7 +345,7 @@ void Pass::adjust_scale_shift_gemm(Op::Graph graph) {
 
 /* true if 'l' does not change the shape of its inputs */
 static bool is_shape_preserving(Op::LayerBase *l) {
-  return l->input_dims == l->output_dims;
+  return l->input_dims[0] == l->output_dims[0];
 }
 
 /* Megablocks like convolution are followed by miniblocks
@@ -374,11 +374,11 @@ void Pass::extract_conv_true_odims(Op::Graph gcopy) {
 
     if (is_op_type(l, "QLinearConv")) {
       cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
-      cc->pipelined_output_dims = l->output_dims;
+      cc->pipelined_output_dims = l->output_dims[0];
     } else if (is_megablock(l) || changes_dimension_count(l)) {
       cc = nullptr;
     } else if (cc != nullptr) {
-      cc->pipelined_output_dims = l->output_dims;
+      cc->pipelined_output_dims = l->output_dims[0];
     }
 
     candidates.pop();
@@ -402,9 +402,9 @@ Pass::mark_cfg(const std::vector<Op::LayerBase *> &order) {
   std::vector<int> former_layer_dims;
   for (Op::LayerBase *l : order) {
     if (is_op_type(l, "Flatten")) {
-      if (l->input_dims.size() == 4) {
+      if (l->input_dims[0].size() == 4) {
         flatten_pass = true;
-        former_layer_dims = l->input_dims;
+        former_layer_dims = l->input_dims[0];
       } else {
         flatten_pass = false;
         former_layer_dims = std::vector<int>();
@@ -665,24 +665,24 @@ static std::bitset<INST_SIZE_BITS> gen_conv_inst(const Op::Layer::QLinearConv *c
   std::bitset<CONV_Opcode_COUNT> opcode{OP_CONV};
   bitset_range_set(conv_inst, opcode, CONV_Opcode_LOW, CONV_Opcode_HIGH);
 
-  check_overflow(cc->input_dims[TENSOR_4D_WIDTH], CONV_IW_COUNT);
-  std::bitset<CONV_IW_COUNT> iw{cc->input_dims[TENSOR_4D_WIDTH]};
+  check_overflow(cc->input_dims[0][TENSOR_4D_WIDTH], CONV_IW_COUNT);
+  std::bitset<CONV_IW_COUNT> iw{cc->input_dims[0][TENSOR_4D_WIDTH]};
   bitset_range_set(conv_inst, iw, CONV_IW_LOW, CONV_IW_HIGH);
 
-  check_overflow(cc->input_dims[TENSOR_4D_HEIGHT], CONV_IH_COUNT);
-  std::bitset<CONV_IH_COUNT> ih{cc->input_dims[TENSOR_4D_HEIGHT]};
+  check_overflow(cc->input_dims[0][TENSOR_4D_HEIGHT], CONV_IH_COUNT);
+  std::bitset<CONV_IH_COUNT> ih{cc->input_dims[0][TENSOR_4D_HEIGHT]};
   bitset_range_set(conv_inst, ih, CONV_IH_LOW, CONV_IH_HIGH);
 
-  check_overflow(cc->output_dims[TENSOR_4D_WIDTH], CONV_OW_COUNT);
-  std::bitset<CONV_OW_COUNT> ow{cc->output_dims[TENSOR_4D_WIDTH]};
+  check_overflow(cc->output_dims[0][TENSOR_4D_WIDTH], CONV_OW_COUNT);
+  std::bitset<CONV_OW_COUNT> ow{cc->output_dims[0][TENSOR_4D_WIDTH]};
   bitset_range_set(conv_inst, ow, CONV_OW_LOW, CONV_OW_HIGH);
 
-  check_overflow(cc->output_dims[TENSOR_4D_HEIGHT], CONV_OH_COUNT);
-  std::bitset<CONV_OH_COUNT> oh{cc->output_dims[TENSOR_4D_HEIGHT]};
+  check_overflow(cc->output_dims[0][TENSOR_4D_HEIGHT], CONV_OH_COUNT);
+  std::bitset<CONV_OH_COUNT> oh{cc->output_dims[0][TENSOR_4D_HEIGHT]};
   bitset_range_set(conv_inst, oh, CONV_OH_LOW, CONV_OH_HIGH);
 
-  check_overflow(cc->input_dims[TENSOR_4D_CHANNELS], CONV_IC_COUNT);
-  std::bitset<CONV_IC_COUNT> ic{cc->input_dims[TENSOR_4D_CHANNELS]};
+  check_overflow(cc->input_dims[0][TENSOR_4D_CHANNELS], CONV_IC_COUNT);
+  std::bitset<CONV_IC_COUNT> ic{cc->input_dims[0][TENSOR_4D_CHANNELS]};
   bitset_range_set(conv_inst, ic, CONV_IC_LOW, CONV_IC_HIGH);
 
   check_overflow(cc->m_cp.kn, CONV_KN_COUNT);
@@ -831,7 +831,7 @@ static std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv 
   // std::cout << "output address " << output_addr_start << '\n';
 
   uint32_t acc_addr_start = gen.ps_addr_from_register(cc->inputs.at(0));
-  uint32_t acc_bytes = aligned_conv_acc(cc->input_dims);
+  uint32_t acc_bytes = aligned_conv_acc(cc->input_dims[0]);
   uint32_t acc_addr_end = acc_addr_start + acc_bytes;
 
   // std::cout << "acc address " << acc_addr_start << '\n';
@@ -841,7 +841,7 @@ static std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv 
                    OutputBlock_AccumulantAddr_HIGH);
 
   int channel_iterations = (int)std::ceil(
-      (float)cc->input_dims[TENSOR_4D_CHANNELS] / (float)sa_arch[2]);
+      (float)cc->input_dims[0][TENSOR_4D_CHANNELS] / (float)sa_arch[2]);
   std::bitset<OutputBlock_ChannelItr_COUNT> citr{channel_iterations};
   bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
                    OutputBlock_ChannelItr_HIGH);
@@ -863,8 +863,8 @@ static std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv 
                get_conv_out_mod());
 
   // std::cout << "dim output " << image_dim_output << '\n';
-  int dim_acc = ceil_mod(cc->output_dims.at(TENSOR_4D_WIDTH) *
-                             cc->output_dims.at(TENSOR_4D_HEIGHT),
+  int dim_acc = ceil_mod(cc->output_dims[0].at(TENSOR_4D_WIDTH) *
+                             cc->output_dims[0].at(TENSOR_4D_HEIGHT),
                          get_conv_acc_mod());
 
   // std::cout << "dim_acc" << dim_acc << '\n';
@@ -878,7 +878,7 @@ static std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv 
                    OutputBlock_ImageDimAcc_HIGH);
 
   bool should_accumulate = true;
-  if (cc->input_dims[TENSOR_4D_CHANNELS] < sa_arch[2]) {
+  if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2]) {
     should_accumulate = false;
   }
   std::bitset<OutputBlock_AccEn_COUNT> accen{should_accumulate};
@@ -905,8 +905,8 @@ static std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv 
               "one\n");
   }
   int on_chip_acc_en = 0;
-  int acc_count = cc->output_dims.at(TENSOR_4D_WIDTH) *
-                  cc->output_dims.at(TENSOR_4D_HEIGHT);
+  int acc_count = cc->output_dims[0].at(TENSOR_4D_WIDTH) *
+                  cc->output_dims[0].at(TENSOR_4D_HEIGHT);
   if (accbuf_size >= acc_count) {
     on_chip_acc_en = 1;
   }
@@ -1022,7 +1022,7 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen,
                    TailBlock_PoolPadding_HIGH);
 
 
-  std::bitset<TailBlock_PoolModCount_COUNT> modcount {input_dims[TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT]};
+  std::bitset<TailBlock_PoolModCount_COUNT> modcount {input_dims[0][TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT]};
   bitset_range_set(maxpool_inst, modcount, TailBlock_PoolModCount_LOW, TailBlock_PoolModCount_HIGH);
 
   insts.push_back(maxpool_inst);
@@ -1095,7 +1095,8 @@ static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
 
   int vec2mat_cols = 0;
   if (former_layer_conv) {
-    vec2mat_cols = ceil_div(aligned_conv_output(cc->former_layer_dims), vasize);
+    IVec2D former_layer_dims_wrapper = {cc->former_layer_dims};
+    vec2mat_cols = ceil_div(aligned_conv_output(former_layer_dims_wrapper), vasize);
   } else {
     vec2mat_cols = ceil_div(aligned_fc_io(cc->input_dims), vasize);
   }
@@ -1106,7 +1107,8 @@ static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
   uint32_t input_bytes = 0;
   if (cc->former_layer_dims.size() == 4) {
-    input_bytes = aligned_conv_output(cc->former_layer_dims) *
+    IVec2D former_layer_dims_wrapper = {cc->former_layer_dims};
+    input_bytes = aligned_conv_output(former_layer_dims_wrapper) *
                   Op::tpdt_sizeof(cc->input_type[0]);
   } else if (cc->former_layer_dims.size() == 0) {
     input_bytes =
@@ -1426,7 +1428,7 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob& insts, AddressGen& gen, In
   bitset_range_set(average_pool_inst, pool_pad, TailBlock_PoolPadding_LOW,
                    TailBlock_PoolPadding_HIGH);
 
-  std::bitset<TailBlock_PoolModCount_COUNT> modcount {input_dims[TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT]};
+  std::bitset<TailBlock_PoolModCount_COUNT> modcount {input_dims[0][TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT]};
   bitset_range_set(average_pool_inst, modcount, TailBlock_PoolModCount_LOW, TailBlock_PoolModCount_HIGH);
 
   insts.push_back(average_pool_inst);
@@ -1435,26 +1437,26 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob& insts, AddressGen& gen, In
   return 0;
 }
 
-std::vector<int> Op::LayerBase::aligned_input() {
+IVec2D Op::LayerBase::aligned_input() {
   return input_dims;
 }
 
-std::vector<int> Op::LayerBase::aligned_output() { return output_dims; }
+IVec2D Op::LayerBase::aligned_output() { return output_dims; }
 
-std::vector<int> Op::Layer::QLinearConv::aligned_input() {
+IVec2D Op::Layer::QLinearConv::aligned_input() {
   return aligned_conv_input_dims(input_dims);
 }
 
-std::vector<int> Op::Layer::QLinearConv::aligned_output() {
+IVec2D Op::Layer::QLinearConv::aligned_output() {
   return aligned_conv_output_dims(output_dims);
 }
 
-std::vector<int> Op::Layer::QGemm::aligned_input() {
-  return aligned_fc_io_dims(input_dims);
+IVec2D Op::Layer::QGemm::aligned_input() {
+  return aligned_fc_io_dims(&input_dims[0]);
 }
 
-std::vector<int> Op::Layer::QGemm::aligned_output() {
-  return aligned_fc_io_dims(output_dims);
+IVec2D Op::Layer::QGemm::aligned_output() {
+  return aligned_fc_io_dims(&output_dims.at(0));
 }
 
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
@@ -1521,13 +1523,13 @@ int AddressGen::get_io_region_register_size(
   uint32_t largest_dim = 0;
   for (Op::LayerBase *l : order) {
     if (is_megablock(l)) {
-      auto inp_dims = l->aligned_input();
+      auto inp_dims = l->aligned_input()[0];
       uint32_t tmp_inp = prod(inp_dims.begin(), inp_dims.end(), 1) *
                          Op::tpdt_sizeof(l->input_type[0]);
       if (tmp_inp > largest_dim) {
         largest_dim = tmp_inp;
       }
-      auto outp_dims = l->aligned_output();
+      auto outp_dims = l->aligned_output()[0];
       uint32_t tmp_outp = prod(outp_dims.begin(), outp_dims.end(), 1) *
                           Op::tpdt_sizeof(l->output_type[0]);
       if (tmp_outp > largest_dim) {

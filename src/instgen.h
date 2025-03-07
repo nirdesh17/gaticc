@@ -261,41 +261,43 @@ inline int get_conv_acc_mod() {
 }
 
 template <typename T>
-std::vector<int> aligned_conv_input_dims(const T &dims) {
-  assert(dims.size() == 4);
+IVec2D aligned_conv_input_dims(const T &dims) {
+  assert(!dims.empty() && dims[0].size() == 4);
   auto sa_arch = get_sa_arch();
-  auto i = dims;
+  std::vector<int> i = dims[0];
   i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[2]);
-  std::vector<int> ret(dims.size());
-  std::copy(i.begin(), i.end(), ret.begin());
+  IVec2D ret;
+  ret.push_back(i);
   return ret;
 }
 
 template <typename T>
 int aligned_conv_input(const T &dims) {
-  auto i = aligned_conv_input_dims(dims);
-  assert(i.size() == 4);
+  auto iVec = aligned_conv_input_dims(dims);
+  assert(!iVec.empty() && iVec[0].size() == 4);
+  auto &i = iVec[0];
   int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_in_mod()) *
     i[TENSOR_4D_CHANNELS];
   return ret;
 }
 
 template <typename T>
-std::vector<int> aligned_conv_output_dims(const T &dims) {
-  assert(dims.size() == 4);
+IVec2D aligned_conv_output_dims(const T &dims) {
+  assert(!dims.empty() && dims[0].size() == 4);
   auto sa_arch = get_sa_arch();
-  auto i = dims;
+  std::vector<int> i = dims[0];
   i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]);
-  std::vector<int> ret(dims.size());
-  std::copy(i.begin(), i.end(), ret.begin());
+  IVec2D ret;
+  ret.push_back(i);
   return ret;
 }
 
 
 template <typename T>
 int aligned_conv_output(const T &dims) {
-  auto i = aligned_conv_output_dims(dims);
-  assert(i.size() == 4);
+  auto iVec = aligned_conv_output_dims(dims);
+  assert(!iVec.empty() && iVec[0].size() == 4);
+  auto &i = iVec[0];
   int ret = ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_out_mod()) * i[TENSOR_4D_CHANNELS];
   return ret;
 }
@@ -352,18 +354,18 @@ int aligned_fc_bias(const T &dims) {
 }
 
 template <typename T>
-std::vector<int> aligned_fc_io_dims(const T &dims) {
-  assert(dims.size() == 2);
-  assert(dims[0] == 1);
+IVec2D aligned_fc_io_dims(const T &dims) {
+  assert(dims[0].size() == 2);
+  assert(dims[0][0] == 1);
   int va_size = get_va_size();
-  int ret = ceil_mod(dims[1], va_size);
-  return std::vector<int>{1, ret};
+  int ret = ceil_mod(dims[0][1], va_size);
+  return IVec2D{{1, ret}};
 }
 
 template <typename T>
 int aligned_fc_io(const T &dims) {
   auto ret = aligned_fc_io_dims(dims);
-  return ret[1];
+  return ret[0][1];
 }
 
 
@@ -621,7 +623,8 @@ void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr,
   // std::vector<int> input_tensor{1, 8, 224, 224};
   // std::vector<int> sa_arch = {9, 4, 4};
   assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
-  auto aligned_dims = aligned_conv_input_dims(tensor->get_dims());
+  IVec2D get_dims_wrapper = {tensor->get_dims()};
+  auto aligned_dims = aligned_conv_input_dims(get_dims_wrapper)[0];
   auto sa_arch = get_sa_arch();
 
 	int og_chan_size = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_HEIGHT];

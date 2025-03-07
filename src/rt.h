@@ -195,8 +195,8 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
     tensor_pool.free();
 
     Tensor<inputT> *slice {get_slice(input_image, std::vector<int>{i})};
-    if (order.at(0)->input_dims != slice->get_dims()) {
-      log_fatal("Expected input dims {}, got input of dimensions {}\n", order.at(0)->input_dims, slice->get_dims());
+    if (order.at(0)->input_dims[0] != slice->get_dims()) {
+      log_fatal("Expected input dims {}, got input of dimensions {}\n", order.at(0)->input_dims[0], slice->get_dims());
     }
     tensor_pool.set<Tensor<inputT> *>(0, slice);
 
@@ -250,7 +250,8 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
 template <typename T> void Runner::send_input(Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor, uint32_t addr) {
   auto dims = tensor->get_dims();
   if (is_op_type(l, "QLinearConv")) {
-    uint32_t og_aligned_size = aligned_conv_input(dims) * sizeof(T);
+    IVec2D dims_wrapper = {dims};
+    uint32_t og_aligned_size = aligned_conv_input(dims_wrapper) * sizeof(T);
     uint32_t total_size_with_packets = io_tensor_packet_size(og_aligned_size);
     BinBlob blob(total_size_with_packets);
     blob.append_sa_input<T>(og_aligned_size, addr, tensor);
@@ -270,7 +271,8 @@ void unalign_sa_output(Tensor<T> *tensor, const T *data) {
   /* TODO: explain this function in detail */
 
   auto dims = tensor->get_dims();
-  auto new_dims = aligned_conv_output_dims(tensor->get_dims()); 
+  IVec2D get_dims_wrapper = {tensor->get_dims()};
+  auto new_dims = aligned_conv_output_dims(get_dims_wrapper)[0];
 
   if (dims[TENSOR_4D_BATCH] != 1) {
     log_fatal("can only operate on batch size 1; support must be added for more\n");
@@ -343,7 +345,7 @@ void Runner::receive_output_aux(const T *data,
       odims = qc->pipelined_output_dims;
     }
   } else {
-    odims = l->output_dims;
+    odims = l->output_dims[0];
   }
 
   Tensor<T> *tensor = new TensorCreate<T>(odims);
