@@ -2076,6 +2076,8 @@ long Op::time_estimate(Op::Graph graph) {
       } else {
         log_fatal("dunno what typa conv this ({}) is, mate\n", node->name);
       }
+      channels = (channels < sa_arch[SA_ARCH_N]) ? sa_arch[SA_ARCH_N] : channels;
+      kernels = (kernels < sa_arch[SA_ARCH_COLS]) ? sa_arch[SA_ARCH_N] : kernels;
       int t = ((channels * kernels) / available_pe_columns) * input_columns;
       cycles += t;
       std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
@@ -2083,7 +2085,11 @@ long Op::time_estimate(Op::Graph graph) {
     } else if (is_gemm_like(node->op_type())) {
       auto wr_wc = get_true_rc_weights(node);
       int available_pe_columns = va_size;
-      int t = ((float)wr_wc[1] / (float)available_pe_columns) * wr_wc[0];
+      int cols = wr_wc[1];
+      if (wr_wc[1] < 32) {
+        cols = 32;
+      }
+      int t = ((float)cols / (float)available_pe_columns) * wr_wc[0];
       cycles += t;
       std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
       Op::print_node(*itr, &graph);
