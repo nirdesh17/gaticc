@@ -174,6 +174,9 @@ def run(
             )
     return _exec(cmd_string, sudo=True)
 
+def summary(onnx_path: str):
+    return _exec(f"-i {onnx_path} --summary")
+
 def match(label_file: str, prediction_file: str) -> float:
     """
     Compare predicted labels against ground truth labels and calculate the match percentage.
