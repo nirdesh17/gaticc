@@ -29,6 +29,8 @@ import numpy as np
 # window, and search up function names present in the imagenet.py in this 
 # doc. Docstring based comments on each function should explain their purpose.
 
+keep_quiet = False
+
 gbl_arch = {
         "ramsize": 512,
         "sa-arch": "9,4,4",
@@ -41,9 +43,9 @@ def _exec(cmd_string, sudo=False):
     if os.getenv('PYTHONPATH') is None:
         raise OSError("Env variable PYTHONPATH needs to be set to ${GATICC_ROOT}/python")
     if sudo:
-        os.system(f"sudo PYTHONPATH={os.getenv('PYTHONPATH')} gaticc {cmd_string}")
+        return os.system(f"sudo PYTHONPATH={os.getenv('PYTHONPATH')} gaticc {cmd_string}")
     else:
-        os.system(f"gaticc {cmd_string}")
+        return os.system(f"gaticc {cmd_string}")
 
 def set_arch(ramsize, sa_arch, vasize, accbuf_size, fcbuf_size):
     global gbl_arch
@@ -52,6 +54,14 @@ def set_arch(ramsize, sa_arch, vasize, accbuf_size, fcbuf_size):
     gbl_arch["vasize"] = vasize
     gbl_arch["accbuf-size"] = accbuf_size
     gbl_arch["fcbuf-size"] = fcbuf_size
+
+def set_keep_quiet(val=True):
+    global keep_quiet
+    keep_quiet = val
+
+def set_arch(arch: dict):
+    global gbl_arch
+    gbl_arch = arch.copy()
 
 def get_arch():
     return gbl_arch
@@ -115,17 +125,18 @@ def compile(
     Raises:
         OSError: If the PYTHONPATH environment variable is not set.
     """
-    print(f"GATICC COMPILE: Using arch: {get_arch()}")
+    if not keep_quiet:
+        print(f"GATICC COMPILE: Using arch: {get_arch()}")
     cmd_string = f"-c {onnx_path} -o {out_path} {get_arch_string(get_arch())} {args2cmdstring(*args)}"
-    _exec(cmd_string)
+    return _exec(cmd_string)
 
 def flash(
         bitstream_path: str
         ):
     if shutil.which("bitman"):
-        os.system(f"sudo bitman -f {bitstream_path}")
+        return _exec(f"bitman -f {bitstream_path}", sudo=True)
     elif shutil.which("vaaman-ctl"):
-        os.system("sudo vaaman-ctl -i {bitstream_path}")
+        return _exec(f"vaaman-ctl -i {bitstream_path}", sudo=True)
     else:
         OSError("Could not find any program to flash bitstream")
 
@@ -154,13 +165,14 @@ def run(
     Raises:
         OSError: If the PYTHONPATH environment variable is not set or if sudo privileges are unavailable.
     """
-    print(f"GATICC RUN: Using arch: {get_arch()}")
+    if not keep_quiet:
+        print(f"GATICC RUN: Using arch: {get_arch()}")
     cmd_string = (
             f"-r {gml_path} --run-onnx {onnx_path} --loadpy {loadpy} "
             f"--preprocfn {preprocfn} --postprocfn {postprocfn} "
             f"{get_arch_string(get_arch())} {args2cmdstring(*args)} "
             )
-    _exec(cmd_string, sudo=True)
+    return _exec(cmd_string, sudo=True)
 
 def match(label_file: str, prediction_file: str) -> float:
     """
