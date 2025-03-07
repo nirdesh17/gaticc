@@ -2635,8 +2635,13 @@ Op::Parser::Parser(std::string const &filename) {
   model_proto =
       google::protobuf::Arena::CreateMessage<onnx::ModelProto>(&arena);
   model_proto->ParseFromIstream(&loaded_model);
-  const onnx::GraphProto &m_graph = model_proto->graph();
+  onnx::GraphProto graph = model_proto->graph();  
 
+  if (!gbl_args.has_option("info")) {
+    graph = pass_save_large_convolutions(graph); 
+  }
+
+  const onnx::GraphProto &m_graph = graph; 
   pass_save_graph_outputs(m_graph);
   pass_save_graph_inputs(m_graph);
   pass_save_value_infos(m_graph);
@@ -2698,6 +2703,153 @@ int Op::Parser::get_total_registers(void) const {
 
 bool Op::Parser::has_graph_output(Op::LayerBase *l) const {
   return m_model.has_graph_output(l);
+}
+
+std::vector<onnx::TensorProto> Op::Parser::slice_large_convolution(const onnx::TensorProto &initializer) {
+  std::vector<onnx::TensorProto> kernel_proto;
+
+  int N = initializer.dims(0);
+  int C = initializer.dims(1);
+  int H = initializer.dims(2);
+  int W = initializer.dims(3);
+
+  std::vector<int8_t> data;
+  data.resize(initializer.raw_data().size());
+  std::copy(initializer.raw_data().begin(), initializer.raw_data().end(), data.begin());
+
+  for (int i = 0; i < H; i++) {
+    onnx::TensorProto sliced_tensor;
+    sliced_tensor.set_data_type(initializer.data_type());
+    sliced_tensor.set_name(initializer.name() + "_" + std::to_string(i));
+    sliced_tensor.add_dims(N);
+    sliced_tensor.add_dims(C);
+    sliced_tensor.add_dims(1);
+    sliced_tensor.add_dims(W);
+
+    std::vector<int8_t> sliced_data;
+    for (int n = 0; n < N; n++) {
+      for (int c = 0; c < C; c++) {
+        for (int w = 0; w < W; w++) {
+          sliced_data.push_back(data[n * C * H * W + c * H * W + i * W + w]);
+        }
+      }
+    }
+    sliced_tensor.set_raw_data(sliced_data.data(), sliced_data.size());
+    kernel_proto.push_back(sliced_tensor);
+  }
+
+  return kernel_proto;
+}
+
+void Op::Parser::add_node_to_graph(
+    onnx::GraphProto &graph_copy,
+    google::protobuf::RepeatedPtrField<onnx::NodeProto> &all_nodes,
+    google::protobuf::RepeatedPtrField<onnx::TensorProto> &all_initializers,
+    std::vector<onnx::TensorProto> sliced_tensors, int next_nodes,
+    onnx::NodeProto &node, int a, int b) {
+
+  std::vector<onnx::NodeProto> new_nodes;
+
+  std::vector<std::string> tensor_list;
+  for (int k = 0; k < sliced_tensors.size(); k++) {
+    onnx::TensorProto tensor = sliced_tensors[k];
+    graph_copy.add_initializer()->CopyFrom(tensor);
+    tensor_list.push_back(tensor.name());
+  }
+
+  for (int k = 0; k < tensor_list.size(); ++k) {
+    onnx::NodeProto new_node;
+    new_node.CopyFrom(node);
+    new_node.set_name(node.name() + "_" + std::to_string(k));
+    new_node.set_output(0, node.name() + "_out_" + std::to_string(k));
+    new_node.set_input(3, tensor_list[k]);
+    new_nodes.push_back(new_node);
+  }
+
+  std::vector<onnx::NodeProto> QAdder;
+  for (int i = 1; i < new_nodes.size(); i++) {
+    if (!QAdder.empty()) {
+      onnx::NodeProto add;
+      add.set_op_type("QLinearAdd");
+      add.set_name("add_" + QAdder.back().output(0)+ "_" + new_nodes[i].output(0));
+      add.add_input(QAdder.back().output(0));
+      add.add_input(QAdder.back().input(6));
+      add.add_input(QAdder.back().input(7));
+      add.add_input(new_nodes[i].output(0));
+      add.add_input(new_nodes[i].input(6));
+      add.add_input(new_nodes[i].input(7));
+      add.add_input(new_nodes[i].input(6));
+      add.add_input(new_nodes[i].input(7));
+      add.add_output("output_" + QAdder.back().output(0)+ "_" + new_nodes[i].output(0));
+      QAdder.push_back(add);
+    } else {
+      onnx::NodeProto add;
+      add.set_op_type("QLinearAdd");
+      add.set_name("add_" + new_nodes[i - 1].output(0)+ "_" + new_nodes[i].output(0));
+      add.add_input(new_nodes[i - 1].output(0));
+      add.add_input(new_nodes[i - 1].input(6));
+      add.add_input(new_nodes[i - 1].input(7));
+      add.add_input(new_nodes[i].output(0));
+      add.add_input(new_nodes[i].input(6));
+      add.add_input(new_nodes[i].input(7));
+      add.add_input(new_nodes[i].input(6));
+      add.add_input(new_nodes[i].input(7));
+      add.add_output("output_" + new_nodes[i - 1].output(0)+ "_" + new_nodes[i].output(0));
+      QAdder.push_back(add);
+    }
+  }
+
+  onnx::NodeProto *target_node = all_nodes.Mutable(next_nodes);
+  target_node->set_input(0, QAdder.back().output(0));
+
+  all_initializers.DeleteSubrange(b, 1);
+  all_nodes.DeleteSubrange(a, 1);
+
+  std::vector<onnx::NodeProto> node_list(all_nodes.begin(), all_nodes.end());
+
+  int insert_pos = a;
+  node_list.insert(node_list.begin() + insert_pos, new_nodes[0]);
+  insert_pos++;
+
+  for (int i = 1; i < new_nodes.size(); i++) {
+    node_list.insert(node_list.begin() + insert_pos, new_nodes[i]);
+    insert_pos++;
+    node_list.insert(node_list.begin() + insert_pos, QAdder[i - 1]);
+    insert_pos++;
+  }
+
+  all_nodes.Clear();
+  for (const auto &n : node_list) {
+    *all_nodes.Add() = n;
+  }
+}
+
+onnx::GraphProto Op::Parser::pass_save_large_convolutions(onnx::GraphProto &graph_copy) {
+
+  auto *all_nodes = graph_copy.mutable_node();
+  auto *all_initializers = graph_copy.mutable_initializer();
+
+  for (int i = 0; i < all_nodes->size(); ++i) {
+    onnx::NodeProto *node = all_nodes->Mutable(i);
+
+    if (node->op_type() == "QLinearConv") {
+      std::string weight = node->input(3);
+
+      for (int j = 0; j < all_initializers->size(); ++j) {
+        onnx::TensorProto *initializer = all_initializers->Mutable(j);
+
+        if (initializer->name() == weight) {
+          if (initializer->dims(2) > 3 && initializer->dims(3) > 3) {
+
+            std::vector<onnx::TensorProto> sliced_tensors = Op::Parser::slice_large_convolution(*initializer);
+            Op::Parser::add_node_to_graph(graph_copy, *all_nodes, *all_initializers, sliced_tensors, i + 1, *node, i, j);
+          }
+        }
+      }
+    }
+  }
+
+  return graph_copy;
 }
 
 void Op::Parser::pass_save_graph_inputs(const onnx::GraphProto &graph) {

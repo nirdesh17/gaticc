@@ -786,6 +786,14 @@ class Parser {
   void pass_save_initializers(const onnx::GraphProto &graph);
   void pass_save_nodes(const onnx::GraphProto &graph);
   void pass_set_device(Op::Graph gcopy);
+  onnx::GraphProto pass_save_large_convolutions(onnx::GraphProto &graph);
+  std::vector<onnx::TensorProto> slice_large_convolution(const onnx::TensorProto &initializer);
+  void add_node_to_graph(
+    onnx::GraphProto &graph_copy,
+    google::protobuf::RepeatedPtrField<onnx::NodeProto> &all_nodes,
+    google::protobuf::RepeatedPtrField<onnx::TensorProto> &all_initializers,
+    std::vector<onnx::TensorProto> sliced_tensors, int next_nodes,
+    onnx::NodeProto &node, int a, int b);
 
 public:
   Parser(std::string const &filename);
