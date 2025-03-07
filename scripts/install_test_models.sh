@@ -10,7 +10,7 @@ fi
 dest_dir="$1"
 
 # Define the URL of the models.zip file
-models_url="http://galactos.local:8471/models.zip"
+models_url="http://galactos.local:8471/trained/models.zip"
 
 echo "Downloading models from $models_url..."
 wget "$models_url" -O models.zip
