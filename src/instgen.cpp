@@ -113,12 +113,15 @@ static std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      if (!Op::are_equal_nodes(n, dest_vertex, &gcopy)) {
-        boost::remove_edge(*itr, gcopy);
-        if (boost::in_degree(dest_vertex, gcopy) == 0) {
-          S.push(dest_vertex);
+      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    }
+    for (auto [src, dest] : edges_to_remove) {
+      if (!Op::are_equal_nodes(src, dest, &gcopy)) {
+        boost::remove_edge(src, dest, gcopy);
+        if (boost::in_degree(dest, gcopy) == 0) {
+          S.push(dest);
         }
       }
     }

@@ -2138,12 +2138,16 @@ void Op::Model::create_execution_order(void) {
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      if (!Op::are_equal_nodes(n, dest_vertex, &gcopy)) {
-        boost::remove_edge(*itr, gcopy);
-        if (boost::in_degree(dest_vertex, gcopy) == 0) {
-          S.push(dest_vertex);
+      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    }
+
+    for (auto [src, dest] : edges_to_remove) {
+      if (!Op::are_equal_nodes(src, dest, &gcopy)) {
+        boost::remove_edge(src, dest, gcopy);
+        if (boost::in_degree(dest, gcopy) == 0) {
+          S.push(dest);
         }
       }
     }
@@ -2171,14 +2175,19 @@ void Op::Model::deduce_shapes(const IVec2D &input_dims) {
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      auto in_dims = Op::get_dims_of_in_edges(dest_vertex, gcopy);
-      assert(gcopy[dest_vertex] != nullptr);
-      gcopy[dest_vertex]->infer_shape(in_dims);
-      boost::remove_edge(*itr, gcopy);
-      if (boost::in_degree(dest_vertex, gcopy) == 0) {
-        S.push(dest_vertex);
+      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    }
+
+    for (auto [src, dest] : edges_to_remove) {
+      auto in_dims = Op::get_dims_of_in_edges(dest, gcopy);
+      gcopy[dest]->infer_shape(in_dims);
+
+      boost::remove_edge(src, dest, gcopy);
+
+      if (boost::in_degree(dest, gcopy) == 0) {
+        S.push(dest);
       }
     }
   }
@@ -2200,20 +2209,23 @@ void Op::Model::deduce_types(const std::vector<TPDT> &input_types) {
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      auto itr2 = name_node_map.find(gcopy[dest_vertex]->name);
+      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    }
+
+    for (auto [src, dest] : edges_to_remove) {
+      auto itr2 = name_node_map.find(gcopy[dest]->name);
       if (itr2 == name_node_map.end()) {
-        log_fatal("could not find {} in name_node_map\n",
-                  gcopy[dest_vertex]->name);
+        log_fatal("could not find {} in name_node_map\n", gcopy[dest]->name);
       }
       onnx::NodeProto &np = itr2->second;
       auto i_nodes = Op::get_input_nodes(np, g, output_map);
-      auto in_types = Op::get_types_of_in_edges(dest_vertex, gcopy, i_nodes);
-      gcopy[dest_vertex]->infer_type(in_types);
-      boost::remove_edge(*itr, gcopy);
-      if (boost::in_degree(dest_vertex, gcopy) == 0) {
-        S.push(dest_vertex);
+      auto in_types = Op::get_types_of_in_edges(dest, gcopy, i_nodes);
+      gcopy[dest]->infer_type(in_types);
+      boost::remove_edge(src, dest, gcopy);
+      if (boost::in_degree(dest, gcopy) == 0) {
+        S.push(dest);
       }
     }
   }
@@ -2536,11 +2548,15 @@ void Op::print_opgraph(Op::Graph gcopy) {
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      Op::Vertex dest_vertex = boost::target(*itr, gcopy);
-      boost::remove_edge(*itr, gcopy);
-      if (boost::in_degree(dest_vertex, gcopy) == 0) {
-        S.push(dest_vertex);
+      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    }
+
+    for (auto [src, dest] : edges_to_remove) {
+      boost::remove_edge(src, dest, gcopy);
+      if (boost::in_degree(dest, gcopy) == 0) {
+        S.push(dest);
       }
     }
   }
@@ -2806,13 +2822,17 @@ Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
     }
 
     auto out_edges = boost::out_edges(n, g);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      Op::Vertex dest_vertex = boost::target(*itr, g);
-      if (!Op::are_equal_nodes(n, dest_vertex, &g)) {
-        traverse(&g, n, dest_vertex);
-        boost::remove_edge(*itr, g);
-        if (boost::in_degree(dest_vertex, g) == 0) {
-          S.push(dest_vertex);
+      edges_to_remove.push_back({n, boost::target(*itr, g)});
+    }
+
+    for (auto [src, dest] : edges_to_remove) {
+      if (!Op::are_equal_nodes(src, dest, &g)) {
+        traverse(&g, src, dest);
+        boost::remove_edge(src, dest, g);
+        if (boost::in_degree(dest, g) == 0) {
+          S.push(dest);
         }
       }
     }
@@ -2884,11 +2904,14 @@ void Op::RegisterAllocator::clear_regs(Op::Graph g) {
     S.pop();
 
     auto out_edges = boost::out_edges(n, g);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      Op::Vertex dest_vertex = boost::target(*itr, g);
-      boost::remove_edge(*itr, g);
-      if (boost::in_degree(dest_vertex, g) == 0) {
-        S.push(dest_vertex);
+      edges_to_remove.push_back({n, boost::target(*itr, g)});
+    }
+    for (auto [src, dest] : edges_to_remove) {
+      boost::remove_edge(src, dest, g);
+      if (boost::in_degree(dest, g) == 0) {
+        S.push(dest);
       }
     }
   }
