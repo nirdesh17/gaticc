@@ -216,7 +216,6 @@ std::string Op::Layer::Clip::params() const {
 void Op::Layer::Clip::set_attributes(const onnx::NodeProto &node) {
   /* TODO: this */
   if (node.op_type() == "Constant") {
-    std::cout << "Constant node name: " << node.name() << '\n';
   }
 }
 
