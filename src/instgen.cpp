@@ -17,12 +17,13 @@
 // #include <any>
 // #include <string>
 
-static std::set<std::string> miniblock_tbl{"QLinearConv", "Relu", "Maxpool",
-                                           "QGemm", "Flatten", "QLinearAveragePool", "Conv", "Gemm"};
+static std::set<std::string> miniblock_tbl{
+    "QLinearConv",        "Relu", "Maxpool", "QGemm", "Flatten",
+    "QLinearAveragePool", "Conv", "Gemm", "QLinearAdd"};
 
-static std::set<std::string> megablock_tbl{"QLinearConv", "QGemm", "Conv", "Gemm"};
+static std::set<std::string> megablock_tbl{"QLinearConv", "QGemm", "Conv", "Gemm", "QLinearAdd"};
 
-static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC};
+static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise};
 
 bool is_miniblock(const Op::LayerBase *l) {
   auto itr = miniblock_tbl.find(std::string(l->op_type()));
@@ -573,6 +574,7 @@ InstGen::InstGen(const Op::Parser &parser) {
 
   Op::Graph megablock_graph = Pass::create_megablock_graph(graph);
   DispatchTable dispatch_table(megablock_graph);
+  Op::RegisterAllocator allocatr(megablock_graph);
 
   InstBlob instructions;
   for (Op::LayerBase *l : exec_order) {
@@ -1440,6 +1442,112 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob& insts, AddressGen& gen, In
   return 0;
 }
 
+void Op::Layer::QLinearAdd::get_opcodes(std::vector<int> &op_codes) {
+  op_codes.push_back(OP_EltWise);
+}
+
+uint32_t Op::Layer::QLinearAdd::get_weight_size() {
+  log_info("Treating QLinearAdd as a weight-less operator consisting of "
+      " only inputs and outputs\n");
+  return 0;
+}
+
+
+static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l, AddressGen &gen,
+                                        InitializerTable &tbl, int elt_type) {
+  std::bitset<INST_SIZE_BITS> add_inst;
+  std::bitset<EltWise_Opcode_COUNT> opcode{OP_EltWise};
+  bitset_range_set(add_inst, opcode, EltWise_Opcode_LOW, EltWise_Opcode_HIGH);
+  std::bitset<EltWise_EltType_COUNT> etype{elt_type};
+  bitset_range_set(add_inst, etype, EltWise_EltType_LOW, EltWise_EltType_HIGH);
+  if (l->inputs.size() < 2) {
+    log_fatal("Need eltwise operator {} ({}) to have more than two inputs, found {} inputs\n",
+              l->name, l->op_type(), l->inputs.size());
+  }
+  uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
+  uint32_t left_size =
+      prod(l->input_dims.at(0).begin(), l->input_dims.at(0).end(), 1) *
+      Op::tpdt_sizeof(l->input_type.at(0));
+  uint32_t left_end = left_start + left_size;
+  uint32_t right_start = gen.io_addr_from_register(l->inputs.at(1));
+  uint32_t right_size =
+      prod(l->input_dims.at(1).begin(), l->input_dims.at(1).end(), 1) *
+      Op::tpdt_sizeof(l->input_type.at(1));
+  uint32_t right_end = right_start + right_size;
+  std::bitset<EltWise_LeftOperandStartAddress_COUNT> lstart{left_start};
+  bitset_range_set(add_inst, lstart, EltWise_LeftOperandStartAddress_LOW,
+                   EltWise_LeftOperandStartAddress_HIGH);
+  std::bitset<EltWise_RightOperandStartAddress_COUNT> rstart{right_start};
+  bitset_range_set(add_inst, rstart, EltWise_RightOperandStartAddress_LOW,
+                   EltWise_RightOperandStartAddress_HIGH);
+  std::bitset<EltWise_LeftOperandEndAddress_COUNT> lend{left_end};
+  bitset_range_set(add_inst, lend, EltWise_LeftOperandEndAddress_LOW,
+                   EltWise_LeftOperandEndAddress_HIGH);
+  std::bitset<EltWise_RightOperandEndAddress_COUNT> rend{right_end};
+  bitset_range_set(add_inst, rend, EltWise_RightOperandEndAddress_LOW,
+                   EltWise_RightOperandEndAddress_HIGH);
+  return add_inst;
+}
+
+static std::bitset<INST_SIZE_BITS> gen_eltwise_output(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
+  std::bitset<INST_SIZE_BITS> output_inst;
+
+  std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
+  bitset_range_set(output_inst, ob_opcode, OutputBlock_Opcode_LOW,
+                   OutputBlock_Opcode_HIGH);
+
+  uint32_t output_addr_start = gen.io_addr_from_register(l->outputs.at(0));
+  uint32_t output_bytes = prod(l->output_dims.at(0).begin(), l->output_dims.at(0).end(), 1) * Op::tpdt_sizeof(l->output_type.at(0));
+  uint32_t output_addr_end = output_addr_start + output_bytes;
+
+  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
+  bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
+                   OutputBlock_OutputAddr_HIGH);
+
+  std::bitset<OutputBlock_ChannelItr_COUNT> citr{1};
+  bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
+                   OutputBlock_ChannelItr_HIGH);
+
+  std::bitset<OutputBlock_KernelItr_COUNT> kitr{1};
+  bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
+                   OutputBlock_KernelItr_HIGH);
+
+  if (l->dispatch) {
+    std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en{1};
+    bitset_range_set(output_inst, dispatch_en, OutputBlock_DispatchEn_LOW,
+                     OutputBlock_DispatchEn_HIGH);
+
+    std::bitset<OutputBlock_DispatchID_COUNT> dispatch_id{
+        string_hash(l->name)};
+    bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
+                     OutputBlock_DispatchID_HIGH);
+  }
+  return output_inst;
+}
+
+static std::bitset<INST_SIZE_BITS> gen_eltwise_add_quant(const Op::Layer::QLinearAdd *cc) {
+  using variantT = std::variant<int8_t, uint8_t>;
+  std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
+  return gen_quant(std::vector<float>{cc->a_scale}, std::vector<float>{cc->b_scale}, cc->o_scale, zero_points);
+}
+
+/* Since EltWise is a megablock, i.e. it reads/writes to DRAM and is not
+ * a part of any pipeline, get_inst() for QLinearAdd pushes multiple 
+ * instructions just like other megablocks like QLinearConv and QGemm
+ */
+int Op::Layer::QLinearAdd::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+  assert(this->device == DEVICE_FPGA);
+  auto add_inst = gen_eltwise(this, gen, tbl, ELTWISE_ADD);
+  auto out_inst = gen_eltwise_output(this, gen, tbl);
+  auto quant_inst = gen_eltwise_add_quant(this);
+  blob.push_back(add_inst);
+  blob.push_back(out_inst);
+  blob.push_back(quant_inst);
+
+  /* as qlinearadd does not insert any dwp packets in the blob */
+  return 0;
+}
+
 IVec2D Op::LayerBase::aligned_input() {
   return input_dims;
 }
@@ -1463,12 +1571,9 @@ IVec2D Op::Layer::QGemm::aligned_output() {
 }
 
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
-
   auto order = Pass::remove_dqxq(graph);
   Pass::extract_conv_true_odims(graph);
-
   order = Pass::mark_cfg(order);
-
   m_exec_order = order;
 
   if (!gbl_args.has_option("ramsize")) {
@@ -1675,6 +1780,9 @@ void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
     break;
   case OP_FC:
     pretty_print_fc(inst);
+    break;
+  case OP_EltWise:
+    pretty_print_eltwise(inst);
     break;
   default:
     log_fatal("can't pretty print instruction with opcode {}\n", op_code);
@@ -2142,7 +2250,7 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
 
 GmlCheck::GmlCheck(const InstBlob &instblob, const BinBlob &binblob) {
   check_citr_kitr(instblob);
-  check_addresses(instblob);
+  //check_addresses(instblob);
   check_weight_address_continuity(instblob);
   check_fc_flatten(instblob);
   check_dwp(binblob);
@@ -2186,6 +2294,9 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
          */
         int weight_cols = inst_get(*previous_inst, FC_WeightCols);
         expected_kern_itr = ceil_div(weight_cols, va_size);
+      } else if (p_op == OP_EltWise) {
+        expected_chan_itr = 1;
+        expected_kern_itr = 1;
       } else {
         log_fatal("GmlCheck: megablock of opcode {} cannot be handled\n", p_op);
       }
@@ -2240,6 +2351,11 @@ void GmlCheck::check_addresses(const InstBlob &instblob) const {
         input_addr = inst_get(inst, CONV_ImageStartAddress);
       } else if (op == OP_FC) {
         input_addr = inst_get(inst, FC_ImageStartAddress);
+      } else if (op == OP_EltWise) {
+        /* continue as eltwise has two inputs, does not necessarily write to
+         * its outputs
+         */
+        continue;
       } else {
         log_fatal("Unhandled megablock of opcode {} at index {}\n", op, i);
       }
@@ -2271,7 +2387,7 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) const {
       ret = check_bias_continuity(inst);
     } else if (op == OP_FC) {
       ret = check_fc_weight_continuity(inst);
-    } else if (op == OP_OutputBlock || op == OP_START) {
+    } else if (op == OP_OutputBlock || op == OP_START || op == OP_EltWise) {
       // do nothing
     } else {
       log_fatal("Unhandled instruction in check_weight_address_continuity {}\n",

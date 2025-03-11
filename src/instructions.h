@@ -249,7 +249,72 @@
 #define START_TotalLayers_HIGH 27
 #define START_TotalLayers_COUNT 12
 
-#define ISA_VERSION 0
+#define OP_NMS 0x04
+// Opcode
+#define NMS_Opcode_LOW 0
+#define NMS_Opcode_HIGH 3
+#define NMS_Opcode_COUNT 4
+// IOU Threshold
+#define NMS_IOU_LOW 4
+#define NMS_IOU_HIGH 19
+#define NMS_IOU_COUNT 16
+// Score Threshold
+#define NMS_ScoreThresh_LOW 20
+#define NMS_ScoreThresh_HIGH 35
+#define NMS_ScoreThresh_COUNT 16
+// Total Boxes in Input
+#define NMS_TotalInBoxes_LOW 36
+#define NMS_TotalInBoxes_HIGH 55
+#define NMS_TotalInBoxes_COUNT 20
+// Expected Output Boxes
+#define NMS_MaxOutBoxes_LOW 56
+#define NMS_MaxOutBoxes_HIGH 63
+#define NMS_MaxOutBoxes_COUNT 8
+// Whether its ((x1,y1),(x2,y2) or ((h,w),(c1,c2)) (center co-o
+// rdinates)
+#define NMS_CornerCord_LOW 64
+#define NMS_CornerCord_HIGH 64
+#define NMS_CornerCord_COUNT 1
+// Total Classes in the dataset (for eg., COCO has 80)
+#define NMS_TotalClasses_LOW 65
+#define NMS_TotalClasses_HIGH 72
+#define NMS_TotalClasses_COUNT 8
+#define NMS_BoxStartAddr_LOW 73
+#define NMS_BoxStartAddr_HIGH 104
+#define NMS_BoxStartAddr_COUNT 32
+#define NMS_BoxEndAddr_LOW 105
+#define NMS_BoxEndAddr_HIGH 136
+#define NMS_BoxEndAddr_COUNT 32
+#define NMS_ScoreStartAddr_LOW 137
+#define NMS_ScoreStartAddr_HIGH 168
+#define NMS_ScoreStartAddr_COUNT 32
+#define NMS_ScoreEndAddr_LOW 169
+#define NMS_ScoreEndAddr_HIGH 200
+#define NMS_ScoreEndAddr_COUNT 32
+
+#define OP_EltWise 0x05
+// Opcode
+#define EltWise_Opcode_LOW 0
+#define EltWise_Opcode_HIGH 3
+#define EltWise_Opcode_COUNT 4
+// Whether its an Add, Sub, Mult etc.
+#define EltWise_EltType_LOW 4
+#define EltWise_EltType_HIGH 7
+#define EltWise_EltType_COUNT 4
+#define EltWise_LeftOperandStartAddress_LOW 8
+#define EltWise_LeftOperandStartAddress_HIGH 39
+#define EltWise_LeftOperandStartAddress_COUNT 32
+#define EltWise_LeftOperandEndAddress_LOW 40
+#define EltWise_LeftOperandEndAddress_HIGH 71
+#define EltWise_LeftOperandEndAddress_COUNT 32
+#define EltWise_RightOperandStartAddress_LOW 72
+#define EltWise_RightOperandStartAddress_HIGH 103
+#define EltWise_RightOperandStartAddress_COUNT 32
+#define EltWise_RightOperandEndAddress_LOW 104
+#define EltWise_RightOperandEndAddress_HIGH 135
+#define EltWise_RightOperandEndAddress_COUNT 32
+
+#define ISA_VERSION 1
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define POOL_MAX 0x00
@@ -271,6 +336,9 @@
 #define META_TYPE_INST_ORIGIN 0x000000000003
 #define META_CONST_DISPATCH_RAH 0x000000000000
 #define META_CONST_DISPATCH_UART 0x000000000001
+#define ELTWISE_ADD 0
+#define ELTWISE_SUB 1
+#define ELTWISE_MULT 2
 
 #define ZerothStartAddress_LOW 0
 #define ZerothStartAddress_HIGH 31
@@ -475,3 +543,54 @@ inline void pretty_print_start(const std::bitset<INST_SIZE_BITS>& inst) {
 	auto tbl = get_start_table(inst);
 	print_table(tbl);
 }
+inline Table get_nms_table(const std::bitset<INST_SIZE_BITS>& inst) {
+	Table tbl;
+	tbl.tbl.insert({"Opcode", bitset_range_get<NMS_Opcode_COUNT, INST_SIZE_BITS>(inst, NMS_Opcode_LOW, NMS_Opcode_HIGH)});
+	tbl.order.push_back("Opcode");
+	tbl.tbl.insert({"IOU", bitset_range_get<NMS_IOU_COUNT, INST_SIZE_BITS>(inst, NMS_IOU_LOW, NMS_IOU_HIGH)});
+	tbl.order.push_back("IOU");
+	tbl.tbl.insert({"ScoreThresh", bitset_range_get<NMS_ScoreThresh_COUNT, INST_SIZE_BITS>(inst, NMS_ScoreThresh_LOW, NMS_ScoreThresh_HIGH)});
+	tbl.order.push_back("ScoreThresh");
+	tbl.tbl.insert({"TotalInBoxes", bitset_range_get<NMS_TotalInBoxes_COUNT, INST_SIZE_BITS>(inst, NMS_TotalInBoxes_LOW, NMS_TotalInBoxes_HIGH)});
+	tbl.order.push_back("TotalInBoxes");
+	tbl.tbl.insert({"MaxOutBoxes", bitset_range_get<NMS_MaxOutBoxes_COUNT, INST_SIZE_BITS>(inst, NMS_MaxOutBoxes_LOW, NMS_MaxOutBoxes_HIGH)});
+	tbl.order.push_back("MaxOutBoxes");
+	tbl.tbl.insert({"CornerCord", bitset_range_get<NMS_CornerCord_COUNT, INST_SIZE_BITS>(inst, NMS_CornerCord_LOW, NMS_CornerCord_HIGH)});
+	tbl.order.push_back("CornerCord");
+	tbl.tbl.insert({"TotalClasses", bitset_range_get<NMS_TotalClasses_COUNT, INST_SIZE_BITS>(inst, NMS_TotalClasses_LOW, NMS_TotalClasses_HIGH)});
+	tbl.order.push_back("TotalClasses");
+	tbl.tbl.insert({"BoxStartAddr", bitset_range_get<NMS_BoxStartAddr_COUNT, INST_SIZE_BITS>(inst, NMS_BoxStartAddr_LOW, NMS_BoxStartAddr_HIGH)});
+	tbl.order.push_back("BoxStartAddr");
+	tbl.tbl.insert({"BoxEndAddr", bitset_range_get<NMS_BoxEndAddr_COUNT, INST_SIZE_BITS>(inst, NMS_BoxEndAddr_LOW, NMS_BoxEndAddr_HIGH)});
+	tbl.order.push_back("BoxEndAddr");
+	tbl.tbl.insert({"ScoreStartAddr", bitset_range_get<NMS_ScoreStartAddr_COUNT, INST_SIZE_BITS>(inst, NMS_ScoreStartAddr_LOW, NMS_ScoreStartAddr_HIGH)});
+	tbl.order.push_back("ScoreStartAddr");
+	tbl.tbl.insert({"ScoreEndAddr", bitset_range_get<NMS_ScoreEndAddr_COUNT, INST_SIZE_BITS>(inst, NMS_ScoreEndAddr_LOW, NMS_ScoreEndAddr_HIGH)});
+	tbl.order.push_back("ScoreEndAddr");
+	return tbl;
+}
+inline void pretty_print_nms(const std::bitset<INST_SIZE_BITS>& inst) {
+	auto tbl = get_nms_table(inst);
+	print_table(tbl);
+}
+inline Table get_eltwise_table(const std::bitset<INST_SIZE_BITS>& inst) {
+	Table tbl;
+	tbl.tbl.insert({"Opcode", bitset_range_get<EltWise_Opcode_COUNT, INST_SIZE_BITS>(inst, EltWise_Opcode_LOW, EltWise_Opcode_HIGH)});
+	tbl.order.push_back("Opcode");
+	tbl.tbl.insert({"EltType", bitset_range_get<EltWise_EltType_COUNT, INST_SIZE_BITS>(inst, EltWise_EltType_LOW, EltWise_EltType_HIGH)});
+	tbl.order.push_back("EltType");
+	tbl.tbl.insert({"LeftOperandStartAddress", bitset_range_get<EltWise_LeftOperandStartAddress_COUNT, INST_SIZE_BITS>(inst, EltWise_LeftOperandStartAddress_LOW, EltWise_LeftOperandStartAddress_HIGH)});
+	tbl.order.push_back("LeftOperandStartAddress");
+	tbl.tbl.insert({"LeftOperandEndAddress", bitset_range_get<EltWise_LeftOperandEndAddress_COUNT, INST_SIZE_BITS>(inst, EltWise_LeftOperandEndAddress_LOW, EltWise_LeftOperandEndAddress_HIGH)});
+	tbl.order.push_back("LeftOperandEndAddress");
+	tbl.tbl.insert({"RightOperandStartAddress", bitset_range_get<EltWise_RightOperandStartAddress_COUNT, INST_SIZE_BITS>(inst, EltWise_RightOperandStartAddress_LOW, EltWise_RightOperandStartAddress_HIGH)});
+	tbl.order.push_back("RightOperandStartAddress");
+	tbl.tbl.insert({"RightOperandEndAddress", bitset_range_get<EltWise_RightOperandEndAddress_COUNT, INST_SIZE_BITS>(inst, EltWise_RightOperandEndAddress_LOW, EltWise_RightOperandEndAddress_HIGH)});
+	tbl.order.push_back("RightOperandEndAddress");
+	return tbl;
+}
+inline void pretty_print_eltwise(const std::bitset<INST_SIZE_BITS>& inst) {
+	auto tbl = get_eltwise_table(inst);
+	print_table(tbl);
+}
+
