@@ -41,7 +41,11 @@ def main():
     parser.add_argument('--sa_arch', type=int, nargs=3, help="Systolic array arch dimensions [rows, cols, N]")
     parser.add_argument('--dram_width', type=int, help="DRAM width")
     args = parser.parse_args()
-    viz_sa_input(args.input_dims, args.sa_arch, args.dram_width)
+    table_data = viz_sa_input(args.input_dims, args.sa_arch, args.dram_width)
+    for i in table_data:
+        for j in i:
+            print(f"{j}\t", end='')
+        print()
 
 if __name__ == "__main__":
     main()
