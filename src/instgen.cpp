@@ -369,7 +369,7 @@ void Pass::extract_conv_true_odims(Op::Graph gcopy) {
   std::set<Op::Vertex> discovered;
 
   Op::Vertex root = Op::get_root_node(&gcopy);
-  Op::Layer::QLinearConv *cc = nullptr;
+  Op::LayerBase *cc = nullptr;
   candidates.push(root);
 
   while (!candidates.empty()) {
@@ -377,12 +377,11 @@ void Pass::extract_conv_true_odims(Op::Graph gcopy) {
     Op::LayerBase *l = gcopy[v];
 
     if (is_op_type(l, "QLinearConv")) {
-      cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
-      cc->pipelined_output_dims = l->output_dims[0];
+      cc = l;
     } else if (is_megablock(l) || changes_dimension_count(l)) {
       cc = nullptr;
     } else if (cc != nullptr) {
-      cc->pipelined_output_dims = l->output_dims[0];
+      cc->pipelined_output_dims = l->output_dims;
     }
 
     candidates.pop();
@@ -862,9 +861,9 @@ static std::bitset<INST_SIZE_BITS> gen_conv_output(const Op::Layer::QLinearConv 
   // std::cout << "kernel iterations " << kernel_iterations << '\n';
 
   /* TODO: explanation */
+  auto pod = cc->pipelined_output_dims.at(0);
   int image_dim_output =
-      ceil_mod(cc->pipelined_output_dims[TENSOR_4D_WIDTH] *
-                   cc->pipelined_output_dims[TENSOR_4D_HEIGHT],
+      ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
                get_conv_out_mod());
 
   // std::cout << "dim output " << image_dim_output << '\n';
@@ -1447,7 +1446,7 @@ void Op::Layer::QLinearAdd::get_opcodes(std::vector<int> &op_codes) {
 }
 
 uint32_t Op::Layer::QLinearAdd::get_weight_size() {
-  log_info("Treating QLinearAdd as a weight-less operator consisting of "
+  log_warn("Treating QLinearAdd as a weight-less operator consisting of "
       " only inputs and outputs\n");
   return 0;
 }

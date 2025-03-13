@@ -175,6 +175,7 @@ void Op::Layer::Conv::infer_shape(
   this->output_dims[0][1] = this->m_cp.kn;
   this->output_dims[0][2] = sa_odims_row(this->m_cp, input_dims[0]);
   this->output_dims[0][3] = sa_odims_cols(this->m_cp, input_dims[0]);
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Conv::infer_type(const std::vector<TPDT> &input_types) {
@@ -191,6 +192,7 @@ void Op::Layer::Relu::infer_shape(
     const IVec2D &input_dims) {
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = input_dims;
 }
 
 void Op::Layer::Relu::infer_type(const std::vector<TPDT> &input_types) {
@@ -223,6 +225,7 @@ void Op::Layer::Clip::infer_shape(
     const IVec2D &input_dims) {
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = input_dims;
 }
 
 Op::Layer::Gemm::Gemm() {
@@ -308,6 +311,7 @@ void Op::Layer::Gemm::infer_shape(
            "Gemm, matrix dimensions do not match");
     this->output_dims[0].at(1) = this->m_cp.wc;
   }
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Gemm::infer_type(const std::vector<TPDT> &input_types) {
@@ -409,6 +413,7 @@ void Op::Layer::Maxpool::infer_shape(
   this->output_dims[0][1] = input_dims[0][1];
   this->output_dims[0][2] = mp_odims_row(this->m_cp, input_dims[0]);
   this->output_dims[0][3] = mp_odims_cols(this->m_cp, input_dims[0]);
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Maxpool::infer_type(const std::vector<TPDT> &input_types) {
@@ -428,6 +433,7 @@ void Op::Layer::Flatten::infer_shape(
   this->output_dims[0].resize(2);
   this->output_dims[0].at(0) = 1;
   this->output_dims[0].at(1) = total_elements;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Flatten::infer_type(const std::vector<TPDT> &input_types) {
@@ -458,6 +464,7 @@ void Op::Layer::Dropout::infer_shape(
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Dropout::infer_type(const std::vector<TPDT> &input_types) {
@@ -485,6 +492,7 @@ void Op::Layer::Add::infer_shape(
   // std::for_each(input_dims.begin(), input_dims.end(), compare_fn);
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Add::infer_type(const std::vector<TPDT> &input_types) {
@@ -507,6 +515,7 @@ void Op::Layer::GlobalAveragePool::infer_shape(
   this->output_dims[0][1] = input_dims[0][1];
   this->output_dims[0][2] = 1;
   this->output_dims[0][3] = 1;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::GlobalAveragePool::infer_type(
@@ -529,6 +538,7 @@ void Op::Layer::BatchNorm::infer_shape(
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::BatchNorm::infer_type(const std::vector<TPDT> &input_types) {
@@ -637,6 +647,7 @@ void Op::Layer::Reshape::infer_shape(
     const IVec2D &input_dims) {
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Reshape::infer_type(const std::vector<TPDT> &input_types) {
@@ -730,6 +741,7 @@ void Op::Layer::DequantizeLinear::infer_shape(
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
@@ -773,6 +785,7 @@ void Op::Layer::QuantizeLinear::infer_shape(
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::QuantizeLinear::infer_type(
@@ -870,8 +883,12 @@ std::string Op::Layer::QLinearConv::params() const {
   }
   ss << '\n';
   ss << "Pipeline Odims: ";
-  for (int i : pipelined_output_dims) {
-    ss << i << ' ';
+  for (const auto &i : pipelined_output_dims) {
+    std::cout << "[ ";
+    for (int j : i) {
+      ss << j << ' ';
+    }
+    std::cout << "], ";
   }
   ret = ss.str();
   return ret;
@@ -977,6 +994,7 @@ void Op::Layer::QLinearConv::infer_shape(
   this->output_dims[0][1] = this->m_cp.kn;
   this->output_dims[0][2] = sa_odims_row(this->m_cp, input_dims[0]);
   this->output_dims[0][3] = sa_odims_cols(this->m_cp, input_dims[0]);
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT> &input_types) {
@@ -1092,6 +1110,7 @@ void Op::Layer::QLinearMatMul::infer_shape(
   this->output_dims[0].resize(2);
   this->output_dims[0].at(0) = input_dims[0].at(0);
   this->output_dims[0].at(1) = this->m_cp.wc;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::QLinearMatMul::infer_type(
@@ -1181,6 +1200,7 @@ void Op::Layer::QLinearAdd::infer_shape(
   }
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::QLinearAdd::infer_type(const std::vector<TPDT> &input_types) {
@@ -1394,6 +1414,7 @@ void Op::Layer::QGemm::infer_shape(
            "QGemm, matrix dimensions do not match");
     this->output_dims[0].at(1) = this->m_cp.wc;
   }
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::QGemm::infer_type(const std::vector<TPDT> &input_types) {
@@ -1439,6 +1460,7 @@ void Op::Layer::LogSoftmax::infer_shape(
     const IVec2D &input_dims) {
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::LogSoftmax::infer_type(const std::vector<TPDT> &input_types) {
@@ -1535,6 +1557,7 @@ void Op::Layer::QLinearAveragePool::infer_shape(
   this->output_dims[0][1] = input_dims[0][1];
   this->output_dims[0][2] = mp_odims_row(this->m_cp, input_dims[0]);
   this->output_dims[0][3] = mp_odims_cols(this->m_cp, input_dims[0]);
+  this->pipelined_output_dims = this->output_dims;
 }
 
 const char *Op::Layer::Abs::op_type() const { return m_optype; }
@@ -1543,6 +1566,7 @@ void Op::Layer::Abs::infer_shape(
     const IVec2D &input_dims) {
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Abs::infer_type(const std::vector<TPDT> &input_types) {
@@ -1567,6 +1591,7 @@ void Op::Layer::ReduceMean::infer_shape(
   //this->output_dims = reduced_shape(this->input_dims, m_axis, m_keepdims);
   log_warn("Using a hacky (incorrect) implementation of reduce_mean. Inputs pass through\n");
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::ReduceMean::infer_type(const std::vector<TPDT> &input_types) {
@@ -1666,6 +1691,7 @@ void Op::Layer::AveragePool::infer_shape(
   this->output_dims[0][1] = input_dims[0][1];
   this->output_dims[0][2] = mp_odims_row(this->m_cp, input_dims[0]);
   this->output_dims[0][3] = mp_odims_cols(this->m_cp, input_dims[0]);
+  this->pipelined_output_dims = this->output_dims;
 }
 
 const char *Op::Layer::Shape::op_type() const { return m_optype; }
@@ -1681,6 +1707,7 @@ void Op::Layer::Shape::infer_shape(
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   this->output_dims[0].push_back(this->input_dims[0].size());
+  this->pipelined_output_dims = this->output_dims;
 }
 
 Op::Layer::Gather::Gather() : m_axis{0}, m_indices{nullptr} {}
@@ -1704,6 +1731,7 @@ void Op::Layer::Gather::infer_shape(
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Gather::set_attributes(const onnx::NodeProto &node) {
@@ -1730,6 +1758,7 @@ void Op::Layer::Unsqueeze::infer_shape(
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   this->output_dims[0] = unsqueeze_shape(this->input_dims[0], axis);
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Unsqueeze::set_attributes(const onnx::NodeProto &node) {
@@ -1755,6 +1784,7 @@ void Op::Layer::Concat::infer_shape(
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   this->output_dims[0] = concat_shape(input_dims, m_axis);
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::Concat::set_attributes(const onnx::NodeProto &node) {

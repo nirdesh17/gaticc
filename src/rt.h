@@ -338,17 +338,9 @@ void Runner::receive_output_aux(const T *data,
                                 const std::vector<int> &dims, Op::LayerBase *l, bool is_last_layer) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
   
-  std::vector<int> odims;
-  if (strcmp(l->op_type(), "QLinearConv") == 0) {
-    Op::Layer::QLinearConv *qc = dynamic_cast<Op::Layer::QLinearConv *>(l);
-    if (qc->pipelined_output_dims.size() != 0) {
-      odims = qc->pipelined_output_dims;
-    }
-  } else {
-    odims = l->output_dims[0];
-  }
-
+  std::vector<int> odims = l->pipelined_output_dims.at(0);
   Tensor<T> *tensor = new TensorCreate<T>(odims);
+
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
     unalign_sa_output(tensor, data);
   } else if (strcmp(l->op_type(), "QGemm") == 0) {

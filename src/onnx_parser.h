@@ -165,6 +165,12 @@ struct LayerBase {
   /* Dimensions of the input feature map */
   IVec2D input_dims;
   IVec2D output_dims;
+  /* pipelined_output_dims is equal to output_dims in all
+   * except when an operator that modifies the shape is
+   * present in the pipeline. Operators such as maxpool
+   * are an ideal case
+   */
+  IVec2D pipelined_output_dims;
 
   /* Device on which this node would be executed */
   int device;
@@ -481,11 +487,6 @@ struct QLinearConv : public LayerBase {
   const char *m_optype = "QLinearConv";
   QLinearConv();
   ConvParams m_cp;
-  /* Cases where maxpool follows convolution, the output
-   * dims are no longer what shape inference calculated,
-   * it is decided the final layer in the conv pipeline
-   */
-  std::vector<int> pipelined_output_dims;
   std::vector<float> x_scale;
   std::vector<std::variant<int8_t, uint8_t>> x_zero_point;
   std::vector<float> w_scale;

@@ -343,14 +343,7 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer) {
   uint32_t expected_data_size = 0;
 
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
-	IVec2D dims;
-	Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
-	if (cc->pipelined_output_dims.size() != 0) {
-		dims = {cc->pipelined_output_dims};
-	} else {
-		dims = l->output_dims;
-	}
-	expected_data_size = aligned_conv_output(dims) * Op::tpdt_sizeof(l->output_type[0]);
+	  expected_data_size = aligned_conv_output(l->pipelined_output_dims) * Op::tpdt_sizeof(l->output_type[0]);
   } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 || strcmp(l->op_type(), "QGemm") == 0) {
     expected_data_size = aligned_fc_io(&l->output_dims[0]) * Op::tpdt_sizeof(l->output_type[0]);
   } else {
