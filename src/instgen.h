@@ -423,37 +423,26 @@ template <typename T>
 void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr,
                               const Tensor<T> *tensor) {
   append_dwp_header(data_size, addr);
-  // std::vector<int> input_tensor{1, 8, 224, 224};
-  // std::vector<int> sa_arch = {9, 4, 4};
   assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
-  IVec2D get_dims_wrapper = {tensor->get_dims()};
-  auto aligned_dims = aligned_conv_input_dims(get_dims_wrapper)[0];
+  IVec2D og_dims_v {tensor->get_dims()};
+  auto og_dims = og_dims_v.at(0);
+  auto aligned_dims = aligned_conv_input_dims(og_dims_v)[0];
   auto sa_arch = get_sa_arch();
-
-	int og_chan_size = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_HEIGHT];
-  int single_chan_size = ceil_mod(og_chan_size, get_conv_in_mod());
-
-  int chan_ata_time =
-      ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
-  int sections = ceil_div(sa_arch[SA_ARCH_N] * single_chan_size,
-                          sa_arch[SA_ARCH_N] * sa_arch[SA_ARCH_COLS]);
-  int elements = sa_arch[SA_ARCH_N];
-
-  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] *
-                   aligned_dims[TENSOR_4D_WIDTH] *
-                   aligned_dims[TENSOR_4D_HEIGHT];
-
+  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
+  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
+  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
+  int dk = WORD_SIZE / sa_arch[SA_ARCH_N];
   T zero = 0;
+
   for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
-    for (int i = 0; i < chan_ata_time; ++i) {
-      for (int j = 0; j < sections; ++j) {
-        for (int k = 0; k < elements; ++k) {
-          for (int l = 0; l < elements; ++l) {
-            int chan_n = (i * sa_arch[SA_ARCH_N]) + k;
-            int elem_n = (j * sa_arch[SA_ARCH_N]) + l;
-            int index = (b * batch_size) + (chan_n * og_chan_size) + elem_n;
-            if (elem_n >= og_chan_size ||
-                chan_n >= tensor->dims_at(TENSOR_4D_CHANNELS)) {
+    for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N]; ++c) {
+      for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
+        for (int ci = 0; ci < sa_arch[SA_ARCH_N]; ++ci) {
+          for (int ei = 0; ei < dk; ++ei) {
+            int chan_n = (c * sa_arch[SA_ARCH_N]) + ci;
+            int elem_n = (e * dk) + ei;
+            int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
+            if (chan_n >= og_dims[TENSOR_4D_CHANNELS] || elem_n >= og_frame_sz) {
               append(zero);
             } else {
               append(tensor->at(index));
