@@ -12,6 +12,12 @@ def align_dims(input_dims, sa_arch, dk):
     new_dims = [ceil_mod(input_dims[0], sa_arch[2]), input_dims[1], input_dims[2]]
     return new_dims
 
+def print_tbl(table_data):
+    for i in table_data:
+        for j in i:
+            print(f"{j}\t", end='')
+        print()
+
 def viz_sa_input(input_dims, sa_arch, dram_width):
     dk = dram_width // sa_arch[2]
     new_dims = align_dims(input_dims, sa_arch, dk)
@@ -31,17 +37,41 @@ def viz_sa_input(input_dims, sa_arch, dram_width):
             table_data.append(row)
     return table_data
 
+def align_dim_fc_bias(input_dims, vasize):
+    return [ceil_mod(input_dims[0], vasize)] 
+
+# independent of DRAM Width
+def viz_fc_bias(input_dims, sa_arch, vasize):
+    tail_blocks = sa_arch[2] if sa_arch is not None and len(sa_arch) == 3 else vasize
+    dk = vasize // tail_blocks # N_SA
+    aligned_dims = align_dim_fc_bias(input_dims, vasize)
+    iterations = aligned_dims[0] // tail_blocks
+    table_data = []
+    for i in range(iterations):
+        row = []
+        for j in range(tail_blocks):
+            if i+j*dk >= input_dims[0]:
+                row.append("0")
+            else:
+                row.append(f"e{i+j*dk}")
+        table_data.append(row)    
+    return table_data
+    
+
 def main():
     parser = argparse.ArgumentParser(description="Visualize aligned dimensions for a given input")
-    parser.add_argument('--input_dims', type=int, nargs=3, help="Input dimensions [depth, height, width]")
+    parser.add_argument('--sa_input', action="store_true", help="Visualize SA Input")
+    parser.add_argument('--fc_bias', action="store_true", help="Visualize FC Bias")
+    parser.add_argument('--input_dims', type=int, nargs='+', help="Input dimensions [depth, height, width] or [N]")
     parser.add_argument('--sa_arch', type=int, nargs=3, help="Systolic array arch dimensions [rows, cols, N]")
+    parser.add_argument('--vasize', type=int, help="Vector Array Dimensions [int]")
     parser.add_argument('--dram_width', type=int, help="DRAM width")
     args = parser.parse_args()
-    table_data = viz_sa_input(args.input_dims, args.sa_arch, args.dram_width)
-    for i in table_data:
-        for j in i:
-            print(f"{j}\t", end='')
-        print()
+    if args.sa_input:
+        table_data = viz_sa_input(args.input_dims, args.sa_arch, args.dram_width)
+    elif args.fc_bias:
+        table_data = viz_fc_bias(args.input_dims, args.sa_arch, args.vasize)
+    print_tbl(table_data)
 
 if __name__ == "__main__":
     main()
