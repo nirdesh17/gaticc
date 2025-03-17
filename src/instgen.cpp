@@ -171,13 +171,13 @@ static void safe_remove_vertex(Op::Vertex v, Op::Graph &g) {
 std::vector<Op::LayerBase *> Pass::remove_dqxq(Op::Graph graph) {
   Op::VertexIterator vi, vi_end, next;
   std::tie(vi, vi_end) = boost::vertices(graph);
-  bool in_zone = false;
   int cnt = 0;
-  int total = boost::num_vertices(graph);
+  bool in_zone = false;
 
   for (next = vi; vi != vi_end; vi = next, cnt++) {
     next++;
     Op::LayerBase *l = graph[*vi];
+    std::cout << __func__ << " name " << l->name << ' ' << l->op_type() << '\n';
     if (std::strcmp(l->op_type(), "DequantizeLinear") == 0 &&
         l->device == DEVICE_UNKNOWN) {
       in_zone = true;
@@ -432,11 +432,7 @@ void Op::Parser::pass_set_device(Op::Graph gcopy) {
     }
   }
   for (auto itr = itr_frm_start; itr <= itr_from_end; ++itr) {
-    if (is_miniblock(order.at(itr))) {
-      order.at(itr)->device = DEVICE_FPGA;
-    } else {
-      order.at(itr)->device = DEVICE_UNKNOWN;
-    }
+    order.at(itr)->device = DEVICE_FPGA;
   }
 }
 
@@ -1082,6 +1078,7 @@ uint32_t Op::Layer::QLinearConv::get_weight_size() {
   w = ceil_mod(w, WORD_SIZE);
   uint32_t b = aligned_conv_bias(bias->dims()) * Op::tensorproto_sizeof(bias);
   b = ceil_mod(b, WORD_SIZE);
+
   return w + b;
 }
 
@@ -1092,6 +1089,7 @@ uint32_t Op::Layer::QGemm::get_weight_size() {
 
   uint32_t b = aligned_fc_bias(bias->dims()) * Op::tensorproto_sizeof(bias);
   b = ceil_mod(b, WORD_SIZE);
+
   return w + b;
 }
 
@@ -1170,6 +1168,9 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob &insts, AddressGen &,
 
 void Op::Layer::QLinearAdd::get_opcodes(std::vector<int> &op_codes) {
   op_codes.push_back(OP_EltWise);
+  op_codes.push_back(OP_OutputBlock);
+  /* for quantization */
+  op_codes.push_back(OP_TailBlock);
 }
 
 uint32_t Op::Layer::QLinearAdd::get_weight_size() {
@@ -1327,10 +1328,9 @@ IVec2D Op::Layer::QGemm::aligned_output() {
 }
 
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
-  auto order = Pass::remove_dqxq(graph);
+  m_exec_order = crt_exec_order(graph);
   Pass::extract_conv_true_odims(graph);
-  Pass::mark_cfg(order);
-  m_exec_order = order;
+  Pass::mark_cfg(m_exec_order);
 
   if (!gbl_args.has_option("ramsize")) {
     log_fatal(
@@ -1339,7 +1339,7 @@ AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
   ram_size_max = gbl_args["ramsize"].as<int>() * 1024 * 1024;
   ram_size_max = ceil_mod(ram_size_max, WORD_SIZE);
 
-  int total_instructions = get_total_instructions(order);
+  int total_instructions = get_total_instructions(m_exec_order);
   // std::cout << "total instructions " << total_instructions << '\n';
   /* size in bytes occupied by all instructions + one extra byte at the
    * top
@@ -1347,10 +1347,10 @@ AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
   inst_region_size =
       (total_instructions * (INST_SIZE_BITS / 8)) + (INST_SIZE_BITS / 8);
 
-  io_region_register_size = get_io_region_register_size(order);
-  weight_region_size = get_weight_size(order);
+  io_region_register_size = get_io_region_register_size(m_exec_order);
+  weight_region_size = get_weight_size(m_exec_order);
 
-  max_io_reg = get_max_io_reg(order);
+  max_io_reg = get_max_io_reg(m_exec_order);
 
   addr_incr(inst_region_size);
 }
@@ -2076,7 +2076,6 @@ GmlGen::GmlGen(uint32_t org) : m_org{org} {}
 BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   InstGen instgen(parser);
   uint32_t size = instgen.model_size_cpu();
-  /* +1 for end packet */
   int tdp = instgen.dwp_packets();
   log_info("Total DWP Packets: {}\n", tdp);
   size += (tdp * DWP_HEADER_BYTES);
@@ -2084,6 +2083,7 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   log_info("Calculated GML size: {}\n", size);
   BinBlob blob(size);
   InstBlob instblob = instgen.get_blob();
+  log_info("InstBlob Length: {}\n", instblob.size());
   if (gbl_args.has_option("pretty-print-inst")) {
     pretty_print(instblob);
   }
