@@ -59,10 +59,6 @@ def set_keep_quiet(val=True):
     global keep_quiet
     keep_quiet = val
 
-def set_arch(arch: dict):
-    global gbl_arch
-    gbl_arch = arch.copy()
-
 def get_arch():
     return gbl_arch
 
