@@ -47,13 +47,46 @@ def _exec(cmd_string, sudo=False):
     else:
         return os.system(f"gaticc {cmd_string}")
 
-def set_arch(ramsize, sa_arch, vasize, accbuf_size, fcbuf_size):
+def set_arch(ramsize=None, sa_arch=None, vasize=None, accbuf_size=None, fcbuf_size=None, config=None):
+    """
+    Update the global architecture configuration. Parameters are optional and 
+    will retain existing values if not specified.
+    
+    Args:
+        ramsize: Size of RAM (optional)
+        sa_arch: System architecture specification (optional)
+        vasize: Virtual address space size (optional)
+        accbuf_size: Accumulator buffer size (optional)
+        fcbuf_size: Function call buffer size (optional)
+        config: Optional dictionary containing configuration parameters
+    
+    Raises:
+        TypeError: If config is provided but not a dictionary
+    """
     global gbl_arch
-    gbl_arch["ramsize"] = ramsize
-    gbl_arch["sa-arch"] = sa_arch
-    gbl_arch["vasize"] = vasize
-    gbl_arch["accbuf-size"] = accbuf_size
-    gbl_arch["fcbuf-size"] = fcbuf_size
+    
+    if 'gbl_arch' not in globals():
+        gbl_arch = {}
+    
+    if config is not None:
+        if not isinstance(config, dict):
+            raise TypeError("config must be a dictionary")
+        gbl_arch.update(config)
+    else:
+        updates = {}
+        if ramsize is not None:
+            updates["ramsize"] = ramsize
+        if sa_arch is not None:
+            updates["sa-arch"] = sa_arch
+        if vasize is not None:
+            updates["vasize"] = vasize
+        if accbuf_size is not None:
+            updates["accbuf-size"] = accbuf_size
+        if fcbuf_size is not None:
+            updates["fcbuf-size"] = fcbuf_size
+        
+        if updates:
+            gbl_arch.update(updates)
 
 def set_keep_quiet(val=True):
     global keep_quiet

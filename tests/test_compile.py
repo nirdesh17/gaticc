@@ -25,7 +25,7 @@ if __name__ == "__main__":
     print(f"Using onnx models from: {models_dir}")
     gati.set_keep_quiet(True)
     for arch in arch_list:
-        gati.set_arch(arch)
+        gati.set_arch(config=arch)
         print(f"Testing for arch: {arch}")
         for file in os.listdir(models_dir):
             print(f"File: {file}")
