@@ -241,3 +241,34 @@ def match(label_file: str, prediction_file: str) -> float:
     if mismatches:
         print(f"Mismatched indices: {mismatches}")
     return match_percentage
+
+
+def sim(
+        onnx_path: str,
+        loadpy: str,
+        preprocfn: str,
+        postprocfn: str,
+        *args,
+        ):
+    """
+    Run a compiled model on the target hardware.
+
+    Args:
+        onnx_path (str): Path to the original ONNX model file.
+        loadpy (str): Path to a Python script that loads input data.
+        preprocfn (str): Name of the preprocessing function in the loadpy script.
+        postprocfn (str): Name of the postprocessing function in the loadpy script.
+        *args: Additional command-line flags to pass to the gaticc runtime.
+
+    Prints:
+        A message showing the architecture configuration being used.
+
+    Raises:
+        OSError: If the PYTHONPATH environment variable is not set or if sudo privileges are unavailable.
+    """
+    cmd_string = (
+            f"-s {onnx_path} --loadpy {loadpy} "
+            f"--preprocfn {preprocfn} --postprocfn {postprocfn} "
+            f" {args2cmdstring(*args)} "
+            )
+    return _exec(cmd_string)
