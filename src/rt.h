@@ -132,18 +132,6 @@ public:
   ~Runner();
 };
 
-template <typename T>
-Tensor<T> *get_slice(Tensor<T>* src, std::vector<int> s) {
-	std::vector<int> dd = src->get_dims();
-	assert(dd.size() == 4);
-	dd.at(0) = 1;
-	Tensor<T> *ret = new TensorCreate<T>(dd);
-	TensorSlice<T> slice(src, s);
-	for (int i = 0; i < slice.size(); ++i) {
-		ret->set(i, slice.at(i));
-	}
-	return ret;
-}
 
 /* run is a state-machine that passes through these states of execution:
  *

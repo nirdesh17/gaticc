@@ -108,34 +108,42 @@ template <typename inputT, typename outputT>
 void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
   Tensor<inputT> *full_batch = read_model_input<inputT>(engine);
   /* TODO: add checks here if inputs is batched and matches expected dims */
+  if (full_batch->dims_size() <= 1) {
+    log_fatal("Expects input images to be greater than 1 dimensional (N,...) got a {} dimensional "
+        "image\n", full_batch->dims_size());
+  }
   std::vector<Op::LayerBase *> order = parser.get_execution_order();
 
   Op::LayerBase *last_layer = Op::get_last_layer(parser);
   bool is_last_layer = true;
 
-  tensor_pool.free();
-  /* Implicit assumption here that the first layer's input is
-   * at VirtualAddress 0
-   */
-  tensor_pool.set<Tensor<inputT> *>(0, full_batch);
-
   Timer<std::chrono::seconds> tt;
   tt.start();
-  for (Op::LayerBase *l : order) {
-    print_extra_info(l);
-    l->dispatch = dispatch_table.should_dispatch(l);
-    l->run(tensor_pool);
+  for (int i = 0; i < full_batch->dims_at(0); ++i) {
+    tensor_pool.free();
 
-    if (l->dispatch) {
-      if (l->name != last_layer->name) {
-        is_last_layer = false;
-      }
+    Tensor<inputT> *slice {get_slice(full_batch, std::vector<int>{i})};
+    if (order.at(0)->input_dims[0] != slice->get_dims()) {
+      log_fatal("Expected input dims {}, got input of dimensions {}\n", order.at(0)->input_dims[0], slice->get_dims());
     }
+    tensor_pool.set<Tensor<inputT> *>(0, slice);
 
-    if (parser.has_graph_output(l)) {
-      Tensor<outputT> *out =
-          tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
-      write_model_output<outputT>(engine, out, is_last_layer);
+    for (Op::LayerBase *l : order) {
+      print_extra_info(l);
+      l->dispatch = dispatch_table.should_dispatch(l);
+      l->run(tensor_pool);
+
+      if (l->dispatch) {
+        if (l->name != last_layer->name) {
+          is_last_layer = false;
+        }
+      }
+
+      if (parser.has_graph_output(l)) {
+        Tensor<outputT> *out =
+            tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
+        write_model_output<outputT>(engine, out, is_last_layer);
+      }
     }
   }
   tt.stop();
