@@ -163,9 +163,9 @@ def flash(
         bitstream_path: str
         ):
     if shutil.which("bitman"):
-        return _exec(f"bitman -f {bitstream_path}", sudo=True)
+        return os.system(f"sudo bitman -f {bitstream_path}")
     elif shutil.which("vaaman-ctl"):
-        return _exec(f"vaaman-ctl -i {bitstream_path}", sudo=True)
+        return os.system(f"sudo vaaman-ctl -i {bitstream_path}")
     else:
         OSError("Could not find any program to flash bitstream")
 
