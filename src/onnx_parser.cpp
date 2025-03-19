@@ -119,6 +119,7 @@ std::string Op::Layer::Conv::params() const {
 
 void Op::Layer::Conv::set_initializer_params(int n,
                                              const onnx::TensorProto &t) {
+  ignore_unused(n);
   /* TODO: use n instead of relying on DIMS */
   if (t.dims_size() == CONV_WEIGHT_TENSOR_DIMS) {
     m_cp.kn = t.dims()[0];
@@ -232,6 +233,7 @@ std::string Op::Layer::Gemm::params() const {
 
 void Op::Layer::Gemm::set_initializer_params(int n,
                                              const onnx::TensorProto &t) {
+  ignore_unused(n);
   /* use n instead of this */
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
@@ -407,7 +409,7 @@ std::string Op::Layer::Dropout::params() const {
   return ret;
 }
 
-void Op::Layer::Dropout::set_initializer_params(int n,
+void Op::Layer::Dropout::set_initializer_params(int ,
                                                 const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     this->drop = t.float_data()[0];
@@ -431,7 +433,7 @@ Op::Layer::Add::Add() { addend = nullptr; }
 
 const char *Op::Layer::Add::op_type() const { return m_optype; }
 
-void Op::Layer::Add::set_initializer_params(int n, const onnx::TensorProto &t) {
+void Op::Layer::Add::set_initializer_params(int , const onnx::TensorProto &t) {
   addend = &t;
 }
 
@@ -567,7 +569,7 @@ std::string Op::Layer::Reshape::params() const {
   return ret;
 }
 
-void Op::Layer::Reshape::set_initializer_params(int n,
+void Op::Layer::Reshape::set_initializer_params(int ,
                                                 const onnx::TensorProto &t) {
   if (t.dims_size() != 1) {
     log_fatal(
@@ -605,7 +607,7 @@ void Op::Layer::Reshape::infer_type(const std::vector<TPDT> &input_types) {
   if (this->input_type.size() == 0) {
     this->input_type.resize(input_types.size());
   }
-  for (int i = 0; i < input_types.size(); ++i) {
+  for (size_t i = 0; i < input_types.size(); ++i) {
     if (input_types[i] != onnx::TensorProto_DataType_UNDEFINED) {
       this->input_type[i] = input_types[i];
     }
@@ -637,7 +639,8 @@ std::string Op::Layer::DequantizeLinear::params() const {
 }
 
 void Op::Layer::DequantizeLinear::set_initializer_params(
-    int n, const onnx::TensorProto &t) {
+    int , const onnx::TensorProto &t) {
+  /* TODO: use n */
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
     scale = (float)t.float_data(0);
@@ -713,7 +716,8 @@ std::string Op::Layer::QuantizeLinear::params() const {
 }
 
 void Op::Layer::QuantizeLinear::set_initializer_params(
-    int n, const onnx::TensorProto &t) {
+    int , const onnx::TensorProto &t) {
+  /* TODO: use n */
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
     scale = t.float_data(0);
@@ -808,7 +812,7 @@ std::string Op::Layer::QLinearConv::params() const {
 
   /* store scales */
   ss << "x_scale: ";
-  for (int i = 0; i < x_scale.size(); ++i) {
+  for (size_t i = 0; i < x_scale.size(); ++i) {
     if (i > 2) {
       ss << "...";
       break;
@@ -816,7 +820,7 @@ std::string Op::Layer::QLinearConv::params() const {
     ss << x_scale[i] << ' ';
   }
   ss << "x_zero_point: ";
-  for (int i = 0; i < x_zero_point.size(); ++i) {
+  for (size_t i = 0; i < x_zero_point.size(); ++i) {
     if (i > 2) {
       ss << "...";
       break;
@@ -1189,8 +1193,9 @@ std::string Op::Layer::MatMul::params() const {
   return ret;
 }
 
-void Op::Layer::MatMul::set_initializer_params(int n,
+void Op::Layer::MatMul::set_initializer_params(int ,
                                                const onnx::TensorProto &t) {
+  /* TODO: use n */
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
     m_cp.wr = t.dims()[0];
     m_cp.wc = t.dims()[1];
@@ -1359,8 +1364,8 @@ std::string Op::Layer::LogSoftmax::params() const {
   return pbuf;
 }
 
-void Op::Layer::LogSoftmax::set_initializer_params(int n,
-                                                   const onnx::TensorProto &t) {
+void Op::Layer::LogSoftmax::set_initializer_params(int ,
+                                                   const onnx::TensorProto &) {
   return;
 }
 
@@ -1810,7 +1815,6 @@ void Op::Model::connect(const onnx::NodeProto &node) {
      */
     if (!is_initializer(i) && !is_graph_input(i) && !is_constant(i)) {
       auto itr = output_map.find(i);
-      auto itr2 = constant_pool.find(i);
       if (itr != output_map.end()) {
         /* connect */
         boost::add_edge(itr->second, current_node, g);
@@ -2124,7 +2128,6 @@ void Op::Model::deduce_shapes(const IVec2D &input_dims) {
 
   while (!S.empty()) {
     Op::Vertex n = S.front();
-    Op::LayerBase *l = gcopy[n];
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
@@ -2158,7 +2161,6 @@ void Op::Model::deduce_types(const std::vector<TPDT> &input_types) {
 
   while (!S.empty()) {
     Op::Vertex n = S.front();
-    Op::LayerBase *l = gcopy[n];
     S.pop();
 
     auto out_edges = boost::out_edges(n, gcopy);
@@ -2332,9 +2334,6 @@ Op::get_types_of_in_edges(Op::Vertex v, const Op::Graph &g,
   auto in_edges = boost::in_edges(v, g);
   for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
     Op::Vertex src_vertex = boost::source(*itr, g);
-    if (g[src_vertex]->name == "/Concat") {
-      int stop_here = 1;
-    }
     int idex = name_index[g[src_vertex]->name];
     if (g[src_vertex]->output_type.size() > 0) {
       ret.at(idex) = g[src_vertex]->output_type[0];
@@ -2418,6 +2417,7 @@ bool Op::is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
                dims.at(0).dim_param());
     }
     std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
+        ignore_unused(val);
       assert(val.has_dim_value() &&
              "Model could be missing shape information, consider running "
              "it through shape inference");

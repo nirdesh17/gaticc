@@ -1,18 +1,18 @@
-#include "numpy_init.h"
 #include "Python.h"
+#include "numpy_init.h"
+#include "options.h"
 #include "utils.h"
 #include <csignal>
-#include "options.h"
 
 /* instance of the gbl_args extern declaration in utils.h */
 Argparse gbl_args;
 
-extern "C" void exit_on_failure(int sig) {
+extern "C" void exit_on_failure(int) {
   /* TODO: add cleanup routines. debatable? */
   exit(EXIT_FAILURE);
 }
 
-/* Must be called before any other functions in gaticc 
+/* Must be called before any other functions in gaticc
  * Returns a void* to silent -Wconversion-null created when
  * import_array() macro is expanded, which optionally returns
  * a NULL when conditions are not met.

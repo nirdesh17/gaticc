@@ -189,7 +189,7 @@ template <typename T> PyObject *t2np(const Tensor<T> *t) {
     *ptr = t->at(i);
   }
   PyObject *shape = PyTuple_New(dims.size());
-  for (int i = 0; i < dims.size(); ++i) {
+  for (size_t i = 0; i < dims.size(); ++i) {
     PyTuple_SET_ITEM(shape, i, PyLong_FromLong(dims[i]));
   }
   PyObject *ret = PyArray_Reshape((PyArrayObject *)nparr, shape);

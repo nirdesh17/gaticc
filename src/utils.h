@@ -26,7 +26,7 @@ template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& obj)
 {
   os << '(';
-  for (int i = 0; i < obj.size(); ++i) {
+  for (size_t i = 0; i < obj.size(); ++i) {
     os << obj.at(i);
     if (i < (obj.size() - 1)) {
       os << ',';
@@ -35,6 +35,11 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& obj)
   os << ')';
   return os;
 }
+
+/* shutoff -Wunused-variable 
+ * see https://herbsutter.com/2009/10/18/mailbag-shutting-up-compiler-warnings/
+ */
+template <typename T> void ignore_unused(const T&) {}
 
 /* Wrapper over argagg library */
 class Argparse {
@@ -663,7 +668,7 @@ std::vector<T> operator*(const std::vector<T> &v1, const std::vector<T> &v2) {
 template <typename Container>
 inline Container get_stride_from_shape(const Container &shape) {
   Container ret(shape.size());
-  for (int i = 0; i < shape.size(); ++i) {
+  for (size_t i = 0; i < shape.size(); ++i) {
     ret[i] = prod(std::begin(shape)+i+1, std::end(shape), 1);
   }
   return ret;
@@ -719,8 +724,9 @@ std::vector<float> compute_output_scale(const std::vector<float>& x_scale,
  */
 template <std::size_t b1N, std::size_t b2N>
 void bitset_range_set(std::bitset<b1N>& dest, const std::bitset<b2N>& src, int start, int stop) {
+  ignore_unused(stop);
   assert(stop - start + 1 == src.size());
-  for (int i = 0; i < src.size(); ++i) {
+  for (size_t i = 0; i < src.size(); ++i) {
     dest[start] = src[i];
     start++;
   }
@@ -744,6 +750,7 @@ template <typename T>
 void assert_all_equal(const T *arr, int size) {
   assert(size > 0);
   T a = arr[0];
+  ignore_unused(a);
   for (int i = 0; i < size; ++i) {
     assert(arr[i] == a);
   }
@@ -786,6 +793,7 @@ inline int string_hash(const std::string& s) {
 
 template <size_t sz, typename T>
 std::bitset<sz> extract_bitset(const T *data, size_t size, int n, int m) {
+  ignore_unused(size);
   assert(m - n == (sz/8));
   assert(m - n < size);
   std::bitset<sz> ret {0};
@@ -808,7 +816,7 @@ template <int sz>
 constexpr std::array<int8_t, sz/8> get_byte_vector(const std::bitset<sz> num) {
   static_assert(sz % 8 == 0, "Size must be a multiple of 8");
   std::array<int8_t, sz/8> ret = {};
-  for (int i = 0; i < ret.size(); ++i) {
+  for (size_t i = 0; i < ret.size(); ++i) {
     int8_t byte = 0;
     for (int bit = 0; bit < 8; ++bit) {
       if (num[i * 8 + bit]) {
@@ -820,7 +828,3 @@ constexpr std::array<int8_t, sz/8> get_byte_vector(const std::bitset<sz> num) {
   return ret;
 }
 
-/* shutoff -Wunused-variable 
- * see https://herbsutter.com/2009/10/18/mailbag-shutting-up-compiler-warnings/
- */
-template <typename T> void ignore_unused(const T&) {}

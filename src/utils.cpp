@@ -65,13 +65,13 @@ void TensorPool::free(int index) {
 }
 
 void TensorPool::free() {
-  for (int i = 0; i < pool.size(); ++i) {
+  for (size_t i = 0; i < pool.size(); ++i) {
     pool.at(i).reset();
   }
 }
 
 void TensorPool::print() const {
-	for (int i = 0; i < pool.size(); ++i) {
+	for (size_t i = 0; i < pool.size(); ++i) {
 		std::cout << "At index: " << i << " Type: " <<
 			pool.at(i).type().name() << '\n';
 	}
@@ -124,7 +124,7 @@ std::vector<float> compute_output_scale(const std::vector<float>& x_scale,
   auto new_x_scale = broadcast_vec(x_scale, w_scale.size());
   auto new_y_scale = broadcast_vec(y_scale, w_scale.size());
   std::vector<float> ret(w_scale.size());
-  for (int i = 0; i < w_scale.size(); ++i) {
+  for (size_t i = 0; i < w_scale.size(); ++i) {
     ret[i] = new_y_scale[i] / (new_x_scale[i] * w_scale[i] );
   }
   return ret;
@@ -275,7 +275,7 @@ void check_c_return_val(void* val, const char *err) {
  */
 std::pair<int, char **> argv_create(const std::vector<std::string> &opts) {
   char **ptr = new char *[opts.size()];
-  for (int i = 0; i < opts.size(); ++i) {
+  for (size_t i = 0; i < opts.size(); ++i) {
     const char *p = opts.at(i).c_str();
     ptr[i] = new char[opts.at(i).size()];
     strcpy(ptr[i], p);
@@ -294,11 +294,11 @@ std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis,
   if (reduction_axis == -1) {
     return std::vector<int>{1};
   }
-  if (reduction_axis >= dims.size()) {
+  if (reduction_axis >= static_cast<int>(dims.size())) {
     log_fatal("in reduced_shape(), axis {} greater than total dims {}\n", reduction_axis, dims.size());
   }
   std::vector<int> new_shape;
-  for (int i = 0; i < dims.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(dims.size()); ++i) {
     if (i == reduction_axis) {
       if (keepdims) {
         new_shape.push_back(1);
@@ -312,7 +312,7 @@ std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis,
 
 std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector<int>& indices) {
   std::vector<int> new_shape;
-  for (int i = 0, j = 0; i < dims.size() + indices.size(); ++i) {
+  for (size_t i = 0, j = 0; i < dims.size() + indices.size(); ++i) {
     if (std::find(indices.cbegin(), indices.cend(), i) != indices.cend()) {
       new_shape.push_back(1);
     } else {
@@ -329,14 +329,14 @@ std::vector<int> concat_shape(const IVec2D &dims,
                               int axis) {
   const auto &first_dims = dims.at(0);
   std::vector<int> new_shape{first_dims};
-  for (int i = 1; i < dims.size(); ++i) {
+  for (size_t i = 1; i < dims.size(); ++i) {
     if (dims.at(i).size() != first_dims.size()) {
       log_fatal(
           "all dims must be of the same size, got dim of size {} at index {}\n",
           dims.at(i).size(), i);
     }
 
-    for (int j = 0; j < new_shape.size(); ++j) {
+    for (int j = 0; j < static_cast<int>(new_shape.size()); ++j) {
       if (j == axis) {
         new_shape.at(j) += dims.at(i).at(j);
       } else {

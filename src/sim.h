@@ -64,9 +64,6 @@ void maxpool(const Tensor<T> *input, Tensor<T> *output,
     padded_input = input;
   }
 
-  int input_height = padded_input->dims_at(TENSOR_4D_HEIGHT);
-  int input_width = padded_input->dims_at(TENSOR_4D_WIDTH);
-  int output_batch = padded_input->dims_at(TENSOR_4D_BATCH);
   int output_depth = padded_input->dims_at(TENSOR_4D_CHANNELS);
   int output_height = mp_odims_row(mp, input->get_dims());
   int output_width = mp_odims_cols(mp, input->get_dims());
@@ -106,7 +103,7 @@ std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm);
 
 template <typename T> std::valarray<T> vec2val(const std::vector<T> &v) {
   std::valarray<T> ret(v.size());
-  for (int i = 0; i < v.size(); ++i) {
+  for (size_t i = 0; i < v.size(); ++i) {
     ret[i] = v[i];
   }
   return ret;
@@ -173,12 +170,11 @@ VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::Gemm &gp) {
   wcols = gp.m_cp.wc;
   isize = gp.input_dims[0][TENSOR_2D_WIDTH];
   if (gp.m_cp.transB) {
-    Tensor<weightT> *tmp = new TensorExtant<weightT>(gp.weights);
-    auto dims = tmp->get_dims();
+    auto tmp = std::make_unique<TensorExtant<weightT>>(gp.weights);
+    auto dims = tmp.get()->get_dims();
     std::vector<int> new_dims{dims[1], dims[0]};
     weights = new TensorCreate<weightT>(new_dims);
-    transpose(tmp, weights, std::vector<int>{1, 0});
-    delete tmp;
+    transpose(tmp.get(), weights, std::vector<int>{1, 0});
   } else {
     weights = new TensorExtant<weightT>(gp.weights);
   }
@@ -220,12 +216,11 @@ VA<inputT, weightT, biasT, outputT>::VA(const Op::Layer::QGemm &gp) {
   wcols = gp.m_cp.wc;
   isize = gp.input_dims[0][TENSOR_2D_WIDTH];
   if (gp.m_cp.transB) {
-    Tensor<weightT> *tmp = new TensorExtant<weightT>(gp.weights);
-    auto dims = tmp->get_dims();
+    auto tmp = std::make_unique<TensorExtant<weightT>>(gp.weights);
+    auto dims = tmp.get()->get_dims();
     std::vector<int> new_dims{dims[1], dims[0]};
     weights = new TensorCreate<weightT>(new_dims);
-    transpose(tmp, weights, std::vector<int>{1, 0});
-    delete tmp;
+    transpose(tmp.get(), weights, std::vector<int>{1, 0});
   } else {
     weights = new TensorExtant<weightT>(gp.weights);
   }
@@ -303,10 +298,13 @@ template <typename inputT, typename outputT>
 void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
                  const Tensor<inputT> *input2, float i1_scale, float i2_scale,
                  int i1_zp, int i2_zp) {
+  ignore_unused(i1_scale);
+  ignore_unused(i2_scale);
+  ignore_unused(i1_zp);
+  ignore_unused(i2_zp);
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-    outputT v = (i1_scale * (input1->at(i) - i1_zp)) +
-                (i2_scale * (input2->at(i) - i2_zp));
+    //outputT v = (i1_scale * (input1->at(i) - i1_zp)) + (i2_scale * (input2->at(i) - i2_zp));
     output->set(i, input1->at(i) + input2->at(i));
   }
 }
@@ -672,7 +670,7 @@ static T avg(std::vector<T> v) {
   int iterations = ceil(log2f(v.size()));
   for (int j = 0; j < iterations; ++j) {
     std::vector<T> new_vec;
-    for (int i = 0; i < v.size() - (v.size() % 2); i += 2) {
+    for (size_t i = 0; i < v.size() - (v.size() % 2); i += 2) {
       int tmp = v.at(i) + v.at(i + 1);
       tmp >>= 1;
       new_vec.push_back(tmp);
@@ -704,9 +702,6 @@ void average_pool(const Tensor<T> *input, Tensor<T> *output,
     padded_input = input;
   }
 
-  int input_height = padded_input->dims_at(TENSOR_4D_HEIGHT);
-  int input_width = padded_input->dims_at(TENSOR_4D_WIDTH);
-  int output_batch = padded_input->dims_at(TENSOR_4D_BATCH);
   int output_depth = padded_input->dims_at(TENSOR_4D_CHANNELS);
   int output_height = mp_odims_row(mp, input->get_dims());
   int output_width = mp_odims_cols(mp, input->get_dims());
@@ -736,6 +731,7 @@ void average_pool(const Tensor<T> *input, Tensor<T> *output,
 
 template <typename T>
 void batchnorm(const Tensor<T> *input, Tensor<T> *output, float epsilon, float momentum, const Tensor<T> *scale, const Tensor<T> *bias, const Tensor<T> *mean, const Tensor<T> *var) {
+  ignore_unused(momentum);
   std::vector<int> index(input->dims_size(), 0);
   std::vector<int> dims {input->get_dims()};
   if (dims.size() != 4) {
@@ -761,5 +757,7 @@ void xabs(const Tensor<T> *input, Tensor<T> *output) {
 
 template <typename T>
 void reduce_mean(const Tensor<T> *input, Tensor<T> *output, int axis, int keepdims) {
+  log_warn("Ignoring axis {} parameter to reduce_mean\n", axis);
+  log_warn("Ignoring keepdims {} parameter to reduce_mean\n", keepdims);
   *output = *input;
 }

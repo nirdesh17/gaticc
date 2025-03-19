@@ -4,22 +4,18 @@
 #include <iostream>
 #include <vector>
 
-/* TODO: iterator mechanism for tensors
- * TODO: destructors
- */
-
 /* A general purpose interface to an n-dimensional tensor
  *
  * Implementation Details:
- * 
- * The Tensor Base Class is abstract and defines a 
+ *
+ * The Tensor Base Class is abstract and defines a
  * blueprint for underlying implementations. The
  * implementations inherit and override neccessarily
  * the pure functions and optionally the regular virtual
  * functions. All 'read' type of functions i.e. functions
  * that do not mutate the underlying tensor are pure and
  * need to be defined by every derived class. Regular
- * virtual functions are 'read+write' mutating functions, they 
+ * virtual functions are 'read+write' mutating functions, they
  * should only be implemented if the derived class wishes
  * to.
  *
@@ -57,64 +53,52 @@ public:
   /* insert one element at a time */
   virtual void insert(std::vector<int> &at, T data);
   virtual void push_back(T data);
-  virtual void push_back(const std::vector<T>& data);
+  virtual void push_back(const std::vector<T> &data);
   virtual void set_dims(std::vector<int> const &temp_dims);
   virtual void clear();
   virtual void shrink_to_fit();
   virtual void set(int index, T val);
-  virtual Tensor<T>& operator=(const Tensor<T>& rhs);
+  virtual Tensor<T> &operator=(const Tensor<T> &rhs);
   virtual typename std::vector<T>::iterator begin();
   virtual typename std::vector<T>::iterator end();
 };
 
-template <typename T>
-void Tensor<T>::insert(std::vector<int> &at, T data) {
+template <typename T> void Tensor<T>::insert(std::vector<int> &, T) {
   log_fatal("Un-implemented function\n");
 }
-template <typename T>
-void Tensor<T>::push_back(T data) {
+template <typename T> void Tensor<T>::push_back(T) {
   log_fatal("Un-implemented function\n");
 }
-template <typename T>
-void Tensor<T>::push_back(const std::vector<T>& data) {
+template <typename T> void Tensor<T>::push_back(const std::vector<T> &) {
   log_fatal("Un-implemented function\n");
 }
-template <typename T>
-void Tensor<T>::set_dims(std::vector<int> const &temp_dims) {
+template <typename T> void Tensor<T>::set_dims(std::vector<int> const &) {
   log_fatal("Un-implemented function\n");
 }
-template <typename T>
-void Tensor<T>::clear() {
+template <typename T> void Tensor<T>::clear() {
   log_fatal("Un-implemented function\n");
 }
 
-template <typename T>
-void Tensor<T>::shrink_to_fit() {
+template <typename T> void Tensor<T>::shrink_to_fit() {
   log_fatal("Un-implemented function\n");
 }
-template <typename T>
-void Tensor<T>::set(int index, T val) {
-  log_fatal("Un-implemented function\n");
-}
-
-template <typename T>
-Tensor<T>& Tensor<T>::operator=(const Tensor<T>& rhs) {
+template <typename T> void Tensor<T>::set(int, T) {
   log_fatal("Un-implemented function\n");
 }
 
-template <typename T>
-typename std::vector<T>::iterator Tensor<T>::begin() {
+template <typename T> Tensor<T> &Tensor<T>::operator=(const Tensor<T> &) {
   log_fatal("Un-implemented function\n");
 }
 
-template <typename T>
-typename std::vector<T>::iterator Tensor<T>::end() {
+template <typename T> typename std::vector<T>::iterator Tensor<T>::begin() {
   log_fatal("Un-implemented function\n");
 }
 
-template <typename T>
-Tensor<T>::~Tensor() {
+template <typename T> typename std::vector<T>::iterator Tensor<T>::end() {
+  log_fatal("Un-implemented function\n");
 }
+
+template <typename T> Tensor<T>::~Tensor() {}
 
 /* TensorExtant - Wrapper around onnx::TensorProto
  *
@@ -135,6 +119,7 @@ private:
    * by template specialized constructors
    */
   void init_dims(const onnx::TensorProto *ptr);
+
 public:
   /* There are no generic constructors for TensorExtant,
    * all are specialized. See tensor.cpp.
@@ -158,7 +143,6 @@ public:
   ~TensorExtant();
 };
 
-
 template <typename T>
 void TensorExtant<T>::init_dims(const onnx::TensorProto *ptr) {
   dims.resize(ptr->dims_size());
@@ -175,7 +159,7 @@ template <typename T> T TensorExtant<T>::at(int index) const {
 template <typename T> T TensorExtant<T>::at(std::vector<int> &index) const {
   assert(index.size() == dims.size());
   int sum = 0;
-  for (int i = 0; i < index.size(); i++) {
+  for (size_t i = 0; i < index.size(); i++) {
     assert(index[i] <= dims[i]);
     sum += index[i] * stride[i];
   }
@@ -186,8 +170,7 @@ template <typename T> T TensorExtant<T>::at(std::vector<int> &&index) const {
   return at(index);
 }
 
-template <typename T>
-void TensorExtant<T>::print() const {
+template <typename T> void TensorExtant<T>::print() const {
   for (int i = 0; i < dims_iterator(-1); ++i) {
     if (i % 9 == 0) {
       std::cout << '\n';
@@ -196,13 +179,13 @@ void TensorExtant<T>::print() const {
   }
 }
 
-template <typename T>
-std::vector<int> TensorExtant<T>::get_dims() const {
+template <typename T> std::vector<int> TensorExtant<T>::get_dims() const {
   return dims;
 }
 
-template <typename T>
-int TensorExtant<T>::dims_size() const { return dims.size(); }
+template <typename T> int TensorExtant<T>::dims_size() const {
+  return dims.size();
+}
 
 template <typename T> int TensorExtant<T>::dims_at(int index) const {
   assert(index < dims.size());
@@ -211,7 +194,7 @@ template <typename T> int TensorExtant<T>::dims_at(int index) const {
 
 template <typename T> int TensorExtant<T>::dims_iterator(int index) const {
   int a = 1;
-  for (int i = 1; i < dims.size() - index; i++) {
+  for (size_t i = 1; i < dims.size() - index; i++) {
     a *= dims[index + i];
   }
   return a;
@@ -222,7 +205,7 @@ template <typename T> int TensorExtant<T>::size() const {
 }
 
 template <typename T> std::vector<T> TensorExtant<T>::get() const {
-  std::vector<T> ret (dims_iterator(-1));
+  std::vector<T> ret(dims_iterator(-1));
   for (int i = 0; i < this->size(); ++i) {
     ret[i] = data[i];
   }
@@ -233,13 +216,9 @@ template <typename T> std::vector<int> TensorExtant<T>::get_strides() const {
   return stride;
 }
 
-template <typename T>
-bool TensorExtant<T>::freeable() const {
-  return false;
-}
+template <typename T> bool TensorExtant<T>::freeable() const { return false; }
 
-template <typename T>
-TensorExtant<T>::~TensorExtant() {
+template <typename T> TensorExtant<T>::~TensorExtant() {
   // frees nothing as it owns nothing
 }
 
@@ -247,6 +226,7 @@ template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> dims;
   std::vector<int> stride;
   std::vector<T> vec;
+
 public:
   TensorCreate() = delete;
 
@@ -265,16 +245,14 @@ public:
   T at(std::vector<int> &at) const override {
     assert(at.size() == dims.size());
     int sum = 0;
-    for (int i = 0; i < at.size(); i++) {
+    for (size_t i = 0; i < at.size(); i++) {
       assert(at[i] <= dims[i]);
       sum += at[i] * stride[i];
     }
     return vec.at(sum);
   }
 
-  T at(std::vector<int> &&at) const override { 
-    return this->at(at);
-  }
+  T at(std::vector<int> &&at) const override { return this->at(at); }
 
   T at(int index) const override { return vec.at(index); }
 
@@ -283,8 +261,8 @@ public:
   int dims_at(int index) const override { return dims.at(index); }
   void push_back(T data) override { vec.push_back(data); }
 
-  void push_back(const std::vector<T>& data) { 
-    for (const T& i : data) {
+  void push_back(const std::vector<T> &data) {
+    for (const T &i : data) {
       this->push_back(i);
     }
   }
@@ -292,7 +270,7 @@ public:
   void insert(std::vector<int> &at, T data) override {
     assert(at.size() <= dims.size());
     int sum = 0;
-    for (int i = 0; i < at.size(); i++) {
+    for (size_t i = 0; i < at.size(); i++) {
       assert(at[i] <= dims[i]);
       sum += at[i] * stride[i];
     }
@@ -303,12 +281,10 @@ public:
     dims = temp_dims;
     return;
   }
-  std::vector<int> get_dims() const override {
-    return dims;
-  }
+  std::vector<int> get_dims() const override { return dims; }
   int dims_iterator(int index) const override {
     int a = 1;
-    for (int i = 1; i < dims.size() - index; i++) {
+    for (size_t i = 1; i < dims.size() - index; i++) {
       a *= dims[index + i];
     }
     return a;
@@ -326,34 +302,23 @@ public:
 
   void set(int index, T val) override { vec.at(index) = val; }
 
-  virtual Tensor<T>& operator=(const Tensor<T>& rhs) {
+  virtual Tensor<T> &operator=(const Tensor<T> &rhs) {
     this->dims = rhs.get_dims();
     this->vec = rhs.get();
     return *this;
   }
 
-  void print() const override { 
-    print_vec("tensor", vec);
-  }
+  void print() const override { print_vec("tensor", vec); }
 
-  typename std::vector<T>::iterator begin() override {
-    return vec.begin();
-  }
-  typename std::vector<T>::iterator end() override {
-    return vec.end();
-  }
+  typename std::vector<T>::iterator begin() override { return vec.begin(); }
+  typename std::vector<T>::iterator end() override { return vec.end(); }
 
-  bool freeable() const override {
-    return true;
-  }
+  bool freeable() const override { return true; }
 
   ~TensorCreate();
 };
 
-template <typename T>
-TensorCreate<T>::~TensorCreate() {
-}
-
+template <typename T> TensorCreate<T>::~TensorCreate() {}
 
 template <typename T> class TensorSlice : public Tensor<T> {
   Tensor<T> *src;
@@ -407,23 +372,21 @@ TensorSlice<T>::TensorSlice(Tensor<T> *src, std::vector<int> slice) {
   this->src = src;
   this->offset = 0;
   std::vector<int> strides = get_stride_from_shape(src->get_dims());
-  for (int i = 0; i < slice.size(); ++i) {
+  for (size_t i = 0; i < slice.size(); ++i) {
     this->offset += (strides[i] * slice[i]);
   }
-  for (int i = slice.size(); i < src->dims_size(); ++i) {
+  for (int i = static_cast<int>(slice.size()); i < src->dims_size(); ++i) {
     this->dims.push_back(src->dims_at(i));
   }
   this->slice_size = prod(dims.begin(), dims.end(), 1);
 }
 
-template <typename T>
-T TensorSlice<T>::at(std::vector<int> &index) const {
+template <typename T> T TensorSlice<T>::at(std::vector<int> &index) const {
   std::vector<int> new_index = concat(slice, index);
   return src->at(new_index);
 }
 
-template <typename T>
-T TensorSlice<T>::at(std::vector<int> &&index) const {
+template <typename T> T TensorSlice<T>::at(std::vector<int> &&index) const {
   return at(index);
 }
 
@@ -433,35 +396,26 @@ template <typename T> T TensorSlice<T>::at(int index) const {
   return src->at(offset + index);
 }
 
-template <typename T>
-int TensorSlice<T>::dims_size() const {
+template <typename T> int TensorSlice<T>::dims_size() const {
   return dims.size();
 }
-template <typename T>
-int TensorSlice<T>::dims_at(int index) const {
+template <typename T> int TensorSlice<T>::dims_at(int index) const {
   return dims.at(index);
 }
-template <typename T>
-std::vector<int> TensorSlice<T>::get_dims() const {
+template <typename T> std::vector<int> TensorSlice<T>::get_dims() const {
   return dims;
 }
-template <typename T>
-int TensorSlice<T>::dims_iterator(int index) const {
+template <typename T> int TensorSlice<T>::dims_iterator(int index) const {
   int a = 1;
-  for (int i = 1; i < dims.size() - index; i++) {
+  for (size_t i = 1; i < dims.size() - index; i++) {
     a *= dims[index + i];
   }
   return a;
 }
-template <typename T>
-int TensorSlice<T>::size() const {
-  return slice_size;
-}
+template <typename T> int TensorSlice<T>::size() const { return slice_size; }
 
-
-template <typename T>
-std::vector<T> TensorSlice<T>::get() const {
-  /* TODO: expensive function, remove get completely from tensor's 
+template <typename T> std::vector<T> TensorSlice<T>::get() const {
+  /* TODO: expensive function, remove get completely from tensor's
    * interface
    */
   std::vector<T> ret(slice_size);
@@ -471,39 +425,32 @@ std::vector<T> TensorSlice<T>::get() const {
   return ret;
 }
 
-template <typename T>
-std::vector<int> TensorSlice<T>::get_strides() const {
+template <typename T> std::vector<int> TensorSlice<T>::get_strides() const {
   log_fatal("get_stride() for TensorSlice is unimplemented\n");
   return std::vector<int>{};
 }
 
-template <typename T>
-void TensorSlice<T>::print() const {
+template <typename T> void TensorSlice<T>::print() const {
   for (int i = 0; i < slice_size; ++i) {
     std::cout << at(i) << ' ';
   }
   std::cout << '\n';
 }
 
-template <typename T>
-bool TensorSlice<T>::freeable() const {
-  return false;
-}
+template <typename T> bool TensorSlice<T>::freeable() const { return false; }
 
-template <typename T>
-TensorSlice<T>::~TensorSlice() {
+template <typename T> TensorSlice<T>::~TensorSlice() {
   // frees nothing as it owns nothing
 }
 
-template <typename T>
-void TensorSlice<T>::set(int index, T data) {
+template <typename T> void TensorSlice<T>::set(int index, T data) {
   assert(index >= 0);
   assert(index < slice_size);
   return src->set(offset + index, data);
 }
 
 template <typename T>
-Tensor<T>* tensor_sub_zp(const Tensor<T> *input, const std::vector<int>& zp) {
+Tensor<T> *tensor_sub_zp(const Tensor<T> *input, const std::vector<int> &zp) {
   assert(input->dims_size() == 4 && "tensor_pad assumes 4d inputs");
   std::vector<int> new_dims = input->get_dims();
   Tensor<T> *output = new TensorCreate<T>(new_dims);
@@ -511,7 +458,7 @@ Tensor<T>* tensor_sub_zp(const Tensor<T> *input, const std::vector<int>& zp) {
     for (int j = 0; j < new_dims[1]; ++j) {
       for (int k = 0; k < new_dims[2]; ++k) {
         for (int l = 0; l < new_dims[3]; ++l) {
-          std::vector<int> out_index {i, j, k, l};
+          std::vector<int> out_index{i, j, k, l};
           T v = input->at(out_index) - zp[j];
           output->insert(out_index, v);
         }
@@ -521,9 +468,9 @@ Tensor<T>* tensor_sub_zp(const Tensor<T> *input, const std::vector<int>& zp) {
   return output;
 }
 
-
 template <typename T>
-Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads, T pad_val = 0) {
+Tensor<T> *tensor_pad(const Tensor<T> *input, const std::vector<int> &pads,
+                      T pad_val = 0) {
   assert(input->dims_size() == 4 && "tensor_pad assumes 4d inputs");
   std::vector<int> new_dims = get_dims_after_pad(input->get_dims(), pads);
   Tensor<T> *output = new TensorCreate<T>(new_dims);
@@ -531,11 +478,11 @@ Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads, T pa
     for (int j = 0; j < new_dims[1]; ++j) {
       for (int k = 0; k < new_dims[2]; ++k) {
         for (int l = 0; l < new_dims[3]; ++l) {
-          std::vector<int> out_index {i, j, k, l};
+          std::vector<int> out_index{i, j, k, l};
           if (islying(k, l, input->dims_at(2), input->dims_at(3), pads)) {
             output->insert(out_index, pad_val);
           } else {
-            std::vector<int> in_index {i, j, k-pads[1], l-pads[0]};
+            std::vector<int> in_index{i, j, k - pads[1], l - pads[0]};
             output->insert(out_index, input->at(in_index));
           }
         }
@@ -545,15 +492,14 @@ Tensor<T>* tensor_pad(const Tensor<T> *input, const std::vector<int>& pads, T pa
   return output;
 }
 
-template <typename T>
-Tensor<T> *get_slice(Tensor<T>* src, std::vector<int> s) {
-	std::vector<int> dd = src->get_dims();
-	assert(dd.size() == 4);
-	dd.at(0) = 1;
-	Tensor<T> *ret = new TensorCreate<T>(dd);
-	TensorSlice<T> slice(src, s);
-	for (int i = 0; i < slice.size(); ++i) {
-		ret->set(i, slice.at(i));
-	}
-	return ret;
+template <typename T> Tensor<T> *get_slice(Tensor<T> *src, std::vector<int> s) {
+  std::vector<int> dd = src->get_dims();
+  assert(dd.size() == 4);
+  dd.at(0) = 1;
+  Tensor<T> *ret = new TensorCreate<T>(dd);
+  TensorSlice<T> slice(src, s);
+  for (int i = 0; i < slice.size(); ++i) {
+    ret->set(i, slice.at(i));
+  }
+  return ret;
 }

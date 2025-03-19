@@ -122,7 +122,7 @@ class Runner {
 
   template <typename T>
   void receive_output_aux(const T *data,
-                                  const std::vector<int> &dims, Op::LayerBase *l, bool is_last_layer);
+                                  Op::LayerBase *l, bool is_last_layer);
 
   template <typename T>
   void compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path& path);
@@ -314,7 +314,7 @@ template <typename T>
 void unalign_va_output(Tensor<T> *tensor, const T *data) {
   auto dims = tensor->get_dims();
   size_t size = prod(dims.begin(), dims.end(), 1);
-  for (int i = 0; i < size; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     T v = data[i];
     tensor->set(i, v);
   }
@@ -323,7 +323,7 @@ void unalign_va_output(Tensor<T> *tensor, const T *data) {
 /* Converts a byte stream into a tensor and un-aligns if if necessary */
 template <typename T>
 void Runner::receive_output_aux(const T *data,
-                                const std::vector<int> &dims, Op::LayerBase *l, bool is_last_layer) {
+                                Op::LayerBase *l, bool is_last_layer) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
   
   std::vector<int> odims = l->pipelined_output_dims.at(0);

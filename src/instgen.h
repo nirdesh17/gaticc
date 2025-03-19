@@ -395,7 +395,7 @@ template <typename T>
 inline bool is_out_of_bounds(const T& dims, const T& limit) {
   assert(dims.size() == limit.size() && "dims should be the same"
       " size as limits");
-  for (int i = 0; i < dims.size(); ++i) {
+  for (size_t i = 0; i < dims.size(); ++i) {
     if (dims[i] >= limit[i]) {
       return true;
     }
@@ -536,11 +536,12 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
       }
     }
   }
-  for (int i = 0; i < deficit_zeros; ++i) {
+  for (decltype(deficit_zeros) i = 0; i < deficit_zeros; ++i) {
     append(zero);
   }
 }
 template <typename T> void BinBlob::sa_align_aux_pointwise(const Tensor<T> *tensor) {
+  ignore_unused(tensor);
   log_fatal("shouldnt reach here, pointwise alignment un-implemented\n");
 }
 
@@ -722,6 +723,7 @@ inline size_t io_tensor_packet_size(size_t tensor_size) {
 
 template <typename T>
 void check_dwp_header(const T* data, size_t size, uint32_t expected_ds, uint32_t expected_addr) {
+  ignore_unused(size);
   assert(size >= DWP_HEADER_BYTES);
   uint32_t sop = bytes2int(data);
   uint32_t ds = bytes2int(data + 4);

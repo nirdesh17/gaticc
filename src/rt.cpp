@@ -98,7 +98,7 @@ int RealRah::write(const char *data, size_t size) {
   int r = (*write_fn)(RAH_APP_ID, data, size);
   tt.stop();
   log_info("Data write time: {}\n", tt.difference().count());
-  if (r < size) {
+  if (r < static_cast<int>(size)) {
     log_fatal(
         "Failed to write all data to rah. Expected size: {}, Actual size: {}",
         size, r);
@@ -156,12 +156,12 @@ int RealRah::read(char *data, size_t size) {
   return (*read_fn)(RAH_APP_ID, data, size);
 }
 
-int FakeRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
+int FakeRah::write_meta(const std::bitset<META_WIDTH_BITS>, 
                     const std::vector<char> &data) {
   return static_cast<int>(data.size());
 }
 
-int FakeRah::write(const char *data, size_t size) {
+int FakeRah::write(const char *, size_t size) {
   return size;
 }
 
@@ -180,7 +180,7 @@ int FakeRah::read(char *data, size_t size) {
   append_int((uint32_t)2108);
 
   int8_t c = 1;
-  for (int i = m_ptr; i < size; ++i) {
+  for (size_t i = m_ptr; i < size; ++i) {
     data[i] = c;
     c++;
   }
@@ -384,11 +384,11 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer) {
   if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
     const int8_t *real_data =
         reinterpret_cast<const int8_t *>(data + DWP_HEADER_BYTES);
-    receive_output_aux<int8_t>(real_data, expected_dims, l, is_last_layer);
+    receive_output_aux<int8_t>(real_data, l, is_last_layer);
   } else if (l->output_type[0] == onnx::TensorProto_DataType_UINT8) {
     const uint8_t *real_data =
         reinterpret_cast<const uint8_t *>(data + DWP_HEADER_BYTES);
-    receive_output_aux<uint8_t>(real_data, expected_dims, l, is_last_layer);
+    receive_output_aux<uint8_t>(real_data, l, is_last_layer);
   } else {
     log_fatal("can't compute with tensor of type {}\n",
               Op::get_tensorproto_dtype_name(l->output_type[0]));
@@ -401,7 +401,7 @@ HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
   assert(size > DWP_HEADER_BYTES);
   uint32_t dwp_header = bytes2int(data);
   uint32_t ds = bytes2int(data + 4);
-  uint32_t addr = bytes2int(data + 8);
+  ignore_unused(dwp_header); // in Release, when the following assert is unavailable 
   assert(dwp_header == DWP_SOP);
   int total_instructions = (ds / (INST_SIZE_BITS / 8));
   /* i starts at 1 to skip the zeroth instruction */
