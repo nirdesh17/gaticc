@@ -1,5 +1,5 @@
-#include "pch.h"
 #include "rt.h"
+#include "pch.h"
 // #include <cstdlib>
 // #include <stdio.h>
 // #include <stdlib.h>
@@ -7,20 +7,20 @@
 // #include <sys/types.h>
 // #include <unistd.h>
 // #include <dlfcn.h>
-#include "onnx_parser.h"
 #include "executor.h"
 #include "ffi.h"
-#include "tensor.h"
 #include "instgen.h"
+#include "onnx_parser.h"
+#include "tensor.h"
 
-Fstream::Fstream(const std::string& filename) {
+Fstream::Fstream(const std::string &filename) {
   FILE *fp = fopen(filename.c_str(), "rb");
   check_c_return_val(fp, filename.c_str());
   struct stat sbuf;
   int err = stat(filename.c_str(), &sbuf);
   check_c_return_val(err, filename.c_str());
   m_size = sbuf.st_size;
-  m_buf = (char *) malloc(sizeof(*m_buf) * m_size);
+  m_buf = (char *)malloc(sizeof(*m_buf) * m_size);
   check_c_return_val(m_buf, "malloc");
   size_t size_read = fread(m_buf, sizeof(*m_buf), m_size, fp);
   if (size_read != m_size) {
@@ -29,16 +29,10 @@ Fstream::Fstream(const std::string& filename) {
   fclose(fp);
 }
 
-Fstream::~Fstream() {
-  free(m_buf);
-}
+Fstream::~Fstream() { free(m_buf); }
 
-const char *Fstream::get_data() const {
-  return m_buf;
-}
-size_t Fstream::get_size() const {
-  return m_size;
-}
+const char *Fstream::get_data() const { return m_buf; }
+size_t Fstream::get_size() const { return m_size; }
 
 /* convert a 32 bit integer into a 48 bit byte stream */
 std::vector<char> cvt_32248(int v) {
@@ -52,30 +46,31 @@ std::vector<char> cvt_32248(int v) {
   return buf;
 }
 
-//static const std::vector<char> META_SOP = {0xff, 0xff, 0xff, 0xff, 0xff, 0x0ff};
-//static const std::vector<char> META_TYPE_RESET = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-//static const std::vector<char> META_TYPE_DISPATCH = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
-//static const std::vector<char> META_TYPE_PAYLOAD_SIZE = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
+// static const std::vector<char> META_SOP = {0xff, 0xff, 0xff, 0xff, 0xff,
+// 0x0ff}; static const std::vector<char> META_TYPE_RESET = {0x00, 0x00, 0x00,
+// 0x00, 0x00, 0x00}; static const std::vector<char> META_TYPE_DISPATCH = {0x00,
+// 0x00, 0x00, 0x00, 0x00, 0x01}; static const std::vector<char>
+// META_TYPE_PAYLOAD_SIZE = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
 //
-//static const std::vector<char> META_CONST_DISPATCH_RAH = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-//static const std::vector<char> META_CONST_DISPATCH_UART = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
-
+// static const std::vector<char> META_CONST_DISPATCH_RAH = {0x00, 0x00, 0x00,
+// 0x00, 0x00, 0x00}; static const std::vector<char> META_CONST_DISPATCH_UART =
+// {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
 
 RealRah::RealRah() {
   m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
   if (m_handle == NULL) {
-    log_fatal("dlopen(): {}: could not open {}, check if you've installed rah. \n"
-              "Additionally, check "
-              "if vaaman-fpga communication overlay has been configured "
-              "properly (see "
-              "https://docs.vicharak.in/vicharak_sbcs/vaaman/vaaman-linux/"
-              "linux-configuration-guide/vicharak-config-tool/) ", dlerror(), RAH_SO_STRING);
+    log_fatal(
+        "dlopen(): {}: could not open {}, check if you've installed rah. \n"
+        "Additionally, check "
+        "if vaaman-fpga communication overlay has been configured "
+        "properly (see "
+        "https://docs.vicharak.in/vicharak_sbcs/vaaman/vaaman-linux/"
+        "linux-configuration-guide/vicharak-config-tool/) ",
+        dlerror(), RAH_SO_STRING);
   }
 }
 
-RealRah::~RealRah() {
-  dlclose(m_handle);
-}
+RealRah::~RealRah() { dlclose(m_handle); }
 
 int RealRah::write(const char *data, size_t size) {
   /* clear buffers before writing */
@@ -106,10 +101,10 @@ int RealRah::write(const char *data, size_t size) {
   return r;
 }
 
-/* 
+/*
  * Lowest level MetaApp write.
  * TODO: document the META protocol
- * 'size' here is the size of payload in bytes 
+ * 'size' here is the size of payload in bytes
  */
 int RealRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
                         const std::vector<char> &data) {
@@ -145,9 +140,9 @@ int RealRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
 
 int RealRah::read(char *data, size_t size) {
 
-  typedef int (*read_fn_t) (const uint8_t, const char*, const unsigned long);
+  typedef int (*read_fn_t)(const uint8_t, const char *, const unsigned long);
   read_fn_t read_fn;
-  read_fn = (read_fn_t) dlsym(m_handle, "rah_read");
+  read_fn = (read_fn_t)dlsym(m_handle, "rah_read");
   char *error = dlerror();
   if (error != NULL) {
     log_fatal("{}\n", error);
@@ -156,14 +151,12 @@ int RealRah::read(char *data, size_t size) {
   return (*read_fn)(RAH_APP_ID, data, size);
 }
 
-int FakeRah::write_meta(const std::bitset<META_WIDTH_BITS>, 
-                    const std::vector<char> &data) {
+int FakeRah::write_meta(const std::bitset<META_WIDTH_BITS>,
+                        const std::vector<char> &data) {
   return static_cast<int>(data.size());
 }
 
-int FakeRah::write(const char *, size_t size) {
-  return size;
-}
+int FakeRah::write(const char *, size_t size) { return size; }
 
 int FakeRah::read(char *data, size_t size) {
   int m_ptr = 0;
@@ -187,8 +180,7 @@ int FakeRah::read(char *data, size_t size) {
   return size;
 }
 
-void FakeRah::check_version() {
-}
+void FakeRah::check_version() {}
 
 void Runner::check_args() {
   if (!gbl_args.has_option("loadpy")) {
@@ -226,7 +218,7 @@ std::string Runner::get_run_arg() {
   return gbl_args["run"].as<std::string>();
 }
 
-Runner::Runner(Op::Parser &parser): m_parser {&parser} {
+Runner::Runner(Op::Parser &parser) : m_parser{&parser} {
   check_args();
   tensor_pool_init();
   pyengine_init();
@@ -245,9 +237,7 @@ Runner::Runner(Op::Parser &parser): m_parser {&parser} {
   }
 }
 
-Runner::~Runner() {
-  delete m_engine;
-}
+Runner::~Runner() { delete m_engine; }
 
 /* make sure correct bitstream is loaded & rah.service
  * is running
@@ -272,24 +262,23 @@ void Runner::scan(Rah &rah) {
 }
 
 /* Loads aligned and padded weights to the FPGA's DRAM */
-void Runner::load_model(Rah& rah, const Fstream &fp) {
+void Runner::load_model(Rah &rah, const Fstream &fp) {
   scan(rah);
   const char *data = fp.get_data();
   size_t size = fp.get_size();
 
-  constexpr std::bitset<META_WIDTH_BITS> d_uart {META_CONST_DISPATCH_UART};
-  constexpr std::bitset<META_WIDTH_BITS> d_rah {META_CONST_DISPATCH_RAH};
+  constexpr std::bitset<META_WIDTH_BITS> d_uart{META_CONST_DISPATCH_UART};
+  constexpr std::bitset<META_WIDTH_BITS> d_rah{META_CONST_DISPATCH_RAH};
 
-  constexpr auto d_uart_arr {get_byte_vector<META_WIDTH_BITS>(d_uart)};
-  constexpr auto d_rah_arr {get_byte_vector<META_WIDTH_BITS>(d_rah)};
-
+  constexpr auto d_uart_arr{get_byte_vector<META_WIDTH_BITS>(d_uart)};
+  constexpr auto d_rah_arr{get_byte_vector<META_WIDTH_BITS>(d_rah)};
 
   std::vector<char> d_uart_vec(d_uart_arr.begin(), d_uart_arr.end());
   std::vector<char> d_rah_vec(d_rah_arr.begin(), d_rah_arr.end());
 
   log_info("setting dispatch type\n");
   if (gbl_args.has_option("receive-over-uart")) {
-      
+
     rah.write_meta(META_TYPE_DISPATCH, d_uart_vec);
   } else {
     rah.write_meta(META_TYPE_DISPATCH, d_rah_vec);
@@ -298,11 +287,10 @@ void Runner::load_model(Rah& rah, const Fstream &fp) {
   log_info("writing model weights to FPGA dram\n");
   rah.write(data, size);
   log_info("write model weights complete\n");
-  /* TODO: no way to know if it went through 
+  /* TODO: no way to know if it went through
    * successfully to the fpga
    */
 }
-
 
 void Runner::infer_loop(Rah &rah, const Fstream &fp) {
   log_warn("Types are being hardcoded in inferloop\n");
@@ -325,7 +313,7 @@ void Runner::read_uart(BinBlob &blob, int uart_baud, int expected_size) {
   PyObject *args = Py_BuildValue("(ii)", uart_baud, expected_size);
   PyObject *ret = m_engine->call_func("read_uart", args);
   if (ret == NULL) {
-  	log_fatal("read_uart failed don't know why\n");
+    log_fatal("read_uart failed don't know why\n");
   }
   Tensor<int8_t> *rr = np2t<int8_t>(ret);
   assert(rr->size() == blob.size());
@@ -343,9 +331,12 @@ void Runner::receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer) {
   uint32_t expected_data_size = 0;
 
   if (strcmp(l->op_type(), "QLinearConv") == 0) {
-	  expected_data_size = aligned_conv_output(l->pipelined_output_dims) * Op::tpdt_sizeof(l->output_type[0]);
-  } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 || strcmp(l->op_type(), "QGemm") == 0) {
-    expected_data_size = aligned_fc_io(&l->output_dims[0]) * Op::tpdt_sizeof(l->output_type[0]);
+    expected_data_size = aligned_conv_output(l->pipelined_output_dims) *
+                         Op::tpdt_sizeof(l->output_type[0]);
+  } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 ||
+             strcmp(l->op_type(), "QGemm") == 0) {
+    expected_data_size =
+        aligned_fc_io(&l->output_dims[0]) * Op::tpdt_sizeof(l->output_type[0]);
   } else {
     log_fatal("Unhandled layer of type: {}\n", l->op_type());
   }
@@ -401,7 +392,8 @@ HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
   assert(size > DWP_HEADER_BYTES);
   uint32_t dwp_header = bytes2int(data);
   uint32_t ds = bytes2int(data + 4);
-  ignore_unused(dwp_header); // in Release, when the following assert is unavailable 
+  ignore_unused(
+      dwp_header); // in Release, when the following assert is unavailable
   assert(dwp_header == DWP_SOP);
   int total_instructions = (ds / (INST_SIZE_BITS / 8));
   /* i starts at 1 to skip the zeroth instruction */
@@ -410,8 +402,7 @@ HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
   int ptr = DWP_HEADER_BYTES + inst_bytes;
   for (int i = 1; i < total_instructions; ++i) {
     std::bitset<INST_SIZE_BITS> inst =
-        extract_bitset<INST_SIZE_BITS>(data, size, ptr,
-                                                      ptr + inst_bytes);
+        extract_bitset<INST_SIZE_BITS>(data, size, ptr, ptr + inst_bytes);
     int opcode = extract_opcode(inst);
     if (opcode == OP_OutputBlock) {
       int dispatch_en = bitset_range_get<OutputBlock_DispatchEn_COUNT>(
@@ -427,11 +418,10 @@ HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
 }
 
 bool HashedDispatchTable::should_dispatch(const Op::LayerBase *l) const {
-  int hashed = string_hash(l->name); 
-  auto itr = std::find(tbl.begin(), tbl.end(), hashed); 
+  int hashed = string_hash(l->name);
+  auto itr = std::find(tbl.begin(), tbl.end(), hashed);
   if (itr != tbl.end()) {
     return true;
   }
   return false;
 }
-

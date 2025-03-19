@@ -1,9 +1,9 @@
+#include "utils.h"
+#include "instructions.h"
 #include "pch.h"
 #include "tensor.h"
-#include "utils.h"
-#include <cstdarg>
 #include "version.h"
-#include "instructions.h"
+#include <cstdarg>
 #include <regex>
 // #include <cstdint>
 // #include <typeinfo>
@@ -71,10 +71,10 @@ void TensorPool::free() {
 }
 
 void TensorPool::print() const {
-	for (size_t i = 0; i < pool.size(); ++i) {
-		std::cout << "At index: " << i << " Type: " <<
-			pool.at(i).type().name() << '\n';
-	}
+  for (size_t i = 0; i < pool.size(); ++i) {
+    std::cout << "At index: " << i << " Type: " << pool.at(i).type().name()
+              << '\n';
+  }
 }
 
 bool TensorPool::has_value(int index) { return pool.at(index).has_value(); }
@@ -119,17 +119,17 @@ bool is_broadcastable(const std::vector<int> &shape1,
   return false;
 }
 
-std::vector<float> compute_output_scale(const std::vector<float>& x_scale,
-    const std::vector<float>& w_scale, const std::vector<float>& y_scale) {
+std::vector<float> compute_output_scale(const std::vector<float> &x_scale,
+                                        const std::vector<float> &w_scale,
+                                        const std::vector<float> &y_scale) {
   auto new_x_scale = broadcast_vec(x_scale, w_scale.size());
   auto new_y_scale = broadcast_vec(y_scale, w_scale.size());
   std::vector<float> ret(w_scale.size());
   for (size_t i = 0; i < w_scale.size(); ++i) {
-    ret[i] = new_y_scale[i] / (new_x_scale[i] * w_scale[i] );
+    ret[i] = new_y_scale[i] / (new_x_scale[i] * w_scale[i]);
   }
   return ret;
 }
-
 
 std::vector<int> get_dims_after_pad(std::vector<int> current_dims,
                                     const std::vector<int> &pad) {
@@ -174,7 +174,6 @@ int count_digits(int a) {
   return count;
 }
 
-
 std::vector<int> get_sa_arch() {
   if (!gbl_args.has_option("sa-arch")) {
     log_fatal("cant get architecture for sa, please use --sa-arch option\n");
@@ -218,22 +217,23 @@ bool Argparse::has_option(const std::string &name) const {
 
 #define BOLD(str) ("\033[1m" str "\033[0m")
 
-void Argparse::print_usage() const { 
-  auto color_options = [](const std::string& s) -> std::string {
+void Argparse::print_usage() const {
+  auto color_options = [](const std::string &s) -> std::string {
     std::regex opt_reg(" +--[a-zA-Z0-9-]+");
     std::string result = std::regex_replace(s, opt_reg, "\033[34m$&\033[0m");
     return result;
   };
 
-  auto print_ss_vector = [&color_options](const auto& ssv) {
+  auto print_ss_vector = [&color_options](const auto &ssv) {
     for (const auto &i : ssv) {
-      std::cout << "  " << "\033[33m" << color_options(i.first) << "\033[0m" << '\n';
+      std::cout << "  " << "\033[33m" << color_options(i.first) << "\033[0m"
+                << '\n';
       std::cout << "  " << color_options(i.second) << '\n';
       std::cout << '\n';
     }
   };
 
-  std::cout <<  BOLD("USAGE: gaticc [OPTIONS]\n\n");
+  std::cout << BOLD("USAGE: gaticc [OPTIONS]\n\n");
   std::cout << argparser << '\n';
   std::cout << BOLD("USAGE EXAMPLES:\n\n");
   print_ss_vector(_usage_examples);
@@ -241,8 +241,7 @@ void Argparse::print_usage() const {
   print_ss_vector(_concepts);
 }
 
-
-void Argparse::print_version() const { 
+void Argparse::print_version() const {
   std::cerr << "Gaticc: " << GATICC_VERSION << '\n';
   std::cerr << "Boost: " << GATICC_BOOST_VERSION << '\n';
   std::cerr << "Protobuf: " << GATICC_PROTOBUF_VERSION << '\n';
@@ -255,7 +254,7 @@ void check_c_return_val(int val, const char *err) {
   }
 }
 
-void check_c_return_val(void* val, const char *err) {
+void check_c_return_val(void *val, const char *err) {
   if (val == NULL) {
     log_fatal("{}: {}\n", err, strerror(errno));
   }
@@ -263,11 +262,11 @@ void check_c_return_val(void* val, const char *err) {
 
 /* args:
  *  vector<string> {
- *  "-c", "build/tests/models/fcv_1_20_int8.onnx", 
- *  "--ramsize", "512", 
- *  "--sa-arch", "9,4,4", 
- *  "--vasize", "32", 
- *  "--accbuf-size", "4096", 
+ *  "-c", "build/tests/models/fcv_1_20_int8.onnx",
+ *  "--ramsize", "512",
+ *  "--sa-arch", "9,4,4",
+ *  "--vasize", "32",
+ *  "--accbuf-size", "4096",
  *  "--pretty-print-inst"
  *  };
  *
@@ -290,12 +289,14 @@ void argv_delete(int argc, char **argv) {
   delete argv;
 }
 
-std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis, int keepdims) {
+std::vector<int> reduced_shape(const std::vector<int> &dims, int reduction_axis,
+                               int keepdims) {
   if (reduction_axis == -1) {
     return std::vector<int>{1};
   }
   if (reduction_axis >= static_cast<int>(dims.size())) {
-    log_fatal("in reduced_shape(), axis {} greater than total dims {}\n", reduction_axis, dims.size());
+    log_fatal("in reduced_shape(), axis {} greater than total dims {}\n",
+              reduction_axis, dims.size());
   }
   std::vector<int> new_shape;
   for (int i = 0; i < static_cast<int>(dims.size()); ++i) {
@@ -310,14 +311,16 @@ std::vector<int> reduced_shape(const std::vector<int>& dims, int reduction_axis,
   return new_shape;
 }
 
-std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector<int>& indices) {
+std::vector<int> unsqueeze_shape(const std::vector<int> &dims,
+                                 const std::vector<int> &indices) {
   std::vector<int> new_shape;
   for (size_t i = 0, j = 0; i < dims.size() + indices.size(); ++i) {
     if (std::find(indices.cbegin(), indices.cend(), i) != indices.cend()) {
       new_shape.push_back(1);
     } else {
       if (j >= dims.size()) {
-        log_fatal("Index {} is out of bounds of tensors of dim size {}\n", j, dims.size());
+        log_fatal("Index {} is out of bounds of tensors of dim size {}\n", j,
+                  dims.size());
       }
       new_shape.push_back(dims.at(j++));
     }
@@ -325,8 +328,7 @@ std::vector<int> unsqueeze_shape(const std::vector<int>& dims, const std::vector
   return new_shape;
 }
 
-std::vector<int> concat_shape(const IVec2D &dims,
-                              int axis) {
+std::vector<int> concat_shape(const IVec2D &dims, int axis) {
   const auto &first_dims = dims.at(0);
   std::vector<int> new_shape{first_dims};
   for (size_t i = 1; i < dims.size(); ++i) {

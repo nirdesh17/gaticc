@@ -30,18 +30,20 @@ DispatchTable::DispatchTable() {
 }
 
 static void check_dispatch_table_validity(const std::vector<std::string> &tbl,
-                                   const Op::Graph &graph) {
+                                          const Op::Graph &graph) {
   std::vector<std::string> graph_nodes;
   auto vitr = boost::vertices(graph);
   for (auto itr = vitr.first; itr != vitr.second; ++itr) {
     graph_nodes.push_back(graph[*itr]->name);
   }
-  for (const auto& i : tbl) {
+  for (const auto &i : tbl) {
     auto itr = std::find(graph_nodes.begin(), graph_nodes.end(), i);
     if (itr == graph_nodes.end()) {
       log_fatal("Could not find layer {} in modified execution graph: either "
-          "its not possible to dump this layer's contents or this layer "
-          "does not exist in the graph (check netron graph for correct names)\n", i);
+                "its not possible to dump this layer's contents or this layer "
+                "does not exist in the graph (check netron graph for correct "
+                "names)\n",
+                i);
     }
   }
 }
@@ -57,17 +59,17 @@ DispatchTable::DispatchTable(Op::Graph graph) {
     } else if (strcmp(arg.c_str(), "none") == 0) {
       dump_none = true;
     } else {
-       tbl = parse_csv_string<std::string>(arg);
-       check_dispatch_table_validity(tbl, graph);
+      tbl = parse_csv_string<std::string>(arg);
+      check_dispatch_table_validity(tbl, graph);
     }
   } else {
-	  auto vitr = boost::vertices(graph);
-	  for (auto itr = vitr.first; itr != vitr.second; ++itr) {
-		if (boost::out_degree(*itr, graph) == 0) {
-		  tbl.push_back(graph[*itr]->name);
-		}
-	  }
-   }
+    auto vitr = boost::vertices(graph);
+    for (auto itr = vitr.first; itr != vitr.second; ++itr) {
+      if (boost::out_degree(*itr, graph) == 0) {
+        tbl.push_back(graph[*itr]->name);
+      }
+    }
+  }
 }
 
 bool DispatchTable::should_dispatch(const Op::LayerBase *l) {
@@ -92,9 +94,9 @@ void DispatchTable::print() {
 
 void Executor::print_extra_info(const Op::LayerBase *l) {
   if (gbl_args.has_option("verbose")) {
-    std::cout << "Running " << l->op_type() << ' ' << l->name <<
-              ' ' << Op::get_tensorproto_dtype_name(l->input_type[0]) <<
-              ' ' << Op::get_tensorproto_dtype_name(l->output_type[0]) << '\n';
+    std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
+              << Op::get_tensorproto_dtype_name(l->input_type[0]) << ' '
+              << Op::get_tensorproto_dtype_name(l->output_type[0]) << '\n';
   }
 }
 
@@ -119,7 +121,6 @@ Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
               Op::get_tensorproto_dtype_name(output_type));
   }
 }
-
 
 /* helper function for Op::Layer::Conv::run() */
 template <typename inputT, typename weightT, typename outputT>
@@ -164,7 +165,8 @@ void Op::Layer::Conv::run(TensorPool &tensor_pool) {
 }
 
 /* helper function for Op::Layer::Conv::run() */
-template <typename T> static void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
+template <typename T>
+static void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Relu *cc = dynamic_cast<Op::Layer::Relu *>(l);
 
   if (tensor_pool.has_value(cc->outputs.at(0))) {
@@ -381,8 +383,7 @@ static void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
   int negative_ones =
       std::count(cc->new_shape.begin(), cc->new_shape.end(), -1);
   if (negative_ones > 1) {
-    log_fatal("didn't expect more than one -1 in shape for node {}\n",
-              l->name);
+    log_fatal("didn't expect more than one -1 in shape for node {}\n", l->name);
   }
   reshape<T>(input, output, cc->new_shape);
   if (l->dispatch) {
@@ -556,7 +557,7 @@ static void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  std::vector<float> scales {cc->scale};
+  std::vector<float> scales{cc->scale};
   std::vector<int> zero_point;
   if (std::holds_alternative<uint8_t>(cc->zero_point)) {
     zero_point.push_back((int)std::get<uint8_t>(cc->zero_point));
@@ -574,7 +575,6 @@ static void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
 }
 
-
 void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
@@ -583,7 +583,7 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
       output_type[0] == onnx::TensorProto_DataType_UINT8) {
     run_quantize_linear<float, uint8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
-      output_type[0] == onnx::TensorProto_DataType_INT8) {
+             output_type[0] == onnx::TensorProto_DataType_INT8) {
     run_quantize_linear<float, int8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
@@ -604,15 +604,17 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims[0])};
+  std::unique_ptr<Tensor<intrT>> intr_output{
+      new TensorCreate<intrT>(cc->output_dims[0])};
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   ConvEngine<inputT, weightT, intrT> cc_engine(cc);
   cc_engine.run(input, intr_output.get());
 
-  std::vector<float> scales = compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
-  using variantT = std::variant<int8_t,uint8_t>;
+  std::vector<float> scales =
+      compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
+  using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
   tt.stop();
@@ -628,23 +630,21 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
 }
 
-
-
 void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type[0] == onnx::TensorProto_DataType_FLOAT && 
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
       weight_type == onnx::TensorProto_DataType_FLOAT) {
     run_qconv<float, float, float, float>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
-      weight_type == onnx::TensorProto_DataType_UINT8) {
+             weight_type == onnx::TensorProto_DataType_UINT8) {
     run_qconv<uint8_t, uint8_t, int, uint8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
-      weight_type == onnx::TensorProto_DataType_INT8) {
+             weight_type == onnx::TensorProto_DataType_INT8) {
     run_qconv<int8_t, int8_t, int, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
-      weight_type == onnx::TensorProto_DataType_INT8) {
+             weight_type == onnx::TensorProto_DataType_INT8) {
     std::cout << "this was chosen \n";
     run_qconv<uint8_t, int8_t, int, uint8_t>(this, tensor_pool);
   } else {
@@ -656,7 +656,8 @@ void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
 
 template <typename inputT, typename outputT>
 static void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::DequantizeLinear *cc = dynamic_cast<Op::Layer::DequantizeLinear *>(l);
+  Op::Layer::DequantizeLinear *cc =
+      dynamic_cast<Op::Layer::DequantizeLinear *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
@@ -665,7 +666,7 @@ static void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   /* TODO: make scale in quantize linear a vector by default */
-  std::vector<int> zero_point {cc->zero_point};
+  std::vector<int> zero_point{cc->zero_point};
 
   std::vector<float> scales;
   if (std::holds_alternative<float>(cc->scale)) {
@@ -693,7 +694,7 @@ void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
       output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_dequantize_linear<uint8_t, float>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
-      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
+             output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_dequantize_linear<int8_t, float>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
@@ -712,11 +713,12 @@ static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims[0])};
+  std::unique_ptr<Tensor<intrT>> intr_output{
+      new TensorCreate<intrT>(cc->output_dims[0])};
 
-  using variantT = std::variant<int8_t,uint8_t>;
+  using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
 
   VA<inputT, weightT, weightT, intrT> va(*cc);
@@ -724,7 +726,8 @@ static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   va.run(input, intr_output.get());
-  std::vector<float> scales = compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
+  std::vector<float> scales =
+      compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
 
   tt.stop();
@@ -773,20 +776,23 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims[0])};
+  std::unique_ptr<Tensor<intrT>> intr_output{
+      new TensorCreate<intrT>(cc->output_dims[0])};
 
   Tensor<inputT> *input2;
   if (cc->inputs.size() > 1) {
     // both inputs are non-initializers (i.e. available only at runtime)
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
-    tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale, cc->a_zp, cc->b_zp);
+    tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
+                cc->a_zp, cc->b_zp);
   } else {
     // one of the inputs is an initializer (available statically)
     input2 = new TensorExtant<inputT>(cc->addend);
-    tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale, cc->a_zp, cc->b_zp);
+    tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
+                cc->a_zp, cc->b_zp);
     delete input2;
   }
-  using variantT = std::variant<int8_t,uint8_t>;
+  using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
   quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale, zero_points);
   if (l->dispatch) {
@@ -825,18 +831,20 @@ static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
 
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
-  std::unique_ptr<Tensor<intrT>> intr_output {new TensorCreate<intrT>(cc->output_dims[0])};
+  std::unique_ptr<Tensor<intrT>> intr_output{
+      new TensorCreate<intrT>(cc->output_dims[0])};
 
-  using variantT = std::variant<int8_t,uint8_t>;
+  using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   VA<inputT, weightT, int32_t, intrT> va(*cc);
   va.run(input, intr_output.get());
-  std::vector<float> scales = compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
+  std::vector<float> scales =
+      compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
 
   tt.stop();
@@ -861,8 +869,8 @@ void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
              bias_type == onnx::TensorProto_DataType_INT32) {
     run_qgemm<int8_t, int8_t, int32_t, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
-      weight_type == onnx::TensorProto_DataType_UINT8 &&
-      bias_type == onnx::TensorProto_DataType_INT32) {
+             weight_type == onnx::TensorProto_DataType_UINT8 &&
+             bias_type == onnx::TensorProto_DataType_INT32) {
     run_qgemm<uint8_t, uint8_t, int32_t, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
@@ -880,7 +888,7 @@ static void run_logsoftmax(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
   Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<outputT>*>(cc->outputs.at(0), output);
+  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
 
   logsoftmax(output, input, cc->axis);
 }
@@ -908,7 +916,8 @@ void Op::Layer::LogSoftmax::run(TensorPool &tensor_pool) {
 
 template <typename T>
 static void run_qlinearaveragepool(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::QLinearAveragePool *cc = dynamic_cast<Op::Layer::QLinearAveragePool *>(l);
+  Op::Layer::QLinearAveragePool *cc =
+      dynamic_cast<Op::Layer::QLinearAveragePool *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
@@ -951,12 +960,13 @@ static void run_batchnorm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
   Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-  
-  std::unique_ptr<Tensor<T>> scale {new TensorExtant<T>(cc->scale)};
-  std::unique_ptr<Tensor<T>> bias {new TensorExtant<T>(cc->B)};
-  std::unique_ptr<Tensor<T>> mean {new TensorExtant<T>(cc->mean)};
-  std::unique_ptr<Tensor<T>> var {new TensorExtant<T>(cc->var)};
-  batchnorm<T>(input, output, cc->epsilon, cc->momentum, scale.get(), bias.get(), mean.get(), var.get());
+
+  std::unique_ptr<Tensor<T>> scale{new TensorExtant<T>(cc->scale)};
+  std::unique_ptr<Tensor<T>> bias{new TensorExtant<T>(cc->B)};
+  std::unique_ptr<Tensor<T>> mean{new TensorExtant<T>(cc->mean)};
+  std::unique_ptr<Tensor<T>> var{new TensorExtant<T>(cc->var)};
+  batchnorm<T>(input, output, cc->epsilon, cc->momentum, scale.get(),
+               bias.get(), mean.get(), var.get());
 
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
@@ -964,7 +974,6 @@ static void run_batchnorm(Op::LayerBase *l, TensorPool &tensor_pool) {
       output->print();
     }
   }
-
 }
 
 void Op::Layer::BatchNorm::run(TensorPool &tensor_pool) {
@@ -992,7 +1001,7 @@ static void run_abs(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
   Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-  
+
   xabs<T>(input, output);
 
   if (l->dispatch) {
@@ -1031,7 +1040,7 @@ static void run_reduce_mean(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
   Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-  
+
   reduce_mean<T>(input, output, cc->m_axis, cc->m_keepdims);
 
   if (l->dispatch) {

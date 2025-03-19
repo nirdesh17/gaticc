@@ -45,7 +45,6 @@
 #include <utility>
 #include <vector>
 
-
 /**
  * @brief
  * There are only two hard things in Computer Science: cache invalidation and
@@ -95,17 +94,14 @@
  */
 namespace argagg {
 
-
 /**
  * @brief
  * This exception is thrown when a long option is parsed and is given an
  * argument using the "=" syntax but the option doesn't expect an argument.
  */
-struct unexpected_argument_error
-: public std::runtime_error {
+struct unexpected_argument_error : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
-
 
 /**
  * @brief
@@ -113,11 +109,9 @@ struct unexpected_argument_error
  * an argument was expected for a previous option or if an option was found
  * that has not been defined.
  */
-struct unexpected_option_error
-: public std::runtime_error {
+struct unexpected_option_error : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
-
 
 /**
  * @brief
@@ -125,11 +119,9 @@ struct unexpected_option_error
  * provided one. This can happen if another flag was found after the option or
  * if we simply reach the end of the command line arguments.
  */
-struct option_lacks_argument_error
-: public std::runtime_error {
+struct option_lacks_argument_error : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
-
 
 /**
  * @brief
@@ -138,22 +130,18 @@ struct option_lacks_argument_error
  * alpha-numeric characters after the hyphens. See is_valid_flag_definition()
  * for more details.
  */
-struct invalid_flag
-: public std::runtime_error {
+struct invalid_flag : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
-
 
 /**
  * @brief
  * This exception is thrown when an unknown option is requested by name from an
  * argagg::parser_results through the indexing operator ([]).
  */
-struct unknown_option
-: public std::runtime_error {
+struct unknown_option : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
-
 
 /**
  * @brief
@@ -163,96 +151,90 @@ struct unknown_option
  */
 namespace convert {
 
-  /**
-   * @brief
-   * Explicit instantiations of this function are used to convert arguments to
-   * types.
-   */
-  template <typename T>
-  T arg(const char* arg);
+/**
+ * @brief
+ * Explicit instantiations of this function are used to convert arguments to
+ * types.
+ */
+template <typename T> T arg(const char *arg);
 
-  /**
-   * @brief
-   * For simple types the main extension point for adding argument conversions
-   * is argagg::convert::arg<T>(). However, for complex types such as templated
-   * types partial specialization of a helper struct is required. This struct
-   * provides that extension point. The default, generic implementation of
-   * argagg::convert::arg<T>() calls converter<T>::convert().
-   *
-   * @see
-   * @ref argagg::csv
-   */
-  template <typename T>
-  struct converter {
-    static T convert(const char* arg);
-  };
+/**
+ * @brief
+ * For simple types the main extension point for adding argument conversions
+ * is argagg::convert::arg<T>(). However, for complex types such as templated
+ * types partial specialization of a helper struct is required. This struct
+ * provides that extension point. The default, generic implementation of
+ * argagg::convert::arg<T>() calls converter<T>::convert().
+ *
+ * @see
+ * @ref argagg::csv
+ */
+template <typename T> struct converter {
+  static T convert(const char *arg);
+};
 
-  /**
-   * @brief
-   * A utility function for parsing an argument as a delimited list. To use,
-   * initialize a const char* pointer to the start of argument string. Then
-   * call parse_next_component(), providing that pointer, a mutable reference
-   * to where the parsed argument will go, and optionally the delimiting
-   * character. The argument string will be read up to the next delimiting
-   * character and then converted using
-   * <tt>argagg::convert::arg<decltype(out_arg)>()</tt>. The pointer is then
-   * incremented accordingly. If the delimiting character is no longer found
-   * then false is returned meaning that parsing the list can be considered
-   * finished.
-   *
-   * @code
-     #include <argagg/argagg.hpp>
+/**
+ * @brief
+ * A utility function for parsing an argument as a delimited list. To use,
+ * initialize a const char* pointer to the start of argument string. Then
+ * call parse_next_component(), providing that pointer, a mutable reference
+ * to where the parsed argument will go, and optionally the delimiting
+ * character. The argument string will be read up to the next delimiting
+ * character and then converted using
+ * <tt>argagg::convert::arg<decltype(out_arg)>()</tt>. The pointer is then
+ * incremented accordingly. If the delimiting character is no longer found
+ * then false is returned meaning that parsing the list can be considered
+ * finished.
+ *
+ * @code
+   #include <argagg/argagg.hpp>
 
-     struct position3 {
-       double x;
-       double y;
-       double z;
-     };
+   struct position3 {
+     double x;
+     double y;
+     double z;
+   };
 
-     namespace argagg {
-     namespace convert {
-       template <>
-       position3 arg(const char* s)
-       {
-         position3 result {0.0, 0.0, 0.0};
-         if (!parse_next_component(s, result.x)) {
-           // could potentially throw an error if you require that at least two
-           // components exist in the list
-           return result;
-         }
-         if (!parse_next_component(s, result.y)) {
-           return result;
-         }
-         if (!parse_next_component(s, result.z)) {
-           return result;
-         }
+   namespace argagg {
+   namespace convert {
+     template <>
+     position3 arg(const char* s)
+     {
+       position3 result {0.0, 0.0, 0.0};
+       if (!parse_next_component(s, result.x)) {
+         // could potentially throw an error if you require that at least two
+         // components exist in the list
          return result;
        }
-     } // namespace convert
-     } // namespace argagg
-
-     int main(int argc, char** argv)
-     {
-       argagg::parser argparser {{
-          { "origin", {"-o", "--origin"},
-            "origin as position3 specified as a comma separated list of "
-            "components (e.g. '1,2,3')", 1},
-        }};
-       argagg::parser_results args = argparser.parse(argc, argv);
-       auto my_position = args["origin"].as<position3>();
-       // ...
-       return 0;
+       if (!parse_next_component(s, result.y)) {
+         return result;
+       }
+       if (!parse_next_component(s, result.z)) {
+         return result;
+       }
+       return result;
      }
-     @endcode
-   */
-  template <typename T>
-  bool parse_next_component(
-    const char*& s,
-    T& out_arg,
-    const char delim = ',');
+   } // namespace convert
+   } // namespace argagg
 
-}
+   int main(int argc, char** argv)
+   {
+     argagg::parser argparser {{
+        { "origin", {"-o", "--origin"},
+          "origin as position3 specified as a comma separated list of "
+          "components (e.g. '1,2,3')", 1},
+      }};
+     argagg::parser_results args = argparser.parse(argc, argv);
+     auto my_position = args["origin"].as<position3>();
+     // ...
+     return 0;
+   }
+   @endcode
+ */
+template <typename T>
+bool parse_next_component(const char *&s, T &out_arg, const char delim = ',');
 
+} // namespace convert
 
 /**
  * @brief
@@ -268,7 +250,7 @@ struct option_result {
    * Argument parsed for this single option. If no argument was parsed this
    * will be set to nullptr.
    */
-  const char* arg;
+  const char *arg;
 
   /**
    * @brief
@@ -279,8 +261,7 @@ struct option_result {
    * exception is thrown. The specific conversion function may throw other
    * exceptions.
    */
-  template <typename T>
-  T as() const;
+  template <typename T> T as() const;
 
   /**
    * @brief
@@ -291,8 +272,7 @@ struct option_result {
    * instead. If the conversion function throws an exception then it is ignored
    * and the default value is returned.
    */
-  template <typename T>
-  T as(const T& t) const;
+  template <typename T> T as(const T &t) const;
 
   /**
    * @brief
@@ -306,18 +286,15 @@ struct option_result {
    * otherwise. This specialization DOES NOT convert the argument to a bool. If
    * you need to convert the argument to a bool then use the as() API.
    */
-  template <typename T>
-  operator T () const;
+  template <typename T> operator T() const;
 
   /**
    * @brief
    * Explicitly define a unary not operator that wraps the implicit boolean
    * conversion specialization in case the compiler can't do it automatically.
    */
-  bool operator ! () const;
-
+  bool operator!() const;
 };
-
 
 /**
  * @brief
@@ -347,13 +324,13 @@ struct option_results {
    * @brief
    * Gets a single option parse result by index.
    */
-  option_result& operator [] (std::size_t index);
+  option_result &operator[](std::size_t index);
 
   /**
    * @brief
    * Gets a single option result by index.
    */
-  const option_result& operator [] (std::size_t index) const;
+  const option_result &operator[](std::size_t index) const;
 
   /**
    * @brief
@@ -364,8 +341,7 @@ struct option_results {
    * thrown. Any exceptions thrown by option_result::as() are not
    * handled.
    */
-  template <typename T>
-  T as() const;
+  template <typename T> T as() const;
 
   /**
    * @brief
@@ -375,8 +351,7 @@ struct option_results {
    * there are no option parse results then the provided default value is
    * returned instead.
    */
-  template <typename T>
-  T as(const T& t) const;
+  template <typename T> T as(const T &t) const;
 
   /**
    * @brief
@@ -390,18 +365,15 @@ struct option_results {
    * otherwise. This specialization DOES NOT convert the argument to a bool. If
    * you need to convert the argument to a bool then use the as() API.
    */
-  template <typename T>
-  operator T () const;
+  template <typename T> operator T() const;
 
   /**
    * @brief
    * Explicitly define a unary not operator that wraps the implicit boolean
    * conversion specialization in case the compiler can't do it automatically.
    */
-  bool operator ! () const;
-
+  bool operator!() const;
 };
-
 
 /**
  * @brief
@@ -415,7 +387,7 @@ struct parser_results {
    * Returns the name of the program from the original arguments list. This is
    * always the first argument.
    */
-  const char* program;
+  const char *program;
 
   /**
    * @brief
@@ -428,13 +400,13 @@ struct parser_results {
    * @brief
    * Vector of positional arguments.
    */
-  std::vector<const char*> pos;
+  std::vector<const char *> pos;
 
   /**
    * @brief
    * Used to check if an option was specified at all.
    */
-  bool has_option(const std::string& name) const;
+  bool has_option(const std::string &name) const;
 
   /**
    * @brief
@@ -442,7 +414,7 @@ struct parser_results {
    * showed up then the exception from the unordered_map access will bubble
    * through so check if the flag exists in the first place with has_option().
    */
-  option_results& operator [] (const std::string& name);
+  option_results &operator[](const std::string &name);
 
   /**
    * @brief
@@ -450,7 +422,7 @@ struct parser_results {
    * showed up then the exception from the unordered_map access will bubble
    * through so check if the flag exists in the first place with has_option().
    */
-  const option_results& operator [] (const std::string& name) const;
+  const option_results &operator[](const std::string &name) const;
 
   /**
    * @brief
@@ -462,24 +434,20 @@ struct parser_results {
    * @brief
    * Gets a positional argument by index.
    */
-  const char* operator [] (std::size_t index) const;
+  const char *operator[](std::size_t index) const;
 
   /**
    * @brief
    * Gets a positional argument converted to the given type.
    */
-  template <typename T>
-  T as(std::size_t i = 0) const;
+  template <typename T> T as(std::size_t i = 0) const;
 
   /**
    * @brief
    * Gets all positional arguments converted to the given type.
    */
-  template <typename T>
-  std::vector<T> all_as() const;
-
+  template <typename T> std::vector<T> all_as() const;
 };
-
 
 /**
  * @brief
@@ -525,9 +493,7 @@ struct definition {
    * Returns true if this option requires arguments.
    */
   bool requires_arguments() const;
-
 };
-
 
 /**
  * @brief
@@ -536,27 +502,21 @@ struct definition {
  * allow for short flag groups (e.g. "-abc") and equal-assigned long flag
  * arguments (e.g. "--output=foo.txt").
  */
-bool cmd_line_arg_is_option_flag(
-  const char* s);
-
+bool cmd_line_arg_is_option_flag(const char *s);
 
 /**
  * @brief
  * Checks whether a flag in an option definition is valid. I suggest reading
  * through the function source to understand what dictates a valid.
  */
-bool is_valid_flag_definition(
-  const char* s);
-
+bool is_valid_flag_definition(const char *s);
 
 /**
  * @brief
  * Tests whether or not a valid flag is short. Assumes the provided cstring is
  * already a valid flag.
  */
-bool flag_is_short(
-  const char* s);
-
+bool flag_is_short(const char *s);
 
 /**
  * @brief
@@ -576,47 +536,41 @@ struct parser_map {
    * Maps from a short flag (just a character) to a pointer to the original
    * @ref definition that the flag represents.
    */
-  std::array<const definition*, 256> short_map;
+  std::array<const definition *, 256> short_map;
 
   /**
    * @brief
    * Maps from a long flag (an std::string) to a pointer to the original @ref
    * definition that the flag represents.
    */
-  std::unordered_map<std::string, const definition*> long_map;
+  std::unordered_map<std::string, const definition *> long_map;
 
   /**
    * @brief
    * Returns true if the provided short flag exists in the map object.
    */
-  bool known_short_flag(
-    const char flag) const;
+  bool known_short_flag(const char flag) const;
 
   /**
    * @brief
    * If the short flag exists in the map object then it is returned by this
    * method. If it doesn't then nullptr will be returned.
    */
-  const definition* get_definition_for_short_flag(
-    const char flag) const;
+  const definition *get_definition_for_short_flag(const char flag) const;
 
   /**
    * @brief
    * Returns true if the provided long flag exists in the map object.
    */
-  bool known_long_flag(
-    const std::string& flag) const;
+  bool known_long_flag(const std::string &flag) const;
 
   /**
    * @brief
    * If the long flag exists in the map object then it is returned by this
    * method. If it doesn't then nullptr will be returned.
    */
-  const definition* get_definition_for_long_flag(
-    const std::string& flag) const;
-
+  const definition *get_definition_for_long_flag(const std::string &flag) const;
 };
-
 
 /**
  * @brief
@@ -625,9 +579,7 @@ struct parser_map {
  * definition objects is not valid then an exception is thrown. Upon successful
  * validation a @ref parser_map object is returned.
  */
-parser_map validate_definitions(
-  const std::vector<definition>& definitions);
-
+parser_map validate_definitions(const std::vector<definition> &definitions);
 
 /**
  * @brief
@@ -651,7 +603,7 @@ struct parser {
    * This method is not thread-safe and assumes that no modifications are made
    * to the definitions member field during the extent of this method call.
    */
-  parser_results parse(int argc, const char** argv) const;
+  parser_results parse(int argc, const char **argv) const;
 
   /**
    * @brief
@@ -660,10 +612,8 @@ struct parser {
    * <tt>const char**</tt> so here's an overload that performs a const_cast,
    * which is typically frowned upon but is safe here.
    */
-  parser_results parse(int argc, char** argv) const;
-
+  parser_results parse(int argc, char **argv) const;
 };
-
 
 /**
  * @brief
@@ -687,14 +637,14 @@ struct fmt_ostream : public std::ostringstream {
    * Reference to the final output stream that the formatted string will be
    * streamed to.
    */
-  std::ostream& output;
+  std::ostream &output;
 
   /**
    * @brief
    * Construct to output to the provided output stream when this object is
    * destroyed.
    */
-  fmt_ostream(std::ostream& output);
+  fmt_ostream(std::ostream &output);
 
   /**
    * @brief
@@ -703,9 +653,7 @@ struct fmt_ostream : public std::ostringstream {
    * stored.
    */
   ~fmt_ostream();
-
 };
-
 
 /**
  * @brief
@@ -713,28 +661,21 @@ struct fmt_ostream : public std::ostringstream {
  * resulting output as a string. Not the most efficient (in time or space) but
  * gets the job done.
  */
-std::string fmt_string(const std::string& s);
-
+std::string fmt_string(const std::string &s);
 
 } // namespace argagg
-
 
 /**
  * @brief
  * Writes the option help to the given stream.
  */
-std::ostream& operator << (std::ostream& os, const argagg::parser& x);
-
+std::ostream &operator<<(std::ostream &os, const argagg::parser &x);
 
 // ---- end of declarations, header-only implementations follow ----
 
-
 namespace argagg {
 
-
-template <typename T>
-T option_result::as() const
-{
+template <typename T> T option_result::as() const {
   if (this->arg) {
     return convert::arg<T>(this->arg);
   } else {
@@ -742,10 +683,7 @@ T option_result::as() const
   }
 }
 
-
-template <typename T>
-T option_result::as(const T& t) const
-{
+template <typename T> T option_result::as(const T &t) const {
   if (this->arg) {
     try {
       return convert::arg<T>(this->arg);
@@ -762,173 +700,103 @@ T option_result::as(const T& t) const
   }
 }
 
-
-template <typename T>
-option_result::operator T () const
-{
+template <typename T> option_result::operator T() const {
   return this->as<T>();
 }
 
-
-template <> inline
-option_result::operator bool () const
-{
+template <> inline option_result::operator bool() const {
   return this->arg != nullptr;
 }
 
-
-inline
-bool option_result::operator ! () const
-{
+inline bool option_result::operator!() const {
   return !static_cast<bool>(*this);
 }
 
+inline std::size_t option_results::count() const { return this->all.size(); }
 
-inline
-std::size_t option_results::count() const
-{
-  return this->all.size();
-}
-
-
-inline
-option_result& option_results::operator [] (std::size_t index)
-{
+inline option_result &option_results::operator[](std::size_t index) {
   return this->all[index];
 }
 
-
-inline
-const option_result& option_results::operator [] (std::size_t index) const
-{
+inline const option_result &
+option_results::operator[](std::size_t index) const {
   return this->all[index];
 }
 
-
-template <typename T>
-T option_results::as() const
-{
+template <typename T> T option_results::as() const {
   if (this->all.size() == 0) {
     throw std::out_of_range("no option arguments to convert");
   }
   return this->all.back().as<T>();
 }
 
-
-template <typename T>
-T option_results::as(const T& t) const
-{
+template <typename T> T option_results::as(const T &t) const {
   if (this->all.size() == 0) {
     return t;
   }
   return this->all.back().as<T>(t);
 }
 
-
-template <typename T>
-option_results::operator T () const
-{
+template <typename T> option_results::operator T() const {
   return this->as<T>();
 }
 
-
-template <> inline
-option_results::operator bool () const
-{
+template <> inline option_results::operator bool() const {
   return this->all.size() > 0;
 }
 
-
-inline
-bool option_results::operator ! () const
-{
+inline bool option_results::operator!() const {
   return !static_cast<bool>(*this);
 }
 
-
-inline
-bool parser_results::has_option(const std::string& name) const
-{
+inline bool parser_results::has_option(const std::string &name) const {
   const auto it = this->options.find(name);
-  return ( it != this->options.end()) && it->second.all.size() > 0;
+  return (it != this->options.end()) && it->second.all.size() > 0;
 }
 
-
-inline
-option_results& parser_results::operator [] (const std::string& name)
-try {
+inline option_results &parser_results::operator[](const std::string &name) try {
   return this->options.at(name);
-} catch (const std::out_of_range&) {
+} catch (const std::out_of_range &) {
   std::ostringstream msg;
   msg << "no option named \"" << name << "\" in parser_results";
   throw unknown_option(msg.str());
 }
 
-
-inline
-const option_results&
-parser_results::operator [] (const std::string& name) const
-try {
+inline const option_results &
+parser_results::operator[](const std::string &name) const try {
   return this->options.at(name);
-} catch (const std::out_of_range&) {
+} catch (const std::out_of_range &) {
   std::ostringstream msg;
   msg << "no option named \"" << name << "\" in parser_results";
   throw unknown_option(msg.str());
 }
 
+inline std::size_t parser_results::count() const { return this->pos.size(); }
 
-inline
-std::size_t parser_results::count() const
-{
-  return this->pos.size();
-}
-
-
-inline
-const char* parser_results::operator [] (std::size_t index) const
-{
+inline const char *parser_results::operator[](std::size_t index) const {
   return this->pos[index];
 }
 
-
-template <typename T>
-T parser_results::as(std::size_t i) const
-{
+template <typename T> T parser_results::as(std::size_t i) const {
   return convert::arg<T>(this->pos[i]);
 }
 
-
-template <typename T>
-std::vector<T> parser_results::all_as() const
-{
+template <typename T> std::vector<T> parser_results::all_as() const {
   std::vector<T> v(this->pos.size());
-  std::transform(
-    this->pos.begin(), this->pos.end(), v.begin(),
-    [](const char* arg) {
-      return convert::arg<T>(arg);
-    });
+  std::transform(this->pos.begin(), this->pos.end(), v.begin(),
+                 [](const char *arg) { return convert::arg<T>(arg); });
   return v;
 }
 
-
-inline
-bool definition::wants_no_arguments() const
-{
+inline bool definition::wants_no_arguments() const {
   return this->num_args == 0;
 }
 
-
-inline
-bool definition::requires_arguments() const
-{
+inline bool definition::requires_arguments() const {
   return this->num_args > 0;
 }
 
-
-inline
-bool cmd_line_arg_is_option_flag(
-  const char* s)
-{
+inline bool cmd_line_arg_is_option_flag(const char *s) {
   auto len = std::strlen(s);
 
   // The shortest possible flag has two characters: a hyphen and an
@@ -944,7 +812,7 @@ bool cmd_line_arg_is_option_flag(
 
   // Shift the name forward by a character to account for the initial hyphen.
   // This means if s was originally "-v" then name will be "v".
-  const char* name = s + 1;
+  const char *name = s + 1;
 
   // Check if we're dealing with a long flag.
   bool is_long = false;
@@ -979,17 +847,17 @@ bool cmd_line_arg_is_option_flag(
   // argument to a long flag which can be basically anything.
   if (is_long) {
     bool encountered_equal = false;
-    return std::all_of(name, name + len, [&](const char& c) {
-        if (encountered_equal) {
+    return std::all_of(name, name + len, [&](const char &c) {
+      if (encountered_equal) {
+        return true;
+      } else {
+        if (c == '=') {
+          encountered_equal = true;
           return true;
-        } else {
-          if (c == '=') {
-            encountered_equal = true;
-            return true;
-          }
-          return std::isalnum(c) || c == '-' || c == '_';
         }
-      });
+        return std::isalnum(c) || c == '-' || c == '_';
+      }
+    });
   }
 
   // At this point we are not dealing with a long flag. We already checked that
@@ -1004,11 +872,7 @@ bool cmd_line_arg_is_option_flag(
   return true;
 }
 
-
-inline
-bool is_valid_flag_definition(
-  const char* s)
-{
+inline bool is_valid_flag_definition(const char *s) {
   auto len = std::strlen(s);
 
   // The shortest possible flag has two characters: a hyphen and an
@@ -1024,7 +888,7 @@ bool is_valid_flag_definition(
 
   // Shift the name forward by a character to account for the initial hyphen.
   // This means if s was originally "-v" then name will be "v".
-  const char* name = s + 1;
+  const char *name = s + 1;
 
   // Check if we're dealing with a long flag.
   bool is_long = false;
@@ -1055,49 +919,31 @@ bool is_valid_flag_definition(
 
   // The rest of the characters must be alpha-numeric, but long flags are
   // allowed to have hyphens too.
-  return std::all_of(name + 1, name + len, [&](const char& c) {
-      return std::isalnum(c) || (c == '-' && is_long);
-    });
+  return std::all_of(name + 1, name + len, [&](const char &c) {
+    return std::isalnum(c) || (c == '-' && is_long);
+  });
 }
 
-
-inline
-bool flag_is_short(
-  const char* s)
-{
+inline bool flag_is_short(const char *s) {
   return s[0] == '-' && std::isalnum(s[1]);
 }
 
-
-inline
-bool parser_map::known_short_flag(
-  const char flag) const
-{
+inline bool parser_map::known_short_flag(const char flag) const {
   return this->short_map[static_cast<std::size_t>(flag)] != nullptr;
 }
 
-
-inline
-const definition* parser_map::get_definition_for_short_flag(
-  const char flag) const
-{
+inline const definition *
+parser_map::get_definition_for_short_flag(const char flag) const {
   return this->short_map[static_cast<std::size_t>(flag)];
 }
 
-
-inline
-bool parser_map::known_long_flag(
-  const std::string& flag) const
-{
+inline bool parser_map::known_long_flag(const std::string &flag) const {
   const auto existing_long_flag = this->long_map.find(flag);
   return existing_long_flag != long_map.end();
 }
 
-
-inline
-const definition* parser_map::get_definition_for_long_flag(
-  const std::string& flag) const
-{
+inline const definition *
+parser_map::get_definition_for_long_flag(const std::string &flag) const {
   const auto existing_long_flag = this->long_map.find(flag);
   if (existing_long_flag == long_map.end()) {
     return nullptr;
@@ -1105,15 +951,12 @@ const definition* parser_map::get_definition_for_long_flag(
   return existing_long_flag->second;
 }
 
+inline parser_map
+validate_definitions(const std::vector<definition> &definitions) {
+  std::unordered_map<std::string, const definition *> long_map;
+  parser_map map{{{nullptr}}, std::move(long_map)};
 
-inline
-parser_map validate_definitions(
-  const std::vector<definition>& definitions)
-{
-  std::unordered_map<std::string, const definition*> long_map;
-  parser_map map {{{nullptr}}, std::move(long_map)};
-
-  for (auto& defn : definitions) {
+  for (auto &defn : definitions) {
 
     if (defn.flags.size() == 0) {
       std::ostringstream msg;
@@ -1121,7 +964,7 @@ parser_map validate_definitions(
       throw invalid_flag(msg.str());
     }
 
-    for (auto& flag : defn.flags) {
+    for (auto &flag : defn.flags) {
 
       if (!is_valid_flag_definition(flag.data())) {
         std::ostringstream msg;
@@ -1132,8 +975,7 @@ parser_map validate_definitions(
 
       if (flag_is_short(flag.data())) {
         const std::size_t short_flag_letter = static_cast<std::size_t>(flag[1]);
-        const auto existing_short_flag =
-          map.short_map[short_flag_letter];
+        const auto existing_short_flag = map.short_map[short_flag_letter];
         bool short_flag_already_exists = (existing_short_flag != nullptr);
         if (short_flag_already_exists) {
           std::ostringstream msg;
@@ -1162,10 +1004,7 @@ parser_map validate_definitions(
   return map;
 }
 
-
-inline
-parser_results parser::parse(int argc, const char** argv) const
-{
+inline parser_results parser::parse(int argc, const char **argv) const {
   // Inspect each definition to see if its valid. You may wonder "why don't
   // you do this validation on construction?" I had thought about it but
   // realized that since I've made the parser an aggregate type (granted it
@@ -1183,15 +1022,14 @@ parser_results parser::parse(int argc, const char** argv) const
   // Initialize the parser results that we'll be returning. Store the program
   // name (assumed to be the first command line argument) and initialize
   // everything else as empty.
-  std::unordered_map<std::string, option_results> options {};
-  std::vector<const char*> pos;
-  parser_results results {argv[0], std::move(options), std::move(pos)};
+  std::unordered_map<std::string, option_results> options{};
+  std::vector<const char *> pos;
+  parser_results results{argv[0], std::move(options), std::move(pos)};
 
   // Add an empty option result for each definition.
-  for (const auto& defn : this->definitions) {
-    option_results opt_results {{}};
-    results.options.insert(
-      std::make_pair(defn.name, opt_results));
+  for (const auto &defn : this->definitions) {
+    option_results opt_results{{}};
+    results.options.insert(std::make_pair(defn.name, opt_results));
   }
 
   // Don't start off ignoring flags. We only ignore flags after a -- shows up
@@ -1199,16 +1037,16 @@ parser_results parser::parse(int argc, const char** argv) const
   bool ignore_flags = false;
 
   // Keep track of any options that are expecting arguments.
-  const char* last_flag_expecting_args = nullptr;
-  option_result* last_option_expecting_args = nullptr;
+  const char *last_flag_expecting_args = nullptr;
+  option_result *last_option_expecting_args = nullptr;
   unsigned int num_option_args_to_consume = 0;
 
   // Get pointers to pointers so we can treat the raw pointer array as an
   // iterator for standard library algorithms. This isn't used yet but can be
   // used to template this function to work on iterators over strings or
   // C-strings.
-  const char** arg_i = argv + 1;
-  const char** arg_end = argv + argc;
+  const char **arg_i = argv + 1;
+  const char **arg_end = argv + argc;
 
   while (arg_i != arg_end) {
     auto arg_i_cstr = *arg_i;
@@ -1217,11 +1055,9 @@ parser_results parser::parse(int argc, const char** argv) const
     // Some behavior to note: if the previous option is expecting an argument
     // then the next entry will be treated as a positional argument even if
     // it looks like a flag.
-    bool treat_as_positional_argument = (
-        ignore_flags
-        || num_option_args_to_consume > 0
-        || !cmd_line_arg_is_option_flag(arg_i_cstr)
-      );
+    bool treat_as_positional_argument =
+        (ignore_flags || num_option_args_to_consume > 0 ||
+         !cmd_line_arg_is_option_flag(arg_i_cstr));
     if (treat_as_positional_argument) {
 
       // If last option is expecting some specific positive number of
@@ -1296,8 +1132,8 @@ parser_results parser::parse(int argc, const char** argv) const
       // We've got a legitimate, known long flag option so we add an option
       // result. This option result initially has an arg of nullptr, but that
       // might change in the following block.
-      auto& opt_results = results.options[defn->name];
-      option_result opt_result {nullptr};
+      auto &opt_results = results.options[defn->name];
+      option_result opt_result{nullptr};
       opt_results.all.push_back(std::move(opt_result));
 
       if (defn->requires_arguments()) {
@@ -1342,11 +1178,11 @@ parser_results parser::parse(int argc, const char** argv) const
       }
 
       auto defn = map.get_definition_for_short_flag(short_flag);
-      auto& opt_results = results.options[defn->name];
+      auto &opt_results = results.options[defn->name];
 
       // Create an option result with an empty argument (for now) and add it
       // to this option's results.
-      option_result opt_result {nullptr};
+      option_result opt_result{nullptr};
       opt_results.all.push_back(std::move(opt_result));
 
       if (defn->requires_arguments()) {
@@ -1392,248 +1228,174 @@ parser_results parser::parse(int argc, const char** argv) const
   return results;
 }
 
-
-inline
-parser_results parser::parse(int argc, char** argv) const
-{
-  return parse(argc, const_cast<const char**>(argv));
+inline parser_results parser::parse(int argc, char **argv) const {
+  return parse(argc, const_cast<const char **>(argv));
 }
-
 
 namespace convert {
 
-
-  /**
-   * @brief
-   * Templated function for conversion to T using the @ref std::strtol()
-   * function.  This is used for anything long length or shorter (long, int,
-   * short, char).
-   */
-  template <typename T> inline
-  T long_(const char* arg)
-  {
-    char* endptr = nullptr;
-    errno = 0;
-    T ret = static_cast<T>(std::strtol(arg, &endptr, 0));
-    if (endptr == arg) {
-      std::ostringstream msg;
-      msg << "unable to convert argument to integer: \"" << arg << "\"";
-      throw std::invalid_argument(msg.str());
-    }
-    if (errno == ERANGE) {
-      throw std::out_of_range("argument numeric value out of range");
-    }
-    return ret;
+/**
+ * @brief
+ * Templated function for conversion to T using the @ref std::strtol()
+ * function.  This is used for anything long length or shorter (long, int,
+ * short, char).
+ */
+template <typename T> inline T long_(const char *arg) {
+  char *endptr = nullptr;
+  errno = 0;
+  T ret = static_cast<T>(std::strtol(arg, &endptr, 0));
+  if (endptr == arg) {
+    std::ostringstream msg;
+    msg << "unable to convert argument to integer: \"" << arg << "\"";
+    throw std::invalid_argument(msg.str());
   }
-
-
-  /**
-   * @brief
-   * Templated function for conversion to T using the @ref std::strtoll()
-   * function.  This is used for anything long long length or shorter (long
-   * long).
-   */
-  template <typename T> inline
-  T long_long_(const char* arg)
-  {
-    char* endptr = nullptr;
-    errno = 0;
-    T ret = static_cast<T>(std::strtoll(arg, &endptr, 0));
-    if (endptr == arg) {
-      std::ostringstream msg;
-      msg << "unable to convert argument to integer: \"" << arg << "\"";
-      throw std::invalid_argument(msg.str());
-    }
-    if (errno == ERANGE) {
-      throw std::out_of_range("argument numeric value out of range");
-    }
-    return ret;
+  if (errno == ERANGE) {
+    throw std::out_of_range("argument numeric value out of range");
   }
+  return ret;
+}
 
-
-#define DEFINE_CONVERSION_FROM_LONG_(TYPE) \
-  template <> inline \
-  TYPE arg(const char* arg) \
-  { \
-    return long_<TYPE>(arg); \
+/**
+ * @brief
+ * Templated function for conversion to T using the @ref std::strtoll()
+ * function.  This is used for anything long long length or shorter (long
+ * long).
+ */
+template <typename T> inline T long_long_(const char *arg) {
+  char *endptr = nullptr;
+  errno = 0;
+  T ret = static_cast<T>(std::strtoll(arg, &endptr, 0));
+  if (endptr == arg) {
+    std::ostringstream msg;
+    msg << "unable to convert argument to integer: \"" << arg << "\"";
+    throw std::invalid_argument(msg.str());
   }
+  if (errno == ERANGE) {
+    throw std::out_of_range("argument numeric value out of range");
+  }
+  return ret;
+}
 
-  DEFINE_CONVERSION_FROM_LONG_(char)
-  DEFINE_CONVERSION_FROM_LONG_(unsigned char)
-  DEFINE_CONVERSION_FROM_LONG_(signed char)
-  DEFINE_CONVERSION_FROM_LONG_(short)
-  DEFINE_CONVERSION_FROM_LONG_(unsigned short)
-  DEFINE_CONVERSION_FROM_LONG_(int)
-  DEFINE_CONVERSION_FROM_LONG_(unsigned int)
-  DEFINE_CONVERSION_FROM_LONG_(long)
-  DEFINE_CONVERSION_FROM_LONG_(unsigned long)
+#define DEFINE_CONVERSION_FROM_LONG_(TYPE)                                     \
+  template <> inline TYPE arg(const char *arg) { return long_<TYPE>(arg); }
+
+DEFINE_CONVERSION_FROM_LONG_(char)
+DEFINE_CONVERSION_FROM_LONG_(unsigned char)
+DEFINE_CONVERSION_FROM_LONG_(signed char)
+DEFINE_CONVERSION_FROM_LONG_(short)
+DEFINE_CONVERSION_FROM_LONG_(unsigned short)
+DEFINE_CONVERSION_FROM_LONG_(int)
+DEFINE_CONVERSION_FROM_LONG_(unsigned int)
+DEFINE_CONVERSION_FROM_LONG_(long)
+DEFINE_CONVERSION_FROM_LONG_(unsigned long)
 
 #undef DEFINE_CONVERSION_FROM_LONG_
 
+#define DEFINE_CONVERSION_FROM_LONG_LONG_(TYPE)                                \
+  template <> inline TYPE arg(const char *arg) { return long_long_<TYPE>(arg); }
 
-#define DEFINE_CONVERSION_FROM_LONG_LONG_(TYPE) \
-  template <> inline \
-  TYPE arg(const char* arg) \
-  { \
-    return long_long_<TYPE>(arg); \
-  }
-
-  DEFINE_CONVERSION_FROM_LONG_LONG_(long long)
-  DEFINE_CONVERSION_FROM_LONG_LONG_(unsigned long long)
+DEFINE_CONVERSION_FROM_LONG_LONG_(long long)
+DEFINE_CONVERSION_FROM_LONG_LONG_(unsigned long long)
 
 #undef DEFINE_CONVERSION_FROM_LONG_LONG_
 
+template <typename T> T arg(const char *arg) {
+  return converter<T>::convert(arg);
+}
 
-  template <typename T>
-  T arg(const char* arg)
-  {
-    return converter<T>::convert(arg);
+template <> inline bool arg(const char *arg) {
+  return argagg::convert::arg<int>(arg) != 0;
+}
+
+template <> inline float arg(const char *arg) {
+  char *endptr = nullptr;
+  errno = 0;
+  float ret = std::strtof(arg, &endptr);
+  if (endptr == arg) {
+    std::ostringstream msg;
+    msg << "unable to convert argument to integer: \"" << arg << "\"";
+    throw std::invalid_argument(msg.str());
   }
-
-
-  template <> inline
-  bool arg(const char* arg)
-  {
-    return argagg::convert::arg<int>(arg) != 0;
+  if (errno == ERANGE) {
+    throw std::out_of_range("argument numeric value out of range");
   }
+  return ret;
+}
 
-
-  template <> inline
-  float arg(const char* arg)
-  {
-    char* endptr = nullptr;
-    errno = 0;
-    float ret = std::strtof(arg, &endptr);
-    if (endptr == arg) {
-      std::ostringstream msg;
-      msg << "unable to convert argument to integer: \"" << arg << "\"";
-      throw std::invalid_argument(msg.str());
-    }
-    if (errno == ERANGE) {
-      throw std::out_of_range("argument numeric value out of range");
-    }
-    return ret;
+template <> inline double arg(const char *arg) {
+  char *endptr = nullptr;
+  errno = 0;
+  double ret = std::strtod(arg, &endptr);
+  if (endptr == arg) {
+    std::ostringstream msg;
+    msg << "unable to convert argument to integer: \"" << arg << "\"";
+    throw std::invalid_argument(msg.str());
   }
-
-
-  template <> inline
-  double arg(const char* arg)
-  {
-    char* endptr = nullptr;
-    errno = 0;
-    double ret = std::strtod(arg, &endptr);
-    if (endptr == arg) {
-      std::ostringstream msg;
-      msg << "unable to convert argument to integer: \"" << arg << "\"";
-      throw std::invalid_argument(msg.str());
-    }
-    if (errno == ERANGE) {
-      throw std::out_of_range("argument numeric value out of range");
-    }
-    return ret;
+  if (errno == ERANGE) {
+    throw std::out_of_range("argument numeric value out of range");
   }
+  return ret;
+}
 
+template <> inline const char *arg(const char *arg) { return arg; }
 
-  template <> inline
-  const char* arg(const char* arg)
-  {
-    return arg;
+template <> inline std::string arg(const char *arg) { return std::string(arg); }
+
+template <typename T>
+bool parse_next_component(const char *&s, T &out_arg, const char delim) {
+  const char *begin = s;
+  s = std::strchr(s, delim);
+  if (s == nullptr) {
+    std::string arg_str(begin);
+    out_arg = argagg::convert::arg<T>(arg_str.c_str());
+    return false;
+  } else {
+    std::string arg_str(begin, static_cast<std::size_t>(s - begin));
+    out_arg = argagg::convert::arg<T>(arg_str.c_str());
+    s += 1;
+    return true;
   }
-
-
-  template <> inline
-  std::string arg(const char* arg)
-  {
-    return std::string(arg);
-  }
-
-
-  template <typename T>
-  bool parse_next_component(
-    const char*& s,
-    T& out_arg,
-    const char delim)
-  {
-    const char* begin = s;
-    s = std::strchr(s, delim);
-    if (s == nullptr) {
-      std::string arg_str(begin);
-      out_arg = argagg::convert::arg<T>(arg_str.c_str());
-      return false;
-    } else {
-      std::string arg_str(begin, static_cast<std::size_t>(s - begin));
-      out_arg = argagg::convert::arg<T>(arg_str.c_str());
-      s += 1;
-      return true;
-    }
-  }
-
+}
 
 } // namespace convert
 
+inline fmt_ostream::fmt_ostream(std::ostream &output)
+    : std::ostringstream(), output(output) {}
 
-inline
-fmt_ostream::fmt_ostream(std::ostream& output)
-: std::ostringstream(), output(output)
-{
-}
+inline fmt_ostream::~fmt_ostream() { output << fmt_string(this->str()); }
 
-
-inline
-fmt_ostream::~fmt_ostream()
-{
-  output << fmt_string(this->str());
-}
-
-
-inline
-std::string lstrip(const std::string& text)
-{
+inline std::string lstrip(const std::string &text) {
   auto result = text;
 
-  result.erase(
-    result.begin(),
-    std::find_if(
-      result.begin(),
-      result.end(),
-      [](int ch) { return !std::isspace(ch); }));
+  result.erase(result.begin(),
+               std::find_if(result.begin(), result.end(),
+                            [](int ch) { return !std::isspace(ch); }));
 
   return result;
 }
 
-
-inline
-std::string rstrip(const std::string& text)
-{
+inline std::string rstrip(const std::string &text) {
   auto result = text;
 
-  result.erase(
-    std::find_if(
-      result.rbegin(),
-      result.rend(),
-      [](int ch) { return !std::isspace(ch); }).base(),
-    result.end());
+  result.erase(std::find_if(result.rbegin(), result.rend(),
+                            [](int ch) { return !std::isspace(ch); })
+                   .base(),
+               result.end());
 
   return result;
 }
 
-
-inline
-std::string construct_line(const std::string& indent,
-                           const std::string& contents)
-{
+inline std::string construct_line(const std::string &indent,
+                                  const std::string &contents) {
   return indent + rstrip(contents) + "\n";
 }
-
 
 /**
  * @brief
  * Return a wrapped version of a single line of text.
  */
-inline
-std::string wrap_line(const std::string& single_line,
-                      const std::size_t wrap_width)
-{
+inline std::string wrap_line(const std::string &single_line,
+                             const std::size_t wrap_width) {
   auto indentation_spaces = single_line.find_first_not_of(" ");
   if (indentation_spaces == std::string::npos) {
     indentation_spaces = 0;
@@ -1654,7 +1416,7 @@ std::string wrap_line(const std::string& single_line,
 
     if (new_position + indentation_spaces > line_start + wrap_width) {
       result += construct_line(
-        indent, line.substr(line_start, position - line_start - 1));
+          indent, line.substr(line_start, position - line_start - 1));
 
       line_start = position;
     }
@@ -1665,10 +1427,7 @@ std::string wrap_line(const std::string& single_line,
   return result + construct_line(indent, line.substr(line_start));
 }
 
-
-inline
-std::string fmt_string(const std::string& s)
-{
+inline std::string fmt_string(const std::string &s) {
   std::stringstream ss(s);
   std::string line;
 
@@ -1684,16 +1443,12 @@ std::string fmt_string(const std::string& s)
   return result;
 }
 
-
 } // namespace argagg
 
-
-inline
-std::ostream& operator << (std::ostream& os, const argagg::parser& x)
-{
-  for (auto& definition : x.definitions) {
+inline std::ostream &operator<<(std::ostream &os, const argagg::parser &x) {
+  for (auto &definition : x.definitions) {
     os << "    ";
-    for (auto& flag : definition.flags) {
+    for (auto &flag : definition.flags) {
       os << flag;
       if (flag != definition.flags.back()) {
         os << ", ";
@@ -1703,6 +1458,5 @@ std::ostream& operator << (std::ostream& os, const argagg::parser& x)
   }
   return os;
 }
-
 
 #endif // ARGAGG_ARGAGG_ARGAGG_HPP

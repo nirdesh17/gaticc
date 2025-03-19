@@ -1,7 +1,7 @@
+#include "options.h"
 #include "executor.h"
 #include "ffi.h"
 #include "onnx_parser.h"
-#include "options.h"
 #include "rt.h"
 #include "utils.h"
 // #include <cassert>
@@ -42,7 +42,7 @@ static void dispatch_info_ops() {
   Op::Parser parser(s);
   if (gbl_args.has_option("summary")) {
     parser.bare_summary();
-  } 
+  }
 
   if (gbl_args.has_option("timeest")) {
     dispatch_timeest(parser);
@@ -53,7 +53,7 @@ static void dispatch_compile_ops() {
   std::string s = gbl_args["compile"].as<std::string>();
   Op::Parser parser(s);
   GmlGen gmlgen(GATI_INST_ORG);
-  BinBlob binblob {gmlgen.generate_gml(parser)};
+  BinBlob binblob{gmlgen.generate_gml(parser)};
 
   if (gbl_args.has_option("output")) {
     auto filename = gbl_args["output"].as<std::string>();
@@ -73,7 +73,8 @@ static void dispatch_sim_ops() {
 
 static void dispatch_run_ops() {
   if (!gbl_args.has_option("run_onnx")) {
-    log_fatal("couldn't find onnx file. Use --run-onnx to provide one or see help\n");
+    log_fatal(
+        "couldn't find onnx file. Use --run-onnx to provide one or see help\n");
   }
   auto onnx_file = gbl_args["run_onnx"].as<std::string>();
   Op::Parser parser(onnx_file);
@@ -96,7 +97,7 @@ int dispatch() {
   } else if (gbl_args.has_option("run")) {
     dispatch_run_ops();
   } else {
-    log_fatal("Don't know what to do. See gaticc -h\n"); 
+    log_fatal("Don't know what to do. See gaticc -h\n");
   }
   return 0;
 }

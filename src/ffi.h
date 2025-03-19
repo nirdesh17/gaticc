@@ -198,7 +198,8 @@ template <typename T> PyObject *t2np(const Tensor<T> *t) {
   return ret;
 }
 
-template <typename T> void pickle_tensor(const Tensor<T> *t, std::string filename) {
+template <typename T>
+void pickle_tensor(const Tensor<T> *t, std::string filename) {
   PyObject *t_obj = t2np(t);
   std::filesystem::path mod_path = "src";
   PyEngine engine("ml_inference", mod_path);

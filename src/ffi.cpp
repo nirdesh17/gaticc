@@ -10,7 +10,6 @@
 // #include <iostream>
 // #include <vector>
 
-
 /*
  * On reference counting,
  * idea is to use refs to make sure that an element is not de-allocated “Owning
@@ -20,7 +19,8 @@
  * the reference returned in the custody of the caller and not the callee.
  */
 
-PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) {
+PyEngine::PyEngine(std::string const &mod_name,
+                   std::filesystem::path &mod_dir) {
   PyObject *sys = PyImport_ImportModule("sys");
   PyObject *path = PyObject_GetAttrString(sys, "path");
 
@@ -44,10 +44,11 @@ PyEngine::PyEngine(std::string const &mod_name, std::filesystem::path &mod_dir) 
 PyEngine::~PyEngine() {
   Py_XDECREF(mod);
   /* Let the OS handle freeing the interpreter */
-  //Py_FinalizeEx();
+  // Py_FinalizeEx();
 }
 
-PyObject *PyEngine::call_func(std::string const &func_name, PyObject *args) const {
+PyObject *PyEngine::call_func(std::string const &func_name,
+                              PyObject *args) const {
 
   PyObject *dict = PyModule_GetDict(mod);
   py_fatal_err_check(dict, "PyModule_GetDict");

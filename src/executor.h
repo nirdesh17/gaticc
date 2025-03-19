@@ -3,9 +3,9 @@
 #define NO_IMPORT_ARRAY
 #include "numpy_init.h"
 
-//#include "onnx.pb.h"
-#include "onnx_parser.h"
+// #include "onnx.pb.h"
 #include "ffi.h"
+#include "onnx_parser.h"
 /* From libpython */
 #ifndef PY_SSIZE_T_CLEAN
 #define PY_SSIZE_T_CLEAN
@@ -18,7 +18,8 @@ class DispatchTable {
   bool dump_all;
   bool dump_none;
   std::vector<std::string> tbl;
-  public:
+
+public:
   DispatchTable();
   /* all nodes with no out-edges directly quality for dispatch */
   DispatchTable(Op::Graph graph);
@@ -41,7 +42,7 @@ class Executor {
 
   DispatchTable dispatch_table;
 
-  /* inputT: input type of the entire model 
+  /* inputT: input type of the entire model
    * outputT: output type of the entire model
    */
   template <typename inputT, typename outputT>
@@ -53,8 +54,7 @@ public:
   Executor(PyEngine &engine, const Op::Parser &parser);
 };
 
-template <typename T>
-Tensor<T> *read_model_input(const PyEngine &engine) {
+template <typename T> Tensor<T> *read_model_input(const PyEngine &engine) {
   PyObject *input_object;
   if (gbl_args.has_option("input_path")) {
     std::string image_path = gbl_args["input_path"].as<std::string>();
@@ -64,8 +64,7 @@ Tensor<T> *read_model_input(const PyEngine &engine) {
     }
     std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
     input_object = engine.call_func(preprocfn.c_str(), args);
-  }
-  else {
+  } else {
     PyObject *no_args = PyTuple_New(0);
     std::string preprocfn = gbl_args["preprocfn"].as<std::string>();
     input_object = engine.call_func(preprocfn, no_args);
@@ -74,7 +73,7 @@ Tensor<T> *read_model_input(const PyEngine &engine) {
       PyErr_Print();
       log_fatal("function {} erred\n", preprocfn);
     }
-    
+
     if (!PyArray_CheckExact(input_object)) {
       log_fatal("function {} must return a numpy array\n", preprocfn);
     }
@@ -109,8 +108,10 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
   Tensor<inputT> *full_batch = read_model_input<inputT>(engine);
   /* TODO: add checks here if inputs is batched and matches expected dims */
   if (full_batch->dims_size() <= 1) {
-    log_fatal("Expects input images to be greater than 1 dimensional (N,...) got a {} dimensional "
-        "image\n", full_batch->dims_size());
+    log_fatal("Expects input images to be greater than 1 dimensional (N,...) "
+              "got a {} dimensional "
+              "image\n",
+              full_batch->dims_size());
   }
   std::vector<Op::LayerBase *> order = parser.get_execution_order();
 
@@ -122,9 +123,10 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
   for (int i = 0; i < full_batch->dims_at(0); ++i) {
     tensor_pool.free();
 
-    Tensor<inputT> *slice {get_slice(full_batch, std::vector<int>{i})};
+    Tensor<inputT> *slice{get_slice(full_batch, std::vector<int>{i})};
     if (order.at(0)->input_dims[0] != slice->get_dims()) {
-      log_fatal("Expected input dims {}, got input of dimensions {}\n", order.at(0)->input_dims[0], slice->get_dims());
+      log_fatal("Expected input dims {}, got input of dimensions {}\n",
+                order.at(0)->input_dims[0], slice->get_dims());
     }
     tensor_pool.set<Tensor<inputT> *>(0, slice);
 

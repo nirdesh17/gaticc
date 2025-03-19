@@ -409,7 +409,7 @@ std::string Op::Layer::Dropout::params() const {
   return ret;
 }
 
-void Op::Layer::Dropout::set_initializer_params(int ,
+void Op::Layer::Dropout::set_initializer_params(int,
                                                 const onnx::TensorProto &t) {
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     this->drop = t.float_data()[0];
@@ -433,7 +433,7 @@ Op::Layer::Add::Add() { addend = nullptr; }
 
 const char *Op::Layer::Add::op_type() const { return m_optype; }
 
-void Op::Layer::Add::set_initializer_params(int , const onnx::TensorProto &t) {
+void Op::Layer::Add::set_initializer_params(int, const onnx::TensorProto &t) {
   addend = &t;
 }
 
@@ -569,7 +569,7 @@ std::string Op::Layer::Reshape::params() const {
   return ret;
 }
 
-void Op::Layer::Reshape::set_initializer_params(int ,
+void Op::Layer::Reshape::set_initializer_params(int,
                                                 const onnx::TensorProto &t) {
   if (t.dims_size() != 1) {
     log_fatal(
@@ -639,7 +639,7 @@ std::string Op::Layer::DequantizeLinear::params() const {
 }
 
 void Op::Layer::DequantizeLinear::set_initializer_params(
-    int , const onnx::TensorProto &t) {
+    int, const onnx::TensorProto &t) {
   /* TODO: use n */
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
@@ -716,7 +716,7 @@ std::string Op::Layer::QuantizeLinear::params() const {
 }
 
 void Op::Layer::QuantizeLinear::set_initializer_params(
-    int , const onnx::TensorProto &t) {
+    int, const onnx::TensorProto &t) {
   /* TODO: use n */
   if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
     /* its a scale value */
@@ -1193,7 +1193,7 @@ std::string Op::Layer::MatMul::params() const {
   return ret;
 }
 
-void Op::Layer::MatMul::set_initializer_params(int ,
+void Op::Layer::MatMul::set_initializer_params(int,
                                                const onnx::TensorProto &t) {
   /* TODO: use n */
   if (t.dims_size() == GEMM_WEIGHT_TENSOR_DIMS) {
@@ -1364,7 +1364,7 @@ std::string Op::Layer::LogSoftmax::params() const {
   return pbuf;
 }
 
-void Op::Layer::LogSoftmax::set_initializer_params(int ,
+void Op::Layer::LogSoftmax::set_initializer_params(int,
                                                    const onnx::TensorProto &) {
   return;
 }
@@ -2417,7 +2417,7 @@ bool Op::is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
                dims.at(0).dim_param());
     }
     std::for_each(dims.begin() + 1, dims.end(), [](auto &val) {
-        ignore_unused(val);
+      ignore_unused(val);
       assert(val.has_dim_value() &&
              "Model could be missing shape information, consider running "
              "it through shape inference");

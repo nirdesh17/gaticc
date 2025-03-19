@@ -69,20 +69,22 @@ void maxpool(const Tensor<T> *input, Tensor<T> *output,
   int output_width = mp_odims_cols(mp, input->get_dims());
 
   for (int ici = 0; ici < output_depth; ++ici) {
-    for (int ihi = 0; ihi < output_height * mp.stride[TENSOR_2D_HEIGHT]; ihi += mp.stride[TENSOR_2D_HEIGHT]) {
-      for (int iwi = 0; iwi < output_width * mp.stride[TENSOR_2D_WIDTH]; iwi += mp.stride[TENSOR_2D_WIDTH]) {
+    for (int ihi = 0; ihi < output_height * mp.stride[TENSOR_2D_HEIGHT];
+         ihi += mp.stride[TENSOR_2D_HEIGHT]) {
+      for (int iwi = 0; iwi < output_width * mp.stride[TENSOR_2D_WIDTH];
+           iwi += mp.stride[TENSOR_2D_WIDTH]) {
         T max_val = std::numeric_limits<T>::min();
         for (int khi = 0; khi < mp.k[TENSOR_2D_HEIGHT]; ++khi) {
           for (int kwi = 0; kwi < mp.k[TENSOR_2D_WIDTH]; ++kwi) {
             std::vector<int> in_index{0, ici, (ihi + khi), (iwi + kwi)};
-            //print_vec("in index ", in_index);
+            // print_vec("in index ", in_index);
             max_val = std::max(max_val, padded_input->at(in_index));
           }
         }
         std::vector<int> out_index{0, ici, ihi / mp.stride[TENSOR_2D_HEIGHT],
                                    iwi / mp.stride[TENSOR_2D_WIDTH]};
-        //std::cout << "ihi iwi " << ihi << ' ' << iwi << '\n';
-        //print_vec("out index ", out_index);
+        // std::cout << "ihi iwi " << ihi << ' ' << iwi << '\n';
+        // print_vec("out index ", out_index);
         output->insert(out_index, max_val);
       }
     }
@@ -251,8 +253,7 @@ void VA<inputT, weightT, biasT, outputT>::run(const Tensor<inputT> *input,
          */
         outputT a_int = static_cast<outputT>(input->at(i * M + k));
         outputT b_int = static_cast<outputT>(weights->at(k * K + j));
-        dst += (a_int - a_zero_point) *
-               (b_int - b_zero_point);
+        dst += (a_int - a_zero_point) * (b_int - b_zero_point);
       }
       /* For gemm */
       if (bias != nullptr) {
@@ -304,7 +305,8 @@ void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
   ignore_unused(i2_zp);
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-    //outputT v = (i1_scale * (input1->at(i) - i1_zp)) + (i2_scale * (input2->at(i) - i2_zp));
+    // outputT v = (i1_scale * (input1->at(i) - i1_zp)) + (i2_scale *
+    // (input2->at(i) - i2_zp));
     output->set(i, input1->at(i) + input2->at(i));
   }
 }
@@ -364,8 +366,9 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
     int64_t prod = v * int_scale;
     int64_t prod_sum = prod + (1 << (shift_val - 1));
     int64_t prod_rs = prod_sum >> shift_val;
-    
-    //inputT ret = (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
+
+    // inputT ret = (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >>
+    // shift_val);
     return (outputT)std::clamp<int64_t>(prod_rs, min_lim, max_lim);
   } else {
     inputT rounded = std::round(((float)v / scale + zero_point));
@@ -385,7 +388,7 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
 
 template <typename inputT, typename outputT>
 inline outputT dequantize_fn(inputT v, float scale, int zero_point) {
-  return ((v - zero_point) * scale); 
+  return ((v - zero_point) * scale);
 }
 
 template <typename inputT, typename outputT>
@@ -457,7 +460,6 @@ class ConvEngine {
   std::vector<float> y_scales;
   std::vector<float> w_scales;
 
-
   void _kernel(int k, const Tensor<inputT> *input, Tensor<outputT> *output);
 
 public:
@@ -495,10 +497,13 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(
   kw = cc->m_cp.k[TENSOR_2D_WIDTH];
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
-  using variantT = std::variant<int8_t,uint8_t>;
-  w_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->w_zero_point), cc->output_dims[0][TENSOR_4D_CHANNELS]);
-  x_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->x_zero_point), cc->input_dims[0][TENSOR_4D_CHANNELS]);
-  y_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->y_zero_point), cc->output_dims[0][TENSOR_4D_CHANNELS]);
+  using variantT = std::variant<int8_t, uint8_t>;
+  w_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->w_zero_point),
+                                cc->output_dims[0][TENSOR_4D_CHANNELS]);
+  x_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->x_zero_point),
+                                cc->input_dims[0][TENSOR_4D_CHANNELS]);
+  y_zero_points = broadcast_vec(variant2vec<variantT, int>(cc->y_zero_point),
+                                cc->output_dims[0][TENSOR_4D_CHANNELS]);
 
   w_scales = cc->w_scale;
   x_scales = cc->x_scale;
@@ -534,7 +539,7 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
       for (int ohi = 0; ohi < oh; ++ohi) {
         for (int owi = 0; owi < ow; ++owi) {
           out_index = ibi * o_strides[0] + k * o_strides[1] +
-                  ohi * o_strides[2] + owi * o_strides[3];
+                      ohi * o_strides[2] + owi * o_strides[3];
           outputT acc = output->at(out_index);
           outputT x_int_sum = 0;
           outputT w_int_sum = 0;
@@ -565,8 +570,10 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
 }
 
 template <typename inputT, typename weightT, typename outputT>
-void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input, Tensor<outputT> *output) {
-  Tensor<inputT> *padded_input = tensor_pad(input, pad_vec, static_cast<inputT>(x_zero_points.at(0)));
+void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input,
+                                               Tensor<outputT> *output) {
+  Tensor<inputT> *padded_input =
+      tensor_pad(input, pad_vec, static_cast<inputT>(x_zero_points.at(0)));
 
   std::vector<std::thread> tc;
   for (int k = 0; k < kn; ++k) {
@@ -662,8 +669,7 @@ void logsoftmax(Tensor<T> *output, Tensor<T> *input, int axis) {
 /* FPGA style binary average calculation without division
  * operations
  */
-template <typename T>
-static T avg(std::vector<T> v) {
+template <typename T> static T avg(std::vector<T> v) {
   if (v.size() == 1) {
     return v.at(0);
   }
@@ -685,7 +691,7 @@ static T avg(std::vector<T> v) {
 
 template <typename T>
 void average_pool(const Tensor<T> *input, Tensor<T> *output,
-             const Op::PoolParams &mp) {
+                  const Op::PoolParams &mp) {
   int pad_present = 0;
   for (int i = 0; i < 4; ++i) {
     if (mp.pad[i] != 0) {
@@ -707,8 +713,10 @@ void average_pool(const Tensor<T> *input, Tensor<T> *output,
   int output_width = mp_odims_cols(mp, input->get_dims());
 
   for (int ici = 0; ici < output_depth; ++ici) {
-    for (int ihi = 0; ihi < output_height * mp.stride[TENSOR_2D_HEIGHT]; ihi += mp.stride[TENSOR_2D_HEIGHT]) {
-      for (int iwi = 0; iwi < output_width * mp.stride[TENSOR_2D_WIDTH]; iwi += mp.stride[TENSOR_2D_WIDTH]) {
+    for (int ihi = 0; ihi < output_height * mp.stride[TENSOR_2D_HEIGHT];
+         ihi += mp.stride[TENSOR_2D_HEIGHT]) {
+      for (int iwi = 0; iwi < output_width * mp.stride[TENSOR_2D_WIDTH];
+           iwi += mp.stride[TENSOR_2D_WIDTH]) {
         std::vector<T> vals;
         for (int khi = 0; khi < mp.k[TENSOR_2D_HEIGHT]; ++khi) {
           for (int kwi = 0; kwi < mp.k[TENSOR_2D_WIDTH]; ++kwi) {
@@ -730,25 +738,29 @@ void average_pool(const Tensor<T> *input, Tensor<T> *output,
 }
 
 template <typename T>
-void batchnorm(const Tensor<T> *input, Tensor<T> *output, float epsilon, float momentum, const Tensor<T> *scale, const Tensor<T> *bias, const Tensor<T> *mean, const Tensor<T> *var) {
+void batchnorm(const Tensor<T> *input, Tensor<T> *output, float epsilon,
+               float momentum, const Tensor<T> *scale, const Tensor<T> *bias,
+               const Tensor<T> *mean, const Tensor<T> *var) {
   ignore_unused(momentum);
   std::vector<int> index(input->dims_size(), 0);
-  std::vector<int> dims {input->get_dims()};
+  std::vector<int> dims{input->get_dims()};
   if (dims.size() != 4) {
     log_fatal("BatchNorm does only supports dims of 4\n");
   }
   for (int i = 0; i < input->size(); ++i) {
     int chan_n = index.at(TENSOR_4D_CHANNELS);
-    T v = ((input->at(index) - mean->at(chan_n)) / sqrt(var->at(chan_n) + epsilon)) * scale->at(chan_n) + bias->at(chan_n);
+    T v = ((input->at(index) - mean->at(chan_n)) /
+           sqrt(var->at(chan_n) + epsilon)) *
+              scale->at(chan_n) +
+          bias->at(chan_n);
     output->insert(index, v);
     increment_shape(index, dims);
   }
 }
 
-template <typename T>
-void xabs(const Tensor<T> *input, Tensor<T> *output) {
+template <typename T> void xabs(const Tensor<T> *input, Tensor<T> *output) {
   std::vector<int> index(input->dims_size(), 0);
-  std::vector<int> dims {input->get_dims()};
+  std::vector<int> dims{input->get_dims()};
   for (int i = 0; i < input->size(); ++i) {
     output->insert(index, std::abs(input->at(index)));
     increment_shape(index, dims);
@@ -756,7 +768,8 @@ void xabs(const Tensor<T> *input, Tensor<T> *output) {
 }
 
 template <typename T>
-void reduce_mean(const Tensor<T> *input, Tensor<T> *output, int axis, int keepdims) {
+void reduce_mean(const Tensor<T> *input, Tensor<T> *output, int axis,
+                 int keepdims) {
   log_warn("Ignoring axis {} parameter to reduce_mean\n", axis);
   log_warn("Ignoring keepdims {} parameter to reduce_mean\n", keepdims);
   *output = *input;

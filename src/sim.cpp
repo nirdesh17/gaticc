@@ -13,10 +13,11 @@
 #include "sim.h"
 #include "utils.h"
 
-std::vector<int> permute(const std::vector<int> &v,
-                                  std::vector<int> perm) {
-  std::for_each(perm.begin(), perm.end(),
-                [&v](int i) { ignore_unused(i); assert((i < v.size()) ? true : false); });
+std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm) {
+  std::for_each(perm.begin(), perm.end(), [&v](int i) {
+    ignore_unused(i);
+    assert((i < v.size()) ? true : false);
+  });
   std::vector<int> ret(v.size());
   for (size_t i = 0; i < v.size(); ++i) {
     ret.at(i) = v.at(perm.at(i));
@@ -101,7 +102,8 @@ int calc_shift_val(float inverted) {
     double mean_diff1 = 0;
     for (int i = 0; i < 50; i++) {
       uint32_t int_scale = floor(inverted * shifted_val);
-      double check = (double) (values[i] * int_scale + shifted_m1) / (double) shifted_val;
+      double check =
+          (double)(values[i] * int_scale + shifted_m1) / (double)shifted_val;
       double ori = values[i] * inverted;
       // std::cout<<(int)check<<" "<<(int)ori<<std::endl;
       mean_diff1 += abs(ori - check);
