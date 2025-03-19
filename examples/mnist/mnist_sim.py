@@ -1,7 +1,8 @@
 import gati
+import numpy as np
 
 def gen():
-    arr = np.load("mnist_10.npy")
+    arr = np.load("mnist_100.npy")
     return arr
 
 def post(num):
@@ -11,7 +12,7 @@ def post(num):
     return m
 
 if __name__ == "__main__":
-    onnx_path = "/home/metal/dev/gaticc/tests/models/mnist_average_pool_int8.onnx"
+    onnx_path = "/home/metal/dev/gaticc/tests/models/mnist_6_28_int8.onnx"
     with open("results.txt", "w"): pass
-    gati.sim(onnx_path, "mnist.py", "gen", "post")
-    print(f"Match: {gati.match('mnist_10_labels.txt', 'results.txt')}%")
+    gati.sim(onnx_path, "mnist_sim.py", "gen", "post")
+    print(f"Match: {gati.match('mnist_100_labels.txt', 'results.txt')}%")
