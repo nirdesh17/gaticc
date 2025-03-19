@@ -198,7 +198,6 @@ struct Conv : public LayerBase {
   const char *op_type() const override;
   std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
-  void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const IVec2D &input_dims) override;
@@ -238,7 +237,6 @@ struct Gemm : public LayerBase {
   std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
-  void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
@@ -251,7 +249,6 @@ struct Maxpool : public LayerBase {
   const char *op_type() const override;
   std::string params() const override;
   void run(TensorPool &tensor_pool) override;
-  void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
@@ -398,7 +395,6 @@ struct QLinearMatMul : public LayerBase {
   const char *op_type() const override;
   std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
-  void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
@@ -442,7 +438,6 @@ struct MatMul : public LayerBase {
   const char *op_type() const override;
   std::string params() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
-  void set_value_info_params(const onnx::ValueInfoProto &t) override;
   void run(TensorPool &tensor_pool) override;
 };
 
@@ -659,8 +654,7 @@ get_tensor_shape_proto(const onnx::ValueInfoProto &t);
 bool is_valid_tensor_shape(const onnx::TensorShapeProto &shape,
                            int expected_dims);
 std::vector<int> get_dims_from_value_info(const onnx::ValueInfoProto &v);
-IVec2D get_dims_of_in_edges(Op::Vertex v,
-                                                   const Op::Graph &g);
+IVec2D get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g);
 std::vector<TPDT>
 get_types_of_in_edges(Op::Vertex v, const Op::Graph &g,
                       const std::vector<std::string> &i_nodes);
@@ -701,16 +695,16 @@ inline int mp_odims_row(Op::PoolParams const &cp,
                         const std::vector<int> &input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
   return std::floor((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] +
-           cp.pad[I_LEFT] + cp.pad[I_RIGHT]) /
-          cp.stride[TENSOR_2D_HEIGHT]) +
+                     cp.pad[I_LEFT] + cp.pad[I_RIGHT]) /
+                    cp.stride[TENSOR_2D_HEIGHT]) +
          1;
 }
 
 inline int mp_odims_cols(Op::PoolParams const &cp,
                          const std::vector<int> &input_dims) {
-  return std::floor((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] +
-           cp.pad[I_DOWN]) /
-          cp.stride[TENSOR_2D_WIDTH]) +
+  return std::floor((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] +
+                     cp.pad[I_UP] + cp.pad[I_DOWN]) /
+                    cp.stride[TENSOR_2D_WIDTH]) +
          1;
 }
 

@@ -819,3 +819,8 @@ constexpr std::array<int8_t, sz/8> get_byte_vector(const std::bitset<sz> num) {
   }
   return ret;
 }
+
+/* shutoff -Wunused-variable 
+ * see https://herbsutter.com/2009/10/18/mailbag-shutting-up-compiler-warnings/
+ */
+template <typename T> void ignore_unused(const T&) {}
