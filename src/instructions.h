@@ -339,6 +339,7 @@
 #define ELTWISE_ADD 0
 #define ELTWISE_SUB 1
 #define ELTWISE_MULT 2
+#define INST_SIZE_BITS 256
 
 #define ZerothStartAddress_LOW 0
 #define ZerothStartAddress_HIGH 31

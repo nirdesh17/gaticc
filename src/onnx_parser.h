@@ -46,9 +46,6 @@
 #define I_UP 1
 #define I_DOWN 3
 
-/* Total bits in an instruction */
-#define INST_SIZE_BITS 256
-
 using TPDT = onnx::TensorProto_DataType;
 using InstBlob = std::vector<std::bitset<INST_SIZE_BITS>>;
 using IVec2D = std::vector<std::vector<int>>;
