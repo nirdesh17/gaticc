@@ -703,8 +703,7 @@ void adjust_scale_shift_gemm(Op::Graph graph);
 
 void extract_conv_true_odims(Op::Graph graph);
 
-std::vector<Op::LayerBase *>
-mark_cfg(const std::vector<Op::LayerBase *> &order);
+void mark_cfg(const std::vector<Op::LayerBase *> &order);
 
 InstBlob insert_start_inst(const InstBlob &insts);
 

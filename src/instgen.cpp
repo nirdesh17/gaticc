@@ -419,7 +419,6 @@ void Pass::mark_cfg(const std::vector<Op::LayerBase *> &order) {
       }
     }
   }
-  return order;
 }
 
 void Op::Parser::pass_set_device(Op::Graph gcopy) {
@@ -1567,7 +1566,7 @@ IVec2D Op::Layer::QGemm::aligned_output() {
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
   auto order = Pass::remove_dqxq(graph);
   Pass::extract_conv_true_odims(graph);
-  order = Pass::mark_cfg(order);
+  Pass::mark_cfg(order);
   m_exec_order = order;
 
   if (!gbl_args.has_option("ramsize")) {

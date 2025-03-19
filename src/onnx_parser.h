@@ -13,6 +13,7 @@
 #include "onnx.pb.h"
 #include "tensor.h"
 #include "utils.h"
+#include "instructions.h"
 
 /* Indices for accessing dimensions. I_BATCH should be read as
  * index for BATCH dimension
