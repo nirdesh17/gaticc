@@ -200,10 +200,12 @@ template <typename T> PyObject *t2np(const Tensor<T> *t) {
 
 template <typename T>
 void pickle_tensor(const Tensor<T> *t, std::string filename) {
+  log_info("Pickling tensor to {}\n", filename);
   PyObject *t_obj = t2np(t);
-  std::filesystem::path mod_path = "src";
-  PyEngine engine("ml_inference", mod_path);
+  std::filesystem::path mod_path = "";
+  PyEngine engine("aux", mod_path);
   PyObject *args = Py_BuildValue("(sO)", filename.c_str(), t_obj);
+  log_info("Calling save_tensor\n");
   engine.call_func("save_tensor", args);
   Py_XDECREF(t_obj);
 }

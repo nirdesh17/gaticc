@@ -91,6 +91,23 @@ def set_arch(ramsize=None, sa_arch=None, vasize=None, accbuf_size=None, fcbuf_si
             gbl_arch.update(updates)
 
 def set_dispatch(dispatch_list):
+    """Sets a global dispatch comparison argument based on a provided dispatch list.
+
+    Args:
+        dispatch_list: A list of elements to process. Can be:
+            - A list of strings (e.g., ["foo", "bar"]), which generates a `--dispatch` argument.
+            - A list of pairs (lists or tuples) (e.g., [("foo", 1), ("bar", 2)]), which generates
+              both `--dispatch` and `--compare-layer` arguments.
+
+    Raises:
+        ValueError: If `dispatch_list` is not a list, is empty, or contains unsupported types.
+
+    Examples:
+        >>> set_dispatch(["layer1", "layer2"])
+        # Sets dispatch_compare_arg to "--dispatch layer1,layer2"
+        >>> set_dispatch([("layer1", 1), ("layer2", 2)])
+        # Sets dispatch_compare_arg to "--dispatch layer1,layer2 --compare-layer 1,2"
+    """
     global dispatch_compare_arg
     if not isinstance(dispatch_list, list) or len(dispatch_list) < 1:
         raise ValueError(f"provided dispatch list {dispatch_list} should be a list with size greater than 0")

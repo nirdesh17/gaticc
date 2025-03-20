@@ -351,7 +351,7 @@ void Runner::receive_output_aux(const T *data, Op::LayerBase *l,
 
   if (l->dispatch) {
     write_model_output<T>(*m_engine, tensor, is_last_layer);
-    //pickle_tensor(tensor, "fpga_" + l->name);
+    pickle_tensor(tensor, "fpga_" + l->name);
   }
   if (gbl_args.has_option("compare-layer")) {
     std::string arg = gbl_args["compare-layer"].as<std::string>();
@@ -374,12 +374,13 @@ template <typename T> T get_dlsym(void *m_handle, std::string func_name) {
 template <typename T>
 void Runner::compare_layer(Op::LayerBase *l, const Tensor<T> *tensor,
                            fs::path &file) {
-  // fs::path file = path / fs::path(l->name + ".tensor.npy");
   if (!fs::exists(file)) {
     log_fatal("{}: no such file or directory\n", file);
   }
   PyObject *received_tensor = t2np<T>(tensor);
   PyObject *args = Py_BuildValue("(Os)", received_tensor, file.c_str());
+  std::filesystem::path mod_path = "";
+  PyEngine engine("aux", mod_path);
   log_info("Comparing {} with {}\n", l->name, file);
-  m_engine->call_func("compare_npy", args);
+  engine.call_func("compare_npy", args);
 }
