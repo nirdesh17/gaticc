@@ -90,10 +90,11 @@ void write_model_output(const PyEngine &engine, Tensor<T> *out,
   }
   std::string postprocfn = gbl_args["postprocfn"].as<std::string>();
   if (is_last_layer == false) {
-    if (!gbl_args.has_option("dispatch_fn")) {
-      log_fatal("dispatch function is required\n");
+    if (gbl_args.has_option("dispatch_fn")) {
+      postprocfn = gbl_args["dispatch_fn"].as<std::string>();
+    } else {
+      return;
     }
-    postprocfn = gbl_args["dispatch_fn"].as<std::string>();
   }
   PyObject *t = t2np<T>(out);
   PyObject *arr = Py_BuildValue("(O)", t);
