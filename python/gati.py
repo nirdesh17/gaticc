@@ -39,6 +39,8 @@ gbl_arch = {
         "fcbuf-size": 32768
         }
 
+dispatch_compare_arg = ""
+
 def _exec(cmd_string, sudo=False):
     if os.getenv('PYTHONPATH') is None:
         raise OSError("Env variable PYTHONPATH needs to be set to ${GATICC_ROOT}/python")
@@ -87,6 +89,32 @@ def set_arch(ramsize=None, sa_arch=None, vasize=None, accbuf_size=None, fcbuf_si
         
         if updates:
             gbl_arch.update(updates)
+
+def set_dispatch(dispatch_list):
+    global dispatch_compare_arg
+    if not isinstance(dispatch_list, list) or len(dispatch_list) < 1:
+        raise ValueError(f"provided dispatch list {dispatch_list} should be a list with size greater than 0")
+    dispatch_compare_arg = ""
+    if isinstance(dispatch_list[0], str):
+        dispatch_compare_arg += "--dispatch "
+        for index,i in enumerate(dispatch_list):
+            dispatch_compare_arg += f"{i}"
+            if index < len(dispatch_list)-1:
+                dispatch_compare_arg += ","
+    elif isinstance(dispatch_list[0], list) or isinstance(dispatch_list[0], tuple):
+        dispatch_compare_arg += " --dispatch "
+        for index,(i,_) in enumerate(dispatch_list):
+            dispatch_compare_arg += f"{i}"
+            if index < len(dispatch_list)-1:
+                dispatch_compare_arg += ","
+        dispatch_compare_arg += " --compare-layer "
+        for index,(_,i) in enumerate(dispatch_list):
+            dispatch_compare_arg += f"{i}"
+            if index < len(dispatch_list)-1:
+                dispatch_compare_arg += ","
+    else:
+        raise ValueError(f"dispatch_list contains values of type {type(dispatch_list)}, can't handle it")
+
 
 def set_keep_quiet(val=True):
     global keep_quiet
@@ -156,7 +184,7 @@ def compile(
     """
     if not keep_quiet:
         print(f"GATICC COMPILE: Using arch: {get_arch()}")
-    cmd_string = f"-c {onnx_path} -o {out_path} {get_arch_string(get_arch())} {args2cmdstring(*args)}"
+    cmd_string = f"-c {onnx_path} -o {out_path} {get_arch_string(get_arch())} {args2cmdstring(*args)} {dispatch_compare_arg}"
     return _exec(cmd_string)
 
 def flash(
@@ -199,7 +227,7 @@ def run(
     cmd_string = (
             f"-r {gml_path} --run-onnx {onnx_path} --loadpy {loadpy} "
             f"--preprocfn {preprocfn} --postprocfn {postprocfn} "
-            f"{get_arch_string(get_arch())} {args2cmdstring(*args)} "
+            f"{get_arch_string(get_arch())} {args2cmdstring(*args)} {dispatch_compare_arg}"
             )
     return _exec(cmd_string, sudo=True)
 
@@ -269,6 +297,6 @@ def sim(
     cmd_string = (
             f"-s {onnx_path} --loadpy {loadpy} "
             f"--preprocfn {preprocfn} --postprocfn {postprocfn} "
-            f" {args2cmdstring(*args)} "
+            f" {args2cmdstring(*args)} {dispatch_compare_arg} "
             )
     return _exec(cmd_string)
