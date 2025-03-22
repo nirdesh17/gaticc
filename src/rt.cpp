@@ -1,17 +1,16 @@
 #include "rt.h"
 #include "pch.h"
-// #include <cstdlib>
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <sys/stat.h>
-// #include <sys/types.h>
-// #include <unistd.h>
-// #include <dlfcn.h>
 #include "executor.h"
 #include "ffi.h"
 #include "instgen.h"
 #include "onnx_parser.h"
 #include "tensor.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <cerrno>
+#include <unistd.h>
+#include <cstring>
 
 Fstream::Fstream(const std::string &filename) {
   FILE *fp = fopen(filename.c_str(), "rb");
@@ -44,6 +43,25 @@ std::vector<char> cvt_32248(int v) {
   buf.push_back(static_cast<char>((v & 0x0000FF00) >> 8));
   buf.push_back(static_cast<char>((v & 0x000000FF)));
   return buf;
+}
+
+std::vector<char> get_meta_packet(const std::bitset<META_WIDTH_BITS> type,
+                                  const std::vector<char> &data) {
+  constexpr std::bitset<META_WIDTH_BITS> meta_sop_set{META_SOP};
+  constexpr auto meta_sop_arr{get_byte_vector<META_WIDTH_BITS>(meta_sop_set)};
+
+  const auto type_arr{get_byte_vector<META_WIDTH_BITS>(type)};
+
+  std::vector<char> size_buf{cvt_32248(static_cast<int>(data.size()))};
+  std::vector<char> packet;
+  packet.insert(packet.end(), meta_sop_arr.begin(), meta_sop_arr.end());
+  packet.insert(packet.end(), size_buf.begin(), size_buf.end());
+  packet.insert(packet.end(), type_arr.begin(), type_arr.end());
+
+  for (char i : data) {
+    packet.push_back(i);
+  }
+  return packet;
 }
 
 // static const std::vector<char> META_SOP = {0xff, 0xff, 0xff, 0xff, 0xff,
@@ -109,20 +127,7 @@ int RealRah::write(const char *data, size_t size) {
 int RealRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
                         const std::vector<char> &data) {
 
-  constexpr std::bitset<META_WIDTH_BITS> meta_sop_set{META_SOP};
-  constexpr auto meta_sop_arr{get_byte_vector<META_WIDTH_BITS>(meta_sop_set)};
-
-  const auto type_arr{get_byte_vector<META_WIDTH_BITS>(type)};
-
-  std::vector<char> size_buf{cvt_32248(static_cast<int>(data.size()))};
-  std::vector<char> packet;
-  packet.insert(packet.end(), meta_sop_arr.begin(), meta_sop_arr.end());
-  packet.insert(packet.end(), size_buf.begin(), size_buf.end());
-  packet.insert(packet.end(), type_arr.begin(), type_arr.end());
-
-  for (char i : data) {
-    packet.push_back(i);
-  }
+  std::vector<char> packet = get_meta_packet(type, data);
 
   typedef int (*clear_fn_t)(const uint8_t);
   clear_fn_t clear_fn = get_dlsym<clear_fn_t>(m_handle, "rah_clear_buffer");
@@ -182,6 +187,91 @@ int FakeRah::read(char *data, size_t size) {
 
 void FakeRah::check_version() {}
 
+AirRah::AirRah(const std::string& server_ip) {
+    log_info("Reading/Writing over AirRah\n");
+    m_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_sock == -1) {
+        log_fatal("Socket creation failed: {}\n", strerror(errno));
+    }
+    sockaddr_in server_addr{};
+    server_addr.sin_family = AF_INET;
+    const int port_no = 8080;
+    server_addr.sin_port = htons(port_no);
+    if (inet_pton(AF_INET, server_ip.c_str(), &server_addr.sin_addr) <= 0) {
+        log_fatal("Invalid address or address not supported: {}\n", server_ip);
+    }
+
+    if (connect(m_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        log_fatal("Connection failed with ip {} at port {}\n", server_ip, port_no);
+    }
+    log_info("Connected to server at ip {}, port {}\n", server_ip, port_no);
+}
+
+void AirRah::serv_send(int app_id, const char *data, int size) {
+  /* TODO: check for errors */
+  uint32_t id = htonl(static_cast<uint32_t>(app_id));
+  uint32_t length = htonl(static_cast<uint32_t>(size));
+  send(m_sock, &id, sizeof(id), 0);
+  send(m_sock, &length, sizeof(length), 0);
+  send(m_sock, data, size, 0);
+}
+
+int AirRah::write(const char *data, size_t size) {
+  log_info("writing meta app, size {}\n", size);
+  std::vector<char> size_buf = cvt_32248(size);
+  write_meta(META_TYPE_PAYLOAD_SIZE, size_buf);
+
+  log_info("writing via rah, size {}\n", size);
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
+  serv_send(RAH_APP_ID, data, size);
+  tt.stop();
+  log_info("Data write time: {}\n", tt.difference().count());
+  return size;
+}
+
+int AirRah::read(char *data, size_t size) {
+  uint32_t sz = htonl(static_cast<uint32_t>(size));
+  send(m_sock, &sz, sizeof(sz), 0);
+
+  uint32_t server_length;
+  int bytes_received =
+      recv(m_sock, &server_length, sizeof(server_length), MSG_WAITALL);
+  if (bytes_received <= 0) {
+    log_fatal("Server disconnected\n");
+  }
+  server_length = ntohl(server_length);
+
+  size_t total_received = 0;
+  while (total_received < server_length) {
+    bytes_received = recv(m_sock, data + total_received,
+                          server_length - total_received, 0);
+    if (bytes_received <= 0) {
+      log_fatal("Server disconnected during message\n");
+    }
+    total_received += bytes_received;
+  }
+  return total_received;
+}
+
+void AirRah::check_version() {
+}
+
+int AirRah::write_meta(const std::bitset<META_WIDTH_BITS> type,
+               const std::vector<char> &data) {
+  std::vector<char> packet = get_meta_packet(type, data);
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
+  serv_send(META_APP_ID, packet.data(), packet.size());
+  tt.stop();
+  log_info("Meta packet write time: {}\n", tt.difference().count());
+  return 0;
+}
+
+AirRah::~AirRah() {
+  close(m_sock);
+}
+
 void Runner::check_args() {
   if (!gbl_args.has_option("loadpy")) {
     log_fatal("Option --loadpy needs to be specified\n");
@@ -226,15 +316,17 @@ Runner::Runner(Op::Parser &parser) : m_parser{&parser} {
   std::string gml_file = get_run_arg();
   Fstream fp(gml_file);
 
+  Rah *rah;
   if (gbl_args.has_option("dry-run")) {
-    FakeRah fr;
-    load_model(fr, fp);
-    infer_loop(fr, fp);
+    rah = new FakeRah();
+  } else if (gbl_args.has_option("remote")) {
+    std::string ip_addr = gbl_args["remote"].as<std::string>();
+    rah = new AirRah(ip_addr);
   } else {
-    RealRah rr;
-    load_model(rr, fp);
-    infer_loop(rr, fp);
+    rah = new RealRah();
   }
+  load_model(*rah, fp);
+  infer_loop(*rah, fp);
 }
 
 Runner::~Runner() { delete m_engine; }
