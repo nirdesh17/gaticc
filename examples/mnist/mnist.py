@@ -6,7 +6,7 @@ import gati
 
 def gen():
 		arr = np.load("mnist_10.npy")
-		return np.expand_dims(arr[9], axis=0)
+		return arr
 
 def post(num):
 		m = np.argmax(num)
