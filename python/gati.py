@@ -1,6 +1,8 @@
 import os
 import shutil
 import numpy as np
+import socket
+import struct
 
 
 # Using gati.py
@@ -40,6 +42,8 @@ gbl_arch = {
         }
 
 dispatch_compare_arg = ""
+remote_ip = ""
+remote_arg = ""
 
 def _exec(cmd_string, sudo=False):
     if os.getenv('PYTHONPATH') is None:
@@ -137,6 +141,12 @@ def set_keep_quiet(val=True):
     global keep_quiet
     keep_quiet = val
 
+def set_remote(ip):
+    global remote_ip
+    global remote_arg
+    remote_ip = ip
+    remote_arg = f"--remote {remote_ip}"
+
 def get_arch():
     return gbl_arch
 
@@ -204,15 +214,29 @@ def compile(
     cmd_string = f"-c {onnx_path} -o {out_path} {get_arch_string(get_arch())} {args2cmdstring(*args)} {dispatch_compare_arg}"
     return _exec(cmd_string)
 
+def _flash_remote(ip, bitstream_file):
+    PORT_BITSTREAM = 8081
+    BUFFER_SIZE = 3 * 1024 * 1024
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((ip, PORT_BITSTREAM))
+    with open(bitstream_file, "rb") as f: data = f.read()
+    s.send(struct.pack('>I', len(data))); sent = 0
+    while sent < len(data): sent += s.send(data[sent:sent + BUFFER_SIZE])
+    length = struct.unpack('>I', s.recv(4))[0]; print(f"Bitstream ack: {s.recv(length).decode()}")
+    s.close()
+
 def flash(
         bitstream_path: str
         ):
-    if shutil.which("bitman"):
-        return os.system(f"sudo bitman -f {bitstream_path}")
-    elif shutil.which("vaaman-ctl"):
-        return os.system(f"sudo vaaman-ctl -i {bitstream_path}")
+    if remote_ip != "":
+        _flash_remote(remote_ip, bitstream_path)
     else:
-        OSError("Could not find any program to flash bitstream")
+        if shutil.which("bitman"):
+            return os.system(f"sudo bitman -f {bitstream_path}")
+        elif shutil.which("vaaman-ctl"):
+            return os.system(f"sudo vaaman-ctl -i {bitstream_path}")
+        else:
+            OSError("Could not find any program to flash bitstream")
 
 def run(
         onnx_path: str,
@@ -244,8 +268,9 @@ def run(
     cmd_string = (
             f"-r {gml_path} --run-onnx {onnx_path} --loadpy {loadpy} "
             f"--preprocfn {preprocfn} --postprocfn {postprocfn} "
-            f"{get_arch_string(get_arch())} {args2cmdstring(*args)} {dispatch_compare_arg}"
+            f"{get_arch_string(get_arch())} {args2cmdstring(*args)} {dispatch_compare_arg} {remote_arg}"
             )
+    print(cmd_string)
     return _exec(cmd_string, sudo=True)
 
 def summary(onnx_path: str):
