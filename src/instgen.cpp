@@ -1856,6 +1856,12 @@ static void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
   case OP_FC:
     inst_data.fc = get_fc_table(inst);
     break;
+  case OP_NMS:
+    inst_data.nms = get_nms_table(inst);
+    break;
+  case OP_EltWise:
+    inst_data.eltwise = get_eltwise_table(inst);
+    break;
   default:
     log_fatal("can't pretty print instruction with opcode {}\n", op_code);
     break;

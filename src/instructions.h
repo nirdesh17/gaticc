@@ -390,6 +390,7 @@ struct pretty_data {
   Table startblock;
   Table tailblock;
   Table nms;
+  Table eltwise;
 
   void clear() {
     conv.clear();
@@ -398,6 +399,7 @@ struct pretty_data {
     startblock.clear();
     tailblock.clear();
     nms.clear();
+    eltwise.clear();
   }
 };
 
