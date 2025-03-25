@@ -1482,6 +1482,17 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
               "found {} inputs\n",
               l->name, l->op_type(), l->inputs.size());
   }
+
+  std::bitset<EltWise_IW_COUNT> iw {l->input_dims.at(0).at(TENSOR_4D_WIDTH)};
+  bitset_range_set(add_inst, iw, EltWise_IW_LOW, EltWise_IW_HIGH);
+
+  std::bitset<EltWise_IH_COUNT> ih {l->input_dims.at(0).at(TENSOR_4D_HEIGHT)};
+  bitset_range_set(add_inst, ih, EltWise_IH_LOW, EltWise_IH_HIGH);
+
+  std::bitset<EltWise_IC_COUNT> ic {l->input_dims.at(0).at(TENSOR_4D_CHANNELS)};
+  bitset_range_set(add_inst, ic, EltWise_IC_LOW, EltWise_IC_HIGH);
+
+
   uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
   uint32_t left_size =
       prod(l->input_dims.at(0).begin(), l->input_dims.at(0).end(), 1) *
@@ -2331,7 +2342,8 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
         expected_kern_itr = ceil_div(weight_cols, va_size);
       } else if (p_op == OP_EltWise) {
         expected_chan_itr = 1;
-        expected_kern_itr = 1;
+        int kern = inst_get(*previous_inst, EltWise_IC);
+        expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
       } else {
         log_fatal("GmlCheck: megablock of opcode {} cannot be handled\n", p_op);
       }
