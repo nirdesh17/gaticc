@@ -4,16 +4,13 @@
 #include "instgen.h"
 #include "onnx_parser.h"
 #include "tensor.h"
+#include "instructions.h"
 #include <cstddef>
 #include <dlfcn.h>
 #include <filesystem>
 #include <string>
 
 #define RAH_SO_STRING "librah.so"
-#define RAH_APP_ID 1
-#define META_APP_ID 2
-/* Rah is a 48bit (6 byte) per cycle protocol */
-#define RAH_WIDTH 6
 
 namespace fs = std::filesystem;
 
@@ -37,17 +34,6 @@ public:
 
 #define META_WIDTH_BITS 48
 #define META_WIDTH_BYTES (META_WIDTH_BITS / 8)
-#define META_FIELD_WIDTH_BYTES 6
-#define META_HEADER_BYTES                                                      \
-  18 /* 6 bytes of each field * 3 total fields in header */
-
-// #define META_SOP 0xffffffffffff
-// #define META_TYPE_RESET 0x00000000
-// #define META_TYPE_DISPATCH 0x00000001
-// #define META_TYPE_PAYLOAD_SIZE 0x00000002
-//
-// #define META_CONST_DISPATCH_RAH 0x00000000 /* default */
-// #define META_CONST_DISPATCH_UART 0x00000001
 
 std::vector<char> cvt_32248(int v);
 

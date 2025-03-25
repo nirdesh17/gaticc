@@ -373,7 +373,7 @@ void Pass::extract_conv_true_odims(Op::Graph gcopy) {
     Op::Vertex v = candidates.top();
     Op::LayerBase *l = gcopy[v];
 
-    if (is_op_type(l, "QLinearConv")) {
+    if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearAdd")) {
       cc = l;
     } else if (is_megablock(l) || changes_dimension_count(l)) {
       cc = nullptr;
@@ -913,6 +913,12 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   bitset_range_set(output_inst, on_chip_bitset, OutputBlock_OnChipAcc_LOW,
                    OutputBlock_OnChipAcc_HIGH);
 
+  std::bitset<OutputBlock_OH_COUNT> oh_bs {cc->output_dims.at(0).at(TENSOR_4D_HEIGHT)};
+  bitset_range_set(output_inst, oh_bs, OutputBlock_OH_LOW, OutputBlock_OH_HIGH);
+
+  std::bitset<OutputBlock_OW_COUNT> ow_bs {cc->output_dims.at(0).at(TENSOR_4D_WIDTH)};
+  bitset_range_set(output_inst, ow_bs, OutputBlock_OW_LOW, OutputBlock_OW_HIGH);
+
   return output_inst;
 }
 
@@ -1205,6 +1211,12 @@ static std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
     bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
                      OutputBlock_DispatchID_HIGH);
   }
+
+  std::bitset<OutputBlock_OH_COUNT> oh_bs {cc->output_dims.at(0).at(TENSOR_2D_HEIGHT)};
+  bitset_range_set(output_inst, oh_bs, OutputBlock_OH_LOW, OutputBlock_OH_HIGH);
+
+  std::bitset<OutputBlock_OW_COUNT> ow_bs {cc->output_dims.at(0).at(TENSOR_2D_WIDTH)};
+  bitset_range_set(output_inst, ow_bs, OutputBlock_OW_LOW, OutputBlock_OW_HIGH);
 
   // std::cout << "kernel iterations " << kernel_iterations << '\n';
 
@@ -1501,9 +1513,19 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise_output(const Op::LayerBase *l,
   bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
                    OutputBlock_ChannelItr_HIGH);
 
-  std::bitset<OutputBlock_KernelItr_COUNT> kitr{1};
+  auto sa_arch = get_sa_arch();
+  int kernel_iterations = ceil_div(l->input_dims.at(0).at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
+  std::bitset<OutputBlock_KernelItr_COUNT> kitr{kernel_iterations};
   bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
                    OutputBlock_KernelItr_HIGH);
+
+  auto pod = l->pipelined_output_dims.at(0);
+  int image_dim_output = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
+                                  get_conv_out_mod());
+
+  std::bitset<OutputBlock_ImageDimOutput_COUNT> ido{image_dim_output};
+  bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW,
+                   OutputBlock_ImageDimOutput_HIGH);
 
   if (l->dispatch) {
     std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en{1};
@@ -1514,6 +1536,13 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise_output(const Op::LayerBase *l,
     bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
                      OutputBlock_DispatchID_HIGH);
   }
+
+  std::bitset<OutputBlock_OH_COUNT> oh_bs {l->output_dims.at(0).at(TENSOR_4D_HEIGHT)};
+  bitset_range_set(output_inst, oh_bs, OutputBlock_OH_LOW, OutputBlock_OH_HIGH);
+
+  std::bitset<OutputBlock_OW_COUNT> ow_bs {l->output_dims.at(0).at(TENSOR_4D_WIDTH)};
+  bitset_range_set(output_inst, ow_bs, OutputBlock_OW_LOW, OutputBlock_OW_HIGH);
+
   return output_inst;
 }
 
