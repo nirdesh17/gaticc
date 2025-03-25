@@ -36,7 +36,8 @@ gbl_arch = {
         "sa-arch": "9,4,4",
         "vasize": 32,
         "accbuf-size": 4096,
-        "fcbuf-size": 32768
+        "fcbuf-size": 32768,
+        "im2colbuf-size": 1024
         }
 
 dispatch_compare_arg = ""
@@ -49,7 +50,7 @@ def _exec(cmd_string, sudo=False):
     else:
         return os.system(f"gaticc {cmd_string}")
 
-def set_arch(ramsize=None, sa_arch=None, vasize=None, accbuf_size=None, fcbuf_size=None, config=None):
+def set_arch(ramsize=None, sa_arch=None, vasize=None, accbuf_size=None, fcbuf_size=None, im2colbuf_size=None, config=None):
     """
     Update the global architecture configuration. Parameters are optional and 
     will retain existing values if not specified.
@@ -86,7 +87,8 @@ def set_arch(ramsize=None, sa_arch=None, vasize=None, accbuf_size=None, fcbuf_si
             updates["accbuf-size"] = accbuf_size
         if fcbuf_size is not None:
             updates["fcbuf-size"] = fcbuf_size
-        
+        if im2colbuf_size is not None:
+            updates["im2colbuf-size"] = im2colbuf_size
         if updates:
             gbl_arch.update(updates)
 
