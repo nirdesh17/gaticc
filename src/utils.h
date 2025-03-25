@@ -187,6 +187,11 @@ class Argparse {
            "Send data to a remote vaaman running a gaticc-capable server. "
            "Args: <ip_address>",
            1},
+          {"im2colbuf-size",
+           {"--im2colbuf-size"},
+           "size of input buffer of the im2col. "
+           "Args: size in bytes (int)",
+           1},
           {"version", {"--version"}, "print version info and exit", 0},
           {"summary", {"--summary"}, "print a summary of the model", 0},
       }};

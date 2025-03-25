@@ -1,6 +1,7 @@
 #include "rt.h"
 #include "pch.h"
 #include "executor.h"
+#include "instructions.h"
 #include "ffi.h"
 #include "instgen.h"
 #include "onnx_parser.h"
