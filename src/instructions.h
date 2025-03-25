@@ -61,9 +61,9 @@
 #define CONV_WeightEndAddress_COUNT 32
 // Set if the entire image can be fetched in im2col blocks at o
 // nce
-#define CONV_Im2colOnChip_LOW 211
-#define CONV_Im2colOnChip_HIGH 211
-#define CONV_Im2colOnChip_COUNT 1
+#define CONV_Im2colPrefetch_LOW 211
+#define CONV_Im2colPrefetch_HIGH 211
+#define CONV_Im2colPrefetch_COUNT 1
 
 #define OP_TailBlock 0x01
 #define TailBlock_Opcode_LOW 0
@@ -428,8 +428,8 @@ inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("WeightStartAddress");
 	tbl.tbl.insert({"WeightEndAddress", bitset_range_get<CONV_WeightEndAddress_COUNT, INST_SIZE_BITS>(inst, CONV_WeightEndAddress_LOW, CONV_WeightEndAddress_HIGH)});
 	tbl.order.push_back("WeightEndAddress");
-	tbl.tbl.insert({"Im2colOnChip", bitset_range_get<CONV_Im2colOnChip_COUNT, INST_SIZE_BITS>(inst, CONV_Im2colOnChip_LOW, CONV_Im2colOnChip_HIGH)});
-	tbl.order.push_back("Im2colOnChip");
+	tbl.tbl.insert({"Im2colPrefetch", bitset_range_get<CONV_Im2colPrefetch_COUNT, INST_SIZE_BITS>(inst, CONV_Im2colPrefetch_LOW, CONV_Im2colPrefetch_HIGH)});
+	tbl.order.push_back("Im2colPrefetch");
 	return tbl;
 }
 inline void pretty_print_conv(const std::bitset<INST_SIZE_BITS>& inst) {

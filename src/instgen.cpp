@@ -765,6 +765,19 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   std::bitset<CONV_WeightEndAddress_COUNT> wend{weight_addr_end};
   bitset_range_set(conv_inst, wend, CONV_WeightEndAddress_LOW,
                    CONV_WeightEndAddress_HIGH);
+
+  if (cc->m_cp.stride[TENSOR_2D_HEIGHT] > 1) {
+    if (!gbl_args.has_option("im2colbuf-size")) {
+      log_fatal("--im2colbuf-size has to be provided. None found.\n");
+    }
+    int im2col_buf = gbl_args["im2colbuf-size"].as<int>();
+    auto od = cc->output_dims.at(0);
+    if (im2col_buf > od[TENSOR_4D_HEIGHT] * od[TENSOR_4D_WIDTH]) {
+      std::bitset<CONV_Im2colPrefetch_COUNT> im2col_pf{1};
+      bitset_range_set(conv_inst, im2col_pf, CONV_Im2colPrefetch_LOW,
+                       CONV_Im2colPrefetch_HIGH);
+    }
+  }
   return conv_inst;
 }
 
