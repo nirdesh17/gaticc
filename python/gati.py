@@ -272,7 +272,6 @@ def run(
             f"--preprocfn {preprocfn} --postprocfn {postprocfn} "
             f"{get_arch_string(get_arch())} {args2cmdstring(*args)} {dispatch_compare_arg} {remote_arg}"
             )
-    print(cmd_string)
     return _exec(cmd_string, sudo=True)
 
 def summary(onnx_path: str):
