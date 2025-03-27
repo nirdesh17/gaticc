@@ -474,60 +474,41 @@ template <typename T> void BinBlob::sa_align_aux(const Tensor<T> *tensor) {
 template <typename T>
 void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
+  auto strides = tensor->get_strides();
   auto aligned_dims = aligned_conv_weight_dims(dims);
   auto sa_arch = get_sa_arch();
   auto aligned_size =
       ceil_mod(aligned_conv_weight(dims) * sizeof(T), WORD_SIZE);
   auto deficit_zeros =
       aligned_size - prod(aligned_dims.begin(), aligned_dims.end(), 1);
-
   T zero = 0;
-  int kheight = aligned_dims[TENSOR_4D_HEIGHT];
-  int kwidth = aligned_dims[TENSOR_4D_WIDTH];
-  int khkw = kheight * kwidth;
-  if (khkw > sa_arch[SA_ARCH_ROW]) {
+  if (aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH] >
+      sa_arch[SA_ARCH_ROW]) {
     log_fatal(
         "not enough rows in sa for this convolution of kernel size {},{}\n",
-        kheight, kwidth);
+        aligned_dims[TENSOR_4D_HEIGHT], aligned_dims[TENSOR_4D_WIDTH]);
   }
-
   assert(WORD_SIZE % 4 == 0);
-  assert((sa_arch[SA_ARCH_COLS] * sa_arch[SA_ARCH_N] % 4) == 0);
 
-  int kernel_itr = std::ceil((float)aligned_dims[TENSOR_4D_BATCH] /
-                             (float)(sa_arch[SA_ARCH_COLS]));
-  int channel_itr = std::ceil((float)aligned_dims[TENSOR_4D_CHANNELS] /
-                              (float)sa_arch[SA_ARCH_N]);
+  int kern_iterations =
+      ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
+  int chan_iterations =
+      ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
 
-  std::vector<int> rindex(4, 0);
-  for (int ki = 0; ki < kernel_itr; ++ki) {
-    for (int ci = 0; ci < channel_itr; ++ci) {
-      if (sa_arch[SA_ARCH_ROW] > khkw) {
-        int total_cols_in_sa = (sa_arch[SA_ARCH_COLS] * sa_arch[SA_ARCH_N]);
-        int zero_slab_sz = (sa_arch[SA_ARCH_ROW] - khkw) * total_cols_in_sa;
-        for (int i = 0; i < zero_slab_sz; ++i) {
-          append(zero);
-        }
-      }
-      for (int kh = 0; kh < kheight; ++kh) {
-        for (int kw = 0; kw < kwidth; ++kw) {
-          for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
-            for (int c = 0; c < sa_arch[SA_ARCH_COLS]; ++c) {
-              rindex[0] = (ki * sa_arch[SA_ARCH_COLS]) + c;
-              rindex[1] = (ci * sa_arch[SA_ARCH_N]) + k;
-              rindex[2] = kheight - 1 - kh; /* reverse kernels */
-              rindex[3] = kwidth - 1 - kw;  /* reverse kernels */
-              /* Uncomment this to see how a NCHW tensor is
-               * re-aligned according to Gati architecture's
-               * requirements. rindex is the 4 dimensional
-               * index into the tensor (form NCHW)
-               */
-              // print_vec("rindex", rindex);
-              if (is_out_of_bounds(rindex, dims)) {
-                append(zero);
-              } else {
-                append(tensor->at(rindex));
-              }
+  for (int kern = 0; kern < kern_iterations; ++kern) {
+    for (int chan = 0; chan < chan_iterations; ++chan) {
+      for (int srow = sa_arch[SA_ARCH_ROW] - 1; srow >= 0; srow--) {
+        for (int schan = 0; schan < sa_arch[SA_ARCH_N]; schan++) {
+          for (int skern = 0; skern < sa_arch[SA_ARCH_COLS]; skern++) {
+            int k = kern * sa_arch[SA_ARCH_COLS] + skern;
+            int c = chan * sa_arch[SA_ARCH_N] + schan;
+            if (srow >= dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH] ||
+                c >= dims[TENSOR_4D_CHANNELS] ||
+                k >= dims[TENSOR_4D_BATCH]) {
+              append(zero);
+            } else {
+              int index = k * strides[0] + c * strides[1] + srow;
+              append(tensor->at(index));
             }
           }
         }
@@ -537,6 +518,7 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
   for (decltype(deficit_zeros) i = 0; i < deficit_zeros; ++i) {
     append(zero);
   }
+
 }
 template <typename T>
 void BinBlob::sa_align_aux_pointwise(const Tensor<T> *tensor) {

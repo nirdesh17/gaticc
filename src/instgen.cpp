@@ -689,12 +689,6 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   std::bitset<CONV_KN_COUNT> kn{cc->m_cp.kn};
   bitset_range_set(conv_inst, kn, CONV_KN_LOW, CONV_KN_HIGH);
 
-  if (cc->m_cp.k[TENSOR_2D_HEIGHT] != 3 && cc->m_cp.k[TENSOR_2D_WIDTH] != 3) {
-    log_fatal("In layer {}, kernel sizes other than 3x3 are not supported, got "
-              "{}x{}\n",
-              cc->name, cc->m_cp.k[TENSOR_2D_HEIGHT],
-              cc->m_cp.k[TENSOR_2D_WIDTH]);
-  }
   check_overflow(cc->m_cp.k[TENSOR_2D_WIDTH], CONV_KW_COUNT);
   std::bitset<CONV_KW_COUNT> kw{cc->m_cp.k[TENSOR_2D_WIDTH]};
   bitset_range_set(conv_inst, kw, CONV_KW_LOW, CONV_KW_HIGH);
@@ -2121,6 +2115,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       uint32_t aligned_sz = aligned_conv_weight(i.data->dims());
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+      log_info("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
       append_dwp_header(aligned_sz, i.addr);
       sa_align(i.data);
       break;
@@ -2129,6 +2124,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       uint32_t aligned_sz = aligned_conv_bias(i.data->dims());
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+      log_info("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
       append_dwp_header(aligned_sz, i.addr);
       conv_bias_align(i.data);
       break;
@@ -2137,6 +2133,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       uint32_t aligned_sz = aligned_fc_weight(i.data->dims());
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+      log_info("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
       append_dwp_header(aligned_sz, i.addr);
       bool transpose = get_metadata<bool>(i.metadata, "transpose");
       fc_weight_align(i.data, transpose);
@@ -2146,6 +2143,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       uint32_t aligned_sz = aligned_fc_bias(i.data->dims());
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+      log_info("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
       append_dwp_header(aligned_sz, i.addr);
       fc_bias_align(i.data);
       break;
@@ -2279,7 +2277,10 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   uint32_t size = instgen.model_size_cpu();
   /* +1 for end packet */
   int tdp = instgen.dwp_packets();
+  log_info("Total DWP Packets: {}\n", tdp);
   size += (tdp * DWP_HEADER_BYTES);
+
+  log_info("Calculated GML size: {}\n", size);
   BinBlob blob(size);
   InstBlob instblob = instgen.get_blob();
   if (gbl_args.has_option("pretty-print-inst")) {
@@ -2291,7 +2292,9 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   if (gbl_args.has_option("pretty-print-inst-raw")) {
     pretty_print_inst_raw(instblob);
   }
+  log_info("Appending instblob\n");
   blob.append(instblob, m_org);
+  log_info("Appending initializers\n");
   InitializerTable tbl = instgen.get_tbl();
   blob.append(tbl);
 
@@ -2575,6 +2578,12 @@ void GmlCheck::check_dwp(const BinBlob &binblob) const {
   for (int i = 0; i < size;) {
     uint32_t sop = bytes2int(data + i);
     uint32_t ds = bytes2int(data + i + 4);
+    uint32_t addr = bytes2int(data + i + 8);
+    log_info("OFFSET: {} ", i);
+    log_info("DWP: {}\n", sop);
+    log_info("DS: {}\n", ds);
+    log_info("ADDR: {}\n", addr);
+    log_info("...\n");
     if (sop != DWP_SOP) {
       log_fatal(
           "GmlCheck: sop at index {} with value {} does not match DWP_SOP {}\n",
