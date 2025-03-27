@@ -146,7 +146,10 @@ def set_keep_quiet(val=True):
 def set_remote(ip):
     global remote_ip
     global remote_arg
-    remote_ip = ip
+    if "local" in ip:
+        remote_ip = os.popen(f"ping -c 1 {ip}").read().split('(')[1].split(')')[0]
+    else:
+        remote_ip = ip
     remote_arg = f"--remote {remote_ip}"
 
 def get_arch():
