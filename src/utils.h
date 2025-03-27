@@ -49,7 +49,8 @@ class Argparse {
        *                                                       args */
       {
           {"help", {"-h", "--help"}, "print help and exit", 0},
-          {"verbose", {"-v", "--v"}, "verbose", 0},
+          {"verbose", {"-v", "--v", "--verbose"}, "verbose", 0},
+          {"verbose2", {"--vv", "--verbose2"}, "verbose", 0},
           {"timeest",
            {"--timeest"},
            "print estimated time that a model would take based on FLOP counts "
@@ -400,7 +401,15 @@ void log_info(const char *p, T v, Args... args) {
   }
 }
 
+template <typename T, typename... Args>
+void log_info2(const char *p, T v, Args... args) {
+  if (gbl_args.has_option("verbose2")) {
+    log("INFO:", p, v, args...);
+  }
+}
+
 inline void log_info(const char *p) { log_info("{}", p); }
+inline void log_info2(const char *p) { log_info2("{}", p); }
 
 template <typename T, typename... Args>
 [[noreturn]] void log_fatal(const char *p, T v, Args... args) {

@@ -2115,7 +2115,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       uint32_t aligned_sz = aligned_conv_weight(i.data->dims());
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
+      log_info2("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
       append_dwp_header(aligned_sz, i.addr);
       sa_align(i.data);
       break;
@@ -2124,7 +2124,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       uint32_t aligned_sz = aligned_conv_bias(i.data->dims());
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
+      log_info2("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
       append_dwp_header(aligned_sz, i.addr);
       conv_bias_align(i.data);
       break;
@@ -2133,7 +2133,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       uint32_t aligned_sz = aligned_fc_weight(i.data->dims());
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
+      log_info2("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
       append_dwp_header(aligned_sz, i.addr);
       bool transpose = get_metadata<bool>(i.metadata, "transpose");
       fc_weight_align(i.data, transpose);
@@ -2143,7 +2143,7 @@ void BinBlob::append(const InitializerTable &tbl) {
       uint32_t aligned_sz = aligned_fc_bias(i.data->dims());
       aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
       aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
+      log_info2("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
       append_dwp_header(aligned_sz, i.addr);
       fc_bias_align(i.data);
       break;
@@ -2579,11 +2579,11 @@ void GmlCheck::check_dwp(const BinBlob &binblob) const {
     uint32_t sop = bytes2int(data + i);
     uint32_t ds = bytes2int(data + i + 4);
     uint32_t addr = bytes2int(data + i + 8);
-    log_info("OFFSET: {} ", i);
-    log_info("DWP: {}\n", sop);
-    log_info("DS: {}\n", ds);
-    log_info("ADDR: {}\n", addr);
-    log_info("...\n");
+    log_info2("OFFSET: {} ", i);
+    log_info2("DWP: {}\n", sop);
+    log_info2("DS: {}\n", ds);
+    log_info2("ADDR: {}\n", addr);
+    log_info2("...\n");
     if (sop != DWP_SOP) {
       log_fatal(
           "GmlCheck: sop at index {} with value {} does not match DWP_SOP {}\n",
