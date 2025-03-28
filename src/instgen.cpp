@@ -2105,20 +2105,261 @@ void BinBlob::append(const InstBlob &instblob, uint32_t addr) {
   }
 }
 
+template <typename T> inline bool is_pointwise_conv(const T &dims) {
+  if (dims[TENSOR_4D_HEIGHT] == 1 && dims[TENSOR_4D_WIDTH] == 1) {
+    return true;
+  }
+  return false;
+}
+
+template <typename T>
+static void sa_align_aux_regular(BinBlob &blob, const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  auto strides = tensor->get_strides();
+  auto aligned_dims = aligned_conv_weight_dims(dims);
+  auto sa_arch = get_sa_arch();
+  auto aligned_size = aligned_conv_weight(dims) * sizeof(T);
+  auto deficit_zeros = ceil_mod(aligned_size, WORD_SIZE) - aligned_size;
+  T zero = 0;
+  if (aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH] >
+      sa_arch[SA_ARCH_ROW]) {
+    log_fatal(
+        "not enough rows in sa for this convolution of kernel size {},{}\n",
+        aligned_dims[TENSOR_4D_HEIGHT], aligned_dims[TENSOR_4D_WIDTH]);
+  }
+  assert(WORD_SIZE % 4 == 0);
+
+  int kern_iterations =
+      ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
+  int chan_iterations =
+      ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+
+  for (int kern = 0; kern < kern_iterations; ++kern) {
+    for (int chan = 0; chan < chan_iterations; ++chan) {
+      for (int srow = sa_arch[SA_ARCH_ROW] - 1; srow >= 0; srow--) {
+        for (int schan = 0; schan < sa_arch[SA_ARCH_N]; schan++) {
+          for (int skern = 0; skern < sa_arch[SA_ARCH_COLS]; skern++) {
+            int k = kern * sa_arch[SA_ARCH_COLS] + skern;
+            int c = chan * sa_arch[SA_ARCH_N] + schan;
+            if (srow >= dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH] ||
+                c >= dims[TENSOR_4D_CHANNELS] ||
+                k >= dims[TENSOR_4D_BATCH]) {
+              blob.append(zero);
+            } else {
+              int index = k * strides[0] + c * strides[1] + srow;
+              blob.append(tensor->at(index));
+            }
+          }
+        }
+      }
+    }
+  }
+  for (decltype(deficit_zeros) i = 0; i < deficit_zeros; ++i) {
+    blob.append(zero);
+  }
+}
+template <typename T>
+static void sa_align_aux_pointwise(BinBlob &, const Tensor<T> *) {
+  log_fatal("shouldnt reach here, pointwise alignment un-implemented\n");
+}
+
+template <typename T> static void sa_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
+  auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
+  assert(aligned_dims.size() == 4);
+  if (is_pointwise_conv(aligned_dims)) {
+    sa_align_aux_pointwise(blob, tensor);
+  } else {
+    sa_align_aux_regular(blob, tensor);
+  }
+}
+
+template <typename T>
+static void conv_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  assert(dims.size() == 1);
+  size_t size = dims[TENSOR_4D_BATCH];
+  size_t aligned_size =
+      ceil_mod(aligned_conv_bias(dims) * sizeof(T), WORD_SIZE);
+  size_t bytes = size * sizeof(T);
+  size_t deficit_bytes = aligned_size - bytes;
+  for (size_t i = 0; i < size; ++i) {
+    blob.append(tensor->at(i));
+  }
+  uint8_t zero = 0;
+  for (size_t i = 0; i < deficit_bytes; ++i) {
+    blob.append(zero);
+  }
+}
+
+template <typename T> static void fc_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  assert(dims.size() == 1);
+  size_t size = dims[0];
+  size_t aligned_size = aligned_fc_bias(dims);
+  auto sa_arch = get_sa_arch();
+  int sa_cols = sa_arch[SA_ARCH_COLS];
+  int iterations = aligned_size / (sa_cols * sa_cols);
+  T zero = 0;
+  for (int i = 0; i < iterations; ++i) {
+    for (int j = 0; j < sa_cols; ++j) {
+      for (int k = 0; k < sa_cols; ++k) {
+        int index = j + (k * sa_arch[1]) + (i * sa_arch[1] * sa_arch[1]);
+        if (index >= size) {
+          blob.append(zero);
+        } else {
+          blob.append(tensor->at(index));
+        }
+      }
+    }
+  }
+}
+template <typename T>
+static void fc_weight_align_aux(BinBlob &blob, const Tensor<T> *tensor, bool transpose) {
+  auto dims = tensor->get_dims();
+  assert(dims.size() == 2);
+  auto aligned_dims = aligned_fc_weight_dims(dims);
+  int va_size = get_va_size();
+  int hiterations = 0;
+  int viterations = 0;
+  if (transpose) {
+    hiterations = std::ceil(aligned_dims[0] / va_size);
+    viterations = aligned_dims[1];
+  } else {
+    hiterations = std::ceil(aligned_dims[1] / va_size);
+    viterations = aligned_dims[0];
+  }
+  std::vector<int> index(2);
+  T zero = 0;
+  for (int i = 0; i < hiterations; ++i) {
+    for (int j = 0; j < viterations; ++j) {
+      for (int k = 0; k < va_size; ++k) {
+        index[0] = k + (i * va_size);
+        index[1] = j;
+        // std::cout << "index[0] " << index[0] << "index[1] " << index[1] <<
+        // '\n';
+        if (is_out_of_bounds(index, dims)) {
+          blob.append(zero);
+        } else {
+          blob.append(tensor->at(index));
+        }
+      }
+    }
+  }
+}
+
+static void sa_align(BinBlob &blob, const onnx::TensorProto *tensor) {
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    sa_align_aux(blob, t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    sa_align_aux(blob, t1.get());
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type {} "
+              "for tensor {}\n",
+              Op::get_tensorproto_dtype_name((TPDT)type), tensor->name());
+    break;
+  }
+}
+
+static void conv_bias_align(BinBlob &blob, const onnx::TensorProto *tensor) {
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    conv_bias_align_aux(blob, t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    conv_bias_align_aux(blob, t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_INT32: {
+    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
+    conv_bias_align_aux(blob, t1.get());
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type {} "
+              "for tensor {}\n",
+              Op::get_tensorproto_dtype_name((TPDT)type), tensor->name());
+    break;
+  }
+}
+
+static void fc_bias_align(BinBlob &blob, const onnx::TensorProto *tensor) {
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    fc_bias_align_aux(blob, t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    fc_bias_align_aux(blob, t1.get());
+    break;
+  }
+  case onnx::TensorProto_DataType_INT32: {
+    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
+    fc_bias_align_aux(blob, t1.get());
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type {} "
+              "for tensor {}\n",
+              Op::get_tensorproto_dtype_name((TPDT)type), tensor->name());
+    break;
+  }
+}
+
+static void fc_weight_align(BinBlob &blob, const onnx::TensorProto *tensor, bool transpose) {
+  int32_t type = tensor->data_type();
+  switch (type) {
+  case onnx::TensorProto_DataType_INT8: {
+    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
+    fc_weight_align_aux(blob, t1.get(), transpose);
+    break;
+  }
+  case onnx::TensorProto_DataType_UINT8: {
+    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
+    fc_weight_align_aux(blob, t1.get(), transpose);
+    break;
+  }
+  case onnx::TensorProto_DataType_INT32: {
+    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
+    fc_weight_align_aux(blob, t1.get(), transpose);
+    break;
+  }
+  default:
+    log_fatal("Cant generate weight blob, unsupported data type {} "
+              "for tensor {}\n",
+              Op::get_tensorproto_dtype_name((TPDT)type), tensor->name());
+    break;
+  }
+}
+
 void Op::Layer::QLinearConv::align_weights(BinBlob &blob, InitializerTable &tbl) {
     uint32_t aligned_sz = aligned_conv_weight(weights->dims());
     aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
     aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
     log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
     blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
-    blob.sa_align(weights);
+    sa_align(blob, weights);
 
     aligned_sz = aligned_conv_bias(bias->dims());
     aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
     aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
     log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
     blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
-    blob.conv_bias_align(bias);
+    conv_bias_align(blob, bias);
 }
 
 void Op::Layer::QGemm::align_weights(BinBlob &blob, InitializerTable &tbl) {
@@ -2127,167 +2368,14 @@ void Op::Layer::QGemm::align_weights(BinBlob &blob, InitializerTable &tbl) {
     aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
     log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
     blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
-    blob.fc_weight_align(weights, m_cp.transB);
+    fc_weight_align(blob, weights, m_cp.transB);
 
     aligned_sz = aligned_fc_bias(bias->dims());
     aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
     aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
     log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
     blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
-    blob.fc_bias_align(bias);
-}
-
-#if 0
-void BinBlob::append(const InitializerTable &tbl) {
-  for (const InitAddrRow &i : tbl) {
-    switch (i.engine) {
-    case ENGINE_UNKNOWN:
-      log_fatal("Unknown engine, can't align initializer tensor {}\n",
-                i.data->name());
-      break;
-    case ENGINE_SA: {
-      uint32_t aligned_sz = aligned_conv_weight(i.data->dims());
-      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
-      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info2("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
-      append_dwp_header(aligned_sz, i.addr);
-      sa_align(i.data);
-      break;
-    }
-    case ENGINE_CONV_BIAS: {
-      uint32_t aligned_sz = aligned_conv_bias(i.data->dims());
-      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
-      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info2("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
-      append_dwp_header(aligned_sz, i.addr);
-      conv_bias_align(i.data);
-      break;
-    }
-    case ENGINE_FC: {
-      uint32_t aligned_sz = aligned_fc_weight(i.data->dims());
-      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
-      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info2("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
-      append_dwp_header(aligned_sz, i.addr);
-      bool transpose = get_metadata<bool>(i.metadata, "transpose");
-      fc_weight_align(i.data, transpose);
-      break;
-    }
-    case ENGINE_FC_BIAS: {
-      uint32_t aligned_sz = aligned_fc_bias(i.data->dims());
-      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(i.data->data_type()));
-      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info2("Appending initializer {} for engine {}, size: {}, addr: {}\n", i.data->name(), i.engine, aligned_sz, i.addr);
-      append_dwp_header(aligned_sz, i.addr);
-      fc_bias_align(i.data);
-      break;
-    }
-    default:
-      log_fatal(
-          "Uncatched aligner engine for tensor {} probably un-implemented\n",
-          i.data->name());
-    }
-  }
-}
-#endif
-
-void BinBlob::sa_align(const onnx::TensorProto *tensor) {
-  int32_t type = tensor->data_type();
-  switch (type) {
-  case onnx::TensorProto_DataType_INT8: {
-    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
-    sa_align_aux(t1.get());
-    break;
-  }
-  case onnx::TensorProto_DataType_UINT8: {
-    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
-    sa_align_aux(t1.get());
-    break;
-  }
-  default:
-    log_fatal("Cant generate weight blob, unsupported data type {} "
-              "for tensor {}\n",
-              Op::get_tensorproto_dtype_name((TPDT)type), tensor->name());
-    break;
-  }
-}
-
-void BinBlob::conv_bias_align(const onnx::TensorProto *tensor) {
-  int32_t type = tensor->data_type();
-  switch (type) {
-  case onnx::TensorProto_DataType_INT8: {
-    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
-    conv_bias_align_aux(t1.get());
-    break;
-  }
-  case onnx::TensorProto_DataType_UINT8: {
-    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
-    conv_bias_align_aux(t1.get());
-    break;
-  }
-  case onnx::TensorProto_DataType_INT32: {
-    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
-    conv_bias_align_aux(t1.get());
-    break;
-  }
-  default:
-    log_fatal("Cant generate weight blob, unsupported data type {} "
-              "for tensor {}\n",
-              Op::get_tensorproto_dtype_name((TPDT)type), tensor->name());
-    break;
-  }
-}
-
-void BinBlob::fc_bias_align(const onnx::TensorProto *tensor) {
-  int32_t type = tensor->data_type();
-  switch (type) {
-  case onnx::TensorProto_DataType_INT8: {
-    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
-    fc_bias_align_aux(t1.get());
-    break;
-  }
-  case onnx::TensorProto_DataType_UINT8: {
-    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
-    fc_bias_align_aux(t1.get());
-    break;
-  }
-  case onnx::TensorProto_DataType_INT32: {
-    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
-    fc_bias_align_aux(t1.get());
-    break;
-  }
-  default:
-    log_fatal("Cant generate weight blob, unsupported data type {} "
-              "for tensor {}\n",
-              Op::get_tensorproto_dtype_name((TPDT)type), tensor->name());
-    break;
-  }
-}
-
-void BinBlob::fc_weight_align(const onnx::TensorProto *tensor, bool transpose) {
-  int32_t type = tensor->data_type();
-  switch (type) {
-  case onnx::TensorProto_DataType_INT8: {
-    std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
-    fc_weight_align_aux(t1.get(), transpose);
-    break;
-  }
-  case onnx::TensorProto_DataType_UINT8: {
-    std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
-    fc_weight_align_aux(t1.get(), transpose);
-    break;
-  }
-  case onnx::TensorProto_DataType_INT32: {
-    std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
-    fc_weight_align_aux(t1.get(), transpose);
-    break;
-  }
-  default:
-    log_fatal("Cant generate weight blob, unsupported data type {} "
-              "for tensor {}\n",
-              Op::get_tensorproto_dtype_name((TPDT)type), tensor->name());
-    break;
-  }
+    fc_bias_align(blob, bias);
 }
 
 char *BinBlob::get_data() { return m_data; }

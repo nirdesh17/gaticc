@@ -15,16 +15,6 @@
     }                                                                          \
   } while (0)
 
-enum ENGINES {
-  ENGINE_UNKNOWN,
-  ENGINE_SA,        // 1
-  ENGINE_FC,        // 2
-  ENGINE_CONV_BIAS, // 3
-  ENGINE_FC_BIAS    // 4
-};
-
-using MetadataMap = std::map<std::string, std::any>;
-
 class InitializerTable {
   std::unordered_map<std::string, uint32_t> tbl;
 public:
@@ -361,13 +351,6 @@ inline char get_byte(const std::bitset<sz> &a, int n) {
   return (char)c.to_ulong();
 }
 
-template <typename T> inline bool is_pointwise_conv(const T &dims) {
-  if (dims[TENSOR_4D_HEIGHT] == 1 && dims[TENSOR_4D_WIDTH] == 1) {
-    return true;
-  }
-  return false;
-}
-
 /* true if any of dims exceeds limits */
 template <typename T>
 inline bool is_out_of_bounds(const T &dims, const T &limit) {
@@ -417,19 +400,6 @@ public:
   void append_sa_input(uint32_t data_size, uint32_t addr,
                        const Tensor<T> *tensor);
   template <typename T> void append(T i) = delete;
-
-  void sa_align(const onnx::TensorProto *tensor);
-  void conv_bias_align(const onnx::TensorProto *tensor);
-  void fc_bias_align(const onnx::TensorProto *tensor);
-  void fc_weight_align(const onnx::TensorProto *tensor, bool transpose);
-
-  template <typename T> void sa_align_aux(const Tensor<T> *tensor);
-  template <typename T> void sa_align_aux_regular(const Tensor<T> *tensor);
-  template <typename T> void sa_align_aux_pointwise(const Tensor<T> *tensor);
-  template <typename T> void conv_bias_align_aux(const Tensor<T> *tensor);
-  template <typename T> void fc_bias_align_aux(const Tensor<T> *tensor);
-  template <typename T>
-  void fc_weight_align_aux(const Tensor<T> *tensor, bool transpose);
 };
 
 template <typename T> void BinBlob::generic_append(T a) {
@@ -445,144 +415,6 @@ template <typename T> void BinBlob::append(const std::vector<T> &vec) {
   assert(vec.size() * sizeof(vec[0]) <= (m_size - m_ptr));
   for (T i : vec) {
     generic_append(i);
-  }
-}
-
-template <typename T> void BinBlob::sa_align_aux(const Tensor<T> *tensor) {
-  auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
-  assert(aligned_dims.size() == 4);
-  if (is_pointwise_conv(aligned_dims)) {
-    sa_align_aux_pointwise(tensor);
-  } else {
-    sa_align_aux_regular(tensor);
-  }
-}
-
-template <typename T>
-void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
-  auto dims = tensor->get_dims();
-  auto strides = tensor->get_strides();
-  auto aligned_dims = aligned_conv_weight_dims(dims);
-  auto sa_arch = get_sa_arch();
-  auto aligned_size = aligned_conv_weight(dims) * sizeof(T);
-  auto deficit_zeros = ceil_mod(aligned_size, WORD_SIZE) - aligned_size;
-  T zero = 0;
-  if (aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH] >
-      sa_arch[SA_ARCH_ROW]) {
-    log_fatal(
-        "not enough rows in sa for this convolution of kernel size {},{}\n",
-        aligned_dims[TENSOR_4D_HEIGHT], aligned_dims[TENSOR_4D_WIDTH]);
-  }
-  assert(WORD_SIZE % 4 == 0);
-
-  int kern_iterations =
-      ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
-  int chan_iterations =
-      ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
-
-  int count = 0;
-  for (int kern = 0; kern < kern_iterations; ++kern) {
-    for (int chan = 0; chan < chan_iterations; ++chan) {
-      for (int srow = sa_arch[SA_ARCH_ROW] - 1; srow >= 0; srow--) {
-        for (int schan = 0; schan < sa_arch[SA_ARCH_N]; schan++) {
-          for (int skern = 0; skern < sa_arch[SA_ARCH_COLS]; skern++) {
-            int k = kern * sa_arch[SA_ARCH_COLS] + skern;
-            int c = chan * sa_arch[SA_ARCH_N] + schan;
-            if (srow >= dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH] ||
-                c >= dims[TENSOR_4D_CHANNELS] ||
-                k >= dims[TENSOR_4D_BATCH]) {
-              append(zero);
-            } else {
-              int index = k * strides[0] + c * strides[1] + srow;
-              append(tensor->at(index));
-            }
-            count++;
-          }
-        }
-      }
-    }
-  }
-  for (decltype(deficit_zeros) i = 0; i < deficit_zeros; ++i) {
-    append(zero);
-  }
-}
-template <typename T>
-void BinBlob::sa_align_aux_pointwise(const Tensor<T> *tensor) {
-  ignore_unused(tensor);
-  log_fatal("shouldnt reach here, pointwise alignment un-implemented\n");
-}
-
-template <typename T>
-void BinBlob::conv_bias_align_aux(const Tensor<T> *tensor) {
-  auto dims = tensor->get_dims();
-  assert(dims.size() == 1);
-  size_t size = dims[TENSOR_4D_BATCH];
-  size_t aligned_size =
-      ceil_mod(aligned_conv_bias(dims) * sizeof(T), WORD_SIZE);
-  size_t bytes = size * sizeof(T);
-  size_t deficit_bytes = aligned_size - bytes;
-  for (size_t i = 0; i < size; ++i) {
-    append(tensor->at(i));
-  }
-  uint8_t zero = 0;
-  for (size_t i = 0; i < deficit_bytes; ++i) {
-    append(zero);
-  }
-}
-
-template <typename T> void BinBlob::fc_bias_align_aux(const Tensor<T> *tensor) {
-  auto dims = tensor->get_dims();
-  assert(dims.size() == 1);
-  size_t size = dims[0];
-  size_t aligned_size = aligned_fc_bias(dims);
-  auto sa_arch = get_sa_arch();
-  int sa_cols = sa_arch[SA_ARCH_COLS];
-  int iterations = aligned_size / (sa_cols * sa_cols);
-  T zero = 0;
-  for (int i = 0; i < iterations; ++i) {
-    for (int j = 0; j < sa_cols; ++j) {
-      for (int k = 0; k < sa_cols; ++k) {
-        int index = j + (k * sa_arch[1]) + (i * sa_arch[1] * sa_arch[1]);
-        if (index >= size) {
-          append(zero);
-        } else {
-          append(tensor->at(index));
-        }
-      }
-    }
-  }
-}
-template <typename T>
-void BinBlob::fc_weight_align_aux(const Tensor<T> *tensor, bool transpose) {
-  auto dims = tensor->get_dims();
-  assert(dims.size() == 2);
-  auto aligned_dims = aligned_fc_weight_dims(dims);
-  int va_size = get_va_size();
-  int hiterations = 0;
-  int viterations = 0;
-  if (transpose) {
-    hiterations = std::ceil(aligned_dims[0] / va_size);
-    viterations = aligned_dims[1];
-  } else {
-    hiterations = std::ceil(aligned_dims[1] / va_size);
-    viterations = aligned_dims[0];
-  }
-  std::vector<int> index(2);
-  T zero = 0;
-  for (int i = 0; i < hiterations; ++i) {
-    for (int j = 0; j < viterations; ++j) {
-      for (int k = 0; k < va_size; ++k) {
-        index[0] = k + (i * va_size);
-        index[1] = j;
-        // std::cout << "index[0] " << index[0] << "index[1] " << index[1] <<
-        // '\n';
-        if (is_out_of_bounds(index, dims)) {
-          append(zero);
-        } else {
-          append(tensor->at(index));
-        }
-      }
-    }
   }
 }
 
