@@ -741,8 +741,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   uint32_t weight_addr_end =
       ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
 
-  std::map<std::string, std::any> empty_map;
-  tbl.push_back(weight_addr_start, cc->weights, ENGINE_SA, empty_map);
+  tbl.push_back(cc->weights->name(), weight_addr_start);
 
   std::bitset<CONV_ImageStartAddress_COUNT> istart{input_addr_start};
   bitset_range_set(conv_inst, istart, CONV_ImageStartAddress_LOW,
@@ -788,7 +787,7 @@ gen_conv_bias(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
   std::map<std::string, std::any> empty_map;
-  tbl.push_back(bias_addr_start, cc->bias, ENGINE_CONV_BIAS, empty_map);
+  tbl.push_back(cc->bias->name(), bias_addr_start);
   // std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
   // std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
 
@@ -1154,7 +1153,7 @@ static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
   if (cc->m_cp.transB) {
     metadata.insert({"transpose", true});
   }
-  tbl.push_back(weight_addr_start, cc->weights, ENGINE_FC, metadata);
+  tbl.push_back(cc->weights->name(), weight_addr_start);
 
   // std::cout << "setting dense weight_start_addr " << weight_addr_start <<
   // '\n'; std::cout << "setting dense weight_end_addr " << weight_addr_end <<
@@ -1242,7 +1241,7 @@ static std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
   std::map<std::string, std::any> metadata;
-  tbl.push_back(bias_addr_start, cc->bias, ENGINE_FC_BIAS, metadata);
+  tbl.push_back(cc->bias->name(), bias_addr_start);
   // std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
   // std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
   // std::cout << "setting bias_bytes to " << bias_bytes << '\n';
@@ -1994,15 +1993,17 @@ void print_table(const Table &tbl) {
   std::cout << '\n';
 }
 
-void InitializerTable::push_back(uint32_t addr, const onnx::TensorProto *data,
-                                 int engine,
-                                 std::map<std::string, std::any> metadata) {
-  InitAddrRow row{addr, data, engine, metadata};
-  tbl.push_back(row);
+void InitializerTable::push_back(const std::string& name, uint32_t addr) {
+  tbl.insert({name, addr});
 }
 
-auto InitializerTable::begin() const { return tbl.begin(); }
-auto InitializerTable::end() const { return tbl.end(); }
+uint32_t InitializerTable::get(const std::string& name) {
+  auto itr = tbl.find(name);
+  if (itr == tbl.end()) {
+    log_fatal("Could not find initializer {} in tbl\n", name);
+  }
+  return itr->second;
+}
 
 BinBlob::BinBlob(size_t size) {
   m_data = new char[size];
@@ -2104,6 +2105,39 @@ void BinBlob::append(const InstBlob &instblob, uint32_t addr) {
   }
 }
 
+void Op::Layer::QLinearConv::align_weights(BinBlob &blob, InitializerTable &tbl) {
+    uint32_t aligned_sz = aligned_conv_weight(weights->dims());
+    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
+    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+    log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
+    blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
+    blob.sa_align(weights);
+
+    aligned_sz = aligned_conv_bias(bias->dims());
+    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
+    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+    log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
+    blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
+    blob.conv_bias_align(bias);
+}
+
+void Op::Layer::QGemm::align_weights(BinBlob &blob, InitializerTable &tbl) {
+    uint32_t aligned_sz = aligned_fc_weight(weights->dims());
+    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
+    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+    log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
+    blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
+    blob.fc_weight_align(weights, m_cp.transB);
+
+    aligned_sz = aligned_fc_bias(bias->dims());
+    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
+    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+    log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
+    blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
+    blob.fc_bias_align(bias);
+}
+
+#if 0
 void BinBlob::append(const InitializerTable &tbl) {
   for (const InitAddrRow &i : tbl) {
     switch (i.engine) {
@@ -2155,6 +2189,7 @@ void BinBlob::append(const InitializerTable &tbl) {
     }
   }
 }
+#endif
 
 void BinBlob::sa_align(const onnx::TensorProto *tensor) {
   int32_t type = tensor->data_type();
@@ -2295,8 +2330,12 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   log_info("Appending instblob\n");
   blob.append(instblob, m_org);
   log_info("Appending initializers\n");
+  //blob.append(tbl);
+
   InitializerTable tbl = instgen.get_tbl();
-  blob.append(tbl);
+  for (Op::LayerBase *l : parser.get_execution_order()) {
+    l->align_weights(blob, tbl);
+  }
 
   GmlCheck gmlcheck(instblob, blob);
   /* enfore NRVO at call site */
@@ -2476,10 +2515,11 @@ int GmlCheck::check_conv_weight_continuity(
   int ic = inst_get(inst, CONV_IC);
   int kw = inst_get(inst, CONV_KW);
   int kh = inst_get(inst, CONV_KH);
-  int expected_weight_size =
-      ceil_mod(ceil_mod(kn, sa_arch[SA_ARCH_COLS]) *
-                   ceil_mod(ic, sa_arch[SA_ARCH_N]) * kw * kh,
-               WORD_SIZE);
+  int expected_weight_size = ceil_mod(
+      ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]) *
+          ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]) *
+          prod(sa_arch), 
+      WORD_SIZE);
 
   int computed_weight_size = end - start;
   if (computed_weight_size != expected_weight_size) {
@@ -2579,7 +2619,7 @@ void GmlCheck::check_dwp(const BinBlob &binblob) const {
     uint32_t sop = bytes2int(data + i);
     uint32_t ds = bytes2int(data + i + 4);
     uint32_t addr = bytes2int(data + i + 8);
-    log_info2("OFFSET: {} ", i);
+    log_info2("OFFSET: {}\n", i);
     log_info2("DWP: {}\n", sop);
     log_info2("DS: {}\n", ds);
     log_info2("ADDR: {}\n", addr);

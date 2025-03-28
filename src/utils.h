@@ -484,7 +484,7 @@ void print_vec(const char *s, Container const &v) {
     newline_cnt++;
   }
   std::cout << "]";
-  // std::cout << '\n';
+  std::cout << '\n';
 }
 
 /* custom compare function to handle floats separately */
@@ -635,6 +635,14 @@ template <class InputIt, class T> T prod(InputIt first, InputIt last, T init) {
   T product = init;
   for (InputIt i = first; i != last; ++i) {
     product *= *i;
+  }
+  return product;
+}
+
+template <typename T> T prod(const std::vector<T>& v) {
+  T product = 1;
+  for (const auto& i : v) {
+    product *= i;
   }
   return product;
 }

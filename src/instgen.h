@@ -24,32 +24,13 @@ enum ENGINES {
 };
 
 using MetadataMap = std::map<std::string, std::any>;
-struct InitAddrRow {
-  uint32_t addr;
-  const onnx::TensorProto *data;
-  int engine;
-  /* optional metadata for each initializer */
-  MetadataMap metadata;
-};
 
 class InitializerTable {
-  std::vector<InitAddrRow> tbl;
-
+  std::unordered_map<std::string, uint32_t> tbl;
 public:
-  void push_back(uint32_t addr, const onnx::TensorProto *data, int engine,
-                 MetadataMap metadata);
-  auto begin() const;
-  auto end() const;
+  void push_back(const std::string& name, uint32_t addr);
+  uint32_t get(const std::string& name);
 };
-
-template <typename T>
-T get_metadata(const MetadataMap &m, const std::string &key) {
-  auto itr = m.find(key);
-  if (itr == m.end()) {
-    log_fatal("could not find key {} in MetadataMap\n", key);
-  }
-  return static_cast<T>(std::any_cast<T>(itr->second));
-}
 
 using IOAddrPair =
     std::pair<std::vector<Op::VirtualAddress>, std::vector<Op::VirtualAddress>>;
@@ -218,7 +199,11 @@ std::vector<int> aligned_conv_weight_dims(const T &wdims) {
 
 template <typename T> int aligned_conv_weight(const T &wdims) {
   auto w = aligned_conv_weight_dims(wdims);
-  int ret = prod(w.begin(), w.end(), 1);
+  auto sa_arch = get_sa_arch();
+  assert(w.size() != 4 && "Expect tensors to be 4 dimensional");
+  int kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
+  int chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+  int ret = kern_itr * chan_itr * prod(sa_arch);
   return ret;
 }
 
@@ -397,27 +382,17 @@ inline bool is_out_of_bounds(const T &dims, const T &limit) {
 }
 
 class BinBlob {
+
+  template <typename T> void generic_append(T a);
+
+public:
+
   char *m_data;
   /* total capacity */
   size_t m_size;
   /* byte wise index into data (current ptr) */
   size_t m_ptr;
 
-  template <typename T> void generic_append(T a);
-  void sa_align(const onnx::TensorProto *tensor);
-  void conv_bias_align(const onnx::TensorProto *tensor);
-  void fc_bias_align(const onnx::TensorProto *tensor);
-  void fc_weight_align(const onnx::TensorProto *tensor, bool transpose);
-
-  template <typename T> void sa_align_aux(const Tensor<T> *tensor);
-  template <typename T> void sa_align_aux_regular(const Tensor<T> *tensor);
-  template <typename T> void sa_align_aux_pointwise(const Tensor<T> *tensor);
-  template <typename T> void conv_bias_align_aux(const Tensor<T> *tensor);
-  template <typename T> void fc_bias_align_aux(const Tensor<T> *tensor);
-  template <typename T>
-  void fc_weight_align_aux(const Tensor<T> *tensor, bool transpose);
-
-public:
   BinBlob(size_t size);
   ~BinBlob();
   void append(int a);
@@ -427,7 +402,6 @@ public:
   void append_dwp_header(uint32_t size, uint32_t addr);
 
   void append(const InstBlob &instblob, uint32_t addr);
-  void append(const InitializerTable &tbl);
   void append_zeroth_inst(uint32_t start_addr, uint32_t end_addr);
 
   size_t size() const;
@@ -443,6 +417,19 @@ public:
   void append_sa_input(uint32_t data_size, uint32_t addr,
                        const Tensor<T> *tensor);
   template <typename T> void append(T i) = delete;
+
+  void sa_align(const onnx::TensorProto *tensor);
+  void conv_bias_align(const onnx::TensorProto *tensor);
+  void fc_bias_align(const onnx::TensorProto *tensor);
+  void fc_weight_align(const onnx::TensorProto *tensor, bool transpose);
+
+  template <typename T> void sa_align_aux(const Tensor<T> *tensor);
+  template <typename T> void sa_align_aux_regular(const Tensor<T> *tensor);
+  template <typename T> void sa_align_aux_pointwise(const Tensor<T> *tensor);
+  template <typename T> void conv_bias_align_aux(const Tensor<T> *tensor);
+  template <typename T> void fc_bias_align_aux(const Tensor<T> *tensor);
+  template <typename T>
+  void fc_weight_align_aux(const Tensor<T> *tensor, bool transpose);
 };
 
 template <typename T> void BinBlob::generic_append(T a) {
@@ -477,10 +464,8 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
   auto strides = tensor->get_strides();
   auto aligned_dims = aligned_conv_weight_dims(dims);
   auto sa_arch = get_sa_arch();
-  auto aligned_size =
-      ceil_mod(aligned_conv_weight(dims) * sizeof(T), WORD_SIZE);
-  auto deficit_zeros =
-      aligned_size - prod(aligned_dims.begin(), aligned_dims.end(), 1);
+  auto aligned_size = aligned_conv_weight(dims) * sizeof(T);
+  auto deficit_zeros = ceil_mod(aligned_size, WORD_SIZE) - aligned_size;
   T zero = 0;
   if (aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH] >
       sa_arch[SA_ARCH_ROW]) {
@@ -495,6 +480,7 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
   int chan_iterations =
       ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
 
+  int count = 0;
   for (int kern = 0; kern < kern_iterations; ++kern) {
     for (int chan = 0; chan < chan_iterations; ++chan) {
       for (int srow = sa_arch[SA_ARCH_ROW] - 1; srow >= 0; srow--) {
@@ -510,6 +496,7 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
               int index = k * strides[0] + c * strides[1] + srow;
               append(tensor->at(index));
             }
+            count++;
           }
         }
       }
@@ -518,7 +505,6 @@ void BinBlob::sa_align_aux_regular(const Tensor<T> *tensor) {
   for (decltype(deficit_zeros) i = 0; i < deficit_zeros; ++i) {
     append(zero);
   }
-
 }
 template <typename T>
 void BinBlob::sa_align_aux_pointwise(const Tensor<T> *tensor) {

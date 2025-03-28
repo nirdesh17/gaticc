@@ -53,9 +53,10 @@ using IVec2D = std::vector<std::vector<int>>;
 
 enum DEVICES { DEVICE_UNKNOWN, DEVICE_CPU, DEVICE_FPGA };
 
-/* aot declaration, definition in instgen.h */
+/* aot declaration, definition in instgen.{cpp,h} */
 class AddressGen;
 class InitializerTable;
+class BinBlob;
 
 /* Onnx Parser external interface */
 namespace Op {
@@ -150,6 +151,8 @@ struct LayerBase {
    */
   virtual IVec2D aligned_input();
   virtual IVec2D aligned_output();
+
+  virtual void align_weights(BinBlob &blob, InitializerTable &tbl);
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -471,6 +474,7 @@ struct QGemm : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   IVec2D aligned_input() override;
   IVec2D aligned_output() override;
+  void align_weights(BinBlob &blob, InitializerTable &tbl) override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -498,6 +502,7 @@ struct QLinearConv : public LayerBase {
   uint32_t get_weight_size() override;
   IVec2D aligned_input() override;
   IVec2D aligned_output() override;
+  void align_weights(BinBlob &blob, InitializerTable &tbl) override;
 };
 
 struct LogSoftmax : public LayerBase {
