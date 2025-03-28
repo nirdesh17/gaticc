@@ -513,6 +513,10 @@ Op::Graph create_megablock_graph(Op::Graph graph);
 
 #define inst_get(bs, param)                                                    \
   (bitset_range_get<param##_COUNT>(bs, param##_LOW, param##_HIGH))
+
+#define inst_set(bs, value, param) \
+  (bitset_range_set(bs, std::bitset<param##_COUNT>{value}, param##_LOW, param##_HIGH))
+
 int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst);
 /* true is opcode is a megablock */
 bool is_megablock_op_code(int i);

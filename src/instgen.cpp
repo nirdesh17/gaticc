@@ -661,42 +661,23 @@ static std::bitset<INST_SIZE_BITS>
 gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
               InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> conv_inst;
-
-  std::bitset<CONV_Opcode_COUNT> opcode{OP_CONV};
-  bitset_range_set(conv_inst, opcode, CONV_Opcode_LOW, CONV_Opcode_HIGH);
-
+  inst_set(conv_inst, OP_CONV, CONV_Opcode);
   check_overflow(cc->input_dims[0][TENSOR_4D_WIDTH], CONV_IW_COUNT);
-  std::bitset<CONV_IW_COUNT> iw{cc->input_dims[0][TENSOR_4D_WIDTH]};
-  bitset_range_set(conv_inst, iw, CONV_IW_LOW, CONV_IW_HIGH);
-
+  inst_set(conv_inst, cc->input_dims[0][TENSOR_4D_WIDTH], CONV_IW);
   check_overflow(cc->input_dims[0][TENSOR_4D_HEIGHT], CONV_IH_COUNT);
-  std::bitset<CONV_IH_COUNT> ih{cc->input_dims[0][TENSOR_4D_HEIGHT]};
-  bitset_range_set(conv_inst, ih, CONV_IH_LOW, CONV_IH_HIGH);
-
+  inst_set(conv_inst, cc->input_dims[0][TENSOR_4D_HEIGHT], CONV_IH);
   check_overflow(cc->output_dims[0][TENSOR_4D_WIDTH], CONV_OW_COUNT);
-  std::bitset<CONV_OW_COUNT> ow{cc->output_dims[0][TENSOR_4D_WIDTH]};
-  bitset_range_set(conv_inst, ow, CONV_OW_LOW, CONV_OW_HIGH);
-
+  inst_set(conv_inst, cc->output_dims[0][TENSOR_4D_WIDTH], CONV_OW);
   check_overflow(cc->output_dims[0][TENSOR_4D_HEIGHT], CONV_OH_COUNT);
-  std::bitset<CONV_OH_COUNT> oh{cc->output_dims[0][TENSOR_4D_HEIGHT]};
-  bitset_range_set(conv_inst, oh, CONV_OH_LOW, CONV_OH_HIGH);
-
+  inst_set(conv_inst, cc->output_dims[0][TENSOR_4D_HEIGHT], CONV_OH);
   check_overflow(cc->input_dims[0][TENSOR_4D_CHANNELS], CONV_IC_COUNT);
-  std::bitset<CONV_IC_COUNT> ic{cc->input_dims[0][TENSOR_4D_CHANNELS]};
-  bitset_range_set(conv_inst, ic, CONV_IC_LOW, CONV_IC_HIGH);
-
+  inst_set(conv_inst, cc->input_dims[0][TENSOR_4D_CHANNELS], CONV_IC);
   check_overflow(cc->m_cp.kn, CONV_KN_COUNT);
-  std::bitset<CONV_KN_COUNT> kn{cc->m_cp.kn};
-  bitset_range_set(conv_inst, kn, CONV_KN_LOW, CONV_KN_HIGH);
-
+  inst_set(conv_inst, cc->m_cp.kn, CONV_KN);
   check_overflow(cc->m_cp.k[TENSOR_2D_WIDTH], CONV_KW_COUNT);
-  std::bitset<CONV_KW_COUNT> kw{cc->m_cp.k[TENSOR_2D_WIDTH]};
-  bitset_range_set(conv_inst, kw, CONV_KW_LOW, CONV_KW_HIGH);
-
+  inst_set(conv_inst, cc->m_cp.k[TENSOR_2D_WIDTH], CONV_KW);
   check_overflow(cc->m_cp.k[TENSOR_2D_HEIGHT], CONV_KH_COUNT);
-  std::bitset<CONV_KH_COUNT> kh{cc->m_cp.k[TENSOR_2D_HEIGHT]};
-  bitset_range_set(conv_inst, kh, CONV_KH_LOW, CONV_KH_HIGH);
-
+  inst_set(conv_inst, cc->m_cp.k[TENSOR_2D_HEIGHT], CONV_KH);
   if (cc->m_cp.stride[TENSOR_2D_HEIGHT] != cc->m_cp.stride[TENSOR_2D_WIDTH]) {
     log_fatal("In layer {}, strides need to be symmetrical (same), got {}x{}\n",
               cc->name, cc->m_cp.stride[TENSOR_2D_HEIGHT],
@@ -704,9 +685,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   }
   check_overflow(cc->m_cp.stride[TENSOR_2D_HEIGHT], CONV_Stride_COUNT);
   check_overflow(cc->m_cp.stride[TENSOR_2D_HEIGHT], CONV_Stride_COUNT);
-  std::bitset<CONV_Stride_COUNT> stride{cc->m_cp.stride[TENSOR_2D_HEIGHT]};
-  bitset_range_set(conv_inst, stride, CONV_Stride_LOW, CONV_Stride_HIGH);
-
+  inst_set(conv_inst, cc->m_cp.stride[TENSOR_2D_HEIGHT], CONV_Stride);
   int pad_cnt = cc->m_cp.pad[I_LEFT];
   for (int i = 0; i < 4; ++i) {
     if (cc->m_cp.pad[I_LEFT] != pad_cnt) {
@@ -715,14 +694,13 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
     }
   }
   check_overflow(cc->m_cp.pad[I_LEFT], CONV_Pad_COUNT);
-  std::bitset<CONV_Pad_COUNT> pad{cc->m_cp.pad[I_LEFT]};
-  bitset_range_set(conv_inst, pad, CONV_Pad_LOW, CONV_Pad_HIGH);
+  inst_set(conv_inst, cc->m_cp.pad[I_LEFT], CONV_Pad);
 
   std::bitset<CONV_PadSides_COUNT> pad_side;
   for (int i = 0; i < CONV_PadSides_COUNT; ++i) {
     pad_side[i] = cc->m_cp.pad[i] > 0 ? 1 : 0;
   }
-  bitset_range_set(conv_inst, pad_side, CONV_PadSides_LOW, CONV_PadSides_HIGH);
+  inst_set(conv_inst, pad_side, CONV_PadSides);
 
   assert(cc->inputs.size() == 1);
   auto sa_arch = get_sa_arch();
@@ -731,33 +709,15 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
       aligned_conv_input(cc->input_dims) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
-  // std::cout << "setting input_addr_start to " << input_addr_start << '\n';
-  // std::cout << "setting input_addr_end to " << input_addr_end << '\n';
-  // std::cout << "setting input_bytes to " << input_bytes << '\n';
-
   uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims()) *
                           Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
-  uint32_t weight_addr_end =
-      ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
-
+  uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
   tbl.push_back(cc->weights->name(), weight_addr_start);
-
-  std::bitset<CONV_ImageStartAddress_COUNT> istart{input_addr_start};
-  bitset_range_set(conv_inst, istart, CONV_ImageStartAddress_LOW,
-                   CONV_ImageStartAddress_HIGH);
-
-  std::bitset<CONV_ImageEndAddress_COUNT> iend{input_addr_end};
-  bitset_range_set(conv_inst, iend, CONV_ImageEndAddress_LOW,
-                   CONV_ImageEndAddress_HIGH);
-
-  std::bitset<CONV_WeightStartAddress_COUNT> wstart{weight_addr_start};
-  bitset_range_set(conv_inst, wstart, CONV_WeightStartAddress_LOW,
-                   CONV_WeightStartAddress_HIGH);
-
-  std::bitset<CONV_WeightEndAddress_COUNT> wend{weight_addr_end};
-  bitset_range_set(conv_inst, wend, CONV_WeightEndAddress_LOW,
-                   CONV_WeightEndAddress_HIGH);
+  inst_set(conv_inst, input_addr_start, CONV_ImageStartAddress);
+  inst_set(conv_inst, input_addr_end, CONV_ImageEndAddress);
+  inst_set(conv_inst, weight_addr_start, CONV_WeightStartAddress);
+  inst_set(conv_inst, weight_addr_end, CONV_WeightEndAddress);
 
   if (cc->m_cp.stride[TENSOR_2D_HEIGHT] > 1) {
     if (!gbl_args.has_option("im2colbuf-size")) {
@@ -766,9 +726,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
     int im2col_buf = gbl_args["im2colbuf-size"].as<int>();
     auto od = cc->output_dims.at(0);
     if (im2col_buf > od[TENSOR_4D_HEIGHT] * od[TENSOR_4D_WIDTH]) {
-      std::bitset<CONV_Im2colPrefetch_COUNT> im2col_pf{1};
-      bitset_range_set(conv_inst, im2col_pf, CONV_Im2colPrefetch_LOW,
-                       CONV_Im2colPrefetch_HIGH);
+      inst_set(conv_inst, 1, CONV_Im2colPrefetch);
     }
   }
   return conv_inst;
@@ -786,31 +744,16 @@ gen_conv_bias(const Op::Layer::QLinearConv *cc, AddressGen &gen,
       aligned_conv_bias(cc->bias->dims()) * Op::tensorproto_sizeof(cc->bias);
   uint32_t bias_addr_start = gen.alloc(bias_bytes);
   uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  std::map<std::string, std::any> empty_map;
   tbl.push_back(cc->bias->name(), bias_addr_start);
-  // std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
-  // std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
 
-  std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
-  bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
-                   TailBlock_Opcode_HIGH);
-
-  std::bitset<TailBlock_BiasStartAddress_COUNT> bstart{bias_addr_start};
-  bitset_range_set(bias_inst, bstart, TailBlock_BiasStartAddress_LOW,
-                   TailBlock_BiasStartAddress_HIGH);
-
-  std::bitset<TailBlock_BiasEndAddress_COUNT> bend{bias_addr_end};
-  bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
-                   TailBlock_BiasEndAddress_HIGH);
-
-  std::bitset<TailBlock_BiasEn_COUNT> ben{1};
-  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  inst_set(bias_inst, OP_TailBlock, TailBlock_Opcode);
+  inst_set(bias_inst, bias_addr_start, TailBlock_BiasStartAddress);
+  inst_set(bias_inst, bias_addr_end, TailBlock_BiasEndAddress);
+  inst_set(bias_inst, 1, TailBlock_BiasEn);
 
   int bias_width = Op::tensorproto_sizeof(cc->bias) * 8; /* in bits */
   if (bias_width == 8 || bias_width == 32) { /* 8 bit bias or 32 bit bias */
-    std::bitset<TailBlock_BiasWidth_COUNT> bw{bias_width};
-    bitset_range_set(bias_inst, bw, TailBlock_BiasWidth_LOW,
-                     TailBlock_BiasWidth_HIGH);
+    inst_set(bias_inst, bias_width, TailBlock_BiasWidth);
   } else {
     log_fatal(
         "found a conv instruction with intangible bias width {} for layer {}\n",
@@ -821,86 +764,47 @@ gen_conv_bias(const Op::Layer::QLinearConv *cc, AddressGen &gen,
 }
 
 static std::bitset<INST_SIZE_BITS>
-gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
+gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
+           int imgdimout, int imgdimacc, int accen, int dispatchen,
+           int dispatchid, int onchip, int oh, int ow) {
   std::bitset<INST_SIZE_BITS> output_inst;
+  inst_set(output_inst, OP_OutputBlock, OutputBlock_Opcode);
+  inst_set(output_inst, out_addr, OutputBlock_OutputAddr);
+  inst_set(output_inst, acc_addr, OutputBlock_AccumulantAddr);
+  inst_set(output_inst, citr, OutputBlock_ChannelItr);
+  inst_set(output_inst, kitr, OutputBlock_KernelItr);
+  inst_set(output_inst, imgdimout, OutputBlock_ImageDimOutput);
+  inst_set(output_inst, imgdimacc, OutputBlock_ImageDimAcc);
+  inst_set(output_inst, accen, OutputBlock_AccEn);
+  if (dispatchen) {
+    inst_set(output_inst, 1, OutputBlock_DispatchEn);
+    inst_set(output_inst, dispatchid, OutputBlock_DispatchID);
+  }
+  inst_set(output_inst, onchip, OutputBlock_OnChipAcc);
+  inst_set(output_inst, oh, OutputBlock_OH);
+  inst_set(output_inst, ow, OutputBlock_OW);
+  return output_inst;
+}
 
-  std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
-  bitset_range_set(output_inst, ob_opcode, OutputBlock_Opcode_LOW,
-                   OutputBlock_Opcode_HIGH);
-
+static std::bitset<INST_SIZE_BITS>
+gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   auto sa_arch = get_sa_arch();
   assert(cc->outputs.size() == 1);
-
-  uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
-
-  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
-  bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
-                   OutputBlock_OutputAddr_HIGH);
-  // std::cout << "output address " << output_addr_start << '\n';
-
-  uint32_t acc_addr_start = gen.ps_addr_from_register(cc->inputs.at(0));
-
-  // std::cout << "acc address " << acc_addr_start << '\n';
-
-  std::bitset<OutputBlock_AccumulantAddr_COUNT> accstart{acc_addr_start};
-  bitset_range_set(output_inst, accstart, OutputBlock_AccumulantAddr_LOW,
-                   OutputBlock_AccumulantAddr_HIGH);
-
-  int channel_iterations = (int)std::ceil(
-      (float)cc->input_dims[0][TENSOR_4D_CHANNELS] / (float)sa_arch[2]);
-  std::bitset<OutputBlock_ChannelItr_COUNT> citr{channel_iterations};
-  bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
-                   OutputBlock_ChannelItr_HIGH);
-
-  // std::cout << "channel iterations " << channel_iterations << '\n';
-
-  int kernel_iterations =
-      (int)std::ceil((float)cc->m_cp.kn / (float)sa_arch[1]);
-  std::bitset<OutputBlock_KernelItr_COUNT> kitr{kernel_iterations};
-  bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
-                   OutputBlock_KernelItr_HIGH);
-
-  // std::cout << "kernel iterations " << kernel_iterations << '\n';
-
-  /* TODO: explanation */
+  uint32_t acc_addr = gen.ps_addr_from_register(cc->inputs.at(0));
+  uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
+  auto odims = cc->output_dims.at(0);
+  auto idims = cc->input_dims.at(0);
+  int citr = ceil_div(idims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
+  int kitr = ceil_div(cc->m_cp.kn, sa_arch[SA_ARCH_COLS]);
   auto pod = cc->pipelined_output_dims.at(0);
-  int image_dim_output = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
-                                  get_conv_out_mod());
-
-  // std::cout << "dim output " << image_dim_output << '\n';
-  int dim_acc = ceil_mod(cc->output_dims[0].at(TENSOR_4D_WIDTH) *
-                             cc->output_dims[0].at(TENSOR_4D_HEIGHT),
-                         get_conv_acc_mod());
-
-  // std::cout << "dim_acc" << dim_acc << '\n';
-
-  std::bitset<OutputBlock_ImageDimOutput_COUNT> ido{image_dim_output};
-  bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW,
-                   OutputBlock_ImageDimOutput_HIGH);
-
-  std::bitset<OutputBlock_ImageDimAcc_COUNT> ida{dim_acc};
-  bitset_range_set(output_inst, ida, OutputBlock_ImageDimAcc_LOW,
-                   OutputBlock_ImageDimAcc_HIGH);
-
-  bool should_accumulate = true;
+  int ido = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
+                     get_conv_out_mod());
+  int ida = ceil_mod(odims.at(TENSOR_4D_WIDTH) * odims.at(TENSOR_4D_HEIGHT),
+                     get_conv_acc_mod());
+  bool accen = true;
   if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2]) {
-    should_accumulate = false;
+    accen = false;
   }
-  std::bitset<OutputBlock_AccEn_COUNT> accen{should_accumulate};
-  bitset_range_set(output_inst, accen, OutputBlock_AccEn_LOW,
-                   OutputBlock_AccEn_HIGH);
-
-  if (cc->dispatch) {
-    std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en{1};
-    bitset_range_set(output_inst, dispatch_en, OutputBlock_DispatchEn_LOW,
-                     OutputBlock_DispatchEn_HIGH);
-
-    std::bitset<OutputBlock_DispatchID_COUNT> dispatch_id{
-        string_hash(cc->name)};
-    bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
-                     OutputBlock_DispatchID_HIGH);
-  }
-
   int accbuf_size = 0;
   if (gbl_args.has_option("accbuf-size")) {
     /* division with ACC_SIZE/8 returns the depth of the acc fifo */
@@ -909,23 +813,16 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
     log_fatal("don't know accbuf-size, use option --accbuf-size to provide "
               "one\n");
   }
-  int on_chip_acc_en = 0;
-  int acc_count = cc->output_dims[0].at(TENSOR_4D_WIDTH) *
-                  cc->output_dims[0].at(TENSOR_4D_HEIGHT);
+  int on_chip = 0;
+  int acc_count = odims.at(TENSOR_4D_WIDTH) * odims.at(TENSOR_4D_HEIGHT);
   if (accbuf_size >= acc_count) {
-    on_chip_acc_en = 1;
+    on_chip = 1;
   }
-  std::bitset<OutputBlock_OnChipAcc_COUNT> on_chip_bitset{on_chip_acc_en};
-  bitset_range_set(output_inst, on_chip_bitset, OutputBlock_OnChipAcc_LOW,
-                   OutputBlock_OnChipAcc_HIGH);
-
-  std::bitset<OutputBlock_OH_COUNT> oh_bs {cc->output_dims.at(0).at(TENSOR_4D_HEIGHT)};
-  bitset_range_set(output_inst, oh_bs, OutputBlock_OH_LOW, OutputBlock_OH_HIGH);
-
-  std::bitset<OutputBlock_OW_COUNT> ow_bs {cc->output_dims.at(0).at(TENSOR_4D_WIDTH)};
-  bitset_range_set(output_inst, ow_bs, OutputBlock_OW_LOW, OutputBlock_OW_HIGH);
-
-  return output_inst;
+  int oh = odims.at(TENSOR_4D_HEIGHT);
+  int ow = odims.at(TENSOR_4D_WIDTH);
+  auto oi = gen_output(acc_addr, out_addr, citr, kitr, ido, ida, accen,
+                       cc->dispatch, string_hash(cc->name), on_chip, oh, ow);
+  return oi;
 }
 
 static std::bitset<INST_SIZE_BITS>
@@ -944,13 +841,12 @@ int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen,
   auto bias_inst = gen_conv_bias(this, gen, tbl);
   auto quant_inst = gen_conv_quant(this, gen);
 
-  int has_bias = bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(
-      bias_inst, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  int has_bias = inst_get(bias_inst, TailBlock_BiasEn);
   if (has_bias) {
     dwp_packets++;
   }
 
-  /* order here matters */
+  /* order matters, be careful when messing with this */
   insts.push_back(conv_inst);
   insts.push_back(output_inst);
   insts.push_back(bias_inst);
