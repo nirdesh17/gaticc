@@ -107,8 +107,8 @@ def bitstream_server():
             while len(data) < length:
                 data += c.recv(min(length - len(data), BUFFER_SIZE))
             print_hex_bytes(data, "bitstream")
-            with open("/tmp/bitstream.hex", "wb") as f: f.write(data)
-            subprocess.run(["sudo", "bitman", "-f", "/tmp/bitstream.hex"])
+            with open("bitstream.hex", "wb") as f: f.write(data)
+            subprocess.run(["sudo", "bitman", "-f", "bitstream.hex"])
             c.send(struct.pack('>I', 7)); c.send(b"Flashed"); c.close()
     except Exception as e:
         print(f"Bitstream - Error: {e}")
