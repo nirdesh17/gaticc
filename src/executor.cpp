@@ -2,17 +2,8 @@
 #include "numpy_init.h"
 
 #include "executor.h"
-// #include "onnx.pb.h"
-// #include "onnx_parser.h"
 #include "sim.h"
 #include "utils.h"
-// #include <chrono>
-// #include <iostream>
-// #include <typeinfo>
-// #include <vector>
-// #include <cstring>
-// #include <memory>
-// #include <queue>
 
 DispatchTable::DispatchTable() {
   dump_all = false;

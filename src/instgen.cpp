@@ -7,15 +7,6 @@
 #include "utils.h"
 #include <queue>
 #include <stack>
-//
-// #include <cstring>
-// #include <queue>
-// #include <set>
-// #include <stack>
-// #include <cstdlib>
-// #include <memory>
-// #include <any>
-// #include <string>
 
 static std::set<std::string> miniblock_tbl{
     "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
@@ -1362,12 +1353,6 @@ AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
   max_io_reg = get_max_io_reg(order);
 
   addr_incr(inst_region_size);
-
-  // std::cout << "ramsize " << ram_size_max << '\n';
-  // std::cout << "inst_region_size " << inst_region_size << '\n';
-  // std::cout << "io_region_register_size " << io_region_register_size << '\n';
-  // std::cout << "weight_region_size " << weight_region_size << '\n';
-  // std::cout << "current_address " << current_address << '\n';
 }
 
 /* Calculate total instructions of size INST_SIZE_BITS
@@ -1747,39 +1732,6 @@ void BinBlob::print() const {
 }
 
 void BinBlob::pretty_print() const {
-#if 0
-  /* atleast 1 DWP packet header must be present */
-  assert(m_ptr >= DWP_HEADER_BYTES);
-  for (int i = 0; i < m_ptr; ) {
-    if (m_ptr - i < DWP_HEADER_BYTES) {
-      log_fatal(
-          "ill-formed data, not enough bytes to form DWP_HEADER at index {}\n",
-          i);
-    }
-    uint32_t sop = extract_byte<uint32_t>(m_data, m_ptr, i, i + 4);
-    uint32_t ds = extract_byte<uint32_t>(m_data, m_ptr, i + 4, i + 8);
-    uint32_t addr = extract_byte<uint32_t>(m_data, m_ptr, i + 8, i + 12);
-    std::cout << "DS " << ds << '\n';
-    std::cout << "ADDR " << addr << '\n';
-    std::cout << "SOP " << std::hex << sop << std::dec << '\n';
-    if (sop != DWP_SOP) {
-      log_fatal("ill-formed data, expected SOP at index {}\n", i);
-    }
-    i += DWP_HEADER_BYTES;
-    for (int j = 0; j < ds; ++j) {
-      if (j % 30 == 0 && j != 0) {
-        std::cout << '\n';
-      }
-      std::cout << (int) m_data[i] << ' ';
-      if (j + 1 >= m_ptr) {
-        break;
-      } else {
-        ++i;
-      }
-    }
-    std::cout << '\n';
-  }
-#endif
 }
 
 void BinBlob::write(const std::string &filename) const {

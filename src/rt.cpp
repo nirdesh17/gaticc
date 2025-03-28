@@ -65,16 +65,6 @@ std::vector<char> get_meta_packet(const std::bitset<META_WIDTH_BITS> type,
   return packet;
 }
 
-// static const std::vector<char> META_SOP = {0xff, 0xff, 0xff, 0xff, 0xff,
-// 0x0ff}; static const std::vector<char> META_TYPE_RESET = {0x00, 0x00, 0x00,
-// 0x00, 0x00, 0x00}; static const std::vector<char> META_TYPE_DISPATCH = {0x00,
-// 0x00, 0x00, 0x00, 0x00, 0x01}; static const std::vector<char>
-// META_TYPE_PAYLOAD_SIZE = {0x00, 0x00, 0x00, 0x00, 0x00, 0x02};
-//
-// static const std::vector<char> META_CONST_DISPATCH_RAH = {0x00, 0x00, 0x00,
-// 0x00, 0x00, 0x00}; static const std::vector<char> META_CONST_DISPATCH_UART =
-// {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
-
 RealRah::RealRah() {
   m_handle = dlopen(RAH_SO_STRING, RTLD_LAZY);
   if (m_handle == NULL) {
