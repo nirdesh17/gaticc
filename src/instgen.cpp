@@ -732,35 +732,39 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   return conv_inst;
 }
 
-static std::bitset<INST_SIZE_BITS>
-gen_conv_bias(const Op::Layer::QLinearConv *cc, AddressGen &gen,
-              InitializerTable &tbl) {
-  std::bitset<INST_SIZE_BITS> bias_inst;
+static std::bitset<INST_SIZE_BITS> gen_bias_inst(const Op::LayerBase* cc, 
+                                                AddressGen& gen, 
+                                                InitializerTable& tbl, 
+                                                uint32_t bias_bytes,
+                                                const onnx::TensorProto *bias) {
+    std::bitset<INST_SIZE_BITS> bias_inst;
 
-  auto sa_arch = get_sa_arch();
-  auto bias_dims = cc->bias->dims();
-  assert(bias_dims.size() == 1);
-  uint32_t bias_bytes =
-      aligned_conv_bias(cc->bias->dims()) * Op::tensorproto_sizeof(cc->bias);
-  uint32_t bias_addr_start = gen.alloc(bias_bytes);
-  uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  tbl.push_back(cc->bias->name(), bias_addr_start);
+    uint32_t bias_addr_start = gen.alloc(bias_bytes);
+    uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
+    tbl.push_back(bias->name(), bias_addr_start);
 
-  inst_set(bias_inst, OP_TailBlock, TailBlock_Opcode);
-  inst_set(bias_inst, bias_addr_start, TailBlock_BiasStartAddress);
-  inst_set(bias_inst, bias_addr_end, TailBlock_BiasEndAddress);
-  inst_set(bias_inst, 1, TailBlock_BiasEn);
+    inst_set(bias_inst, OP_TailBlock, TailBlock_Opcode);
+    inst_set(bias_inst, bias_addr_start, TailBlock_BiasStartAddress);
+    inst_set(bias_inst, bias_addr_end, TailBlock_BiasEndAddress);
+    inst_set(bias_inst, 1, TailBlock_BiasEn);
 
-  int bias_width = Op::tensorproto_sizeof(cc->bias) * 8; /* in bits */
-  if (bias_width == 8 || bias_width == 32) { /* 8 bit bias or 32 bit bias */
-    inst_set(bias_inst, bias_width, TailBlock_BiasWidth);
-  } else {
-    log_fatal(
-        "found a conv instruction with intangible bias width {} for layer {}\n",
-        bias_width, cc->name);
-  }
+    int bias_width = Op::tensorproto_sizeof(bias) * 8;
+    if (bias_width == 8 || bias_width == 32) {
+        inst_set(bias_inst, bias_width, TailBlock_BiasWidth);
+    } else {
+        log_fatal("found an instruction with invalid bias width {} for layer {}\n", 
+                  bias_width, cc->name);
+    }
 
-  return bias_inst;
+    return bias_inst;
+}
+
+static std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv* cc, 
+                                                AddressGen& gen, 
+                                                InitializerTable& tbl) {
+    auto bias_dims = cc->bias->dims();
+    uint32_t bias_bytes = aligned_conv_bias(bias_dims) * Op::tensorproto_sizeof(cc->bias);
+    return gen_bias_inst(cc, gen, tbl, bias_bytes, cc->bias);
 }
 
 static std::bitset<INST_SIZE_BITS>
@@ -857,26 +861,9 @@ int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen,
 int Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &,
                               InitializerTable &) {
   std::bitset<INST_SIZE_BITS> relu_inst;
-
-  std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
-  bitset_range_set(relu_inst, opcode, TailBlock_Opcode_LOW,
-                   TailBlock_Opcode_HIGH);
-
-  /* enable relu */
-  std::bitset<TailBlock_ActEn_COUNT> acten{1};
-  bitset_range_set(relu_inst, acten, TailBlock_ActEn_LOW, TailBlock_ActEn_HIGH);
-
-  std::bitset<TailBlock_ActType_COUNT> act_type{ACT_RELU};
-  bitset_range_set(relu_inst, act_type, TailBlock_ActType_LOW,
-                   TailBlock_ActType_HIGH);
-
-  /* relu, by default is a param less operation. Operations like
-   * ReLU6 are represented as Clip operation in onnx
-   */
-  std::bitset<TailBlock_ActParam_COUNT> act_param{0};
-  bitset_range_set(relu_inst, act_param, TailBlock_ActParam_LOW,
-                   TailBlock_ActParam_HIGH);
-
+  inst_set(relu_inst, OP_TailBlock, TailBlock_Opcode);
+  inst_set(relu_inst, 1, TailBlock_ActEn);
+  inst_set(relu_inst, ACT_RELU, TailBlock_ActType);
   insts.push_back(relu_inst);
   return 0;
 }
@@ -886,36 +873,20 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &,
   std::bitset<INST_SIZE_BITS> maxpool_inst;
 
   std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
-  bitset_range_set(maxpool_inst, opcode, TailBlock_Opcode_LOW,
-                   TailBlock_Opcode_HIGH);
-
-  /* enable relu */
-  std::bitset<TailBlock_PoolEn_COUNT> poolen{1};
-  bitset_range_set(maxpool_inst, poolen, TailBlock_PoolEn_LOW,
-                   TailBlock_PoolEn_HIGH);
-
-  std::bitset<TailBlock_PoolType_COUNT> pool_type{POOL_MAX};
-  bitset_range_set(maxpool_inst, pool_type, TailBlock_PoolType_LOW,
-                   TailBlock_PoolType_HIGH);
+  inst_set(maxpool_inst, OP_TailBlock, TailBlock_Opcode);
+  inst_set(maxpool_inst, 1, TailBlock_PoolEn);
+  inst_set(maxpool_inst, POOL_MAX, TailBlock_PoolType);
 
   check_overflow(m_cp.k[TENSOR_2D_WIDTH], TailBlock_PoolWidth_COUNT);
-  std::bitset<TailBlock_PoolWidth_COUNT> pool_width{m_cp.k[TENSOR_2D_WIDTH]};
-  bitset_range_set(maxpool_inst, pool_width, TailBlock_PoolWidth_LOW,
-                   TailBlock_PoolWidth_HIGH);
-
+  inst_set(maxpool_inst, m_cp.k[TENSOR_2D_WIDTH], TailBlock_PoolWidth);
   check_overflow(m_cp.k[TENSOR_2D_HEIGHT], TailBlock_PoolHeight_COUNT);
-  std::bitset<TailBlock_PoolHeight_COUNT> pool_height{m_cp.k[TENSOR_2D_HEIGHT]};
-  bitset_range_set(maxpool_inst, pool_height, TailBlock_PoolHeight_LOW,
-                   TailBlock_PoolHeight_HIGH);
+  inst_set(maxpool_inst, m_cp.k[TENSOR_2D_HEIGHT], TailBlock_PoolHeight);
 
   if (m_cp.stride[TENSOR_2D_HEIGHT] != m_cp.stride[TENSOR_2D_WIDTH]) {
     log_fatal("Strides need to be symmetric for layer {}\n", this->name);
   }
   check_overflow(m_cp.stride[TENSOR_2D_HEIGHT], TailBlock_PoolStride_COUNT);
-  std::bitset<TailBlock_PoolStride_COUNT> pool_stride{
-      m_cp.stride[TENSOR_2D_HEIGHT]};
-  bitset_range_set(maxpool_inst, pool_stride, TailBlock_PoolStride_LOW,
-                   TailBlock_PoolStride_HIGH);
+  inst_set(maxpool_inst, m_cp.stride[TENSOR_2D_HEIGHT], TailBlock_PoolStride);
 
   int pad_cnt = m_cp.pad[I_LEFT];
   for (int i = 0; i < 4; ++i) {
@@ -924,250 +895,110 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &,
     }
   }
   check_overflow(m_cp.pad[I_LEFT], TailBlock_PoolPadding_COUNT);
-  std::bitset<TailBlock_PoolPadding_COUNT> pool_pad{m_cp.pad[I_LEFT]};
-  bitset_range_set(maxpool_inst, pool_pad, TailBlock_PoolPadding_LOW,
-                   TailBlock_PoolPadding_HIGH);
-
-  std::bitset<TailBlock_PoolModCount_COUNT> modcount{
-      input_dims[0][TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT]};
-  bitset_range_set(maxpool_inst, modcount, TailBlock_PoolModCount_LOW,
-                   TailBlock_PoolModCount_HIGH);
+  inst_set(maxpool_inst, m_cp.pad[I_LEFT], TailBlock_PoolPadding);
+  inst_set(maxpool_inst, input_dims[0][TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT], TailBlock_PoolModCount);
 
   insts.push_back(maxpool_inst);
-
   return 0;
 }
 
-static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc,
-                                               AddressGen &gen,
-                                               InitializerTable &tbl) {
-  std::bitset<INST_SIZE_BITS> gemm_inst;
+static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc, AddressGen &gen, InitializerTable &tbl) {
+    std::bitset<INST_SIZE_BITS> fc_inst;
+    inst_set(fc_inst, OP_FC, FC_Opcode);
 
-  std::bitset<FC_Opcode_COUNT> opcode{OP_FC};
-  bitset_range_set(gemm_inst, opcode, FC_Opcode_LOW, FC_Opcode_HIGH);
-
-  /* get the dimensions if transB is applied */
-  std::vector<int> rows_cols = get_true_rc_weights(cc);
-  // std::cout << "setting weight rows to " << rows_cols[0] << '\n';
-
-  check_overflow(rows_cols[0], FC_WeightRows_COUNT);
-  std::bitset<FC_WeightRows_COUNT> fc_weight_rows{rows_cols[0]};
-  bitset_range_set(gemm_inst, fc_weight_rows, FC_WeightRows_LOW,
-                   FC_WeightRows_HIGH);
-
-  check_overflow(rows_cols[1], FC_WeightCols_COUNT);
-  std::bitset<FC_WeightCols_COUNT> fc_weight_cols{rows_cols[1]};
-  bitset_range_set(gemm_inst, fc_weight_cols, FC_WeightCols_LOW,
-                   FC_WeightCols_HIGH);
-
-  std::vector<int> input_rows_cols = get_true_rc_inputs(cc);
-  assert(input_rows_cols[0] == 1 && "input must be a vector");
-  check_overflow(input_rows_cols[1], FC_InputRows_COUNT);
-  if (!gbl_args.has_option("fcbuf-size")) {
-    log_fatal(
-        "option --fcbuf-size missing from the command line, see help manual\n");
-  }
-
-  int fcbuf_size = gbl_args["fcbuf-size"].as<int>();
-  if (input_rows_cols[1] > fcbuf_size) {
-    log_fatal(
-        "In fc, input_row_size {}, exceeds provided FC input buffer size {}\n",
-        input_rows_cols[1], fcbuf_size);
-  }
-  std::bitset<FC_InputRows_COUNT> fc_input_rows{input_rows_cols[1]};
-  bitset_range_set(gemm_inst, fc_input_rows, FC_InputRows_LOW,
-                   FC_InputRows_HIGH);
-
-  log_info("ignoring dropout constant while generating inst for QGemm\n");
-
-  bool former_layer_conv = (cc->former_layer_dims.size() != 0);
-  // std::cout << "former layer conv set to " << former_layer_conv << '\n';
-
-  /* flatten the inputs for this layer if previous layer was
-   * a convolution
-   */
-  std::bitset<FC_Flatten_COUNT> flc{former_layer_conv};
-  bitset_range_set(gemm_inst, flc, FC_Flatten_LOW, FC_Flatten_HIGH);
-
-  int image_dims = 0;
-  if (former_layer_conv) {
-    image_dims = cc->former_layer_dims[TENSOR_4D_WIDTH] *
-                 cc->former_layer_dims[TENSOR_4D_HEIGHT];
-  }
-  // std::cout << "imagedims set  to " << image_dims << '\n';
-  check_overflow(image_dims, FC_ImageDim_COUNT);
-  std::bitset<FC_ImageDim_COUNT> image_dims_set{image_dims};
-  bitset_range_set(gemm_inst, image_dims_set, FC_ImageDim_LOW,
-                   FC_ImageDim_HIGH);
-
-  int vasize = get_va_size();
-
-  int vec2mat_cols = 0;
-  if (former_layer_conv) {
-    IVec2D former_layer_dims_wrapper = {cc->former_layer_dims};
-    vec2mat_cols =
-        ceil_div(aligned_conv_output(former_layer_dims_wrapper), vasize);
-  } else {
-    vec2mat_cols = ceil_div(aligned_fc_io(cc->input_dims), vasize);
-  }
-
-  std::bitset<FC_Vec2MatCols_COUNT> v2mc{vec2mat_cols};
-  bitset_range_set(gemm_inst, v2mc, FC_Vec2MatCols_LOW, FC_Vec2MatCols_HIGH);
-
-  uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
-  uint32_t input_bytes = 0;
-  if (cc->former_layer_dims.size() == 4) {
-    IVec2D former_layer_dims_wrapper = {cc->former_layer_dims};
-    input_bytes = aligned_conv_output(former_layer_dims_wrapper) *
-                  Op::tpdt_sizeof(cc->input_type[0]);
-  } else if (cc->former_layer_dims.size() == 0) {
-    input_bytes =
-        aligned_fc_io(cc->input_dims) * Op::tpdt_sizeof(cc->input_type[0]);
-  } else {
-    log_fatal("unknown size info in former layer dims of size {}, could "
-              "potentially be "
-              " dangerous \n",
-              cc->former_layer_dims.size());
-  }
-  uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
-
-  std::bitset<FC_ImageStartAddress_COUNT> fc_image_start{input_addr_start};
-  bitset_range_set(gemm_inst, fc_image_start, FC_ImageStartAddress_LOW,
-                   FC_ImageStartAddress_HIGH);
-
-  std::bitset<FC_ImageEndAddr_COUNT> fc_image_end{input_addr_end};
-  bitset_range_set(gemm_inst, fc_image_end, FC_ImageEndAddr_LOW,
-                   FC_ImageEndAddr_HIGH);
-
-  uint32_t weight_bytes = aligned_fc_weight(cc->weights->dims()) *
-                          Op::tensorproto_sizeof(cc->weights);
-  uint32_t weight_addr_start = gen.alloc(weight_bytes);
-  uint32_t weight_addr_end =
-      ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
-
-  std::map<std::string, std::any> metadata;
-  if (cc->m_cp.transB) {
-    metadata.insert({"transpose", true});
-  }
-  tbl.push_back(cc->weights->name(), weight_addr_start);
-
-  // std::cout << "setting dense weight_start_addr " << weight_addr_start <<
-  // '\n'; std::cout << "setting dense weight_end_addr " << weight_addr_end <<
-  // '\n'; std::cout << "setting weight bytes " << weight_bytes << '\n';
-
-  std::bitset<FC_WeightStartAddress_COUNT> wstart{weight_addr_start};
-  bitset_range_set(gemm_inst, wstart, FC_WeightStartAddress_LOW,
-                   FC_WeightStartAddress_HIGH);
-
-  std::bitset<FC_WeightEndAddress_COUNT> wend{weight_addr_end};
-  bitset_range_set(gemm_inst, wend, FC_WeightEndAddress_LOW,
-                   FC_WeightEndAddress_HIGH);
-
-  return gemm_inst;
+    /* get the dimensions if transB is applied */
+    std::vector<int> rows_cols = get_true_rc_weights(cc);
+    check_overflow(rows_cols[0], FC_WeightRows_COUNT);
+    inst_set(fc_inst, rows_cols[0], FC_WeightRows);
+    check_overflow(rows_cols[1], FC_WeightCols_COUNT);
+    inst_set(fc_inst, rows_cols[1], FC_WeightCols);
+    std::vector<int> input_rows_cols = get_true_rc_inputs(cc);
+    assert(input_rows_cols[0] == 1 && "input must be a vector");
+    check_overflow(input_rows_cols[1], FC_InputRows_COUNT);
+    if (!gbl_args.has_option("fcbuf-size")) {
+        log_fatal("option --fcbuf-size missing from the command line, see help manual\n");
+    }
+    int fcbuf_size = gbl_args["fcbuf-size"].as<int>();
+    if (input_rows_cols[1] > fcbuf_size) {
+        log_fatal("In fc, input_row_size {}, exceeds provided FC input buffer size {}\n",
+                  input_rows_cols[1], fcbuf_size);
+    }
+    inst_set(fc_inst, input_rows_cols[1], FC_InputRows);
+    log_info("ignoring dropout constant while generating inst for QGemm\n");
+    bool former_layer_conv = (cc->former_layer_dims.size() != 0);
+    inst_set(fc_inst, former_layer_conv, FC_Flatten);
+    int image_dims = 0;
+    if (former_layer_conv) {
+        image_dims = cc->former_layer_dims[TENSOR_4D_WIDTH] *
+                    cc->former_layer_dims[TENSOR_4D_HEIGHT];
+    }
+    check_overflow(image_dims, FC_ImageDim_COUNT);
+    inst_set(fc_inst, image_dims, FC_ImageDim);
+    int vasize = get_va_size();
+    int vec2mat_cols = 0;
+    if (former_layer_conv) {
+        IVec2D former_layer_dims_wrapper = {cc->former_layer_dims};
+        vec2mat_cols = ceil_div(aligned_conv_output(former_layer_dims_wrapper), vasize);
+    } else {
+        vec2mat_cols = ceil_div(aligned_fc_io(cc->input_dims), vasize);
+    }
+    inst_set(fc_inst, vec2mat_cols, FC_Vec2MatCols);
+    uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
+    uint32_t input_bytes = 0;
+    if (cc->former_layer_dims.size() == 4) {
+        IVec2D former_layer_dims_wrapper = {cc->former_layer_dims};
+        input_bytes = aligned_conv_output(former_layer_dims_wrapper) *
+                     Op::tpdt_sizeof(cc->input_type[0]);
+    } else if (cc->former_layer_dims.size() == 0) {
+        input_bytes = aligned_fc_io(cc->input_dims) * Op::tpdt_sizeof(cc->input_type[0]);
+    } else {
+        log_fatal("unknown size info in former layer dims of size {}, could potentially be dangerous \n",
+                  cc->former_layer_dims.size());
+    }
+    uint32_t input_addr_end = ceil_mod(input_addr_start + input_bytes, WORD_SIZE);
+    inst_set(fc_inst, input_addr_start, FC_ImageStartAddress);
+    inst_set(fc_inst, input_addr_end, FC_ImageEndAddr);
+    uint32_t weight_bytes = aligned_fc_weight(cc->weights->dims()) *
+                           Op::tensorproto_sizeof(cc->weights);
+    uint32_t weight_addr_start = gen.alloc(weight_bytes);
+    uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
+    tbl.push_back(cc->weights->name(), weight_addr_start);
+    inst_set(fc_inst, weight_addr_start, FC_WeightStartAddress);
+    inst_set(fc_inst, weight_addr_end, FC_WeightEndAddress);
+    return fc_inst;
 }
 
-static std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc,
-                                                 AddressGen &gen) {
-  std::bitset<INST_SIZE_BITS> output_inst;
+static std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc, AddressGen &gen) {
+    assert(cc->outputs.size() == 1);
+    uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
+    auto true_inputs = get_true_rc_weights(cc);
+    int va_size = get_va_size();
+    int kernel_iterations = ceil_div(true_inputs[TENSOR_2D_COLS], va_size);
+    auto sa_arch = get_sa_arch();
+    int img_dim_output = va_size / sa_arch[SA_ARCH_COLS];
 
-  std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
-  bitset_range_set(output_inst, ob_opcode, OutputBlock_Opcode_LOW,
-                   OutputBlock_Opcode_HIGH);
-
-  assert(cc->outputs.size() == 1);
-  uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
-
-  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
-  bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
-                   OutputBlock_OutputAddr_HIGH);
-
-  // std::cout << "output address " << output_addr_start << '\n';
-
-  /* channel iteration always 1 for FC as the inputs are
-   * 2 dimensional
-   */
-  std::bitset<OutputBlock_ChannelItr_COUNT> citr{1};
-  bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
-                   OutputBlock_ChannelItr_HIGH);
-
-  auto true_inputs = get_true_rc_weights(cc);
-  int va_size = get_va_size();
-  int kernel_iterations = ceil_div(true_inputs[TENSOR_2D_COLS], va_size);
-  std::bitset<OutputBlock_KernelItr_COUNT> kitr{kernel_iterations};
-  bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
-                   OutputBlock_KernelItr_HIGH);
-
-  auto sa_arch = get_sa_arch();
-  int img_dim_output = va_size / sa_arch[SA_ARCH_COLS];
-  std::bitset<OutputBlock_ImageDimOutput_COUNT> ido{img_dim_output};
-  bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW,
-                   OutputBlock_ImageDimOutput_HIGH);
-
-  if (cc->dispatch) {
-    std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en{1};
-    bitset_range_set(output_inst, dispatch_en, OutputBlock_DispatchEn_LOW,
-                     OutputBlock_DispatchEn_HIGH);
-
-    std::bitset<OutputBlock_DispatchID_COUNT> dispatch_id{
-        string_hash(cc->name)};
-    bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
-                     OutputBlock_DispatchID_HIGH);
-  }
-
-  std::bitset<OutputBlock_OH_COUNT> oh_bs {cc->output_dims.at(0).at(TENSOR_2D_HEIGHT)};
-  bitset_range_set(output_inst, oh_bs, OutputBlock_OH_LOW, OutputBlock_OH_HIGH);
-
-  std::bitset<OutputBlock_OW_COUNT> ow_bs {cc->output_dims.at(0).at(TENSOR_2D_WIDTH)};
-  bitset_range_set(output_inst, ow_bs, OutputBlock_OW_LOW, OutputBlock_OW_HIGH);
-
-  // std::cout << "kernel iterations " << kernel_iterations << '\n';
-
-  return output_inst;
+    return gen_output(
+        0,                         // acc_addr (not used in FC, set to 0)
+        output_addr_start,         // out_addr
+        1,                         // citr (always 1 for FC)
+        kernel_iterations,         // kitr
+        img_dim_output,            // imgdimout
+        0,                         // imgdimacc (not used in FC, set to 0)
+        0,                         // accen (not used in FC, set to 0)
+        cc->dispatch ? 1 : 0,      // dispatchen
+        cc->dispatch ? string_hash(cc->name) : 0, // dispatchid
+        0,                         // onchip (not used in FC, set to 0)
+        cc->output_dims.at(0).at(TENSOR_2D_HEIGHT), // oh
+        cc->output_dims.at(0).at(TENSOR_2D_WIDTH)   // ow
+    );
 }
 
-static std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm *cc,
-                                               AddressGen &gen,
-                                               InitializerTable &tbl) {
-  std::bitset<INST_SIZE_BITS> bias_inst;
-
-  auto bias_dims = cc->bias->dims();
-  assert(bias_dims.size() == 1);
-  uint32_t bias_bytes =
-      aligned_fc_bias(bias_dims) * Op::tensorproto_sizeof(cc->bias);
-  uint32_t bias_addr_start = gen.alloc(bias_bytes);
-  uint32_t bias_addr_end = ceil_mod(bias_addr_start + bias_bytes, WORD_SIZE);
-  std::map<std::string, std::any> metadata;
-  tbl.push_back(cc->bias->name(), bias_addr_start);
-  // std::cout << "setting bias_addr_start to " << bias_addr_start << '\n';
-  // std::cout << "setting bias_addr_end to " << bias_addr_end << '\n';
-  // std::cout << "setting bias_bytes to " << bias_bytes << '\n';
-
-  std::bitset<TailBlock_Opcode_COUNT> tb_opcode{OP_TailBlock};
-  bitset_range_set(bias_inst, tb_opcode, TailBlock_Opcode_LOW,
-                   TailBlock_Opcode_HIGH);
-
-  std::bitset<TailBlock_BiasStartAddress_COUNT> bstart{bias_addr_start};
-  bitset_range_set(bias_inst, bstart, TailBlock_BiasStartAddress_LOW,
-                   TailBlock_BiasStartAddress_HIGH);
-
-  std::bitset<TailBlock_BiasEndAddress_COUNT> bend{bias_addr_end};
-  bitset_range_set(bias_inst, bend, TailBlock_BiasEndAddress_LOW,
-                   TailBlock_BiasEndAddress_HIGH);
-
-  std::bitset<TailBlock_BiasEn_COUNT> ben{1};
-  bitset_range_set(bias_inst, ben, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
-
-  int bias_width = Op::tensorproto_sizeof(cc->bias) * 8; /* in bits */
-  if (bias_width == 8 || bias_width == 32) { /* 8 bit bias or 32 bit bias */
-    std::bitset<TailBlock_BiasWidth_COUNT> bw{bias_width};
-    bitset_range_set(bias_inst, bw, TailBlock_BiasWidth_LOW,
-                     TailBlock_BiasWidth_HIGH);
-  } else {
-    log_fatal(
-        "found a fc instruction with intangible bias width {} for layer {}\n",
-        bias_width, cc->name);
-  }
-  return bias_inst;
+static std::bitset<INST_SIZE_BITS> gen_fc_bias(const Op::Layer::QGemm* cc, 
+                                              AddressGen& gen, 
+                                              InitializerTable& tbl) {
+    auto bias_dims = cc->bias->dims();
+    uint32_t bias_bytes = aligned_fc_bias(bias_dims) * Op::tensorproto_sizeof(cc->bias);
+    return gen_bias_inst(cc, gen, tbl, bias_bytes, cc->bias);
 }
 
 static std::bitset<INST_SIZE_BITS> gen_fc_quant(const Op::Layer::QGemm *cc,
@@ -1185,8 +1016,7 @@ int Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen,
   std::bitset<INST_SIZE_BITS> bias_inst = gen_fc_bias(this, gen, tbl);
   std::bitset<INST_SIZE_BITS> quant_inst = gen_fc_quant(this, gen);
 
-  int has_bias = bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(
-      bias_inst, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH);
+  int has_bias = inst_get(bias_inst, TailBlock_BiasEn);
 
   if (has_bias) {
     dwp_packets++;
