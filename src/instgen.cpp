@@ -1872,6 +1872,37 @@ static void conv_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
 template <typename T> static void fc_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
   assert(dims.size() == 1);
+  int size = static_cast<int>(dims[0]);
+  int aligned_dims = aligned_fc_bias(dims);
+
+  auto sa_arch = get_sa_arch();
+  auto va_size = get_va_size();
+  int tail_blocks = sa_arch[SA_ARCH_N];
+
+  if (tail_blocks > va_size) { log_fatal("Tailblocks != vasize; found tail_blocks ({}), vasize ({})\n", tail_blocks, va_size); }
+
+  int dk = ceil_div(va_size, tail_blocks);
+  int iterations = ceil_div(aligned_dims, tail_blocks);
+
+  T zero = 0;
+  for (int i = 0; i < iterations; ++i) {
+    for (int j = 0; j < tail_blocks; ++j) {
+      int index = i + j * dk;
+      if (index >= size) {
+        blob.append(zero);
+      } else {
+        blob.append(tensor->at(index));
+      }
+    }
+  }
+}
+
+
+
+#if 0
+template <typename T> static void fc_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  assert(dims.size() == 1);
   size_t size = dims[0];
   size_t aligned_size = aligned_fc_bias(dims);
   auto sa_arch = get_sa_arch();
@@ -1891,6 +1922,8 @@ template <typename T> static void fc_bias_align_aux(BinBlob &blob, const Tensor<
     }
   }
 }
+#endif
+
 template <typename T>
 static void fc_weight_align_aux(BinBlob &blob, const Tensor<T> *tensor, bool transpose) {
   auto dims = tensor->get_dims();
