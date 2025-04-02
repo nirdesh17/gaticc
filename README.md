@@ -69,8 +69,7 @@ cd /path/to/gaticc
 ./scripts/install_deps.sh
 mkdir build
 cmake -B build
-cmake --build build
-sudo cmake --install build
+cmake --build build && sudo cmake --install build
 ```
 
 Additionally, make sure PYTHONPATH environment is set. 
@@ -87,6 +86,10 @@ See,
 gaticc -h
 ```
 for usage instructions.
+
+Additionally, checkout `examples/` directory for understanding the python
+interface that gaticc provides and `python/gati.py` for a comprehensive
+python API doc.
 
 # Versioning
 
@@ -204,7 +207,8 @@ function, follow these general steps:
    - What outputs the function produces (e.g., modified tensors, numerical
      results).
    
-   For example, for `run_conv`, check what data format it accepts (like a multi-dimensional array or tensor), the required kernel size, stride, etc.
+   For example, for `run_conv`, check what data format it accepts (like a
+    multi-dimensional array or tensor), the required kernel size, stride, etc.
 
 3. **Map to the Class and Methods**:  If the function is part of a class,
    understand how the class is structured:
@@ -265,11 +269,4 @@ integration of new test cases.
 
 ## Supported Models
 
-- These are the supported models:
-
-| Model Name | Supported |
-|------------|-----------|
-| vgg_16_224_int8.onnx | ✅ |
-| mnistpad1_6_28_int8.onnx | ✅ |
-
--  [Download Supported Models](http://galactos.local:8471/)
+- [Download Models](http://galactos.local:8471/)
