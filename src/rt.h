@@ -284,8 +284,9 @@ void unalign_sa_output(Tensor<T> *tensor, const T *data) {
             int elem_n = (e * dk) + ei;
             int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
             if (chan_n < og_dims[TENSOR_4D_CHANNELS] && elem_n < og_frame_sz) {
-              tensor->set(index, data[data_index++]);
+              tensor->set(index, data[data_index]);
             } 
+            data_index++;
           }
         }
       }
