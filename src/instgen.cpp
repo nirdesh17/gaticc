@@ -177,7 +177,6 @@ std::vector<Op::LayerBase *> Pass::remove_dqxq(Op::Graph graph) {
   for (next = vi; vi != vi_end; vi = next, cnt++) {
     next++;
     Op::LayerBase *l = graph[*vi];
-    std::cout << __func__ << " name " << l->name << ' ' << l->op_type() << '\n';
     if (std::strcmp(l->op_type(), "DequantizeLinear") == 0 &&
         l->device == DEVICE_UNKNOWN) {
       in_zone = true;
