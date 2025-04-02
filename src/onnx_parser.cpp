@@ -72,7 +72,7 @@ uint32_t Op::LayerBase::get_weight_size() {
             this->op_type(), this->name);
 }
 
-void Op::LayerBase::align_weights(BinBlob &blob, InitializerTable &tbl) {
+void Op::LayerBase::align_weights(BinBlob &, InitializerTable &) {
   return;
 }
 

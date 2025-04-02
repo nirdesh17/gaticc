@@ -357,6 +357,7 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val) {
+  ignore_unused(shift_val);
   inputT rounded = std::round(((float)v / scale + zero_point));
   return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
 }

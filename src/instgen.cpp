@@ -2321,8 +2321,6 @@ int GmlCheck::check_conv_weight_continuity(
   }
   int kn = inst_get(inst, CONV_KN);
   int ic = inst_get(inst, CONV_IC);
-  int kw = inst_get(inst, CONV_KW);
-  int kh = inst_get(inst, CONV_KH);
   int expected_weight_size = ceil_mod(
       ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]) *
           ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]) *

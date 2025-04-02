@@ -272,7 +272,6 @@ void unalign_sa_output(Tensor<T> *tensor, const T *data) {
   int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
   int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
   int dk = WORD_SIZE / sa_arch[SA_ARCH_N];
-  T zero = 0;
   int data_index = 0;
 
   for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
