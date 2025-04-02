@@ -45,16 +45,18 @@ def viz_fc_bias(input_dims, sa_arch, vasize):
     tail_blocks = sa_arch[2] if sa_arch is not None and len(sa_arch) == 3 else vasize
     dk = vasize // tail_blocks # N_SA
     aligned_dims = align_dim_fc_bias(input_dims, vasize)
-    iterations = aligned_dims[0] // tail_blocks
+    iterations = aligned_dims[0] // (tail_blocks * dk)
     table_data = []
     for i in range(iterations):
-        row = []
-        for j in range(tail_blocks):
-            if i+j*dk >= input_dims[0]:
-                row.append("0")
-            else:
-                row.append(f"e{i+j*dk}")
-        table_data.append(row)    
+        for j in range(dk):
+            row = []
+            for k in range(tail_blocks):
+                index = i * tail_blocks * dk + j + k * dk
+                if index >= input_dims[0]:
+                    row.append("0")
+                else:
+                    row.append(f"e{index}")
+            table_data.append(row)    
     return table_data
     
 
