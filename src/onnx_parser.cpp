@@ -215,6 +215,32 @@ void Op::Layer::Clip::infer_shape(const IVec2D &input_dims) {
   this->output_dims = input_dims;
   this->pipelined_output_dims = input_dims;
 }
+void Op::Layer::Clip::infer_type(const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type = input_types;
+}
+
+enum CLIP_INITIALIZERS { CLIP_MIN = 1, CLIP_MAX = 2 };
+
+void Op::Layer::Clip::set_initializer_params(int n,
+                                             const onnx::TensorProto &t) {
+  float val = 0.0f;
+  if (t.float_data_size() > 0) {
+    val = t.float_data(0);
+  } else if (!t.raw_data().empty()) {
+    std::memcpy(&val, t.raw_data().data(), sizeof(float));
+  }
+
+  switch (n) {
+  case CLIP_MIN:
+    this->m_min = val;
+    break;
+  case CLIP_MAX:
+    this->m_max = val;
+    break;
+  }
+}
 
 Op::Layer::Gemm::Gemm() {
   m_cp = {};

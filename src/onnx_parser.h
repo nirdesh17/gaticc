@@ -225,6 +225,11 @@ struct Clip : public LayerBase {
   std::string params() const override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const IVec2D &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
+  int get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
+  uint32_t get_weight_size() override;
 };
 
 struct Gemm : public LayerBase {

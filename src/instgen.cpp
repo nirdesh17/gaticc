@@ -10,7 +10,7 @@
 
 static std::set<std::string> miniblock_tbl{
     "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
-    "QLinearAveragePool", "Conv", "Gemm",    "QLinearAdd"};
+    "QLinearAveragePool", "Conv", "Gemm",    "QLinearAdd", "Clip"};
 
 static std::set<std::string> megablock_tbl{"QLinearConv", "QGemm", "Conv",
                                            "Gemm", "QLinearAdd"};
@@ -1305,6 +1305,21 @@ int Op::Layer::QLinearAdd::get_inst(InstBlob &blob, AddressGen &gen,
   /* as qlinearadd does not insert any dwp packets in the blob */
   return 0;
 }
+
+int Op::Layer::Clip::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl){
+  std::bitset<INST_SIZE_BITS> clip_inst;
+  inst_set(clip_inst, OP_TailBlock, TailBlock_Opcode);
+  inst_set(clip_inst, 1, TailBlock_ActEn);
+  inst_set(clip_inst, ACT_CLIP, TailBlock_ActType);
+  insts.push_back(clip_inst);
+  return 0;
+}
+
+void Op::Layer::Clip::get_opcodes(std::vector<int> &op_codes){
+  op_codes.push_back(OP_TailBlock);
+}
+
+uint32_t Op::Layer::Clip::get_weight_size(){return 0;}
 
 IVec2D Op::LayerBase::aligned_input() { return input_dims; }
 
