@@ -1721,6 +1721,70 @@ void Op::Layer::Concat::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
+
+
+
+Op::Layer::NMS::NMS() {}
+
+
+const char *Op::Layer::NMS::op_type() const { return m_optype; }
+
+std::string Op::Layer::NMS::params() const {
+  static char ret[128];
+  sprintf(ret, "(max_boxes: %ld), (iou_thresh: %.2f), (score_thresh: %.2f)",
+          max_output_boxes, iou_threshold, score_threshold);
+  return ret;
+}
+
+void Op::Layer::NMS::set_attributes(const onnx::NodeProto &node) {
+  for (const auto &attr : node.attribute()) {
+    if (attr.name() == "center_point_box") {
+      center_point_box = attr.i();
+    }
+  }
+}
+
+void Op::Layer::NMS::infer_shape(
+  const std::vector<std::vector<int>> &input_dims) {
+  assert(input_dims.size() == 2);
+  this->input_dims = input_dims;
+  this->output_dims = {{static_cast<int>(max_output_boxes), 3}}; //(selected_boxes, class, score)
+}
+
+void Op::Layer::NMS::infer_type(const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type.push_back(onnx::TensorProto_DataType_INT64);
+}
+
+enum NMS_INITIALIZER{
+  MAX_OUT_BOXES=2,
+  IOU_THRESHOLD=3,
+  SCORE_THRESHOLD=4
+};
+
+
+void Op::Layer::NMS::set_initializer_params(int n, const onnx::TensorProto &t){
+  switch(n){
+    case MAX_OUT_BOXES:
+      assert(t.data_type() == onnx::TensorProto_DataType_INT64);
+      max_output_boxes = t.int64_data(0);
+      break;
+    case IOU_THRESHOLD:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      iou_threshold = t.float_data(0);
+      break;
+    case SCORE_THRESHOLD:
+      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+      score_threshold = t.float_data(0);
+      break;
+    default:
+      log_fatal("unknown inputs number {} for tensor {}\n", n, t.name());
+      break;
+  }
+}
+
+
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
@@ -2614,7 +2678,10 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Unsqueeze(), node);
   } else if (opt == "Concat") {
     m_model.add(new Op::Layer::Concat(), node);
-  } else {
+  } else if (opt == "NonMaxSuppression") {
+    m_model.add(new Op::Layer::NMS(), node);
+  }
+  else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }
 }
@@ -2649,8 +2716,7 @@ Op::Parser::Parser(std::string const &filename) {
   m_model.save_first_layer_input_dims(m_graph.input().at(0));
 
   m_model.create_execution_order();
-  m_model.update_registers();
-
+  
   std::vector<TPDT> input_types;
   for (const auto &i : m_graph.input()) {
     input_types.push_back(get_type_from_value_info(i));
@@ -2667,6 +2733,7 @@ Op::Parser::Parser(std::string const &filename) {
 
   m_model.deduce_shapes(input_dims);
   pass_set_device(get_graph());
+  m_model.update_registers();
 }
 
 void Op::Parser::summary() const { m_model.bare_summary(); }
@@ -2771,8 +2838,12 @@ Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
     S.pop();
 
     if (Op::is_root_node(n, &g)) {
-      node->inputs.push_back(acquire(node->name));
-      node->outputs.push_back(acquire(node->name));
+      for(int i=0;i<node->input_dims.size();i++){
+        node->inputs.push_back(acquire(node->name));
+      }
+      for(int i=0;i<node->output_dims.size();i++){
+        node->outputs.push_back(acquire(node->name));
+      }
       if (register_set.at(node->inputs.at(0)) == 1) {
         relinquish(node->inputs.at(0));
       }

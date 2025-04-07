@@ -628,6 +628,23 @@ struct Concat : public LayerBase {
   void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
+struct NMS : public LayerBase {
+  const char *m_optype = "NonMaxSuppression";
+  int64_t max_output_boxes;
+  float iou_threshold;
+  float score_threshold;
+  int64_t center_point_box;
+
+  NMS();
+  const char *op_type() const override;
+  std::string params() const override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
+};
+
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS,
