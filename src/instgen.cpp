@@ -1797,13 +1797,6 @@ void BinBlob::append(const InstBlob &instblob, uint32_t addr) {
   }
 }
 
-template <typename T> inline bool is_pointwise_conv(const T &dims) {
-  if (dims[TENSOR_4D_HEIGHT] == 1 && dims[TENSOR_4D_WIDTH] == 1) {
-    return true;
-  }
-  return false;
-}
-
 template <typename T>
 static void sa_align_aux_regular(BinBlob &blob, const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
@@ -1851,14 +1844,33 @@ static void sa_align_aux_regular(BinBlob &blob, const Tensor<T> *tensor) {
   }
 }
 template <typename T>
-static void sa_align_aux_pointwise(BinBlob &, const Tensor<T> *) {
-  log_fatal("shouldnt reach here, pointwise alignment un-implemented\n");
+static void sa_align_aux_pointwise(BinBlob &blob, const Tensor<T> *tensor) {
+  auto sa_arch = get_sa_arch();
+  auto dims = tensor->get_dims();
+  auto aligned_dims = aligned_conv_weight_dims(dims);
+  int kern_itr = ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+  int chan_itr = ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
+  auto strides = tensor->get_strides();
+
+  for (int ki = 0; ki < kern_itr; ++ki) {
+    for (int ci = 0; ci < chan_itr; ++ci) {
+      for (int c = sa_arch[SA_ARCH_N] - 1; c >= 0; --c) {
+        for (int r = 0; r < sa_arch[SA_ARCH_ROW]; ++r) {
+          int kern_i = ki * sa_arch[SA_ARCH_N] + r;
+          int chan_i = ci * sa_arch[SA_ARCH_ROW] + c;
+          int index = kern_i * strides[0] + chan_i * strides[1];
+          std::cout << " kern " << kern_i << " chan " << chan_i << " index " << index << '\n';
+        }
+      }
+    }
+  }
+  std::exit(1);
 }
 
 template <typename T> static void sa_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
-  auto aligned_dims = aligned_conv_weight_dims(tensor->get_dims());
-  assert(aligned_dims.size() == 4);
-  if (is_pointwise_conv(aligned_dims)) {
+  auto dims = tensor->get_dims();
+  assert(dims.size() == 4);
+  if (is_pointwise_conv(dims)) {
     sa_align_aux_pointwise(blob, tensor);
   } else {
     sa_align_aux_regular(blob, tensor);

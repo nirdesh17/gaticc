@@ -1,5 +1,5 @@
 from flask import Flask, render_template_string, request
-from viz_align import viz_sa_input, viz_fc_bias
+from viz_align import viz_sa_input, viz_fc_bias, viz_sa_pointwise
 
 app = Flask(__name__)
 
@@ -15,6 +15,8 @@ def index():
         elif visualization_type == 'fc_bias':
             vasize = int(request.form['vasize']) if request.form['vasize'] else None
             table_data = viz_fc_bias(input_dims, sa_arch, vasize)
+        elif visualization_type == 'sa_pointwise':
+            table_data = viz_sa_pointwise(input_dims, sa_arch)
         return render_template_string(template, table_data=table_data,
                                     input_dims=request.form['input_dims'],
                                     sa_arch=request.form['sa_arch'],
@@ -58,6 +60,7 @@ template = """
     <select id="viz_type" name="viz_type" onchange="toggleVasize()">
         <option value="sa_input" {% if viz_type == 'sa_input' %}selected{% endif %}>SA Input</option>
         <option value="fc_bias" {% if viz_type == 'fc_bias' %}selected{% endif %}>FC Bias</option>
+        <option value="sa_pointwise" {% if viz_type == 'sa_pointwise' %}selected{% endif %}>SA Pointwise</option>
     </select><br><br>
 
     <label for="input_dims"> Input Dimensions {% if viz_type == 'sa_input' %} (depth height width): {% else %} (size) {% endif %} </label><br>

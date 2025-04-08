@@ -103,5 +103,5 @@ int calc_shift_val(float inverted) {
       shift_val = shift;
     }
   }
-  return shift_val;
+  return 16;
 }
