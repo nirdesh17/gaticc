@@ -1962,40 +1962,10 @@ static void fc_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
   int iterations = ceil_div(aligned_dims, tail_blocks * dk);
 
   T zero = 0;
-  std::cout << "iteration " << iterations << '\n';
   for (int i = 0; i < iterations; ++i) {
     for (int j = 0; j < dk; ++j) {
       for (int k = 0; k < tail_blocks; ++k) {
         int index = i * tail_blocks * dk + j + k * dk;
-        std::cout << index << ' ';
-        if (index >= size) {
-          blob.append(zero);
-        } else {
-          blob.append(tensor->at(index));
-        }
-      }
-    std::cout << "\n";
-    }
-    std::cout << "\n";
-  }
-}
-
-
-
-#if 0
-template <typename T> static void fc_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
-  auto dims = tensor->get_dims();
-  assert(dims.size() == 1);
-  size_t size = dims[0];
-  size_t aligned_size = aligned_fc_bias(dims);
-  auto sa_arch = get_sa_arch();
-  int sa_cols = sa_arch[SA_ARCH_COLS];
-  int iterations = aligned_size / (sa_cols * sa_cols);
-  T zero = 0;
-  for (int i = 0; i < iterations; ++i) {
-    for (int j = 0; j < sa_cols; ++j) {
-      for (int k = 0; k < sa_cols; ++k) {
-        int index = j + (k * sa_arch[1]) + (i * sa_arch[1] * sa_arch[1]);
         if (index >= size) {
           blob.append(zero);
         } else {
@@ -2005,7 +1975,6 @@ template <typename T> static void fc_bias_align_aux(BinBlob &blob, const Tensor<
     }
   }
 }
-#endif
 
 template <typename T>
 static void fc_weight_align_aux(BinBlob &blob, const Tensor<T> *tensor, bool transpose) {
