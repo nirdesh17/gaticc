@@ -1319,13 +1319,9 @@ gen_eltwise_add_quant(const Op::Layer::QLinearAdd *cc) {
  */
 int Op::Layer::QLinearAdd::get_inst(InstBlob &blob, AddressGen &gen,
                                     InitializerTable &tbl) {
-  std::cout << "Running layer " << this->name << '\n';
   assert(this->device == DEVICE_FPGA);
-  std::cout << "gen eltwise\n";
   auto add_inst = gen_eltwise(this, gen, tbl, ELTWISE_ADD);
-  std::cout << "gen eltwise output\n";
   auto out_inst = gen_eltwise_output(this, gen, tbl);
-  std::cout << "gen eltwise add qunat\n";
   auto quant_inst = gen_eltwise_add_quant(this);
   blob.push_back(add_inst);
   blob.push_back(out_inst);

@@ -484,7 +484,6 @@ void print_vec(const char *s, Container const &v) {
     newline_cnt++;
   }
   std::cout << "]";
-  std::cout << '\n';
 }
 
 /* custom compare function to handle floats separately */
