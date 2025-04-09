@@ -9,7 +9,7 @@
 
 #define check_overflow(value, bits)                                            \
   do {                                                                         \
-    if (value >= (2 << bits)) {                                                \
+    if (value >= (1 << bits)) {                                                \
       log_fatal("value {} ({}) overflows a {} bit ({}) field\n", value,        \
                 #value, bits, #bits);                                          \
     }                                                                          \
@@ -182,16 +182,22 @@ template <typename T> inline bool is_pointwise_conv(const T &dims) {
   return false;
 }
 
+template <typename T1, typename T2> inline bool is_depthwise_conv(const T1 &dims, const T2 &input_dims) {
+  if (dims[TENSOR_4D_CHANNELS] == 1 && input_dims[TENSOR_4D_CHANNELS] > 1) {
+    return true;
+  }
+  return false;
+}
+
 template <typename T>
 std::vector<int> aligned_conv_weight_dims(const T &wdims) {
   assert(wdims.size() == 4);
   auto w = wdims;
   auto sa_arch = get_sa_arch();
+  w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
   if (is_pointwise_conv(w)) {
-    w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
   } else {
-    w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
     w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
   }
   std::vector<int> ret(wdims.size());
@@ -203,12 +209,11 @@ template <typename T> int aligned_conv_weight(const T &wdims) {
   auto w = aligned_conv_weight_dims(wdims);
   auto sa_arch = get_sa_arch();
   assert(w.size() == 4 && "Expect tensors to be 4 dimensional");
-  int kern_itr = 0; int chan_itr = 0;
+  int chan_itr = 0;
+  int kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
   if (is_pointwise_conv(w)) {
-    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
   } else {
-    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
     chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
   }
   int ret = kern_itr * chan_itr * prod(sa_arch);

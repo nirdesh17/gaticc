@@ -658,6 +658,8 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   inst_set(conv_inst, cc->output_dims[0][TENSOR_4D_HEIGHT], CONV_OH);
   check_overflow(cc->input_dims[0][TENSOR_4D_CHANNELS], CONV_IC_COUNT);
   inst_set(conv_inst, cc->input_dims[0][TENSOR_4D_CHANNELS], CONV_IC);
+  check_overflow(cc->weights->dims()[TENSOR_4D_CHANNELS], CONV_KC_COUNT);
+  inst_set(conv_inst, cc->weights->dims()[TENSOR_4D_CHANNELS], CONV_KC);
   check_overflow(cc->m_cp.kn, CONV_KN_COUNT);
   inst_set(conv_inst, cc->m_cp.kn, CONV_KN);
   check_overflow(cc->m_cp.k[TENSOR_2D_WIDTH], CONV_KW_COUNT);
@@ -714,6 +716,14 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
     if (im2col_buf > od[TENSOR_4D_HEIGHT] * od[TENSOR_4D_WIDTH]) {
       inst_set(conv_inst, 1, CONV_Im2colPrefetch);
     }
+  }
+
+  if (is_pointwise_conv(cc->weights->dims())) {
+    inst_set(conv_inst, CONV_TYPE_PW, CONV_ConvType);
+  } else if (is_depthwise_conv(cc->weights->dims(), cc->input_dims.at(0))) {
+    inst_set(conv_inst, CONV_TYPE_DW, CONV_ConvType);
+  } else {
+    inst_set(conv_inst, CONV_TYPE_REGULAR, CONV_ConvType);
   }
   return conv_inst;
 }
@@ -784,8 +794,15 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
   auto odims = cc->output_dims.at(0);
   auto idims = cc->input_dims.at(0);
-  int citr = ceil_div(idims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
-  int kitr = ceil_div(cc->m_cp.kn, sa_arch[SA_ARCH_COLS]);
+  auto wdims = aligned_conv_weight_dims(cc->weights->dims());
+  int citr = 0;
+  if (is_pointwise_conv(cc->weights->dims())) {
+    citr = ceil_div(wdims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_ROW]);
+  } else {
+    citr = ceil_div(wdims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
+  }
+  int kitr = ceil_div(wdims.at(TENSOR_4D_BATCH), sa_arch[SA_ARCH_COLS]);
+
   auto pod = cc->pipelined_output_dims.at(0);
   int ido = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
                      get_conv_out_mod());
@@ -1873,23 +1890,28 @@ static void sa_align_aux_pointwise(BinBlob &blob, const Tensor<T> *tensor) {
   auto sa_arch = get_sa_arch();
   auto dims = tensor->get_dims();
   auto aligned_dims = aligned_conv_weight_dims(dims);
-  int kern_itr = ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+  int kern_itr = ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
   int chan_itr = ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
   auto strides = tensor->get_strides();
 
+  T zero = 0;
   for (int ki = 0; ki < kern_itr; ++ki) {
     for (int ci = 0; ci < chan_itr; ++ci) {
-      for (int c = sa_arch[SA_ARCH_N] - 1; c >= 0; --c) {
+      for (int c = sa_arch[SA_ARCH_COLS] - 1; c >= 0; --c) {
         for (int r = 0; r < sa_arch[SA_ARCH_ROW]; ++r) {
-          int kern_i = ki * sa_arch[SA_ARCH_N] + r;
+          int kern_i = ki * sa_arch[SA_ARCH_COLS] + r;
           int chan_i = ci * sa_arch[SA_ARCH_ROW] + c;
           int index = kern_i * strides[0] + chan_i * strides[1];
-          std::cout << " kern " << kern_i << " chan " << chan_i << " index " << index << '\n';
+          //std::cout << " kern " << kern_i << " chan " << chan_i << " index " << index << '\n';
+          if (kern_i >= dims[TENSOR_4D_BATCH] || chan_i >= dims[TENSOR_4D_CHANNELS]) {
+            blob.append(zero);
+          } else {
+            blob.append(tensor->at(index));
+          }
         }
       }
     }
   }
-  std::exit(1);
 }
 
 template <typename T> static void sa_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
@@ -2235,9 +2257,15 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
       int expected_kern_itr = 0;
 
       if (p_op == OP_CONV) {
-        int chan = inst_get(*previous_inst, CONV_IC);
+        int kh = inst_get(*previous_inst, CONV_KH);
+        int kw = inst_get(*previous_inst, CONV_KW);
+        int chan = inst_get(*previous_inst, CONV_KC);
         int kern = inst_get(*previous_inst, CONV_KN);
-        expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_N]);
+        if (kh == 1 && kw == 1) {
+          expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_ROW]);
+        } else {
+          expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_N]);
+        }
         expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_COLS]);
       } else if (p_op == OP_FC) {
         expected_chan_itr = 1;
@@ -2371,11 +2399,17 @@ int GmlCheck::check_conv_weight_continuity(
     log_fatal("Layer has WeightStartAddress {} >= WeightEndAddress {}", start,
               end);
   }
+  int type = inst_get(inst, CONV_ConvType);
   int kn = inst_get(inst, CONV_KN);
-  int ic = inst_get(inst, CONV_IC);
+  int ic = inst_get(inst, CONV_KC);
+  int chan_itr = 0;
+  if (type == CONV_TYPE_PW) {
+    chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_ROW]), sa_arch[SA_ARCH_ROW]);
+  } else {
+    chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]);
+  }
   int expected_weight_size = ceil_mod(
-      ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]) *
-          ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]) *
+      ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]) * chan_itr *
           prod(sa_arch), 
       WORD_SIZE);
 

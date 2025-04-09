@@ -22,48 +22,55 @@
 #define CONV_OH_COUNT 10
 // Channel count for the input
 #define CONV_IC_LOW 44
-#define CONV_IC_HIGH 53
-#define CONV_IC_COUNT 10
+#define CONV_IC_HIGH 55
+#define CONV_IC_COUNT 12
 // Kernel count for the input
-#define CONV_KN_LOW 54
-#define CONV_KN_HIGH 63
-#define CONV_KN_COUNT 10
+#define CONV_KN_LOW 56
+#define CONV_KN_HIGH 67
+#define CONV_KN_COUNT 12
 // Kernel width
-#define CONV_KW_LOW 64
-#define CONV_KW_HIGH 67
+#define CONV_KW_LOW 68
+#define CONV_KW_HIGH 71
 #define CONV_KW_COUNT 4
 // Kernel Height
-#define CONV_KH_LOW 68
-#define CONV_KH_HIGH 71
+#define CONV_KH_LOW 72
+#define CONV_KH_HIGH 75
 #define CONV_KH_COUNT 4
-#define CONV_Stride_LOW 72
-#define CONV_Stride_HIGH 75
+#define CONV_Stride_LOW 76
+#define CONV_Stride_HIGH 79
 #define CONV_Stride_COUNT 4
-#define CONV_Pad_LOW 76
-#define CONV_Pad_HIGH 78
+#define CONV_Pad_LOW 80
+#define CONV_Pad_HIGH 82
 #define CONV_Pad_COUNT 3
 // Bit vector where each bit represents a side (left,bottom,rig
 // ht,top) of a feature map that should be padded with 'Pad'
-#define CONV_PadSides_LOW 79
-#define CONV_PadSides_HIGH 82
+#define CONV_PadSides_LOW 83
+#define CONV_PadSides_HIGH 86
 #define CONV_PadSides_COUNT 4
-#define CONV_ImageStartAddress_LOW 83
-#define CONV_ImageStartAddress_HIGH 114
+#define CONV_ImageStartAddress_LOW 87
+#define CONV_ImageStartAddress_HIGH 118
 #define CONV_ImageStartAddress_COUNT 32
-#define CONV_ImageEndAddress_LOW 115
-#define CONV_ImageEndAddress_HIGH 146
+#define CONV_ImageEndAddress_LOW 119
+#define CONV_ImageEndAddress_HIGH 150
 #define CONV_ImageEndAddress_COUNT 32
-#define CONV_WeightStartAddress_LOW 147
-#define CONV_WeightStartAddress_HIGH 178
+#define CONV_WeightStartAddress_LOW 151
+#define CONV_WeightStartAddress_HIGH 182
 #define CONV_WeightStartAddress_COUNT 32
-#define CONV_WeightEndAddress_LOW 179
-#define CONV_WeightEndAddress_HIGH 210
+#define CONV_WeightEndAddress_LOW 183
+#define CONV_WeightEndAddress_HIGH 214
 #define CONV_WeightEndAddress_COUNT 32
 // Set if the entire image can be fetched in im2col blocks at o
 // nce
-#define CONV_Im2colPrefetch_LOW 211
-#define CONV_Im2colPrefetch_HIGH 211
+#define CONV_Im2colPrefetch_LOW 215
+#define CONV_Im2colPrefetch_HIGH 215
 #define CONV_Im2colPrefetch_COUNT 1
+// Channel count for weight
+#define CONV_KC_LOW 216
+#define CONV_KC_HIGH 227
+#define CONV_KC_COUNT 12
+#define CONV_ConvType_LOW 228
+#define CONV_ConvType_HIGH 229
+#define CONV_ConvType_COUNT 2
 
 #define OP_TailBlock 0x01
 #define TailBlock_Opcode_LOW 0
@@ -338,7 +345,7 @@
 #define EltWise_RightOperandEndAddress_HIGH 165
 #define EltWise_RightOperandEndAddress_COUNT 32
 
-#define ISA_VERSION 2
+#define ISA_VERSION 3
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define POOL_MAX 0x00
@@ -367,6 +374,9 @@
 #define META_WIDTH_BITS 48
 #define RAH_APP_ID 1
 #define META_APP_ID 2
+#define CONV_TYPE_REGULAR 0
+#define CONV_TYPE_DW 1
+#define CONV_TYPE_PW 2
 
 #define ZerothStartAddress_LOW 0
 #define ZerothStartAddress_HIGH 31
@@ -439,6 +449,10 @@ inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("WeightEndAddress");
 	tbl.tbl.insert({"Im2colPrefetch", bitset_range_get<CONV_Im2colPrefetch_COUNT, INST_SIZE_BITS>(inst, CONV_Im2colPrefetch_LOW, CONV_Im2colPrefetch_HIGH)});
 	tbl.order.push_back("Im2colPrefetch");
+	tbl.tbl.insert({"KC", bitset_range_get<CONV_KC_COUNT, INST_SIZE_BITS>(inst, CONV_KC_LOW, CONV_KC_HIGH)});
+	tbl.order.push_back("KC");
+	tbl.tbl.insert({"ConvType", bitset_range_get<CONV_ConvType_COUNT, INST_SIZE_BITS>(inst, CONV_ConvType_LOW, CONV_ConvType_HIGH)});
+	tbl.order.push_back("ConvType");
 	return tbl;
 }
 inline void pretty_print_conv(const std::bitset<INST_SIZE_BITS>& inst) {
@@ -639,3 +653,4 @@ inline void pretty_print_eltwise(const std::bitset<INST_SIZE_BITS>& inst) {
 	auto tbl = get_eltwise_table(inst);
 	print_table(tbl);
 }
+

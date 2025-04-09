@@ -3,8 +3,9 @@ import sys
 import os
 # regressions for testing the compile feature of gaticc
 arch_list = [
-        { "ramsize": 512, "sa-arch": "9,4,4", "vasize": 32, "accbuf-size": 4096, "fcbuf-size": 32768 },
-        { "ramsize": 512, "sa-arch": "9,8,8", "vasize": 32, "accbuf-size": 4096, "fcbuf-size": 32768 },
+        { "ramsize": 512, "sa-arch": "9,4,4", "vasize": 32, "accbuf-size": 4096, "fcbuf-size": 32768, "im2colbuf-size": 1024},
+        { "ramsize": 512, "sa-arch": "9,8,8", "vasize": 32, "accbuf-size": 4096, "fcbuf-size": 32768, "im2colbuf-size": 1024},
+        { "ramsize": 512, "sa-arch": "16,16,1", "vasize": 32, "accbuf-size": 4096, "fcbuf-size": 32768, "im2colbuf-size": 1024},
         ]
 
 def get_tbl(l):

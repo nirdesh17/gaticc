@@ -16,7 +16,7 @@ def align_dims(input_dims, sa_arch):
     return new_dims
 
 def align_pw(dims, sa_arch):
-    new_dims = [ceil_mod(dims[0], sa_arch[2]), ceil_mod(dims[1], sa_arch[0]), dims[2], dims[3]]
+    new_dims = [ceil_mod(dims[0], sa_arch[1]), ceil_mod(dims[1], sa_arch[0]), dims[2], dims[3]]
     return new_dims
 
 def print_tbl(table_data):
@@ -69,15 +69,14 @@ def viz_fc_bias(input_dims, sa_arch, vasize):
 
 # align weights for a pointwise convolution
 def viz_sa_pointwise(dims, sa_arch):
-    assert sa_arch[0] == sa_arch[2]
     aligned_dims = align_pw(dims, sa_arch)
     kern_itr = ceil_div(aligned_dims[0], sa_arch[0])
-    chan_itr = ceil_div(aligned_dims[1], sa_arch[2])
+    chan_itr = ceil_div(aligned_dims[1], sa_arch[1])
 
     table_data = []
     for ki in range(kern_itr):
         for ci in range(chan_itr):
-            for c in reversed(range(sa_arch[2])):
+            for c in reversed(range(sa_arch[1])):
                 row = []
                 for r in range(sa_arch[0]):
                     row.append(f"k{ki*sa_arch[2]+r}c{(ci*sa_arch[0]+c)}")
