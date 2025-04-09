@@ -302,6 +302,9 @@ struct GlobalAveragePool : public LayerBase {
   const char *op_type() const override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  uint32_t get_weight_size() override;
 };
 
 struct BatchNorm : public LayerBase {

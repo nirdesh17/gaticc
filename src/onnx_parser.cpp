@@ -2209,6 +2209,48 @@ void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
 
 /* recursively calls `virtual LayerBase::infer_shape` on each node and its child
  * nodes */
+
+/*
+ * Consider the following directed graph:
+ *           +-------+
+ *      +--->|   1   |<-----+
+ *      |    |       |      |
+ *      |    +-------+      |
+ *      |                   |
+ *      |                   |
+ *  +---v---+               |
+ *  |   2   |               |
+ *  |       |               |
+ *  +---^---+               |
+ *      |               +---v---+
+ *      |               |   5   |
+ *      |               |       |
+ *  +---+---+           +-------+
+ *  |   3   |               ^
+ *  |       |               |
+ *  +-------+               |
+ *      ^                   |
+ *      |                   |
+ *      |       +-------+   |
+ *      |       |   4   |   |
+ *      +------>|       |<--+
+ *              +-------+
+ *
+ * This function performs a breadth-first traversal of the graph nodes.
+ * For each node, it calls `infer_shape` using the output shapes of its parent nodes.
+ * The `infer_shape` function is only called when all parent nodes have already
+ * had their shapes inferred.
+ *
+ * This ensures the traversal order is: 1, 2, 5, 3, 4.
+ *
+ * If the output shape of node 1 is X, then:
+ * - The input shapes for nodes 2 and 5 become X
+ * - Nodes 2 and 5 internally calculate their own output shapes (say Y1 and Y2, respectively)
+ * - These shapes are then passed down to their child nodes
+ * Consequently:
+ * - The input shape for node 3 will be Y1
+ * - The input shape for node 4 will be Y2
+ */
 void Op::Model::deduce_shapes(const IVec2D &input_dims) {
   std::queue<Op::Vertex> S;
   /* all nodes on which shape inference is done */
@@ -2260,6 +2302,9 @@ void Op::Model::deduce_shapes(const IVec2D &input_dims) {
   }
 }
 
+/* Operates almost exactly like deduce_shape but calls infer_type instead of 
+ * infer_shape
+ */
 void Op::Model::deduce_types(const std::vector<TPDT> &input_types) {
   std::queue<Op::Vertex> S;
   std::unordered_set<Op::Vertex> done_set;
@@ -2756,6 +2801,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
  * matter.
  */
 Op::Parser::Parser(std::string const &filename) {
+  log_info2("Starting parser by opening {}\n", filename); 
   loaded_model.open(filename, std::ios::in | std::ios::binary);
   if (loaded_model.fail()) {
     log_fatal("{}: {}\n", filename, strerror(errno));
@@ -2765,10 +2811,15 @@ Op::Parser::Parser(std::string const &filename) {
   model_proto->ParseFromIstream(&loaded_model);
   const onnx::GraphProto &m_graph = model_proto->graph();
 
+  log_info2("Saving graph outputs\n", filename); 
   pass_save_graph_outputs(m_graph);
+  log_info2("Saving graph inputs\n", filename); 
   pass_save_graph_inputs(m_graph);
+  log_info2("Saving value infos\n", filename); 
   pass_save_value_infos(m_graph);
+  log_info2("Saving initializers\n", filename); 
   pass_save_initializers(m_graph);
+  log_info2("Saving nodes\n", filename); 
   pass_save_nodes(m_graph);
 
   /* TODO: remove this, requires i/o part of all *Params structs to
@@ -2782,6 +2833,7 @@ Op::Parser::Parser(std::string const &filename) {
   for (const auto &i : m_graph.input()) {
     input_types.push_back(get_type_from_value_info(i));
   }
+  log_info2("Starting Type Inference\n");
   m_model.deduce_types(input_types);
   /* first layer's input dims */
   google::protobuf::RepeatedPtrField<onnx::ValueInfoProto> m_graph_inputs =
@@ -2792,9 +2844,13 @@ Op::Parser::Parser(std::string const &filename) {
     input_dims.push_back(tmp_dims);
   }
 
+  log_info2("Starting Shape Inference\n");
   m_model.deduce_shapes(input_dims);
+  log_info2("Setting devices\n");
   pass_set_device(get_graph());
+  log_info2("Updating Registers through register allocator\n");
   m_model.update_registers();
+  log_info2("Parsing Finished\n");
 }
 
 void Op::Parser::summary() const { m_model.bare_summary(); }

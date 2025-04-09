@@ -202,7 +202,7 @@ std::vector<int> aligned_conv_weight_dims(const T &wdims) {
 template <typename T> int aligned_conv_weight(const T &wdims) {
   auto w = aligned_conv_weight_dims(wdims);
   auto sa_arch = get_sa_arch();
-  assert(w.size() != 4 && "Expect tensors to be 4 dimensional");
+  assert(w.size() == 4 && "Expect tensors to be 4 dimensional");
   int kern_itr = 0; int chan_itr = 0;
   if (is_pointwise_conv(w)) {
     kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
