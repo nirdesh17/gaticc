@@ -2211,6 +2211,8 @@ void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
  * nodes */
 void Op::Model::deduce_shapes(const IVec2D &input_dims) {
   std::queue<Op::Vertex> S;
+  /* all nodes on which shape inference is done */
+  std::unordered_set<Op::Vertex> done_set;
   Op::Graph gcopy = g;
 
   auto vitr = boost::vertices(gcopy);
@@ -2218,6 +2220,7 @@ void Op::Model::deduce_shapes(const IVec2D &input_dims) {
   /* set first layer's input dims */
   IVec2D tmp = input_dims;
   gcopy[v]->infer_shape(tmp);
+  done_set.insert(v);
   S.push(v);
 
   while (!S.empty()) {
@@ -2231,13 +2234,27 @@ void Op::Model::deduce_shapes(const IVec2D &input_dims) {
     }
 
     for (auto [src, dest] : edges_to_remove) {
-      auto in_dims = Op::get_dims_of_in_edges(dest, gcopy);
-      gcopy[dest]->infer_shape(in_dims);
+      /* make sure all parents of 'dest' have underwent infer_shape */
+      auto in_edges = boost::in_edges(dest, gcopy);
+      bool dest_parents_done = 1;
+      for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
+        Op::Vertex dsource = boost::source(*itr, gcopy);
+        auto present = done_set.find(dsource);
+        if (present == done_set.end()) {
+          dest_parents_done = 0;
+        } 
+      }
 
-      boost::remove_edge(src, dest, gcopy);
-
-      if (boost::in_degree(dest, gcopy) == 0) {
-        S.push(dest);
+      if (dest_parents_done) {
+        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy);
+        gcopy[dest]->infer_shape(in_dims);
+        done_set.insert(dest);
+        boost::remove_edge(src, dest, gcopy);
+        if (boost::in_degree(dest, gcopy) == 0) {
+          S.push(dest);
+        }
+      } else {
+        S.push(n);
       }
     }
   }
