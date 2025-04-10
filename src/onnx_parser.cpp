@@ -253,8 +253,8 @@ const char *Op::Layer::Gemm::op_type() const { return m_optype; }
 std::string Op::Layer::Gemm::params() const {
   static std::string ret;
   std::stringstream ss;
-  ss << "IH,IW,WR,WC: " << this->input_dims[TENSOR_2D_HEIGHT] << ","
-     << this->input_dims[TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc
+  ss << "IH,IW,WR,WC: " << this->input_dims[0][TENSOR_2D_HEIGHT] << ","
+     << this->input_dims[0][TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc
      << " alpha,beta,transA,transB: " << m_cp.alpha << "," << m_cp.beta << ","
      << m_cp.transA << "," << m_cp.transB;
   ret = ss.str();
@@ -991,8 +991,8 @@ const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
 std::string Op::Layer::QLinearMatMul::params() const {
   std::string ret;
   std::stringstream ss;
-  ss << "IH,IW,WR,WC: " << this->input_dims[TENSOR_2D_HEIGHT] << ","
-     << this->input_dims[TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc
+  ss << "IH,IW,WR,WC: " << this->input_dims[0][TENSOR_2D_HEIGHT] << ","
+     << this->input_dims[0][TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc
      << " scale,zp: " << y_scale[0];
   ret = ss.str();
   return ret;
@@ -1217,8 +1217,8 @@ const char *Op::Layer::MatMul::op_type() const { return m_optype; }
 std::string Op::Layer::MatMul::params() const {
   std::string ret;
   std::stringstream ss;
-  ss << "IH,IW,WR,WC: " << this->input_dims[TENSOR_2D_HEIGHT] << ","
-     << this->input_dims[TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc;
+  ss << "IH,IW,WR,WC: " << this->input_dims[0][TENSOR_2D_HEIGHT] << ","
+     << this->input_dims[0][TENSOR_2D_WIDTH] << "," << m_cp.wr << "," << m_cp.wc;
   ret = ss.str();
   return ret;
 }
