@@ -31,7 +31,7 @@ mut = [
 'mnist_int8_stride2.onnx',
 'mnist_int8_stride3.onnx',
 'mnistpad1_6_28_int8.onnx',
-'vgg_16_224_int8.onnx'
+'imagenet_vgg_16_224_int8.onnx'
 ]
 
 if __name__ == "__main__":
@@ -60,7 +60,7 @@ if __name__ == "__main__":
             ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_mnist", "post")
             if not ret:
                 match_percentages.append((file, gati.match('mnist_10_labels.txt', 'results.txt')))
-        elif 'vgg' in file:
+        elif 'imagenet' in file:
             ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_imagenet", "post")
             if not ret:
                 match_percentages.append((file, gati.match('imagenet_10_labels.txt', 'results.txt')))
