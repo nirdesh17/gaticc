@@ -83,6 +83,7 @@ struct PoolParams {
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
   int dilation[2];
+  bool gbl;      /* global pooling */
 };
 
 using VirtualAddress = int;
@@ -295,16 +296,6 @@ struct Add : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
-};
-
-struct GlobalAveragePool : public LayerBase {
-  const char *m_optype = "GlobalAveragePool";
-  const char *op_type() const override;
-  void infer_shape(const IVec2D &input_dims) override;
-  void infer_type(const std::vector<TPDT> &input_types) override;
-  void get_opcodes(std::vector<int> &op_codes) override;
-  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
-  uint32_t get_weight_size() override;
 };
 
 struct BatchNorm : public LayerBase {
@@ -532,7 +523,7 @@ struct LogSoftmax : public LayerBase {
 struct QLinearAveragePool : public LayerBase {
   const char *m_optype = "QLinearAveragePool";
   PoolParams m_cp;
-  QLinearAveragePool();
+  QLinearAveragePool(bool gbl = 0);
   float x_scale;
   float y_scale;
   std::variant<uint8_t, int8_t> x_zero_points;
@@ -575,7 +566,7 @@ struct ReduceMean : public LayerBase {
 struct AveragePool : public LayerBase {
   const char *m_optype = "AveragePool";
   PoolParams m_cp;
-  AveragePool();
+  AveragePool(bool gbl = 0);
 
   const char *op_type() const override;
   std::string params() const override;

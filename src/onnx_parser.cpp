@@ -486,28 +486,6 @@ void Op::Layer::Add::infer_type(const std::vector<TPDT> &input_types) {
   this->output_type = input_types;
 }
 
-const char *Op::Layer::GlobalAveragePool::op_type() const { return m_optype; }
-
-void Op::Layer::GlobalAveragePool::infer_shape(const IVec2D &input_dims) {
-  assert(input_dims.size() >= 1);
-  assert(input_dims[0].size() == 4 &&
-         "expect GlobalAveragePool's inputs to be 4d");
-  this->input_dims = input_dims;
-  this->output_dims.resize(1);
-  this->output_dims[0].resize(4);
-  this->output_dims[0][0] = input_dims[0][0];
-  this->output_dims[0][1] = input_dims[0][1];
-  this->output_dims[0][2] = 1;
-  this->output_dims[0][3] = 1;
-  this->pipelined_output_dims = this->output_dims;
-}
-
-void Op::Layer::GlobalAveragePool::infer_type(
-    const std::vector<TPDT> &input_types) {
-  assert(input_types.size() >= 1);
-  this->input_type = input_types;
-  this->output_type = input_types;
-}
 
 const char *Op::Layer::BatchNorm::op_type() const { return m_optype; }
 
@@ -1424,7 +1402,7 @@ void Op::Layer::LogSoftmax::infer_type(const std::vector<TPDT> &input_types) {
   this->output_type = input_types;
 }
 
-Op::Layer::QLinearAveragePool::QLinearAveragePool() {
+Op::Layer::QLinearAveragePool::QLinearAveragePool(bool gbl) {
   /* zero initialize */
   m_cp = {};
   /* overwrite with sane defaults */
@@ -1432,6 +1410,7 @@ Op::Layer::QLinearAveragePool::QLinearAveragePool() {
   m_cp.stride[TENSOR_2D_WIDTH] = 1;
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
+  m_cp.gbl = gbl;
   x_scale = 0;
   y_scale = 0;
 }
@@ -1506,6 +1485,10 @@ void Op::Layer::QLinearAveragePool::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
+  if (this->m_cp.gbl) {
+    this->m_cp.k[0] = input_dims[0][2];
+    this->m_cp.k[1] = input_dims[0][3];
+  }
   this->output_dims.resize(1);
   this->output_dims[0].resize(4);
   this->output_dims[0][0] = input_dims[0][0];
@@ -1569,7 +1552,7 @@ void Op::Layer::ReduceMean::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
-Op::Layer::AveragePool::AveragePool() {
+Op::Layer::AveragePool::AveragePool(bool gbl) {
   /* zero initialize */
   m_cp = {};
   /* overwrite with sane defaults */
@@ -1577,6 +1560,7 @@ Op::Layer::AveragePool::AveragePool() {
   m_cp.stride[TENSOR_2D_WIDTH] = 1;
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
+  m_cp.gbl = gbl;
 }
 
 const char *Op::Layer::AveragePool::op_type() const { return m_optype; }
@@ -1639,6 +1623,10 @@ void Op::Layer::AveragePool::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
+  if (this->m_cp.gbl) {
+    this->m_cp.k[0] = input_dims[0][2];
+    this->m_cp.k[1] = input_dims[0][3];
+  }
   this->output_dims[0].resize(4);
   this->output_dims[0][0] = input_dims[0][0];
   this->output_dims[0][1] = input_dims[0][1];
@@ -2743,7 +2731,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "Add") {
     m_model.add(new Op::Layer::Add(), node);
   } else if (opt == "GlobalAveragePool") {
-    m_model.add(new Op::Layer::GlobalAveragePool(), node);
+    m_model.add(new Op::Layer::AveragePool(true), node);
   } else if (opt == "BatchNormalization") {
     m_model.add(new Op::Layer::BatchNorm(), node);
   } else if (opt == "ReorderOutput") {
@@ -2770,6 +2758,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::LogSoftmax(), node);
   } else if (opt == "QLinearAveragePool") {
     m_model.add(new Op::Layer::QLinearAveragePool(), node);
+  } else if (opt == "QLinearGlobalAveragePool") {
+    m_model.add(new Op::Layer::QLinearAveragePool(true), node);
   } else if (opt == "Abs") {
     m_model.add(new Op::Layer::Abs(), node);
   } else if (opt == "ReduceMean") {
