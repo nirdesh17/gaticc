@@ -14,7 +14,7 @@ set(PROTO_BIN_PATH ${CMAKE_CURRENT_BINARY_DIR}/protobuf)
 set(PROTOC_EXE ${CMAKE_CURRENT_BINARY_DIR}/protobuf/protoc)
 set(PARENT_BUILD_PATH ${CMAKE_CURRENT_BINARY_DIR})
 set(EXTENDED_OPTS -Wall -Wextra -pedantic -Wno-narrowing)
-#add_compile_definitions(PRINT_COLOR)
+add_compile_definitions(PRINT_COLOR)
 
 # Build time configurable options
 # Instead of enabling/disabling options in this file, consider
