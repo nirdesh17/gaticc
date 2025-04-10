@@ -9,8 +9,8 @@
 #include <stack>
 
 static std::set<std::string> miniblock_tbl{
-    "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
-    "QLinearAveragePool", "Conv", "Gemm",    "QLinearAdd"};
+  "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
+  "QLinearAveragePool", "Conv", "Gemm",    "QLinearAdd", "QLinearGlobalAveragePool"};
 
 static std::set<std::string> megablock_tbl{"QLinearConv", "QGemm", "Conv",
                                            "Gemm", "QLinearAdd"};
