@@ -2731,7 +2731,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "Add") {
     m_model.add(new Op::Layer::Add(), node);
   } else if (opt == "GlobalAveragePool") {
-    m_model.add(new Op::Layer::AveragePool(true), node);
+    m_model.add(new Op::Layer::QLinearAveragePool(true), node);
   } else if (opt == "BatchNormalization") {
     m_model.add(new Op::Layer::BatchNorm(), node);
   } else if (opt == "ReorderOutput") {

@@ -905,25 +905,6 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &,
   return 0;
 }
 
-int Op::Layer::GlobalAveragePool::get_inst(InstBlob &insts, AddressGen &,
-                                 InitializerTable &) {
-  std::bitset<INST_SIZE_BITS> gap_inst;
-
-  std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
-  inst_set(gap_inst, OP_TailBlock, TailBlock_Opcode);
-  inst_set(gap_inst, 1, TailBlock_PoolEn);
-  inst_set(gap_inst, POOL_AVERAGE, TailBlock_PoolType);
-
-  check_overflow(this->input_dims[0][TENSOR_4D_WIDTH], TailBlock_PoolWidth_COUNT);
-  inst_set(gap_inst, this->input_dims[0][TENSOR_4D_WIDTH], TailBlock_PoolWidth);
-  check_overflow(this->input_dims[0][TENSOR_4D_HEIGHT], TailBlock_PoolHeight_COUNT);
-  inst_set(gap_inst, this->input_dims[0][TENSOR_4D_HEIGHT], TailBlock_PoolHeight);
-  inst_set(gap_inst, 1, TailBlock_PoolStride);
-  inst_set(gap_inst, 0, TailBlock_PoolPadding);
-  insts.push_back(gap_inst);
-  return 0;
-}
-
 static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc, AddressGen &gen, InitializerTable &tbl) {
     std::bitset<INST_SIZE_BITS> fc_inst;
     inst_set(fc_inst, OP_FC, FC_Opcode);
@@ -1087,9 +1068,6 @@ void Op::Layer::Maxpool::get_opcodes(std::vector<int> &opcodes) {
   opcodes.push_back(OP_TailBlock);
 }
 
-void Op::Layer::GlobalAveragePool::get_opcodes(std::vector<int> &opcodes) {
-  opcodes.push_back(OP_TailBlock);
-}
 
 void Op::Layer::QGemm::get_opcodes(std::vector<int> &opcodes) {
   opcodes.push_back(OP_FC);
@@ -1111,7 +1089,6 @@ uint32_t Op::Layer::DequantizeLinear::get_weight_size() { return 0; }
 
 uint32_t Op::Layer::QuantizeLinear::get_weight_size() { return 0; }
 
-uint32_t Op::Layer::GlobalAveragePool::get_weight_size() { return 0; }
 
 uint32_t Op::Layer::QLinearConv::get_weight_size() {
   uint32_t w =
