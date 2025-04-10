@@ -49,10 +49,14 @@ if __name__ == "__main__":
             ret = gati.sim(os.path.join(models_dir, file), "test_sim.py", "gen_mnist", "post")
             if ret == 0:
                 accuracy = gati.match('mnist_10_labels.txt', 'results.txt')
-        elif "vgg_16" in file:
+        elif "imagenet" in file:
             ret = gati.sim(os.path.join(models_dir, file), "test_sim.py", "gen_imagenet", "post")
             if ret == 0:
                 accuracy = gati.match('imagenet_10_labels.txt', 'results.txt')
+        elif "cifar" in file:
+            ret = gati.sim(os.path.join(models_dir, file), "test_sim.py", "gen_cifar", "post")
+            if ret == 0:
+                accuracy = gati.match('cifar_10_labels.txt', 'results.txt')
         else:
             ret = 1
 
