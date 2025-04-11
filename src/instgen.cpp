@@ -12,10 +12,11 @@ static std::set<std::string> miniblock_tbl{
     "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
     "QLinearAveragePool", "Conv", "Gemm",    "QLinearAdd"};
 
-static std::set<std::string> megablock_tbl{"QLinearConv", "QGemm", "Conv",
-                                           "Gemm", "QLinearAdd"};
+static std::set<std::string> megablock_tbl{
+    "QLinearConv", "QGemm",      "Conv",
+    "Gemm",        "QLinearAdd", "NonMaxSuppression"};
 
-static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise};
+static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS};
 
 bool is_miniblock(const Op::LayerBase *l) {
   auto itr = miniblock_tbl.find(std::string(l->op_type()));
@@ -1531,6 +1532,9 @@ void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
   case OP_EltWise:
     pretty_print_eltwise(inst);
     break;
+  case OP_NMS:
+    pretty_print_nms(inst);
+    break;
   default:
     log_fatal("can't pretty print instruction with opcode {}\n", op_code);
     break;
@@ -2200,6 +2204,9 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
         expected_chan_itr = 1;
         int kern = inst_get(*previous_inst, EltWise_IC);
         expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
+      } else if (p_op == OP_NMS) {
+        expected_chan_itr = 0;
+        expected_kern_itr = 0;
       } else {
         log_fatal("GmlCheck: megablock of opcode {} cannot be handled\n", p_op);
       }
@@ -2289,7 +2296,8 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) const {
       ret = check_bias_continuity(inst);
     } else if (op == OP_FC) {
       ret = check_fc_weight_continuity(inst);
-    } else if (op == OP_OutputBlock || op == OP_START || op == OP_EltWise) {
+    } else if (op == OP_OutputBlock || op == OP_START || op == OP_EltWise ||
+               op == OP_NMS) {
       // do nothing
     } else {
       log_fatal("Unhandled instruction in check_weight_address_continuity {}\n",
@@ -2450,4 +2458,114 @@ void GmlCheck::check_dwp(const BinBlob &binblob) const {
     payloads.push_back(ss);
     /* check for spare ff's and warn when found */
   }
+}
+
+void Op::Layer::NMS::get_opcodes(std::vector<int> &op_codes) {
+  op_codes.push_back(OP_NMS);
+  op_codes.push_back(OP_OutputBlock);
+}
+
+uint32_t Op::Layer::NMS::get_weight_size() {
+  // No weights for NMS
+  return 0;
+}
+
+uint32_t get_total_in_box(Op::LayerBase *layer) {
+  return layer->input_dims[I_NMS_INPUT_BOXES][I_INPUT_BOXES_COUNT];
+}
+int get_total_classes(Op::LayerBase *layer) {
+  return layer->input_dims[I_NMS_INPUT_SCORES][I_CLASSES_COUNT];
+}
+uint32_t get_box_start_address(AddressGen &gen, Op::LayerBase *layer) {
+  return gen.io_addr_from_register(layer->inputs[I_NMS_INPUT_BOXES]);
+}
+uint32_t get_scores_start_address(AddressGen &gen, Op::LayerBase *layer) {
+  return gen.io_addr_from_register(layer->inputs[I_NMS_INPUT_SCORES]);
+}
+Op::LayerBase *get_nms_layer(AddressGen &gen, int nms_i) {
+  auto order = gen.get_exec_order();
+  return order[nms_i];
+}
+
+int get_nms_index(AddressGen &gen) {
+  auto order = gen.get_exec_order();
+  for (int i = 0; i < order.size(); i++) {
+    if (order[i]->name == "/NonMaxSuppression") {
+      return i;
+    }
+  }
+  return -1;
+}
+
+int Op::Layer::NMS::get_inst(InstBlob &insts, AddressGen &gen,
+                             InitializerTable &) {
+  std::bitset<INST_SIZE_BITS> nms_inst;
+  int nms_i = get_nms_index(gen);
+  assert(nms_i != -1);
+  auto layer = get_nms_layer(gen, nms_i);
+  const uint32_t box_memory_size =
+      get_total_in_box(layer) * 4 *
+      Op::tpdt_sizeof(layer->input_type[I_NMS_INPUT_BOXES]);
+  const uint32_t scores_memory_size =
+      get_total_in_box(layer) * get_total_classes(layer) *
+      Op::tpdt_sizeof(layer->input_type[I_NMS_INPUT_SCORES]);
+  std::bitset<NMS_Opcode_COUNT> opcode{OP_NMS};
+  inst_set(nms_inst, opcode, NMS_Opcode);
+
+  std::bitset<NMS_IOU_COUNT> iou{iou_threshold};
+  inst_set(nms_inst, iou, NMS_IOU);
+
+  std::bitset<NMS_ScoreThresh_COUNT> score_thresh{score_threshold};
+  inst_set(nms_inst, score_thresh, NMS_ScoreThresh);
+
+  std::bitset<NMS_TotalInBoxes_COUNT> total_in_boxes{get_total_in_box(layer)};
+  inst_set(nms_inst, total_in_boxes, NMS_TotalInBoxes);
+
+  std::bitset<NMS_MaxOutBoxes_COUNT> max_out_boxes{
+      static_cast<unsigned int>(this->max_output_boxes)};
+  inst_set(nms_inst, max_out_boxes, NMS_MaxOutBoxes);
+
+  // 0-corner-cord  1-center-point
+  std::bitset<NMS_CornerCord_COUNT> corner_cord{center_point_box};
+  inst_set(nms_inst, corner_cord, NMS_CornerCord);
+
+  int total_class = get_total_classes(layer);
+  assert(total_class >= 0 && total_class <= 255);
+  std::bitset<NMS_TotalClasses_COUNT> total_classes{
+      static_cast<unsigned int>(total_class)};
+  inst_set(nms_inst, total_classes, NMS_TotalClasses);
+
+  const uint32_t box_start_address = get_box_start_address(gen, layer);
+  const uint32_t box_end_address =
+      box_start_address + ceil_mod(box_memory_size, 32);
+  const uint32_t score_start_address = get_scores_start_address(gen, layer);
+  const uint32_t score_end_address =
+      score_start_address + ceil_mod(scores_memory_size, 32);
+
+  std::bitset<NMS_BoxStartAddr_COUNT> box_start_addr{box_start_address};
+  inst_set(nms_inst, box_start_addr, NMS_BoxStartAddr);
+
+  std::bitset<NMS_BoxEndAddr_COUNT> box_end_addr{box_end_address};
+  inst_set(nms_inst, box_end_addr, NMS_BoxEndAddr);
+
+  std::bitset<NMS_ScoreStartAddr_COUNT> score_start_addr{score_start_address};
+  inst_set(nms_inst, score_start_addr, NMS_ScoreStartAddr);
+
+  std::bitset<NMS_ScoreEndAddr_COUNT> score_end_addr{score_end_address};
+  inst_set(nms_inst, score_end_addr, NMS_ScoreEndAddr);
+
+  insts.push_back(nms_inst);
+
+  std::bitset<INST_SIZE_BITS> nms_output_inst;
+
+  std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
+  inst_set(nms_output_inst, ob_opcode, OutputBlock_Opcode);
+
+  uint32_t output_addr_start = gen.io_addr_from_register(layer->outputs.at(0));
+
+  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
+  inst_set(nms_output_inst, ostart, OutputBlock_OutputAddr);
+
+  insts.push_back(nms_output_inst);
+  return 0;
 }

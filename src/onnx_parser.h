@@ -47,6 +47,12 @@
 #define I_UP 1
 #define I_DOWN 3
 
+/*For NMS*/
+#define I_NMS_INPUT_BOXES 0
+#define I_NMS_INPUT_SCORES 1
+#define I_INPUT_BOXES_COUNT 1
+#define I_CLASSES_COUNT 1
+
 using TPDT = onnx::TensorProto_DataType;
 using InstBlob = std::vector<std::bitset<INST_SIZE_BITS>>;
 using IVec2D = std::vector<std::vector<int>>;
@@ -642,8 +648,10 @@ struct NMS : public LayerBase {
   void infer_shape(const std::vector<std::vector<int>> &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  uint32_t get_weight_size() override;
 };
-
 
 } // namespace Layer
 
