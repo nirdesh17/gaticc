@@ -1735,34 +1735,38 @@ void Op::Layer::Concat::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
-
-
-
 Op::Layer::NMS::NMS() {}
-
 
 const char *Op::Layer::NMS::op_type() const { return m_optype; }
 
 std::string Op::Layer::NMS::params() const {
-  static char ret[128];
-  sprintf(ret, "(max_boxes: %ld), (iou_thresh: %.2f), (score_thresh: %.2f)",
-          max_output_boxes, iou_threshold, score_threshold);
+  std::string ret;
+  std::stringstream ss;
+  ss << "(max_boxes: " << max_output_boxes << "), (iou_thresh: " << std::fixed
+     << std::setprecision(2) << iou_threshold
+     << "), (score_thresh: " << std::fixed << std::setprecision(2)
+     << score_threshold << ")";
+  ret = ss.str();
   return ret;
 }
 
 void Op::Layer::NMS::set_attributes(const onnx::NodeProto &node) {
   for (const auto &attr : node.attribute()) {
     if (attr.name() == "center_point_box") {
-      center_point_box = attr.i();
+      if (attr.has_i()) {
+        center_point_box = attr.i();
+      } else {
+        log_fatal("Expected 'center_point_box' attribute to be an integer.");
+      }
     }
   }
 }
 
-void Op::Layer::NMS::infer_shape(
-  const std::vector<std::vector<int>> &input_dims) {
+void Op::Layer::NMS::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() == 2);
   this->input_dims = input_dims;
-  this->output_dims = {{static_cast<int>(max_output_boxes), 3}}; //(selected_boxes, class, score)
+  this->output_dims = {
+      {static_cast<int>(max_output_boxes), 3}}; //(selected_boxes, class, score)
 }
 
 void Op::Layer::NMS::infer_type(const std::vector<TPDT> &input_types) {
@@ -1771,33 +1775,31 @@ void Op::Layer::NMS::infer_type(const std::vector<TPDT> &input_types) {
   this->output_type.push_back(onnx::TensorProto_DataType_INT64);
 }
 
-enum NMS_INITIALIZER{
-  MAX_OUT_BOXES=2,
-  IOU_THRESHOLD=3,
-  SCORE_THRESHOLD=4
+enum NMS_INITIALIZER {
+  MAX_OUT_BOXES = 2,
+  IOU_THRESHOLD = 3,
+  SCORE_THRESHOLD = 4
 };
 
-
-void Op::Layer::NMS::set_initializer_params(int n, const onnx::TensorProto &t){
-  switch(n){
-    case MAX_OUT_BOXES:
-      assert(t.data_type() == onnx::TensorProto_DataType_INT64);
-      max_output_boxes = t.int64_data(0);
-      break;
-    case IOU_THRESHOLD:
-      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
-      iou_threshold = t.float_data(0);
-      break;
-    case SCORE_THRESHOLD:
-      assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
-      score_threshold = t.float_data(0);
-      break;
-    default:
-      log_fatal("unknown inputs number {} for tensor {}\n", n, t.name());
-      break;
+void Op::Layer::NMS::set_initializer_params(int n, const onnx::TensorProto &t) {
+  switch (n) {
+  case MAX_OUT_BOXES:
+    assert(t.data_type() == onnx::TensorProto_DataType_INT64);
+    max_output_boxes = t.int64_data(0);
+    break;
+  case IOU_THRESHOLD:
+    assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+    iou_threshold = t.float_data(0);
+    break;
+  case SCORE_THRESHOLD:
+    assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+    score_threshold = t.float_data(0);
+    break;
+  default:
+    log_fatal("unknown inputs number {} for tensor {}\n", n, t.name());
+    break;
   }
 }
-
 
 /* Auxillary Graph Functions */
 
