@@ -2,14 +2,16 @@ import numpy as np
 import os
 import gati
 import sys
+import argparse
 
 def gen_mnist():
-    arr = np.load("mnist_10.npy")
-    return arr
+    return np.load("mnist_10.npy")
 
 def gen_imagenet():
-    arr = np.load("imagenet_10.npy")
-    return arr
+    return np.load("imagenet_10.npy")
+
+def gen_cifar():
+    return np.load("cifar_10.npy")
 
 def post(num):
     m = np.argmax(num)
@@ -17,59 +19,81 @@ def post(num):
     print(f"number: {m}")
     return m
 
-def get_tbl(l):
-    s = ''
-    for i in l:
-        for j in i:
-            s += str(j) + ' '
-        s += '\n'
+def format_results(failed, match_percentages):
+    s = "=== Test Results ===\n\n"
+    s += "Failed Compilations:\n"
+    if failed:
+        s += "\n".join(f"  - {f}" for f in failed) + "\n"
+    else:
+        s += "  None\n"
+    s += "\nModel Matches:\n"
+    if match_percentages:
+        s += "  Model Name".ljust(30) + "Match Percentage\n"
+        s += "  " + "-" * 50 + "\n"
+        for model, percentage in match_percentages:
+            s += f"  {model.ljust(30)}{percentage:.2f}%\n"
+    else:
+        s += "  None\n"
     return s
 
 mut = [
-'mnist_6_28_int8.onnx',
-'mnist_int8_pad2.onnx',
-'mnist_int8_stride2.onnx',
-'mnist_int8_stride3.onnx',
-'mnistpad1_6_28_int8.onnx',
-'imagenet_vgg_16_224_int8.onnx'
+    'cifar10_vgg16.onnx',
+    'mnist_6_28_int8.onnx',
+    'mnist_int8_stride2.onnx',
+    'mnist_int8_stride3.onnx',
+    'mnistpad1_6_28_int8.onnx',
+    'imagenet_vgg_16_224_int8.onnx'
 ]
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-m', '--models', nargs='+', required=True, help='Path to models directory or ONNX file(s)')
+    parser.add_argument('-a', '--arch', default='9,4,4', help='Architecture config (sa-arch)')
+    parser.add_argument('-b', '--bitstream', required=True, help='Bitstream file')
+    parser.add_argument('-l', '--hostname', required=True, help='Remote IP or localhost')
+    args = parser.parse_args()
+
     failed = []
     match_percentages = []
-    if len(sys.argv) > 3:
-        models_dir = sys.argv[1]
-        remote_ip = sys.argv[2]
-        bitstream = sys.argv[3]
-    else: 
-        raise SystemExit(f"Insufficient args: Usage: {sys.argv[0]} <path to models dir> <remote ip> <bitstream>")
     gati.set_keep_quiet(True)
+    gati.set_arch(config={"sa-arch": args.arch})
 
-    for file in mut:
+    if len(args.models) == 1 and os.path.isdir(args.models[0]):
+        models = [f for f in os.listdir(args.models[0]) if f in mut]
+        models_dir = args.models[0]
+    else:
+        models = [os.path.basename(f) for f in args.models]
+        models_dir = os.path.dirname(args.models[0]) or '.'
+
+    for file in models:
         print(f"File: {file}")
         onnx_path = os.path.join(models_dir, file)
         gml_path = "/tmp/model.gml"
-        ret = gati.compile(onnx_path, gml_path)
-        if ret != 0:
+        if gati.compile(onnx_path, gml_path) != 0:
             failed.append(file)
             continue
-        gati.set_remote(remote_ip)
-        gati.flash(bitstream)
+        if args.hostname != 'localhost':
+            gati.set_remote(args.hostname)
+        gati.flash(args.bitstream)
         with open("results.txt", "w"): pass
         if 'mnist' in file:
             ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_mnist", "post")
             if not ret:
                 match_percentages.append((file, gati.match('mnist_10_labels.txt', 'results.txt')))
         elif 'imagenet' in file:
-            ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_imagenet", "post")
+            ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_imagenet", "props")
             if not ret:
                 match_percentages.append((file, gati.match('imagenet_10_labels.txt', 'results.txt')))
+        elif 'cifar' in file:
+            ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_cifar", "post")
+            if not ret:
+                match_percentages.append((file, gati.match('cifar_10_labels.txt', 'results.txt')))
 
     resfile_name = os.path.basename(sys.argv[0]).split('.')[0] + ".results.txt"
-    with open(f"{resfile_name}", "w") as f:
-        f.write(f"Failed Compilations\n")
-        f.write(str(failed) + '\n')
-        f.write(f"Matches\n")
-        f.write(get_tbl(match_percentages))
+    with open(resfile_name, "w") as f:
+        f.write(format_results(failed, match_percentages))
     print(f"Results written to: {resfile_name}\n")
+    print(format_results(failed, match_percentages))
 
+if __name__ == "__main__":
+    main()
