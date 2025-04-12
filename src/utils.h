@@ -129,6 +129,18 @@ class Argparse {
            {"--pretty-print-inst-raw"},
            "pretty print instructions in raw hex",
            0},
+          {"print-megablock-graph",
+           {"--print-megablock-graph"},
+           "megablock graph represents the nodes that actually execute on the "
+           "FPGA, after fusing all pipelinable nodes. This option should be "
+           "used with -c option",
+           0},
+          {"print-exec-graph",
+           {"--print-exec-graph"},
+           "exec graph contains all nodes (in topological order) with which "
+           "instructions are ordered. This option should be used with -c "
+           "option",
+           0},
           {"output",
            {"--output", "-o"},
            "write output to file. Args: filename. For ex, -o model.gml",

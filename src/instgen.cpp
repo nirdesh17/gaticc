@@ -99,11 +99,11 @@ static std::vector<T> insert_inst(const std::vector<T> &v, FlagFunc<T> func,
 
 static std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
   std::vector<Op::LayerBase *> execution_order;
-  std::queue<Op::Vertex> S;
+  std::stack<Op::Vertex> S;
   S.push(Op::get_root_node(&gcopy));
 
   while (!S.empty()) {
-    Op::Vertex n = S.front();
+    Op::Vertex n = S.top();
     execution_order.push_back(gcopy[n]);
     S.pop();
 
@@ -549,6 +549,13 @@ InstGen::InstGen(const Op::Parser &parser) {
 
   AddressGen generator(graph);
   auto exec_order = generator.get_exec_order();
+  if (gbl_args.has_option("print-exec-graph")) {
+    std::cout << "== Execution Graph (in topological order) ==\n";
+    for (const auto l : exec_order) {
+      print_node(l);
+      std::cout << '\n';
+    }
+  }
   total_model_size_cpu = generator.get_model_size_cpu();
   total_model_size_fpga = generator.get_model_size_fpga();
   /* Includes the instructions blob */
@@ -557,6 +564,15 @@ InstGen::InstGen(const Op::Parser &parser) {
   Op::Graph megablock_graph = Pass::create_megablock_graph(graph);
   DispatchTable dispatch_table(megablock_graph);
   Op::RegisterAllocator allocatr(megablock_graph);
+
+  if (gbl_args.has_option("print-megablock-graph")) {
+    std::cout << "== Megablock Graph ==\n";
+    auto megablock_order = crt_exec_order(megablock_graph);
+    for (const auto l : megablock_order) {
+      print_node(l);
+      std::cout << '\n';
+    }
+  }
 
   InstBlob instructions;
   for (Op::LayerBase *l : exec_order) {
@@ -1363,6 +1379,7 @@ IVec2D Op::Layer::QGemm::aligned_output() {
 
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
   m_exec_order = crt_exec_order(graph);
+
   Pass::extract_conv_true_odims(graph);
   Pass::mark_cfg(m_exec_order);
 
