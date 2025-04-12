@@ -437,6 +437,8 @@ class ConvEngine {
   int kn;
   int kh;
   int kw;
+  int m_stride_h;
+  int m_stride_w;
   std::vector<int> pad_vec;
 
   std::vector<int> w_zero_points;
@@ -472,6 +474,8 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::Conv *cc) {
   w_scales = std::vector<float>(cc->output_dims[0][TENSOR_4D_CHANNELS], 0);
   x_scales = std::vector<float>(cc->input_dims[0][TENSOR_4D_CHANNELS], 0);
   y_scales = std::vector<float>(cc->output_dims[0][TENSOR_4D_CHANNELS], 0);
+  m_stride_h = cc->m_cp.stride[TENSOR_2D_HEIGHT];
+  m_stride_w = cc->m_cp.stride[TENSOR_2D_WIDTH];
 }
 
 template <typename inputT, typename weightT, typename outputT>
@@ -495,6 +499,8 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(
   w_scales = cc->w_scale;
   x_scales = cc->x_scale;
   y_scales = cc->y_scale;
+  m_stride_h = cc->m_cp.stride[TENSOR_2D_HEIGHT];
+  m_stride_w = cc->m_cp.stride[TENSOR_2D_WIDTH];
 }
 
 template <typename inputT, typename weightT, typename outputT>
@@ -523,10 +529,10 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
 
   for (int ibi = 0; ibi < nb; ++ibi) {
     for (int ici = 0; ici < ic; ++ici) {
-      for (int ohi = 0; ohi < oh; ++ohi) {
-        for (int owi = 0; owi < ow; ++owi) {
+      for (int ohi = 0, toh = 0; toh < oh; ohi += m_stride_h, toh += 1) {
+        for (int owi = 0, tow = 0; tow < ow; owi += m_stride_w, tow += 1) {
           out_index = ibi * o_strides[0] + k * o_strides[1] +
-                      ohi * o_strides[2] + owi * o_strides[3];
+                      toh * o_strides[2] + tow * o_strides[3];
           outputT acc = output->at(out_index);
           outputT x_int_sum = 0;
           outputT w_int_sum = 0;
