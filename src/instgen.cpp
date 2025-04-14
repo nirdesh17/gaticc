@@ -234,108 +234,78 @@ Op::Graph Pass::reassign_registers(Op::Graph graph) {
 
 /* In onnx, a QLinearConv can be followed by Relu, Maxpool, etc.
  * These (miniblocks) are available only for float operations as
- * a result of which a QLinearConv's output (traditionally, int8/uint8)
- * will be Dequantized to fp32, operated on relu, maxpool etc. and
- * requantized back to lower precision. This dequantization-quantization
- * introduces a shift in the values that the FPGA must account for.
- * We do this by consuming scale values from following dq-q layers
- * into QLinearConv's y_scale
+ * a result of which a QLinearConv's (or any other megablock's) output
+ * (traditionally, int8/uint8) will be Dequantized to fp32, operated on relu,
+ * maxpool etc. and requantized back to lower precision. This
+ * dequantization-quantization introduces a shift in the values that the FPGA
+ * must account for. We do this by consuming scale values from following dq-q
+ * layers into QLinearConv's y_scale
  */
-void Pass::adjust_scale_shift_conv(Op::Graph graph) {
-  Op::VertexIterator vi, vi_end, next;
-  std::tie(vi, vi_end) = boost::vertices(graph);
-  int cnt = 0;
-
+void Pass::adjust_scale_shift(Op::Graph graph) {
+  std::queue<Op::Vertex> S;
+  /* all nodes on which shape inference is done */
+  std::unordered_set<Op::Vertex> done_set;
+  auto vitr = boost::vertices(graph);
+  Op::Vertex v = *(vitr.first);
+  S.push(v);
   Op::LayerBase *latest_megablock = nullptr;
-  for (next = vi; vi != vi_end; vi = next, cnt++) {
-    next++;
-    Op::LayerBase *l = graph[*vi];
-    if (std::strcmp(l->op_type(), "QLinearConv") == 0) {
-      latest_megablock = l;
-      continue;
-    }
-
-    if (std::strcmp(l->op_type(), "DequantizeLinear") == 0 &&
-        latest_megablock != nullptr) {
-      Op::Layer::QLinearConv *cc =
-          dynamic_cast<Op::Layer::QLinearConv *>(latest_megablock);
-      Op::Layer::DequantizeLinear *dl =
-          dynamic_cast<Op::Layer::DequantizeLinear *>(l);
-      if (std::holds_alternative<float>(dl->scale)) {
-        for (size_t i = 0; i < cc->y_scale.size(); ++i) {
-          cc->y_scale.at(i) /= std::get<float>(dl->scale);
-        }
-      } else if (std::holds_alternative<double>(dl->scale)) {
-        for (size_t i = 0; i < cc->y_scale.size(); ++i) {
-          cc->y_scale.at(i) /= std::get<double>(dl->scale);
-        }
-      } else {
-        log_fatal("scale variant of {} holds an unhandled type of data\n",
-                  l->name);
-      }
-      continue;
-    }
-
-    if (std::strcmp(l->op_type(), "QuantizeLinear") == 0 &&
-        latest_megablock != nullptr) {
-      Op::Layer::QLinearConv *cc =
-          dynamic_cast<Op::Layer::QLinearConv *>(latest_megablock);
-      Op::Layer::QuantizeLinear *dl =
-          dynamic_cast<Op::Layer::QuantizeLinear *>(l);
-      for (size_t i = 0; i < cc->y_scale.size(); ++i) {
-        cc->y_scale.at(i) *= dl->scale;
-      }
-      latest_megablock = nullptr;
-      continue;
-    }
+  if (is_megablock(graph[v])) {
+    latest_megablock = graph[v];
   }
-}
+  done_set.insert(v);
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    S.pop();
 
-/* TODO: merge this into a single pass */
-void Pass::adjust_scale_shift_gemm(Op::Graph graph) {
-  Op::VertexIterator vi, vi_end, next;
-  std::tie(vi, vi_end) = boost::vertices(graph);
-  int cnt = 0;
-
-  Op::LayerBase *latest_megablock = nullptr;
-  Op::LayerBase *previous_dl = nullptr;
-  for (next = vi; vi != vi_end; vi = next, cnt++) {
-    next++;
-    Op::LayerBase *l = graph[*vi];
-    if (std::strcmp(l->op_type(), "QGemm") == 0) {
-      latest_megablock = l;
-      continue;
+    auto out_edges = boost::out_edges(n, graph);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      edges_to_remove.push_back({n, boost::target(*itr, graph)});
     }
-    if (std::strcmp(l->op_type(), "DequantizeLinear") == 0 &&
-        latest_megablock != nullptr) {
-      previous_dl = l;
-      continue;
-    }
-    if (std::strcmp(l->op_type(), "QuantizeLinear") == 0 &&
-        latest_megablock != nullptr && previous_dl != nullptr) {
-      Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(latest_megablock);
-      Op::Layer::DequantizeLinear *dl =
-          dynamic_cast<Op::Layer::DequantizeLinear *>(previous_dl);
-      Op::Layer::QuantizeLinear *ql =
-          dynamic_cast<Op::Layer::QuantizeLinear *>(l);
 
-      if (std::holds_alternative<float>(dl->scale)) {
-        for (size_t i = 0; i < cc->y_scale.size(); ++i) {
-          cc->y_scale.at(i) /= std::get<float>(dl->scale);
-          cc->y_scale.at(i) *= ql->scale;
+    for (auto [src, dest] : edges_to_remove) {
+      /* make sure all parents of 'dest' have underwent infer_shape */
+      auto in_edges = boost::in_edges(dest, graph);
+      bool dest_parents_done = 1;
+      for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
+        Op::Vertex dsource = boost::source(*itr, graph);
+        auto present = done_set.find(dsource);
+        if (present == done_set.end()) {
+          dest_parents_done = 0;
         }
-      } else if (std::holds_alternative<double>(dl->scale)) {
-        for (size_t i = 0; i < cc->y_scale.size(); ++i) {
-          cc->y_scale.at(i) /= std::get<double>(dl->scale);
-          cc->y_scale.at(i) *= ql->scale;
+      }
+
+      if (dest_parents_done) {
+        if (is_megablock(graph[dest])) {
+          latest_megablock = graph[dest];
+        } else {
+          Op::LayerBase *l = graph[dest];
+          if (is_op_type(l, "DequantizeLinear") && latest_megablock != nullptr) {
+            std::vector<float> mega_scale = latest_megablock->get_output_scale();
+            std::vector<float> dl_scale = broadcast_vec(l->get_output_scale(), mega_scale.size());
+            std::vector<float> ret(mega_scale.size());
+            for (size_t i = 0; i < mega_scale.size(); ++i) {
+              ret.at(i) = mega_scale.at(i) / dl_scale.at(i);
+            }
+            latest_megablock->set_output_scale(ret);
+          } else if (is_op_type(l, "QuantizeLinear") && latest_megablock != nullptr) {
+            std::vector<float> mega_scale = latest_megablock->get_output_scale();
+            std::vector<float> dl_scale = broadcast_vec(l->get_output_scale(), mega_scale.size());
+            std::vector<float> ret(mega_scale.size());
+            for (size_t i = 0; i < mega_scale.size(); ++i) {
+              ret.at(i) = mega_scale.at(i) * dl_scale.at(i);
+            }
+            latest_megablock->set_output_scale(ret);
+          }
+        } 
+        done_set.insert(dest);
+        boost::remove_edge(src, dest, graph);
+        if (boost::in_degree(dest, graph) == 0) {
+          S.push(dest);
         }
       } else {
-        log_fatal("scale variant of {} holds an unhandled type of data\n",
-                  l->name);
+        S.push(n);
       }
-      latest_megablock = nullptr;
-      previous_dl = nullptr;
-      continue;
     }
   }
 }
@@ -544,8 +514,7 @@ InstGen::InstGen(const Op::Parser &parser) {
    * a megablocks' y_scale to account of shift introduced
    * by dequantize-quantize layers following a QLinearConv.
    */
-  Pass::adjust_scale_shift_conv(graph);
-  Pass::adjust_scale_shift_gemm(graph);
+  Pass::adjust_scale_shift(graph);
 
   AddressGen generator(graph);
   auto exec_order = generator.get_exec_order();

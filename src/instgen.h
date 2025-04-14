@@ -510,8 +510,7 @@ namespace Pass {
 std::vector<Op::LayerBase *> remove_dqxq(Op::Graph graph);
 Op::Graph reassign_registers(Op::Graph graph);
 
-void adjust_scale_shift_conv(Op::Graph graph);
-void adjust_scale_shift_gemm(Op::Graph graph);
+void adjust_scale_shift(Op::Graph graph);
 
 void extract_conv_true_odims(Op::Graph graph);
 

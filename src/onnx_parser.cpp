@@ -76,6 +76,13 @@ void Op::LayerBase::align_weights(BinBlob &, InitializerTable &) {
   return;
 }
 
+std::vector<float> Op::LayerBase::get_output_scale(void) {
+  return std::vector<float>{0.f};
+}
+
+void Op::LayerBase::set_output_scale(const std::vector<float>& ) {
+}
+
 /* Get a array of ints from attr and store into array */
 static void parse_onnx_ints(const onnx::AttributeProto &attr, int *attr_array) {
   assert(attr.type() == onnx::AttributeProto::INTS &&
@@ -704,6 +711,21 @@ void Op::Layer::DequantizeLinear::infer_shape(const IVec2D &input_dims) {
   this->pipelined_output_dims = this->output_dims;
 }
 
+std::vector<float> Op::Layer::DequantizeLinear::get_output_scale(void) {
+  if (std::holds_alternative<float>(this->scale)) {
+    return std::vector<float>{std::get<float>(this->scale)};
+  } else if (std::holds_alternative<double>(this->scale)) {
+    return std::vector<float>{static_cast<float>(std::get<double>(this->scale))};
+  } else {
+    log_fatal("scale variant of {} holds an unhandled type of data\n", this->name);
+  }
+}
+
+void Op::Layer::DequantizeLinear::set_output_scale(const std::vector<float>& v) {
+  assert(v.size() > 0 && "Input vector (v) to DequantizeLinear::set_output_scale expected to contain atleast one value");
+  this->scale = v.at(0);
+}
+
 const char *Op::Layer::QuantizeLinear::op_type() const { return m_optype; }
 
 std::string Op::Layer::QuantizeLinear::params() const {
@@ -796,6 +818,15 @@ void Op::Layer::QuantizeLinear::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
+std::vector<float> Op::Layer::QuantizeLinear::get_output_scale(void) {
+  return std::vector<float>{this->scale};
+}
+
+void Op::Layer::QuantizeLinear::set_output_scale(const std::vector<float>& v) {
+  assert(v.size() > 0 && "Input vector (v) to DequantizeLinear::set_output_scale expected to contain atleast one value");
+  this->scale = v.at(0);
+}
+
 Op::Layer::QLinearConv::QLinearConv() {
   /* zero initialize */
   m_cp = {};
@@ -852,6 +883,14 @@ std::string Op::Layer::QLinearConv::params() const {
   }
   ret = ss.str();
   return ret;
+}
+
+std::vector<float> Op::Layer::QLinearConv::get_output_scale(void) {
+  return y_scale;
+}
+void Op::Layer::QLinearConv::set_output_scale(const std::vector<float>& v) {
+  assert(v.size() == y_scale.size());
+  y_scale = v;
 }
 
 enum QLC_INITIALIZERS {
@@ -1081,6 +1120,14 @@ enum QLA_INITIALIZERS {
   QLA_C_ZERO_POINT = 7
 };
 
+std::vector<float> Op::Layer::QLinearAdd::get_output_scale(void) {
+  return o_scale;
+}
+void Op::Layer::QLinearAdd::set_output_scale(const std::vector<float>& v) {
+  assert(v.size() == o_scale.size());
+  o_scale = v;
+}
+
 void Op::Layer::QLinearAdd::set_initializer_params(int n,
                                                    const onnx::TensorProto &t) {
   switch (n) {
@@ -1235,6 +1282,14 @@ std::string Op::Layer::QGemm::params() const {
   }
   ret = ss.str();
   return ret;
+}
+
+std::vector<float> Op::Layer::QGemm::get_output_scale(void) {
+  return y_scale;
+}
+void Op::Layer::QGemm::set_output_scale(const std::vector<float>& v) {
+  assert(v.size() == y_scale.size());
+  y_scale = v;
 }
 
 enum QGEMM_INITIALIZERS {

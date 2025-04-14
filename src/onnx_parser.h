@@ -161,6 +161,9 @@ struct LayerBase {
 
   virtual void align_weights(BinBlob &blob, InitializerTable &tbl);
 
+  virtual std::vector<float> get_output_scale(void);
+  virtual void set_output_scale(const std::vector<float>& v);
+
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
 
@@ -365,6 +368,8 @@ struct QuantizeLinear : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
+  std::vector<float> get_output_scale(void) override;
+  void set_output_scale(const std::vector<float>& v) override;
 };
 
 struct DequantizeLinear : public LayerBase {
@@ -384,6 +389,8 @@ struct DequantizeLinear : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  std::vector<float> get_output_scale(void) override;
+  void set_output_scale(const std::vector<float>& v) override;
 };
 
 struct QLinearMatMul : public LayerBase {
@@ -424,6 +431,8 @@ struct QLinearAdd : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  std::vector<float> get_output_scale(void) override;
+  void set_output_scale(const std::vector<float>& v) override;
 };
 
 struct Transpose : public LayerBase {
@@ -480,6 +489,8 @@ struct QGemm : public LayerBase {
   IVec2D aligned_input() override;
   IVec2D aligned_output() override;
   void align_weights(BinBlob &blob, InitializerTable &tbl) override;
+  std::vector<float> get_output_scale(void) override;
+  void set_output_scale(const std::vector<float>& v) override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -508,6 +519,8 @@ struct QLinearConv : public LayerBase {
   IVec2D aligned_input() override;
   IVec2D aligned_output() override;
   void align_weights(BinBlob &blob, InitializerTable &tbl) override;
+  std::vector<float> get_output_scale(void) override;
+  void set_output_scale(const std::vector<float>& v) override;
 };
 
 struct LogSoftmax : public LayerBase {
