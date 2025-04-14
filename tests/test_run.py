@@ -81,7 +81,7 @@ def main():
             if not ret:
                 match_percentages.append((file, gati.match('mnist_10_labels.txt', 'results.txt')))
         elif 'imagenet' in file:
-            ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_imagenet", "props")
+            ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_imagenet", "post")
             if not ret:
                 match_percentages.append((file, gati.match('imagenet_10_labels.txt', 'results.txt')))
         elif 'cifar' in file:
