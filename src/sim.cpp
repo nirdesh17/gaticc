@@ -71,6 +71,7 @@ std::vector<int64_t> deduce_new_shape(std::vector<int64_t> old_shape,
   return old_shape;
 }
 
+#if 0
 int calc_shift_val(float inverted) {
   int shift_val = 16;
   std::vector<int> values = {
@@ -103,5 +104,17 @@ int calc_shift_val(float inverted) {
       shift_val = shift;
     }
   }
-  return 16;
+  return 10;
 }
+#endif
+
+int calc_shift_val(float inverted) {
+  int shift_val = 16;
+  int calib_scale = inverted * (1<<shift_val);
+  while (calib_scale > (1<<15)) {
+    shift_val--;
+    calib_scale = inverted * (1<<shift_val);
+  }
+  return shift_val;
+}
+

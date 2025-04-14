@@ -1288,10 +1288,47 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise_output(const Op::LayerBase *l,
 
 static std::bitset<INST_SIZE_BITS>
 gen_eltwise_add_quant(const Op::Layer::QLinearAdd *cc) {
+  std::bitset<INST_SIZE_BITS> quant_inst;
+
   using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
-  return gen_quant(std::vector<float>{cc->a_scale},
-                   std::vector<float>{cc->b_scale}, cc->o_scale, zero_points);
+  std::vector<float> scales = cc->o_scale;
+  if (scales.size() != 1) {
+    log_fatal("unsupported: per-channel quantization\n");
+  }
+  if (scales[0] == 0) {
+    log_fatal("scales[0] = 0, need non-zero scales\n");
+  }
+  auto assert_zero = [](int i) {
+    if (i != 0) {
+      log_fatal("unsupported: non-zero zero-points\n");
+    }
+  };
+  std::for_each(zero_points.begin(), zero_points.end(), assert_zero);
+
+  std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
+  bitset_range_set(quant_inst, opcode, TailBlock_Opcode_LOW,
+                   TailBlock_Opcode_HIGH);
+
+  float inverted_scale = 1 / scales[0];
+  int shift_val = calc_shift_val(inverted_scale);
+  int calib_scale = std::round((1 / scales[0]) * std::pow(2, shift_val));
+
+  check_overflow(calib_scale, TailBlock_QuantScale_COUNT);
+  std::bitset<TailBlock_QuantScale_COUNT> qscale{calib_scale};
+  bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW,
+                   TailBlock_QuantScale_HIGH);
+
+  std::bitset<TailBlock_QuantShift_COUNT> qshift{shift_val};
+  bitset_range_set(quant_inst, qshift, TailBlock_QuantShift_LOW,
+                   TailBlock_QuantShift_HIGH);
+
+  /* enable quant, ofcourse */
+  std::bitset<TailBlock_QuantEn_COUNT> qen{1};
+  bitset_range_set(quant_inst, qen, TailBlock_QuantEn_LOW,
+                   TailBlock_QuantEn_HIGH);
+
+  return quant_inst;
 }
 
 /* Since EltWise is a megablock, i.e. it reads/writes to DRAM and is not
