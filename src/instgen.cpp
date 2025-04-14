@@ -1137,9 +1137,16 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob &insts, AddressGen &,
   bitset_range_set(average_pool_inst, poolen, TailBlock_PoolEn_LOW,
                    TailBlock_PoolEn_HIGH);
 
-  std::bitset<TailBlock_PoolType_COUNT> pool_type{POOL_AVERAGE};
-  bitset_range_set(average_pool_inst, pool_type, TailBlock_PoolType_LOW,
-                   TailBlock_PoolType_HIGH);
+  if (this->output_dims.at(0).at(TENSOR_4D_HEIGHT) == 1 &&
+      this->output_dims.at(0).at(TENSOR_4D_WIDTH) == 1) {
+    std::bitset<TailBlock_PoolType_COUNT> pool_type{POOL_GLOBAL_AVG};
+    bitset_range_set(average_pool_inst, pool_type, TailBlock_PoolType_LOW,
+                     TailBlock_PoolType_HIGH);
+  } else {
+    std::bitset<TailBlock_PoolType_COUNT> pool_type{POOL_AVERAGE};
+    bitset_range_set(average_pool_inst, pool_type, TailBlock_PoolType_LOW,
+                     TailBlock_PoolType_HIGH);
+  }
 
   std::bitset<TailBlock_PoolWidth_COUNT> pool_width{m_cp.k[TENSOR_2D_WIDTH]};
   bitset_range_set(average_pool_inst, pool_width, TailBlock_PoolWidth_LOW,
