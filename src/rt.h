@@ -311,9 +311,9 @@ void Runner::receive_output_aux(const T *data, Op::LayerBase *l,
   std::vector<int> odims = l->pipelined_output_dims.at(0);
   Tensor<T> *tensor = new TensorCreate<T>(odims);
 
-  if (strcmp(l->op_type(), "QLinearConv") == 0) {
+  if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearAdd")) {
     unalign_sa_output(tensor, data);
-  } else if (strcmp(l->op_type(), "QGemm") == 0) {
+  } else if (is_op_type(l, "QGemm")) {
     unalign_va_output(tensor, data);
   } else {
     log_fatal("cant handle un-alignment for layer of type {}\n", l->op_type());
