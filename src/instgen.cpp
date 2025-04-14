@@ -613,6 +613,7 @@ gen_quant(const std::vector<float> &x_scale, const std::vector<float> &w_scale,
   int shift_val = calc_shift_val(inverted_scale);
   int calib_scale = std::round((1 / scales[0]) * std::pow(2, shift_val));
 
+  check_overflow(calib_scale, TailBlock_QuantScale_COUNT);
   std::bitset<TailBlock_QuantScale_COUNT> qscale{calib_scale};
   bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW,
                    TailBlock_QuantScale_HIGH);
