@@ -344,8 +344,26 @@
 #define EltWise_RightOperandEndAddress_LOW 134
 #define EltWise_RightOperandEndAddress_HIGH 165
 #define EltWise_RightOperandEndAddress_COUNT 32
+#define EltWise_AScale_LOW 166
+#define EltWise_AScale_HIGH 181
+#define EltWise_AScale_COUNT 16
+#define EltWise_BScale_LOW 182
+#define EltWise_BScale_HIGH 197
+#define EltWise_BScale_COUNT 16
+#define EltWise_AShift_LOW 198
+#define EltWise_AShift_HIGH 202
+#define EltWise_AShift_COUNT 5
+#define EltWise_BShift_LOW 203
+#define EltWise_BShift_HIGH 207
+#define EltWise_BShift_COUNT 5
+#define EltWise_AZeroPoint_LOW 208
+#define EltWise_AZeroPoint_HIGH 215
+#define EltWise_AZeroPoint_COUNT 8
+#define EltWise_BZeroPoint_LOW 216
+#define EltWise_BZeroPoint_HIGH 223
+#define EltWise_BZeroPoint_COUNT 8
 
-#define ISA_VERSION 3
+#define ISA_VERSION 4
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define POOL_MAX 0x00
@@ -647,10 +665,21 @@ inline Table get_eltwise_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("RightOperandStartAddress");
 	tbl.tbl.insert({"RightOperandEndAddress", bitset_range_get<EltWise_RightOperandEndAddress_COUNT, INST_SIZE_BITS>(inst, EltWise_RightOperandEndAddress_LOW, EltWise_RightOperandEndAddress_HIGH)});
 	tbl.order.push_back("RightOperandEndAddress");
+	tbl.tbl.insert({"AScale", bitset_range_get<EltWise_AScale_COUNT, INST_SIZE_BITS>(inst, EltWise_AScale_LOW, EltWise_AScale_HIGH)});
+	tbl.order.push_back("AScale");
+	tbl.tbl.insert({"BScale", bitset_range_get<EltWise_BScale_COUNT, INST_SIZE_BITS>(inst, EltWise_BScale_LOW, EltWise_BScale_HIGH)});
+	tbl.order.push_back("BScale");
+	tbl.tbl.insert({"AShift", bitset_range_get<EltWise_AShift_COUNT, INST_SIZE_BITS>(inst, EltWise_AShift_LOW, EltWise_AShift_HIGH)});
+	tbl.order.push_back("AShift");
+	tbl.tbl.insert({"BShift", bitset_range_get<EltWise_BShift_COUNT, INST_SIZE_BITS>(inst, EltWise_BShift_LOW, EltWise_BShift_HIGH)});
+	tbl.order.push_back("BShift");
+	tbl.tbl.insert({"AZeroPoint", bitset_range_get<EltWise_AZeroPoint_COUNT, INST_SIZE_BITS>(inst, EltWise_AZeroPoint_LOW, EltWise_AZeroPoint_HIGH)});
+	tbl.order.push_back("AZeroPoint");
+	tbl.tbl.insert({"BZeroPoint", bitset_range_get<EltWise_BZeroPoint_COUNT, INST_SIZE_BITS>(inst, EltWise_BZeroPoint_LOW, EltWise_BZeroPoint_HIGH)});
+	tbl.order.push_back("BZeroPoint");
 	return tbl;
 }
 inline void pretty_print_eltwise(const std::bitset<INST_SIZE_BITS>& inst) {
 	auto tbl = get_eltwise_table(inst);
 	print_table(tbl);
 }
-

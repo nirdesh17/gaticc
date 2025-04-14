@@ -1189,26 +1189,16 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
                                                InitializerTable &,
                                                int elt_type) {
   std::bitset<INST_SIZE_BITS> add_inst;
-  std::bitset<EltWise_Opcode_COUNT> opcode{OP_EltWise};
-  bitset_range_set(add_inst, opcode, EltWise_Opcode_LOW, EltWise_Opcode_HIGH);
-  std::bitset<EltWise_EltType_COUNT> etype{elt_type};
-  bitset_range_set(add_inst, etype, EltWise_EltType_LOW, EltWise_EltType_HIGH);
+  inst_set(add_inst, OP_EltWise, EltWise_Opcode);
+  inst_set(add_inst, elt_type, EltWise_EltType);
   if (l->inputs.size() < 2) {
     log_fatal("Need eltwise operator {} ({}) to have more than two inputs, "
               "found {} inputs\n",
               l->name, l->op_type(), l->inputs.size());
   }
-
-  std::bitset<EltWise_IW_COUNT> iw {l->input_dims.at(0).at(TENSOR_4D_WIDTH)};
-  bitset_range_set(add_inst, iw, EltWise_IW_LOW, EltWise_IW_HIGH);
-
-  std::bitset<EltWise_IH_COUNT> ih {l->input_dims.at(0).at(TENSOR_4D_HEIGHT)};
-  bitset_range_set(add_inst, ih, EltWise_IH_LOW, EltWise_IH_HIGH);
-
-  std::bitset<EltWise_IC_COUNT> ic {l->input_dims.at(0).at(TENSOR_4D_CHANNELS)};
-  bitset_range_set(add_inst, ic, EltWise_IC_LOW, EltWise_IC_HIGH);
-
-
+  inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_WIDTH), EltWise_IW);
+  inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_HEIGHT), EltWise_IH);
+  inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_CHANNELS), EltWise_IC);
   uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
   uint32_t left_size =
       prod(l->input_dims.at(0).begin(), l->input_dims.at(0).end(), 1) *
@@ -1219,19 +1209,30 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
       prod(l->input_dims.at(1).begin(), l->input_dims.at(1).end(), 1) *
       Op::tpdt_sizeof(l->input_type.at(1));
   uint32_t right_end = right_start + right_size;
-  std::bitset<EltWise_LeftOperandStartAddress_COUNT> lstart{left_start};
-  bitset_range_set(add_inst, lstart, EltWise_LeftOperandStartAddress_LOW,
-                   EltWise_LeftOperandStartAddress_HIGH);
-  std::bitset<EltWise_RightOperandStartAddress_COUNT> rstart{right_start};
-  bitset_range_set(add_inst, rstart, EltWise_RightOperandStartAddress_LOW,
-                   EltWise_RightOperandStartAddress_HIGH);
-  std::bitset<EltWise_LeftOperandEndAddress_COUNT> lend{left_end};
-  bitset_range_set(add_inst, lend, EltWise_LeftOperandEndAddress_LOW,
-                   EltWise_LeftOperandEndAddress_HIGH);
-  std::bitset<EltWise_RightOperandEndAddress_COUNT> rend{right_end};
-  bitset_range_set(add_inst, rend, EltWise_RightOperandEndAddress_LOW,
-                   EltWise_RightOperandEndAddress_HIGH);
+  inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
+  inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
+  inst_set(add_inst, right_start, EltWise_RightOperandStartAddress);
+  inst_set(add_inst, right_end, EltWise_RightOperandEndAddress);
   return add_inst;
+}
+
+static void gen_eltwise_input_quant(std::bitset<INST_SIZE_BITS> &add_inst,
+                                    float a_scale, float b_scale, int a_zp,
+                                    int b_zp) {
+  int a_shift = calc_shift_val(a_scale);
+  int shifted_a_scale = (a_scale * (1 << a_shift));
+  check_overflow(shifted_a_scale, EltWise_AScale_COUNT);
+  inst_set(add_inst, shifted_a_scale, EltWise_AScale);
+  check_overflow(a_shift, EltWise_AShift_COUNT);
+  inst_set(add_inst, a_shift, EltWise_AShift);
+  int b_shift = calc_shift_val(b_scale);
+  int shifted_b_scale = (b_scale * (1 << b_shift));
+  check_overflow(shifted_b_scale, EltWise_BScale_COUNT);
+  inst_set(add_inst, shifted_b_scale, EltWise_BScale);
+  check_overflow(b_shift, EltWise_BShift_COUNT);
+  inst_set(add_inst, b_shift, EltWise_BShift);
+  inst_set(add_inst, a_zp, EltWise_AZeroPoint);
+  inst_set(add_inst, b_zp, EltWise_BZeroPoint);
 }
 
 static std::bitset<INST_SIZE_BITS> gen_eltwise_output(const Op::LayerBase *l,
@@ -1339,12 +1340,12 @@ int Op::Layer::QLinearAdd::get_inst(InstBlob &blob, AddressGen &gen,
                                     InitializerTable &tbl) {
   assert(this->device == DEVICE_FPGA);
   auto add_inst = gen_eltwise(this, gen, tbl, ELTWISE_ADD);
+  gen_eltwise_input_quant(add_inst, this->a_scale, this->b_scale, this->a_zp, this->b_zp);
   auto out_inst = gen_eltwise_output(this, gen, tbl);
   auto quant_inst = gen_eltwise_add_quant(this);
   blob.push_back(add_inst);
   blob.push_back(out_inst);
   blob.push_back(quant_inst);
-
   /* as qlinearadd does not insert any dwp packets in the blob */
   return 0;
 }
