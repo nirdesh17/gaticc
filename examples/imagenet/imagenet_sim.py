@@ -13,7 +13,7 @@ def post(arr):
     return label
 
 if __name__ == "__main__":
-    onnx_path = "../../models/vgg_16_224_int8.onnx"
+    onnx_path = "../../tests/models/imagenet_resnet50-int8-symmetric.onnx"
     with open("results.txt", "w"): pass
     gati.sim(onnx_path, "imagenet_sim.py", "gen", "post")
     print(f"Match: {gati.match('imagenet_100_labels.txt', 'results.txt')}%")

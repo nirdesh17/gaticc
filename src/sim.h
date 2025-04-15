@@ -299,15 +299,10 @@ template <typename inputT, typename outputT>
 void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
                  const Tensor<inputT> *input2, float i1_scale, float i2_scale,
                  int i1_zp, int i2_zp) {
-  ignore_unused(i1_scale);
-  ignore_unused(i2_scale);
-  ignore_unused(i1_zp);
-  ignore_unused(i2_zp);
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-    // outputT v = (i1_scale * (input1->at(i) - i1_zp)) + (i2_scale *
-    // (input2->at(i) - i2_zp));
-    output->set(i, input1->at(i) + input2->at(i));
+    outputT v = (i1_scale * ((outputT)input1->at(i) - i1_zp)) + (i2_scale * ((outputT)input2->at(i) - i2_zp));
+    output->set(i, v);
   }
 }
 
