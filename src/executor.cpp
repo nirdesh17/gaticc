@@ -113,29 +113,42 @@ Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
   }
 }
 
+/* Should be used only for layers with single input and output (like Conv, Relu etc.).
+ * For layers with multiple io (like Add), prefer doing custom instantiations
+ */
+template <typename inputT, typename outputT>
+static std::pair<Tensor<inputT>*, Tensor<outputT>*> get_tensorpool_io(TensorPool &pool, const Op::LayerBase *l) {
+  if (pool.has_value(l->outputs.at(0))) {
+    pool.free(l->outputs.at(0));
+  }
+  Tensor<inputT> *input = pool.get<Tensor<inputT> *>(l->inputs.at(0));
+  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims.at(0));
+  pool.set<Tensor<outputT> *>(l->outputs.at(0), output);
+  return std::pair(input, output); 
+}
+
+template <typename T>
+static void check_dispatch(const Op::LayerBase *l, const Tensor<T> *output) {
+  if (l->dispatch) {
+    pickle_tensor(output, l->name + ".tensor");
+    if (gbl_args.has_option("verbose")) {
+      output->print();
+    }
+  }
+}
+
 /* helper function for Op::Layer::Conv::run() */
 template <typename inputT, typename weightT, typename outputT>
 static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Conv *cc = dynamic_cast<Op::Layer::Conv *>(l);
-
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   ConvEngine<inputT, weightT, outputT> cc_engine(cc);
   cc_engine.run(input, output);
   tt.stop();
-
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    output->print();
-  }
+  check_dispatch(l, output);
   if (gbl_args.has_option("verbose")) {
     tt.report("Time taken: ");
   }
@@ -158,27 +171,11 @@ void Op::Layer::Conv::run(TensorPool &tensor_pool) {
 /* helper function for Op::Layer::Conv::run() */
 template <typename T>
 static void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Relu *cc = dynamic_cast<Op::Layer::Relu *>(l);
-
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-
-  /* TODO: use relu's params */
-  std::vector<int> ofmap_dims{input->get_dims()};
-  Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   Relu<T> relu;
   relu.exec(input, output);
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::Relu::run(TensorPool &tensor_pool) {
@@ -198,19 +195,10 @@ void Op::Layer::Relu::run(TensorPool &tensor_pool) {
 template <typename T>
 static void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Maxpool *cc = dynamic_cast<Op::Layer::Maxpool *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   maxpool<T>(input, output, cc->m_cp);
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
@@ -229,23 +217,10 @@ void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
 
 template <typename T>
 static void run_flatten(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Flatten *cc = dynamic_cast<Op::Layer::Flatten *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  const Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-
-  std::vector<int> ofmap_dims{1, input->dims_iterator(-1)};
-  Tensor<T> *output = new TensorCreate<T>(ofmap_dims);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   flatten<T>(input, output);
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::Flatten::run(TensorPool &tensor_pool) {
@@ -264,27 +239,16 @@ void Op::Layer::Flatten::run(TensorPool &tensor_pool) {
 template <typename inputT, typename outputT>
 static void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Gemm *cc = dynamic_cast<Op::Layer::Gemm *>(l);
-
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   VA<inputT, inputT, inputT, outputT> va(*cc);
   /* TODO: get architecture size from gbl_args */
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   va.run(input, output);
   tt.stop();
+  check_dispatch(l, output);
   if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
     tt.report("Time taken: ");
   }
 }
@@ -292,7 +256,6 @@ static void run_gemm(Op::LayerBase *l, TensorPool &tensor_pool) {
 void Op::Layer::Gemm::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
-
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
       output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_gemm<float, float>(this, tensor_pool);
@@ -305,30 +268,16 @@ void Op::Layer::Gemm::run(TensorPool &tensor_pool) {
 
 template <typename T>
 static void run_dropout(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Dropout *cc = dynamic_cast<Op::Layer::Dropout *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-
-  Tensor<T> *output = new TensorCreate<T>(input->get_dims());
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-  /* TODO: implement dropout correctly */
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   *output = *input;
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(input_type[0] == output_type[0]);
-
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_dropout<float>(this, tensor_pool);
   } else {
@@ -341,14 +290,8 @@ void Op::Layer::Dropout::run(TensorPool &tensor_pool) {
 template <typename T>
 static void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Reshape *cc = dynamic_cast<Op::Layer::Reshape *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
 
   int negative_ones =
       std::count(cc->new_shape.begin(), cc->new_shape.end(), -1);
@@ -356,12 +299,7 @@ static void run_reshape(Op::LayerBase *l, TensorPool &tensor_pool) {
     log_fatal("didn't expect more than one -1 in shape for node {}\n", l->name);
   }
   reshape<T>(input, output, cc->new_shape);
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::Reshape::run(TensorPool &tensor_pool) {
@@ -385,21 +323,10 @@ void Op::Layer::Reshape::run(TensorPool &tensor_pool) {
 template <typename T>
 static void run_transpose(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Transpose *cc = dynamic_cast<Op::Layer::Transpose *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-
-  Tensor<T> *output = new TensorCreate<T>(input->get_dims());
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   transpose<T>(input, output, cc->perm);
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::Transpose::run(TensorPool &tensor_pool) {
@@ -424,27 +351,16 @@ void Op::Layer::Transpose::run(TensorPool &tensor_pool) {
 template <typename inputT, typename outputT>
 static void run_matmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::MatMul *cc = dynamic_cast<Op::Layer::MatMul *>(l);
-
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   VA<inputT, inputT, inputT, outputT> va(*cc);
   /* TODO: get architecture size from gbl_args */
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   va.run(input, output);
   tt.stop();
+  check_dispatch(l, output);
   if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
     tt.report("Time taken: ");
   }
 }
@@ -466,17 +382,13 @@ void Op::Layer::MatMul::run(TensorPool &tensor_pool) {
 template <typename inputT, typename outputT>
 static void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Add *cc = dynamic_cast<Op::Layer::Add *>(l);
-
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
-
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-
   std::vector<int> ofmap_dims{1, input1->dims_iterator(-1)};
   Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
   Tensor<inputT> *input2;
   if (cc->inputs.size() > 1) {
     // both inputs are non-initializers (i.e. available only at runtime)
@@ -488,13 +400,7 @@ static void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_add(output, input1, input2);
     delete input2;
   }
-
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::Add::run(TensorPool &tensor_pool) {
@@ -517,13 +423,8 @@ void Op::Layer::Add::run(TensorPool &tensor_pool) {
 template <typename inputT, typename outputT>
 static void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QuantizeLinear *cc = dynamic_cast<Op::Layer::QuantizeLinear *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   std::vector<float> scales{cc->scale};
   std::vector<int> zero_point;
   if (std::holds_alternative<uint8_t>(cc->zero_point)) {
@@ -534,12 +435,7 @@ static void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
     log_fatal("cant deduce zero point type for layer {}\n", l->name);
   }
   quantize<inputT, outputT>(input, output, scales, zero_point);
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
@@ -562,36 +458,25 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
-
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
 
   std::unique_ptr<Tensor<intrT>> intr_output{
       new TensorCreate<intrT>(cc->output_dims[0])};
-
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   ConvEngine<inputT, weightT, intrT> cc_engine(cc);
   cc_engine.run(input, intr_output.get());
-
   std::vector<float> scales =
       compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
   using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
   tt.stop();
-
+  check_dispatch(l, output);
   if (l->dispatch) {
     pickle_tensor(intr_output.get(), l->name + "_32bit_acc" + ".tensor");
-    pickle_tensor(output, l->name + ".tensor");
-    output->print();
   }
-
   if (gbl_args.has_option("verbose")) {
     tt.report("Time taken: ");
   }
@@ -601,10 +486,7 @@ void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
-      weight_type == onnx::TensorProto_DataType_FLOAT) {
-    run_qconv<float, float, float, float>(this, tensor_pool);
-  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
+  if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
              weight_type == onnx::TensorProto_DataType_UINT8) {
     run_qconv<uint8_t, uint8_t, int, uint8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
@@ -612,7 +494,6 @@ void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
     run_qconv<int8_t, int8_t, int, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
              weight_type == onnx::TensorProto_DataType_INT8) {
-    std::cout << "this was chosen \n";
     run_qconv<uint8_t, int8_t, int, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: %s, %s",
@@ -625,16 +506,9 @@ template <typename inputT, typename outputT>
 static void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::DequantizeLinear *cc =
       dynamic_cast<Op::Layer::DequantizeLinear *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
-  /* TODO: make scale in quantize linear a vector by default */
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   std::vector<int> zero_point{cc->zero_point};
-
   std::vector<float> scales;
   if (std::holds_alternative<float>(cc->scale)) {
     scales.push_back((float)std::get<float>(cc->scale));
@@ -645,12 +519,7 @@ static void run_dequantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
     log_fatal("cant deduce zero point type for layer {}", l->name);
   }
   dequantize<inputT, outputT>(input, output, scales, zero_point);
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
@@ -673,15 +542,8 @@ void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearMatMul *cc = dynamic_cast<Op::Layer::QLinearMatMul *>(l);
-
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   std::unique_ptr<Tensor<intrT>> intr_output{
       new TensorCreate<intrT>(cc->output_dims[0])};
 
@@ -696,13 +558,9 @@ static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   std::vector<float> scales =
       compute_output_scale(cc->a_scale, cc->b_scale, cc->y_scale);
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
-
   tt.stop();
+  check_dispatch(l, output);
   if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
     tt.report("Time taken: ");
   }
 }
@@ -710,11 +568,7 @@ static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
 void Op::Layer::QLinearMatMul::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
-
-  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
-      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
-    run_qmatmul<float, float, float, float>(this, tensor_pool);
-  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+  if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
              weight_type == onnx::TensorProto_DataType_INT8) {
     run_qmatmul<int8_t, int8_t, int, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
@@ -733,19 +587,14 @@ void Op::Layer::QLinearMatMul::run(TensorPool &tensor_pool) {
 template <typename inputT, typename intrT, typename outputT>
 static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearAdd *cc = dynamic_cast<Op::Layer::QLinearAdd *>(l);
-
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
-
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
   std::unique_ptr<Tensor<intrT>> intr_output{
       new TensorCreate<intrT>(cc->output_dims[0])};
-
   Tensor<inputT> *input2;
   if (cc->inputs.size() > 1) {
     // both inputs are non-initializers (i.e. available only at runtime)
@@ -762,12 +611,7 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
   quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale, zero_points);
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::QLinearAdd::run(TensorPool &tensor_pool) {
@@ -791,21 +635,12 @@ void Op::Layer::QLinearAdd::run(TensorPool &tensor_pool) {
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(l);
-
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   std::unique_ptr<Tensor<intrT>> intr_output{
       new TensorCreate<intrT>(cc->output_dims[0])};
-
   using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
-
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   VA<inputT, weightT, int32_t, intrT> va(*cc);
@@ -815,10 +650,7 @@ static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
 
   tt.stop();
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    output->print();
-  }
+  check_dispatch(l, output);
   if (gbl_args.has_option("verbose")) {
     tt.report("Time taken: ");
   }
@@ -827,11 +659,7 @@ static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
 void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
-
-  if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
-      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
-    run_qgemm<float, float, float, float>(this, tensor_pool);
-  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+  if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
              weight_type == onnx::TensorProto_DataType_INT8 &&
              bias_type == onnx::TensorProto_DataType_INT32) {
     run_qgemm<int8_t, int8_t, int32_t, int8_t>(this, tensor_pool);
@@ -849,15 +677,10 @@ void Op::Layer::QGemm::run(TensorPool &tensor_pool) {
 template <typename inputT, typename outputT>
 static void run_logsoftmax(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::LogSoftmax *cc = dynamic_cast<Op::Layer::LogSoftmax *>(l);
-
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-
+  Tensor<inputT> *input; Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   logsoftmax(output, input, cc->axis);
+  check_dispatch(l, output);
 }
 
 void Op::Layer::LogSoftmax::run(TensorPool &tensor_pool) {
@@ -885,21 +708,10 @@ template <typename T>
 static void run_qlinearaveragepool(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearAveragePool *cc =
       dynamic_cast<Op::Layer::QLinearAveragePool *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   average_pool<T>(input, output, cc->m_cp);
-
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::QLinearAveragePool::run(TensorPool &tensor_pool) {
@@ -921,26 +733,15 @@ void Op::Layer::QLinearAveragePool::run(TensorPool &tensor_pool) {
 template <typename T>
 static void run_batchnorm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::BatchNorm *cc = dynamic_cast<Op::Layer::BatchNorm *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   std::unique_ptr<Tensor<T>> scale{new TensorExtant<T>(cc->scale)};
   std::unique_ptr<Tensor<T>> bias{new TensorExtant<T>(cc->B)};
   std::unique_ptr<Tensor<T>> mean{new TensorExtant<T>(cc->mean)};
   std::unique_ptr<Tensor<T>> var{new TensorExtant<T>(cc->var)};
   batchnorm<T>(input, output, cc->epsilon, cc->momentum, scale.get(),
                bias.get(), mean.get(), var.get());
-
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::BatchNorm::run(TensorPool &tensor_pool) {
@@ -961,22 +762,10 @@ void Op::Layer::BatchNorm::run(TensorPool &tensor_pool) {
 
 template <typename T>
 static void run_abs(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Abs *cc = dynamic_cast<Op::Layer::Abs *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   xabs<T>(input, output);
-
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::Abs::run(TensorPool &tensor_pool) {
@@ -1001,21 +790,10 @@ void Op::Layer::Abs::run(TensorPool &tensor_pool) {
 template <typename T>
 static void run_reduce_mean(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::ReduceMean *cc = dynamic_cast<Op::Layer::ReduceMean *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   reduce_mean<T>(input, output, cc->m_axis, cc->m_keepdims);
-
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::ReduceMean::run(TensorPool &tensor_pool) {
@@ -1040,21 +818,10 @@ void Op::Layer::ReduceMean::run(TensorPool &tensor_pool) {
 template <typename T>
 static void run_averagepool(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::AveragePool *cc = dynamic_cast<Op::Layer::AveragePool *>(l);
-  if (tensor_pool.has_value(cc->outputs.at(0))) {
-    tensor_pool.free(cc->outputs.at(0));
-  }
-  Tensor<T> *input = tensor_pool.get<Tensor<T> *>(cc->inputs.at(0));
-  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0]);
-  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
-
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
   average_pool<T>(input, output, cc->m_cp);
-
-  if (l->dispatch) {
-    pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
-      output->print();
-    }
-  }
+  check_dispatch(l, output);
 }
 
 void Op::Layer::AveragePool::run(TensorPool &tensor_pool) {
