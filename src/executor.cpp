@@ -802,9 +802,9 @@ void Op::Layer::QLinearAdd::run(TensorPool &tensor_pool) {
       output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_qadd<float, float, float>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
-    run_qadd<int8_t, int, int8_t>(this, tensor_pool);
+    run_qadd<int8_t, float, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
-    run_qadd<uint8_t, int, uint8_t>(this, tensor_pool);
+    run_qadd<uint8_t, float, uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
@@ -935,6 +935,8 @@ void Op::Layer::QLinearAveragePool::run(TensorPool &tensor_pool) {
     run_qlinearaveragepool<int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
     run_qlinearaveragepool<uint8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_qlinearaveragepool<float>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
