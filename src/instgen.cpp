@@ -684,7 +684,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
       aligned_conv_input(cc->input_dims) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
-  uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims()) *
+  uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims(), cc->input_dims.at(0)) *
                           Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
   uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
@@ -781,14 +781,18 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
   auto odims = cc->output_dims.at(0);
   auto idims = cc->input_dims.at(0);
-  auto wdims = aligned_conv_weight_dims(cc->weights->dims());
-  int citr = 0;
+  auto wdims = aligned_conv_weight_dims(cc->weights->dims(), cc->input_dims.at(0));
+  int citr = 0; int kitr = 0;
   if (is_pointwise_conv(cc->weights->dims())) {
+    kitr = ceil_div(wdims.at(TENSOR_4D_BATCH), sa_arch[SA_ARCH_N]);
     citr = ceil_div(wdims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_ROW]);
+  } else if (is_depthwise_conv(cc->weights->dims(), cc->input_dims.at(0))) {
+    kitr = ceil_div(wdims.at(TENSOR_4D_BATCH), sa_arch[SA_ARCH_N]);
+    citr = ceil_div(wdims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_COLS]);
   } else {
+    kitr = ceil_div(wdims.at(TENSOR_4D_BATCH), sa_arch[SA_ARCH_COLS]);
     citr = ceil_div(wdims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
   }
-  int kitr = ceil_div(wdims.at(TENSOR_4D_BATCH), sa_arch[SA_ARCH_COLS]);
 
   auto pod = cc->pipelined_output_dims.at(0);
   int ido = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
@@ -1079,7 +1083,7 @@ uint32_t Op::Layer::QuantizeLinear::get_weight_size() { return 0; }
 
 uint32_t Op::Layer::QLinearConv::get_weight_size() {
   uint32_t w =
-      aligned_conv_weight(weights->dims()) * Op::tensorproto_sizeof(weights);
+      aligned_conv_weight(weights->dims(), this->input_dims.at(0)) * Op::tensorproto_sizeof(weights);
   w = ceil_mod(w, WORD_SIZE);
   uint32_t b = aligned_conv_bias(bias->dims()) * Op::tensorproto_sizeof(bias);
   b = ceil_mod(b, WORD_SIZE);
@@ -1853,12 +1857,12 @@ void BinBlob::append(const InstBlob &instblob, uint32_t addr) {
 }
 
 template <typename T>
-static void sa_align_aux_regular(BinBlob &blob, const Tensor<T> *tensor) {
+static void sa_align_aux_regular(const Op::LayerBase *l, BinBlob &blob, const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
   auto strides = tensor->get_strides();
-  auto aligned_dims = aligned_conv_weight_dims(dims);
+  auto aligned_dims = aligned_conv_weight_dims(dims, l->input_dims.at(0));
   auto sa_arch = get_sa_arch();
-  auto aligned_size = aligned_conv_weight(dims) * sizeof(T);
+  auto aligned_size = aligned_conv_weight(dims, l->input_dims.at(0)) * sizeof(T);
   auto deficit_zeros = ceil_mod(aligned_size, WORD_SIZE) - aligned_size;
   T zero = 0;
   if (aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH] >
@@ -1868,19 +1872,24 @@ static void sa_align_aux_regular(BinBlob &blob, const Tensor<T> *tensor) {
         aligned_dims[TENSOR_4D_HEIGHT], aligned_dims[TENSOR_4D_WIDTH]);
   }
   assert(WORD_SIZE % 4 == 0);
-
-  int kern_iterations =
-      ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
-  int chan_iterations =
-      ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+  int chan_dim = 0; int kern_dim = 0;
+  if (is_depthwise_conv(dims, l->input_dims.at(0))) {
+    kern_dim = sa_arch[SA_ARCH_N];
+    chan_dim = sa_arch[SA_ARCH_COLS];
+  } else {
+    kern_dim = sa_arch[SA_ARCH_COLS];
+    chan_dim = sa_arch[SA_ARCH_N];
+  }
+  int kern_iterations = ceil_div(aligned_dims[TENSOR_4D_BATCH], kern_dim);
+  int chan_iterations = ceil_div(aligned_dims[TENSOR_4D_CHANNELS], chan_dim);
 
   for (int kern = 0; kern < kern_iterations; ++kern) {
     for (int chan = 0; chan < chan_iterations; ++chan) {
       for (int srow = sa_arch[SA_ARCH_ROW] - 1; srow >= 0; srow--) {
-        for (int schan = 0; schan < sa_arch[SA_ARCH_N]; schan++) {
-          for (int skern = 0; skern < sa_arch[SA_ARCH_COLS]; skern++) {
-            int k = kern * sa_arch[SA_ARCH_COLS] + skern;
-            int c = chan * sa_arch[SA_ARCH_N] + schan;
+        for (int schan = 0; schan < chan_dim; schan++) {
+          for (int skern = 0; skern < kern_dim; skern++) {
+            int k = kern * kern_dim + skern;
+            int c = chan * chan_dim + schan;
             if (srow >= dims[TENSOR_4D_HEIGHT] * dims[TENSOR_4D_WIDTH] ||
                 c >= dims[TENSOR_4D_CHANNELS] ||
                 k >= dims[TENSOR_4D_BATCH]) {
@@ -1899,20 +1908,20 @@ static void sa_align_aux_regular(BinBlob &blob, const Tensor<T> *tensor) {
   }
 }
 template <typename T>
-static void sa_align_aux_pointwise(BinBlob &blob, const Tensor<T> *tensor) {
+static void sa_align_aux_pointwise(const Op::LayerBase *l, BinBlob &blob, const Tensor<T> *tensor) {
   auto sa_arch = get_sa_arch();
   auto dims = tensor->get_dims();
-  auto aligned_dims = aligned_conv_weight_dims(dims);
-  int kern_itr = ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
+  auto aligned_dims = aligned_conv_weight_dims(dims, l->input_dims.at(0));
+  int kern_itr = ceil_div(aligned_dims[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
   int chan_itr = ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
   auto strides = tensor->get_strides();
 
   T zero = 0;
   for (int ki = 0; ki < kern_itr; ++ki) {
     for (int ci = 0; ci < chan_itr; ++ci) {
-      for (int c = sa_arch[SA_ARCH_COLS] - 1; c >= 0; --c) {
+      for (int c = sa_arch[SA_ARCH_N] - 1; c >= 0; --c) {
         for (int r = 0; r < sa_arch[SA_ARCH_ROW]; ++r) {
-          int kern_i = ki * sa_arch[SA_ARCH_COLS] + r;
+          int kern_i = ki * sa_arch[SA_ARCH_N] + r;
           int chan_i = ci * sa_arch[SA_ARCH_ROW] + c;
           int index = kern_i * strides[0] + chan_i * strides[1];
           //std::cout << " kern " << kern_i << " chan " << chan_i << " index " << index << '\n';
@@ -1927,13 +1936,13 @@ static void sa_align_aux_pointwise(BinBlob &blob, const Tensor<T> *tensor) {
   }
 }
 
-template <typename T> static void sa_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
+template <typename T> static void sa_align_aux(const Op::LayerBase *l, BinBlob &blob, const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
   assert(dims.size() == 4);
   if (is_pointwise_conv(dims)) {
-    sa_align_aux_pointwise(blob, tensor);
+    sa_align_aux_pointwise(l, blob, tensor);
   } else {
-    sa_align_aux_regular(blob, tensor);
+    sa_align_aux_regular(l, blob, tensor);
   }
 }
 
@@ -2023,17 +2032,17 @@ static void fc_weight_align_aux(BinBlob &blob, const Tensor<T> *tensor, bool tra
   }
 }
 
-static void sa_align(BinBlob &blob, const onnx::TensorProto *tensor) {
+static void sa_align(const Op::LayerBase *l, BinBlob &blob, const onnx::TensorProto *tensor) {
   int32_t type = tensor->data_type();
   switch (type) {
   case onnx::TensorProto_DataType_INT8: {
     std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
-    sa_align_aux(blob, t1.get());
+    sa_align_aux(l, blob, t1.get());
     break;
   }
   case onnx::TensorProto_DataType_UINT8: {
     std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
-    sa_align_aux(blob, t1.get());
+    sa_align_aux(l, blob, t1.get());
     break;
   }
   default:
@@ -2123,12 +2132,12 @@ static void fc_weight_align(BinBlob &blob, const onnx::TensorProto *tensor, bool
 }
 
 void Op::Layer::QLinearConv::align_weights(BinBlob &blob, InitializerTable &tbl) {
-    uint32_t aligned_sz = aligned_conv_weight(weights->dims());
+    uint32_t aligned_sz = aligned_conv_weight(weights->dims(), this->input_dims.at(0));
     aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
     aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
     log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
     blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
-    sa_align(blob, weights);
+    sa_align(this, blob, weights);
 
     aligned_sz = aligned_conv_bias(bias->dims());
     aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
@@ -2239,16 +2248,21 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
       int expected_kern_itr = 0;
 
       if (p_op == OP_CONV) {
+        int ic = inst_get(*previous_inst, CONV_IC);
         int kh = inst_get(*previous_inst, CONV_KH);
         int kw = inst_get(*previous_inst, CONV_KW);
         int chan = inst_get(*previous_inst, CONV_KC);
         int kern = inst_get(*previous_inst, CONV_KN);
         if (kh == 1 && kw == 1) {
           expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_ROW]);
+          expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
+        } else if (chan == 1 && ic > 1) {
+          expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_COLS]);
+          expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
         } else {
           expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_N]);
+          expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_COLS]);
         }
-        expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_COLS]);
       } else if (p_op == OP_FC) {
         expected_chan_itr = 1;
         /* FC processes va_size number of columns at a time, kernel
@@ -2388,16 +2402,18 @@ int GmlCheck::check_conv_weight_continuity(
   int type = inst_get(inst, CONV_ConvType);
   int kn = inst_get(inst, CONV_KN);
   int ic = inst_get(inst, CONV_KC);
-  int chan_itr = 0;
+  int chan_itr = 0; int kern_itr = 0;
   if (type == CONV_TYPE_PW) {
+    kern_itr = ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]);
     chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_ROW]), sa_arch[SA_ARCH_ROW]);
+  } else if (type == CONV_TYPE_DW) {
+    kern_itr = ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]);
+    chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]);
   } else {
+    kern_itr = ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]);
     chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]);
   }
-  int expected_weight_size = ceil_mod(
-      ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]) * chan_itr *
-          prod(sa_arch), 
-      WORD_SIZE);
+  int expected_weight_size = ceil_mod(kern_itr * chan_itr * prod(sa_arch), WORD_SIZE);
 
   int computed_weight_size = end - start;
   if (computed_weight_size != expected_weight_size) {

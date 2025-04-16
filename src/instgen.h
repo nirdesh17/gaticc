@@ -189,15 +189,19 @@ template <typename T1, typename T2> inline bool is_depthwise_conv(const T1 &dims
   return false;
 }
 
-template <typename T>
-std::vector<int> aligned_conv_weight_dims(const T &wdims) {
+template <typename T1, typename T2>
+std::vector<int> aligned_conv_weight_dims(const T1 &wdims, const T2 &idims) {
   assert(wdims.size() == 4);
   auto w = wdims;
   auto sa_arch = get_sa_arch();
-  w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
   if (is_pointwise_conv(w)) {
+    w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
+  } else if (is_depthwise_conv(w, idims)) {
+    w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+    w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_COLS]);
   } else {
+    w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
     w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
   }
   std::vector<int> ret(wdims.size());
@@ -205,15 +209,19 @@ std::vector<int> aligned_conv_weight_dims(const T &wdims) {
   return ret;
 }
 
-template <typename T> int aligned_conv_weight(const T &wdims) {
-  auto w = aligned_conv_weight_dims(wdims);
+template <typename T1, typename T2> int aligned_conv_weight(const T1 &wdims, const T2 &idims) {
+  auto w = aligned_conv_weight_dims(wdims, idims);
   auto sa_arch = get_sa_arch();
   assert(w.size() == 4 && "Expect tensors to be 4 dimensional");
-  int chan_itr = 0;
-  int kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
+  int chan_itr = 0; int kern_itr = 0;
   if (is_pointwise_conv(w)) {
+    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
+  } else if (is_depthwise_conv(w, idims)) {
+    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+    chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_COLS]);
   } else {
+    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
     chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
   }
   int ret = kern_itr * chan_itr * prod(sa_arch);
