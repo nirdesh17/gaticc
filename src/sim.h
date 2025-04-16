@@ -301,7 +301,7 @@ void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
                  int i1_zp, int i2_zp) {
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-    outputT v = (i1_scale * ((outputT)input1->at(i) - i1_zp)) + (i2_scale * ((outputT)input2->at(i) - i2_zp));
+    outputT v = (i2_scale * (input1->at(i) - i1_zp)) + (i1_scale * (input2->at(i) - i2_zp));
     output->set(i, v);
   }
 }
