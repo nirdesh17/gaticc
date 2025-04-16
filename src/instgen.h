@@ -248,12 +248,12 @@ template <typename T> int aligned_conv_bias(const T &dims) {
  */
 inline int get_conv_out_mod() {
   auto sa_arch = get_sa_arch();
-  return WORD_SIZE / sa_arch[2];
+  return WORD_SIZE / sa_arch[SA_ARCH_N];
 }
 
 inline int get_conv_in_mod() {
   auto sa_arch = get_sa_arch();
-  return WORD_SIZE / sa_arch[1];
+  return WORD_SIZE / sa_arch[SA_ARCH_N];
 }
 
 /* accumulant_mod is calculated in a similar fashion. since, accumulators
@@ -267,18 +267,22 @@ inline int get_conv_acc_mod() {
   return accumulant_mod;
 }
 
-template <typename T> IVec2D aligned_conv_input_dims(const T &dims) {
+template <typename T1, typename T2> IVec2D aligned_conv_input_dims(const T1 &dims, const T2 &wdims) {
   assert(!dims.empty() && dims[0].size() == 4);
   auto sa_arch = get_sa_arch();
   std::vector<int> i = dims[0];
-  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[2]);
+  if (is_pointwise_conv(wdims)) {
+    i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
+  } else {
+    i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+  }
   IVec2D ret;
   ret.push_back(i);
   return ret;
 }
 
-template <typename T> int aligned_conv_input(const T &dims) {
-  auto iVec = aligned_conv_input_dims(dims);
+template <typename T1, typename T2> int aligned_conv_input(const T1 &dims, const T2 &wdims) {
+  auto iVec = aligned_conv_input_dims(dims, wdims);
   assert(!iVec.empty() && iVec[0].size() == 4);
   auto &i = iVec[0];
   int ret =
@@ -291,7 +295,7 @@ template <typename T> IVec2D aligned_conv_output_dims(const T &dims) {
   assert(!dims.empty() && dims[0].size() == 4);
   auto sa_arch = get_sa_arch();
   std::vector<int> i = dims[0];
-  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[1]);
+  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
   IVec2D ret;
   ret.push_back(i);
   return ret;
@@ -426,10 +430,6 @@ public:
   char *get_data();
   const char *get_cdata() const;
   template <typename T> void append(const std::vector<T> &vec);
-  /* every mega block ought to have a _input_append function */
-  template <typename T>
-  void append_sa_input(uint32_t data_size, uint32_t addr,
-                       const Tensor<T> *tensor);
   template <typename T> void append(T i) = delete;
 };
 
@@ -446,42 +446,6 @@ template <typename T> void BinBlob::append(const std::vector<T> &vec) {
   assert(vec.size() * sizeof(vec[0]) <= (m_size - m_ptr));
   for (T i : vec) {
     generic_append(i);
-  }
-}
-
-/* every mega block ought to have a _input_append function */
-template <typename T>
-void BinBlob::append_sa_input(uint32_t data_size, uint32_t addr,
-                              const Tensor<T> *tensor) {
-  append_dwp_header(data_size, addr);
-  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
-  IVec2D og_dims_v {tensor->get_dims()};
-  auto og_dims = og_dims_v.at(0);
-  auto aligned_dims = aligned_conv_input_dims(og_dims_v)[0];
-  auto sa_arch = get_sa_arch();
-  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
-  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
-  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
-  int dk = WORD_SIZE / sa_arch[SA_ARCH_N];
-  T zero = 0;
-
-  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
-    for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N]; ++c) {
-      for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
-        for (int ci = 0; ci < sa_arch[SA_ARCH_N]; ++ci) {
-          for (int ei = 0; ei < dk; ++ei) {
-            int chan_n = (c * sa_arch[SA_ARCH_N]) + ci;
-            int elem_n = (e * dk) + ei;
-            int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
-            if (chan_n >= og_dims[TENSOR_4D_CHANNELS] || elem_n >= og_frame_sz) {
-              append(zero);
-            } else {
-              append(tensor->at(index));
-            }
-          }
-        }
-      }
-    }
   }
 }
 

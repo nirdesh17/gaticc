@@ -156,8 +156,8 @@ struct LayerBase {
    * when executing on the fpga. Layers that do not
    * modify shape, will, for now, emit un-aligned dims
    */
-  virtual IVec2D aligned_input();
-  virtual IVec2D aligned_output();
+  virtual IVec2D aligned_input() const;
+  virtual IVec2D aligned_output() const;
 
   virtual void align_weights(BinBlob &blob, InitializerTable &tbl);
 
@@ -486,8 +486,8 @@ struct QGemm : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
-  IVec2D aligned_input() override;
-  IVec2D aligned_output() override;
+  IVec2D aligned_input() const override;
+  IVec2D aligned_output() const override;
   void align_weights(BinBlob &blob, InitializerTable &tbl) override;
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;
@@ -516,8 +516,8 @@ struct QLinearConv : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
-  IVec2D aligned_input() override;
-  IVec2D aligned_output() override;
+  IVec2D aligned_input() const override;
+  IVec2D aligned_output() const override;
   void align_weights(BinBlob &blob, InitializerTable &tbl) override;
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;

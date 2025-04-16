@@ -681,7 +681,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   auto sa_arch = get_sa_arch();
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
   uint32_t input_bytes =
-      aligned_conv_input(cc->input_dims) * Op::tpdt_sizeof(cc->input_type[0]);
+      aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
   uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims(), cc->input_dims.at(0)) *
@@ -1376,23 +1376,23 @@ void Op::Layer::Clip::get_opcodes(std::vector<int> &op_codes){
 
 uint32_t Op::Layer::Clip::get_weight_size(){return 0;}
 
-IVec2D Op::LayerBase::aligned_input() { return input_dims; }
+IVec2D Op::LayerBase::aligned_input() const { return input_dims; }
 
-IVec2D Op::LayerBase::aligned_output() { return output_dims; }
+IVec2D Op::LayerBase::aligned_output() const { return output_dims; }
 
-IVec2D Op::Layer::QLinearConv::aligned_input() {
-  return aligned_conv_input_dims(input_dims);
+IVec2D Op::Layer::QLinearConv::aligned_input() const {
+  return aligned_conv_input_dims(input_dims, this->weights->dims());
 }
 
-IVec2D Op::Layer::QLinearConv::aligned_output() {
+IVec2D Op::Layer::QLinearConv::aligned_output() const {
   return aligned_conv_output_dims(output_dims);
 }
 
-IVec2D Op::Layer::QGemm::aligned_input() {
+IVec2D Op::Layer::QGemm::aligned_input() const {
   return aligned_fc_io_dims(&input_dims[0]);
 }
 
-IVec2D Op::Layer::QGemm::aligned_output() {
+IVec2D Op::Layer::QGemm::aligned_output() const {
   return aligned_fc_io_dims(&output_dims.at(0));
 }
 

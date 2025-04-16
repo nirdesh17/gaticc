@@ -116,17 +116,17 @@ class Runner {
   void run(Rah &rah, HashedDispatchTable &hdt);
 
   template <typename T>
-  void send_input(Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor,
+  void send_input(const Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor,
                   uint32_t addr);
-  void receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer);
+  void receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer);
   void fake_exec(Op::LayerBase *l);
   void read_uart(BinBlob &blob, int uart_baud, int expected_size);
 
   template <typename T>
-  void receive_output_aux(const T *data, Op::LayerBase *l, bool is_last_layer);
+  void receive_output_aux(const T *data, const Op::LayerBase *l, bool is_last_layer);
 
   template <typename T>
-  void compare_layer(Op::LayerBase *l, const Tensor<T> *tensor, fs::path &path);
+  void compare_layer(const Op::LayerBase *l, const Tensor<T> *tensor, fs::path &path);
 
 public:
   Runner(Op::Parser &parser);
@@ -240,20 +240,65 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
 }
 
 template <typename T>
-void Runner::send_input(Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor,
+void align_sa_input(BinBlob &blob, const Op::Layer::QLinearConv *l, uint32_t data_size, uint32_t addr,
+                              const Tensor<T> *tensor) {
+  blob.append_dwp_header(data_size, addr);
+  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
+  IVec2D og_dims_v {tensor->get_dims()};
+  auto og_dims = og_dims_v.at(0);
+  auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
+  auto sa_arch = get_sa_arch();
+  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
+  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
+  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
+  int chan_dim = 0;
+  if (is_pointwise_conv(l->weights->dims())) {
+    chan_dim = sa_arch[SA_ARCH_ROW];
+  } else {
+    chan_dim = sa_arch[SA_ARCH_N];
+  }
+
+  int dk = WORD_SIZE / chan_dim;
+  T zero = 0;
+
+  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
+    for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / chan_dim; ++c) {
+      for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
+        for (int ci = 0; ci < chan_dim; ++ci) {
+          for (int ei = 0; ei < dk; ++ei) {
+            int chan_n = (c * chan_dim) + ci;
+            int elem_n = (e * dk) + ei;
+            int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
+            if (chan_n >= og_dims[TENSOR_4D_CHANNELS] || elem_n >= og_frame_sz) {
+              blob.append(zero);
+            } else {
+              blob.append(tensor->at(index));
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+template <typename T>
+void Runner::send_input(const Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor,
                         uint32_t addr) {
   auto dims = tensor->get_dims();
   if (is_op_type(l, "QLinearConv")) {
+    const Op::Layer::QLinearConv *cc = dynamic_cast<const Op::Layer::QLinearConv*>(l);
     IVec2D dims_wrapper = {dims};
-    uint32_t og_aligned_size = aligned_conv_input(dims_wrapper) * sizeof(T);
+    uint32_t og_aligned_size = aligned_conv_input(dims_wrapper, cc->weights->dims()) * sizeof(T);
     uint32_t total_size_with_packets = io_tensor_packet_size(og_aligned_size);
     BinBlob blob(total_size_with_packets);
-    blob.append_sa_input<T>(og_aligned_size, addr, tensor);
+    align_sa_input<T>(blob, cc, og_aligned_size, addr, tensor);
     blob.append_dwp_header(0, 0);
-    blob.write("input_data.bin");
-    log_info("start writing images to FPGA\n");
-    char *aligned_data = blob.get_data();
-    rah.write(aligned_data, total_size_with_packets);
+    if (gbl_args.has_option("verbose")) {
+      blob.write("input_data.bin");
+    }
+    log_info("Start writing images to FPGA\n");
+    rah.write(blob.get_data(), blob.size());
   } else {
     log_fatal("cannot send input for layer of type {} - support missing\n",
               l->op_type());
@@ -262,11 +307,11 @@ void Runner::send_input(Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor,
 }
 
 template <typename T>
-void unalign_sa_output(Tensor<T> *tensor, const T *data) {
+void unalign_sa_output(const Op::Layer::QLinearConv *l, Tensor<T> *tensor, const T *data) {
   assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
   IVec2D og_dims_v {tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
-  auto aligned_dims = aligned_conv_input_dims(og_dims_v)[0];
+  auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
   auto sa_arch = get_sa_arch();
   int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
   int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
@@ -304,7 +349,7 @@ template <typename T> void unalign_va_output(Tensor<T> *tensor, const T *data) {
 
 /* Converts a byte stream into a tensor and un-aligns if if necessary */
 template <typename T>
-void Runner::receive_output_aux(const T *data, Op::LayerBase *l,
+void Runner::receive_output_aux(const T *data, const Op::LayerBase *l,
                                 bool is_last_layer) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
 
@@ -312,7 +357,7 @@ void Runner::receive_output_aux(const T *data, Op::LayerBase *l,
   Tensor<T> *tensor = new TensorCreate<T>(odims);
 
   if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearAdd")) {
-    unalign_sa_output(tensor, data);
+    unalign_sa_output(dynamic_cast<const Op::Layer::QLinearConv*>(l), tensor, data);
   } else if (is_op_type(l, "QGemm")) {
     unalign_va_output(tensor, data);
   } else {
@@ -347,7 +392,7 @@ template <typename T> T get_dlsym(void *m_handle, std::string func_name) {
 }
 
 template <typename T>
-void Runner::compare_layer(Op::LayerBase *l, const Tensor<T> *tensor,
+void Runner::compare_layer(const Op::LayerBase *l, const Tensor<T> *tensor,
                            fs::path &file) {
   if (!fs::exists(file)) {
     log_fatal("{}: no such file or directory\n", file);

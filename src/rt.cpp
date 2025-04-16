@@ -409,7 +409,7 @@ void Runner::read_uart(BinBlob &blob, int uart_baud, int expected_size) {
   Py_XDECREF(args);
 }
 
-void Runner::receive_output(Rah &rah, Op::LayerBase *l, bool is_last_layer) {
+void Runner::receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer) {
   int expected_hash = string_hash(l->name);
   uint32_t expected_data_size = 0;
 
