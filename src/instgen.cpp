@@ -280,7 +280,7 @@ void Pass::adjust_scale_shift(Op::Graph graph) {
           latest_megablock = graph[dest];
         } else {
           Op::LayerBase *l = graph[dest];
-          if (is_op_type(l, "DequantizeLinear") && latest_megablock != nullptr) {
+          if (is_op_type(l, "DequantizeLinear") && latest_megablock != nullptr && l->device != DEVICE_CPU) {
             std::vector<float> mega_scale = latest_megablock->get_output_scale();
             std::vector<float> dl_scale = broadcast_vec(l->get_output_scale(), mega_scale.size());
             std::vector<float> ret(mega_scale.size());
@@ -288,7 +288,7 @@ void Pass::adjust_scale_shift(Op::Graph graph) {
               ret.at(i) = mega_scale.at(i) / dl_scale.at(i);
             }
             latest_megablock->set_output_scale(ret);
-          } else if (is_op_type(l, "QuantizeLinear") && latest_megablock != nullptr) {
+          } else if (is_op_type(l, "QuantizeLinear") && latest_megablock != nullptr && l->device != DEVICE_CPU) {
             std::vector<float> mega_scale = latest_megablock->get_output_scale();
             std::vector<float> dl_scale = broadcast_vec(l->get_output_scale(), mega_scale.size());
             std::vector<float> ret(mega_scale.size());
