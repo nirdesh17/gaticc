@@ -164,6 +164,8 @@ struct LayerBase {
   virtual std::vector<float> get_output_scale(void);
   virtual void set_output_scale(const std::vector<float>& v);
 
+  virtual std::pair<int,int> get_iterations() const;
+
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
 
@@ -491,6 +493,7 @@ struct QGemm : public LayerBase {
   void align_weights(BinBlob &blob, InitializerTable &tbl) override;
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;
+  std::pair<int,int> get_iterations() const override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -521,6 +524,7 @@ struct QLinearConv : public LayerBase {
   void align_weights(BinBlob &blob, InitializerTable &tbl) override;
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;
+  std::pair<int,int> get_iterations() const override;
 };
 
 struct LogSoftmax : public LayerBase {

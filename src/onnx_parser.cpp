@@ -76,6 +76,11 @@ void Op::LayerBase::align_weights(BinBlob &, InitializerTable &) {
   return;
 }
 
+std::pair<int,int> Op::LayerBase::get_iterations() const {
+  log_warn("get_iterations() not implemented for this layer {}\n", this->name);
+  return std::pair(0,0);
+}
+
 std::vector<float> Op::LayerBase::get_output_scale(void) {
   return std::vector<float>{0.f};
 }
@@ -1855,6 +1860,7 @@ void Op::Layer::NMS::set_initializer_params(int n, const onnx::TensorProto &t) {
     break;
   }
 }
+
 
 /* Auxillary Graph Functions */
 

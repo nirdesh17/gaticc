@@ -209,21 +209,10 @@ std::vector<int> aligned_conv_weight_dims(const T1 &wdims, const T2 &idims) {
   return ret;
 }
 
-template <typename T1, typename T2> int aligned_conv_weight(const T1 &wdims, const T2 &idims) {
-  auto w = aligned_conv_weight_dims(wdims, idims);
+inline int aligned_conv_weight(const Op::LayerBase *l) {
   auto sa_arch = get_sa_arch();
-  assert(w.size() == 4 && "Expect tensors to be 4 dimensional");
   int chan_itr = 0; int kern_itr = 0;
-  if (is_pointwise_conv(w)) {
-    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
-    chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
-  } else if (is_depthwise_conv(w, idims)) {
-    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
-    chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_COLS]);
-  } else {
-    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
-    chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
-  }
+  std::tie(kern_itr, chan_itr) = l->get_iterations();
   int ret = kern_itr * chan_itr * prod(sa_arch);
   return ret;
 }

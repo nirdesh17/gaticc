@@ -432,6 +432,7 @@ std::bitset<INST_SIZE_BITS> or_inst(std::bitset<INST_SIZE_BITS> i1,
   return ret;
 }
 
+
 static std::bitset<INST_SIZE_BITS> gen_start_inst(int layer_num,
                                                   int total_layers) {
   std::bitset<INST_SIZE_BITS> start_inst;
@@ -684,8 +685,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
       aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
-  uint32_t weight_bytes = aligned_conv_weight(cc->weights->dims(), cc->input_dims.at(0)) *
-                          Op::tensorproto_sizeof(cc->weights);
+  uint32_t weight_bytes = aligned_conv_weight(cc) * Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
   uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
   tbl.push_back(cc->weights->name(), weight_addr_start);
@@ -780,19 +780,8 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   uint32_t acc_addr = gen.ps_addr_from_register(cc->inputs.at(0));
   uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
   auto odims = cc->output_dims.at(0);
-  auto idims = cc->input_dims.at(0);
-  auto wdims = aligned_conv_weight_dims(cc->weights->dims(), cc->input_dims.at(0));
   int citr = 0; int kitr = 0;
-  if (is_pointwise_conv(cc->weights->dims())) {
-    kitr = ceil_div(wdims.at(TENSOR_4D_BATCH), sa_arch[SA_ARCH_N]);
-    citr = ceil_div(wdims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_ROW]);
-  } else if (is_depthwise_conv(cc->weights->dims(), cc->input_dims.at(0))) {
-    kitr = ceil_div(wdims.at(TENSOR_4D_BATCH), sa_arch[SA_ARCH_N]);
-    citr = ceil_div(wdims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_COLS]);
-  } else {
-    kitr = ceil_div(wdims.at(TENSOR_4D_BATCH), sa_arch[SA_ARCH_COLS]);
-    citr = ceil_div(wdims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
-  }
+  std::tie(kitr, citr) = cc->get_iterations();
 
   auto pod = cc->pipelined_output_dims.at(0);
   int ido = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
@@ -966,16 +955,17 @@ static std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc, Add
     assert(cc->outputs.size() == 1);
     uint32_t output_addr_start = gen.io_addr_from_register(cc->outputs.at(0));
     auto true_inputs = get_true_rc_weights(cc);
+    int kern_itr = 0; int chan_itr = 0;
+    std::tie(kern_itr, chan_itr) = cc->get_iterations();
     int va_size = get_va_size();
-    int kernel_iterations = ceil_div(true_inputs[TENSOR_2D_COLS], va_size);
     auto sa_arch = get_sa_arch();
     int img_dim_output = va_size / sa_arch[SA_ARCH_COLS];
 
     return gen_output(
         0,                         // acc_addr (not used in FC, set to 0)
         output_addr_start,         // out_addr
-        1,                         // citr (always 1 for FC)
-        kernel_iterations,         // kitr
+        chan_itr,                  // citr
+        kern_itr,                  // kitr
         img_dim_output,            // imgdimout
         0,                         // imgdimacc (not used in FC, set to 0)
         0,                         // accen (not used in FC, set to 0)
@@ -1082,8 +1072,7 @@ uint32_t Op::Layer::QuantizeLinear::get_weight_size() { return 0; }
 
 
 uint32_t Op::Layer::QLinearConv::get_weight_size() {
-  uint32_t w =
-      aligned_conv_weight(weights->dims(), this->input_dims.at(0)) * Op::tensorproto_sizeof(weights);
+  uint32_t w = aligned_conv_weight(this) * Op::tensorproto_sizeof(weights);
   w = ceil_mod(w, WORD_SIZE);
   uint32_t b = aligned_conv_bias(bias->dims()) * Op::tensorproto_sizeof(bias);
   b = ceil_mod(b, WORD_SIZE);
@@ -1394,6 +1383,33 @@ IVec2D Op::Layer::QGemm::aligned_input() const {
 
 IVec2D Op::Layer::QGemm::aligned_output() const {
   return aligned_fc_io_dims(&output_dims.at(0));
+}
+
+
+std::pair<int,int> Op::Layer::QLinearConv::get_iterations() const {
+  auto sa_arch = get_sa_arch();
+  int kern_itr = 0; int chan_itr = 0;
+  auto idims = this->input_dims.at(0);
+  auto w = aligned_conv_weight_dims(this->weights->dims(), idims);
+  if (is_pointwise_conv(w)) {
+    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+    chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
+  } else if (is_depthwise_conv(w, idims)) {
+    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+    chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_COLS]);
+  } else {
+    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
+    chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+  }
+  return std::pair(kern_itr, chan_itr);
+}
+
+std::pair<int,int> Op::Layer::QGemm::get_iterations() const {
+  auto true_inputs = get_true_rc_weights(this);
+  auto va_size = get_va_size();
+  int kern_itr = ceil_div(true_inputs.at(TENSOR_2D_COLS), va_size);
+  /* chan_itr always 1 for FC */
+  return std::pair(kern_itr, 1);
 }
 
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
@@ -1862,7 +1878,7 @@ static void sa_align_aux_regular(const Op::LayerBase *l, BinBlob &blob, const Te
   auto strides = tensor->get_strides();
   auto aligned_dims = aligned_conv_weight_dims(dims, l->input_dims.at(0));
   auto sa_arch = get_sa_arch();
-  auto aligned_size = aligned_conv_weight(dims, l->input_dims.at(0)) * sizeof(T);
+  auto aligned_size = aligned_conv_weight(l) * sizeof(T);
   auto deficit_zeros = ceil_mod(aligned_size, WORD_SIZE) - aligned_size;
   T zero = 0;
   if (aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH] >
@@ -1880,9 +1896,8 @@ static void sa_align_aux_regular(const Op::LayerBase *l, BinBlob &blob, const Te
     kern_dim = sa_arch[SA_ARCH_COLS];
     chan_dim = sa_arch[SA_ARCH_N];
   }
-  int kern_iterations = ceil_div(aligned_dims[TENSOR_4D_BATCH], kern_dim);
-  int chan_iterations = ceil_div(aligned_dims[TENSOR_4D_CHANNELS], chan_dim);
-
+  int kern_iterations = 0; int chan_iterations = 0;
+  std::tie(kern_iterations, chan_iterations) = l->get_iterations();
   for (int kern = 0; kern < kern_iterations; ++kern) {
     for (int chan = 0; chan < chan_iterations; ++chan) {
       for (int srow = sa_arch[SA_ARCH_ROW] - 1; srow >= 0; srow--) {
@@ -2132,7 +2147,7 @@ static void fc_weight_align(BinBlob &blob, const onnx::TensorProto *tensor, bool
 }
 
 void Op::Layer::QLinearConv::align_weights(BinBlob &blob, InitializerTable &tbl) {
-    uint32_t aligned_sz = aligned_conv_weight(weights->dims(), this->input_dims.at(0));
+    uint32_t aligned_sz = aligned_conv_weight(this);
     aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
     aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
     log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
