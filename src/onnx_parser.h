@@ -417,8 +417,8 @@ struct QLinearAdd : public LayerBase {
   const onnx::TensorProto *addend;
   float a_scale;
   float b_scale;
-  int a_zp;
-  int b_zp;
+  std::vector<std::variant<int8_t, uint8_t>> a_zp;
+  std::vector<std::variant<int8_t, uint8_t>> b_zp;
   std::vector<float> o_scale;
   std::vector<std::variant<int8_t, uint8_t>> zero_point;
   QLinearAdd();

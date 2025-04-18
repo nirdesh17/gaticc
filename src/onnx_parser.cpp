@@ -1138,8 +1138,13 @@ void Op::Layer::QLinearAdd::set_initializer_params(int n,
     }
     break;
   case QLA_ZERO_POINT:
-    assert(t.int32_data_size() > 0);
-    a_zp = (int)t.int32_data(0);
+    if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+      a_zp.push_back((uint8_t)t.int32_data(0));
+    } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+      a_zp.push_back((int8_t)t.int32_data(0));
+    } else {
+      log_fatal("cant deduce zero point for tensor {}\n", t.name());
+    }
     break;
   case QLA_B:
     addend = &t;
@@ -1151,8 +1156,13 @@ void Op::Layer::QLinearAdd::set_initializer_params(int n,
     }
     break;
   case QLA_B_ZERO_POINT:
-    assert(t.int32_data_size() > 0);
-    b_zp = (int)t.int32_data(0);
+    if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+      b_zp.push_back((uint8_t)t.int32_data(0));
+    } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+      b_zp.push_back((int8_t)t.int32_data(0));
+    } else {
+      log_fatal("cant deduce zero point for tensor {}\n", t.name());
+    }
     break;
   case QLA_C_SCALE:
     assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
