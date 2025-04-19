@@ -71,6 +71,11 @@
 #define CONV_ConvType_LOW 228
 #define CONV_ConvType_HIGH 229
 #define CONV_ConvType_COUNT 2
+// If a regular conv is supposed to be performed on a pointwise
+// -optimal architecture, this flag is set
+#define CONV_ChannelDuplicate_LOW 230
+#define CONV_ChannelDuplicate_HIGH 230
+#define CONV_ChannelDuplicate_COUNT 1
 
 #define OP_TailBlock 0x01
 #define TailBlock_Opcode_LOW 0
@@ -363,7 +368,7 @@
 #define EltWise_BZeroPoint_HIGH 223
 #define EltWise_BZeroPoint_COUNT 8
 
-#define ISA_VERSION 4
+#define ISA_VERSION 5
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define POOL_MAX 0x00
@@ -471,6 +476,8 @@ inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("KC");
 	tbl.tbl.insert({"ConvType", bitset_range_get<CONV_ConvType_COUNT, INST_SIZE_BITS>(inst, CONV_ConvType_LOW, CONV_ConvType_HIGH)});
 	tbl.order.push_back("ConvType");
+	tbl.tbl.insert({"ChannelDuplicate", bitset_range_get<CONV_ChannelDuplicate_COUNT, INST_SIZE_BITS>(inst, CONV_ChannelDuplicate_LOW, CONV_ChannelDuplicate_HIGH)});
+	tbl.order.push_back("ChannelDuplicate");
 	return tbl;
 }
 inline void pretty_print_conv(const std::bitset<INST_SIZE_BITS>& inst) {

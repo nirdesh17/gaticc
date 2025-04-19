@@ -189,6 +189,21 @@ template <typename T1, typename T2> inline bool is_depthwise_conv(const T1 &dims
   return false;
 }
 
+template <typename T1, typename T2> inline bool is_regular_conv(const T1 &dims, const T2 &input_dims) {
+  if (dims[TENSOR_4D_CHANNELS] == input_dims[TENSOR_4D_CHANNELS] && 
+      dims[TENSOR_4D_WIDTH] * dims[TENSOR_4D_HEIGHT] > 1) {
+    return true;
+  }
+  return false;
+}
+
+inline bool is_sa_regular_optimal(const std::vector<int>& sa_arch) {
+  if (sa_arch[SA_ARCH_COLS] != sa_arch[SA_ARCH_N]) {
+    return false;
+  }
+  return true; 
+}
+
 template <typename T1, typename T2>
 std::vector<int> aligned_conv_weight_dims(const T1 &wdims, const T2 &idims) {
   assert(wdims.size() == 4);
@@ -201,8 +216,13 @@ std::vector<int> aligned_conv_weight_dims(const T1 &wdims, const T2 &idims) {
     w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_COLS]);
   } else {
-    w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
-    w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+    if (is_sa_regular_optimal(sa_arch)) {
+      w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
+      w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+    } else {
+      w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+      w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_COLS]);
+    }
   }
   std::vector<int> ret(wdims.size());
   std::copy(w.begin(), w.end(), ret.begin());

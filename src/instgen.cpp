@@ -781,7 +781,12 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
   auto odims = cc->output_dims.at(0);
   int citr = 0; int kitr = 0;
-  std::tie(kitr, citr) = cc->get_iterations();
+  if (is_regular_conv(cc->weights->dims(), cc->input_dims.at(0)) && !is_sa_regular_optimal(sa_arch)) {
+    kitr = ceil_div((int)cc->weights->dims(TENSOR_4D_BATCH), (int) sa_arch[SA_ARCH_N]);
+    citr = cc->weights->dims(TENSOR_4D_CHANNELS);
+  } else {
+    std::tie(kitr, citr) = cc->get_iterations();
+  }
 
   auto pod = cc->pipelined_output_dims.at(0);
   int ido = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
@@ -809,6 +814,10 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   int ow = odims.at(TENSOR_4D_WIDTH);
   auto oi = gen_output(acc_addr, out_addr, citr, kitr, ido, ida, accen,
                        cc->dispatch, string_hash(cc->name), on_chip, oh, ow);
+
+  if (is_regular_conv(cc->weights->dims(), cc->input_dims.at(0)) && !is_sa_regular_optimal(sa_arch)) {
+    inst_set(oi, 1, CONV_ChannelDuplicate);
+  }
   return oi;
 }
 
@@ -1394,12 +1403,18 @@ std::pair<int,int> Op::Layer::QLinearConv::get_iterations() const {
   if (is_pointwise_conv(w)) {
     kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
-  } else if (is_depthwise_conv(w, idims)) {
+  } else if (is_depthwise_conv(this->weights->dims(), idims)) {
     kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_COLS]);
   } else {
-    kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
-    chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+    if (is_sa_regular_optimal(sa_arch)) {
+      kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_COLS]);
+      chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+    } else {
+      /* just like depthwise */
+      kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
+      chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_COLS]);
+    }
   }
   return std::pair(kern_itr, chan_itr);
 }
@@ -1893,11 +1908,17 @@ static void sa_align_aux_regular(const Op::LayerBase *l, BinBlob &blob, const Te
     kern_dim = sa_arch[SA_ARCH_N];
     chan_dim = sa_arch[SA_ARCH_COLS];
   } else {
-    kern_dim = sa_arch[SA_ARCH_COLS];
-    chan_dim = sa_arch[SA_ARCH_N];
+    if (is_sa_regular_optimal(sa_arch)) {
+      kern_dim = sa_arch[SA_ARCH_COLS];
+      chan_dim = sa_arch[SA_ARCH_N];
+    } else {
+      kern_dim = sa_arch[SA_ARCH_N];
+      chan_dim = sa_arch[SA_ARCH_COLS];
+    }
   }
   int kern_iterations = 0; int chan_iterations = 0;
   std::tie(kern_iterations, chan_iterations) = l->get_iterations();
+
   for (int kern = 0; kern < kern_iterations; ++kern) {
     for (int chan = 0; chan < chan_iterations; ++chan) {
       for (int srow = sa_arch[SA_ARCH_ROW] - 1; srow >= 0; srow--) {
@@ -2275,8 +2296,13 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
           expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_COLS]);
           expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
         } else {
-          expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_N]);
-          expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_COLS]);
+          if (is_sa_regular_optimal(sa_arch)) {
+            expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_N]);
+            expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_COLS]);
+          } else {
+            expected_chan_itr = chan;
+            expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
+          }
         }
       } else if (p_op == OP_FC) {
         expected_chan_itr = 1;
@@ -2425,8 +2451,13 @@ int GmlCheck::check_conv_weight_continuity(
     kern_itr = ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]);
     chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]);
   } else {
-    kern_itr = ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]);
-    chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]);
+    if (is_sa_regular_optimal(sa_arch)) {
+      kern_itr = ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]);
+      chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]);
+    } else {
+      kern_itr = ceil_div(ceil_mod(kn, sa_arch[SA_ARCH_N]), sa_arch[SA_ARCH_N]);
+      chan_itr = ceil_div(ceil_mod(ic, sa_arch[SA_ARCH_COLS]), sa_arch[SA_ARCH_COLS]);
+    }
   }
   int expected_weight_size = ceil_mod(kern_itr * chan_itr * prod(sa_arch), WORD_SIZE);
 
