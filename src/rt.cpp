@@ -12,6 +12,7 @@
 #include <cerrno>
 #include <unistd.h>
 #include <cstring>
+#include <thread>
 
 Fstream::Fstream(const std::string &filename) {
   FILE *fp = fopen(filename.c_str(), "rb");
@@ -178,24 +179,61 @@ int FakeRah::read(char *data, size_t size) {
 
 void FakeRah::check_version() {}
 
-AirRah::AirRah(const std::string& server_ip) {
-    log_info("Reading/Writing over AirRah\n");
+AirRah::AirRah(const std::string &server_ip) {
+  log_info("Resetting AirRah servers...\n");
+  int reset_sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (reset_sock == -1) {
+    log_fatal("Reset socket creation failed: {}\n", strerror(errno));
+  }
+  sockaddr_in reset_addr{};
+  reset_addr.sin_family = AF_INET;
+  reset_addr.sin_port = htons(9090);
+  if (inet_pton(AF_INET, server_ip.c_str(), &reset_addr.sin_addr) <= 0) {
+    log_fatal("Invalid reset address: {}\n", server_ip);
+  }
+  if (connect(reset_sock, (struct sockaddr *)&reset_addr, sizeof(reset_addr)) <
+      0) {
+    log_fatal("Failed to connect to reset server at {}:9090\n", server_ip);
+  }
+  send(reset_sock, "reset", 5, 0);
+  char ack_buf[4] = {};
+  int ack_len = recv(reset_sock, ack_buf, sizeof(ack_buf) - 1, 0);
+  if (ack_len <= 0 || std::string(ack_buf) != "OK") {
+    log_fatal("No valid acknowledgment received from reset server\n");
+  }
+  close(reset_sock);
+  log_info("Received reset acknowledgment from server\n");
+
+  log_info("Reading/Writing over AirRah\n");
+  const int port_no = 8080;
+  const int max_retries = 10;
+  const int retry_delay_ms = 200;
+
+  for (int attempt = 1; attempt <= max_retries; ++attempt) {
     m_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_sock == -1) {
-        log_fatal("Socket creation failed: {}\n", strerror(errno));
-    }
+    if (m_sock == -1)
+      log_fatal("Socket creation failed: {}\n", strerror(errno));
+
     sockaddr_in server_addr{};
     server_addr.sin_family = AF_INET;
-    const int port_no = 8080;
     server_addr.sin_port = htons(port_no);
     if (inet_pton(AF_INET, server_ip.c_str(), &server_addr.sin_addr) <= 0) {
-        log_fatal("Invalid address or address not supported: {}\n", server_ip);
+      log_fatal("Invalid server address: {}\n", server_ip);
     }
 
-    if (connect(m_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        log_fatal("Connection failed with ip {} at port {}\n", server_ip, port_no);
+    if (connect(m_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) ==
+        0) {
+      log_info("Connected to server at ip {}, port {}\n", server_ip, port_no);
+      break;
     }
-    log_info("Connected to server at ip {}, port {}\n", server_ip, port_no);
+
+    close(m_sock);
+    if (attempt == max_retries) {
+      log_fatal("Failed to connect after {} attempts\n", max_retries);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(retry_delay_ms));
+  }
+  log_info("Connected to server at ip {}, port {}\n", server_ip, port_no);
 }
 
 void AirRah::serv_send(int app_id, const char *data, int size) {
