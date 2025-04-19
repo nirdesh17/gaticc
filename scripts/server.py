@@ -2,7 +2,7 @@ import socket, pyrah, struct, os, subprocess, multiprocessing, time
 
 # Shared Constants
 DWP00, BUFFER_SIZE = bytes.fromhex("ff ff ff ff 00 00 00 00 00 00 00 00"), 3 * 1024 * 1024
-PORT_MAIN, PORT_BITSTREAM = 8080, 8081
+PORT_MAIN, PORT_BITSTREAM, CONTROL_PORT = 8080, 8081, 9090
 
 # States for Main Server
 CONNECTING, READ_CLIENT, WRITE_FPGA, READ_FPGA, WRITE_CLIENT = range(5)
@@ -106,7 +106,7 @@ def bitstream_server():
             data = b""
             while len(data) < length:
                 data += c.recv(min(length - len(data), BUFFER_SIZE))
-            print_hex_bytes(data, "bitstream")
+            #print_hex_bytes(data, "bitstream")
             with open("bitstream.hex", "wb") as f: f.write(data)
             subprocess.run(["sudo", "bitman", "-f", "bitstream.hex"])
             c.send(struct.pack('>I', 7)); c.send(b"Flashed"); c.close()
@@ -115,11 +115,35 @@ def bitstream_server():
     finally:
         s.close(); print("Bitstream server shut down")
 
-def run_servers():
-    p1 = multiprocessing.Process(target=main_server, name="MainServer")
-    p2 = multiprocessing.Process(target=bitstream_server, name="BitstreamServer")
-    p1.start(); p2.start()
-    p1.join(); p2.join()
+def parent_server():
+    def start_servers():
+        p1 = multiprocessing.Process(target=main_server, name="MainServer")
+        p2 = multiprocessing.Process(target=bitstream_server, name="BitstreamServer")
+        p1.start(); p2.start()
+        return p1, p2
+
+    p1, p2 = start_servers()
+    ctrl_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ctrl_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    ctrl_sock.bind(('', CONTROL_PORT)); ctrl_sock.listen(1)
+    print(f"Parent server listening on {CONTROL_PORT}...")
+
+    try:
+        while True:
+            c, _ = ctrl_sock.accept()
+            cmd = c.recv(16).strip()
+            if cmd == b"reset":
+                print("Reset signal received")
+                p1.terminate(); p2.terminate()
+                p1.join(); p2.join()
+                p1, p2 = start_servers()
+                c.send(b"OK")
+            c.close()
+    except Exception as e:
+        print(f"Parent - Error: {e}")
+    finally:
+        p1.terminate(); p2.terminate()
+        ctrl_sock.close()
 
 if __name__ == "__main__":
-    run_servers()
+    parent_server()
