@@ -37,12 +37,16 @@ def format_results(failed, match_percentages):
     return s
 
 mut = [
+    'mnist_qlinearadd2.onnx',
     'cifar10_vgg16.onnx',
+    'cifar10_vgg11.onnx',
+    'cifar10_vgg19.onnx',
     'mnist_6_28_int8.onnx',
     'mnist_int8_stride2.onnx',
     'mnist_int8_stride3.onnx',
     'mnistpad1_6_28_int8.onnx',
-    'imagenet_vgg_16_224_int8.onnx'
+    'mnist_int8_pad2.onnx',
+    'imagenet_vgg_16_224_int8.onnx',
 ]
 
 def main():
