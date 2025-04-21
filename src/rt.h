@@ -294,9 +294,11 @@ void Runner::send_input(const Op::LayerBase *l, Rah &rah, const Tensor<T> *tenso
     BinBlob blob(total_size_with_packets);
     align_sa_input<T>(blob, cc, og_aligned_size, addr, tensor);
     blob.append_dwp_header(0, 0);
-    if (gbl_args.has_option("verbose")) {
+    if (get_verbose()) {
       blob.write("input_data.bin");
     }
+    GmlCheck gmlcheck;
+    gmlcheck.check_dwp(blob);
     log_info("Start writing images to FPGA\n");
     rah.write(blob.get_data(), blob.size());
   } else {

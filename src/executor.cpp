@@ -84,7 +84,7 @@ void DispatchTable::print() {
 }
 
 void Executor::print_extra_info(const Op::LayerBase *l) {
-  if (gbl_args.has_option("verbose")) {
+  if (get_verbose()) {
     std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
               << Op::get_tensorproto_dtype_name(l->input_type[0]) << ' '
               << Op::get_tensorproto_dtype_name(l->output_type[0]) << '\n';
@@ -131,7 +131,7 @@ template <typename T>
 static void check_dispatch(const Op::LayerBase *l, const Tensor<T> *output) {
   if (l->dispatch) {
     pickle_tensor(output, l->name + ".tensor");
-    if (gbl_args.has_option("verbose")) {
+    if (get_verbose()) {
       output->print();
     }
   }
@@ -149,7 +149,7 @@ static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   cc_engine.run(input, output);
   tt.stop();
   check_dispatch(l, output);
-  if (gbl_args.has_option("verbose")) {
+  if (get_verbose()) {
     tt.report("Time taken: ");
   }
 }
@@ -477,7 +477,7 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   if (l->dispatch) {
     pickle_tensor(intr_output.get(), l->name + "_32bit_acc" + ".tensor");
   }
-  if (gbl_args.has_option("verbose")) {
+  if (get_verbose()) {
     tt.report("Time taken: ");
   }
 }
@@ -651,7 +651,7 @@ static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   tt.stop();
   check_dispatch(l, output);
-  if (gbl_args.has_option("verbose")) {
+  if (get_verbose()) {
     tt.report("Time taken: ");
   }
 }

@@ -348,6 +348,10 @@ public:
  */
 extern Argparse gbl_args;
 
+/* returns true if -v or --vv are provided on the cli */
+int get_verbose();
+int get_verbose2();
+
 /* has format specifier i.e. {} */
 inline bool has_fs(const char *p) {
   if (*p == '\0' || *(p + 1) == '\0') {
@@ -409,14 +413,14 @@ void log(const char *type, const char *p, T v, Args... args) {
 
 template <typename T, typename... Args>
 void log_info(const char *p, T v, Args... args) {
-  if (gbl_args.has_option("verbose")) {
+  if (get_verbose()) {
     log("INFO:", p, v, args...);
   }
 }
 
 template <typename T, typename... Args>
 void log_info2(const char *p, T v, Args... args) {
-  if (gbl_args.has_option("verbose2")) {
+  if (get_verbose2()) {
     log("INFO:", p, v, args...);
   }
 }
@@ -811,6 +815,7 @@ template <typename T> inline T ceil_div(T i, T j) {
 
 int count_digits(int a);
 void print_table(const std::map<std::string, int> &tbl);
+
 
 std::vector<int> get_sa_arch();
 int get_va_size();

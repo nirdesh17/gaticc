@@ -2251,6 +2251,9 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   return blob;
 }
 
+GmlCheck::GmlCheck() {
+}
+
 GmlCheck::GmlCheck(const InstBlob &instblob, const BinBlob &binblob) {
   check_citr_kitr(instblob);
   // check_addresses(instblob);

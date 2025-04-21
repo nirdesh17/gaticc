@@ -475,6 +475,7 @@ class GmlCheck {
 
 public:
   GmlCheck(const InstBlob &instblob, const BinBlob &binblob);
+  GmlCheck();
   void check_citr_kitr(const InstBlob &instblob) const;
   void check_addresses(const InstBlob &instblob) const;
   void check_weight_address_continuity(const InstBlob &instblob) const;

@@ -188,6 +188,14 @@ std::vector<int> get_sa_arch() {
   return mnk;
 }
 
+int get_verbose() {
+  return gbl_args.has_option("verbose") || gbl_args.has_option("verbose2");
+}
+
+int get_verbose2() {
+  return gbl_args.has_option("verbose2");
+}
+
 int get_va_size() {
   if (!gbl_args.has_option("vasize")) {
     log_fatal(

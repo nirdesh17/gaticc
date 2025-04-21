@@ -150,7 +150,7 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
     }
   }
   tt.stop();
-  if (gbl_args.has_option("verbose")) {
+  if (get_verbose()) {
     tt.report("Total time taken by the model: ");
   }
 }
