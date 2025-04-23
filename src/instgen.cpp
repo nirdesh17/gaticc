@@ -124,26 +124,6 @@ static std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
   return execution_order;
 }
 
-static std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g) {
-  std::vector<Op::Vertex> ret;
-  auto edges = boost::in_edges(v, g);
-  for (auto itr = edges.first; itr != edges.second; ++itr) {
-    Op::Vertex src_v = boost::source(*itr, g);
-    ret.push_back(src_v);
-  }
-  return ret;
-}
-
-static std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g) {
-  std::vector<Op::Vertex> ret;
-  auto edges = boost::out_edges(v, g);
-  for (auto itr = edges.first; itr != edges.second; ++itr) {
-    Op::Vertex src_v = boost::target(*itr, g);
-    ret.push_back(src_v);
-  }
-  return ret;
-}
-
 static void connect_parents_to_children(const std::vector<Op::Vertex> &parents,
                                         const std::vector<Op::Vertex> &children,
                                         Op::Graph &g) {
