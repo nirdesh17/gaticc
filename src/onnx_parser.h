@@ -59,10 +59,12 @@ using IVec2D = std::vector<std::vector<int>>;
 
 enum DEVICES { DEVICE_UNKNOWN, DEVICE_CPU, DEVICE_FPGA };
 
-/* aot declaration, definition in instgen.{cpp,h} */
+/* forward declaration, definitions in instgen.{cpp,h}, rt.{cpp,h} */
 class AddressGen;
 class InitializerTable;
 class BinBlob;
+class TensorPool;
+class Rah;
 
 /* Onnx Parser external interface */
 namespace Op {
@@ -93,6 +95,9 @@ struct PoolParams {
 };
 
 using VirtualAddress = int;
+using IOAddrPair =
+    std::pair<std::vector<Op::VirtualAddress>, std::vector<Op::VirtualAddress>>;
+using IOAddrTbl = std::map<std::string, IOAddrPair>;
 
 struct LayerBase {
   std::string name;
@@ -165,6 +170,8 @@ struct LayerBase {
   virtual void set_output_scale(const std::vector<float>& v);
 
   virtual std::pair<int,int> get_iterations() const;
+
+  virtual void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const;
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -525,6 +532,7 @@ struct QLinearConv : public LayerBase {
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;
   std::pair<int,int> get_iterations() const override;
+  void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
 };
 
 struct LogSoftmax : public LayerBase {

@@ -111,13 +111,10 @@ class Runner {
   void pyengine_init();
   std::string get_run_arg();
 
-  template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
+  template <typename inputT, typename DeviceOutputT,
             typename OutputT>
   void run(Rah &rah, HashedDispatchTable &hdt);
 
-  template <typename T>
-  void send_input(const Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor,
-                  uint32_t addr);
   void receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer);
   void fake_exec(Op::LayerBase *l);
   void read_uart(BinBlob &blob, int uart_baud, int expected_size);
@@ -155,7 +152,7 @@ public:
  *    on CPU normally, at the end, the final output is to be sent
  *    to the pre-processing pipeline.
  */
-template <typename inputT, typename CpuOutputT, typename DeviceOutputT,
+template <typename inputT, typename DeviceOutputT,
           typename OutputT>
 void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
   auto graph = m_parser->get_graph();
@@ -203,12 +200,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
       }
 
       if (l->device == DEVICE_FPGA && sent == false) {
-        using TT = Tensor<CpuOutputT>;
-        TT *out = tensor_pool.get<TT *>(l->inputs.at(0));
-        Op::VirtualAddress ireg = io_addr_tbl.at(l->name).first.at(0);
-        uint32_t addr = generator.io_addr_from_register(ireg);
-        log_info("sending input for register {}, addr is {}\n", ireg, addr);
-        send_input<CpuOutputT>(l, rah, out, addr);
+        l->send_input(tensor_pool, generator, rah, io_addr_tbl);
         sent = true;
       }
 
@@ -216,8 +208,6 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
         if (l->dispatch) {
           log_info("l->dispatch {} for layer {}\n", l->dispatch,
                    l->name.c_str());
-        }
-        if (l->dispatch == true) {
           if (l->name != last_layer->name) {
             is_last_layer = false;
           }
@@ -237,75 +227,6 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
   }
   tt.stop();
   log_info("Infer loop, total time: {}ms\n", tt.difference().count());
-}
-
-template <typename T>
-void align_sa_input(BinBlob &blob, const Op::Layer::QLinearConv *l, uint32_t data_size, uint32_t addr,
-                              const Tensor<T> *tensor) {
-  blob.append_dwp_header(data_size, addr);
-  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
-  IVec2D og_dims_v {tensor->get_dims()};
-  auto og_dims = og_dims_v.at(0);
-  auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
-  auto sa_arch = get_sa_arch();
-  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
-  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
-  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
-  int chan_dim = 0;
-  if (is_pointwise_conv(l->weights->dims())) {
-    chan_dim = sa_arch[SA_ARCH_ROW];
-  } else {
-    chan_dim = sa_arch[SA_ARCH_N];
-  }
-
-  int dk = WORD_SIZE / chan_dim;
-  T zero = 0;
-
-  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
-    for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / chan_dim; ++c) {
-      for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
-        for (int ci = 0; ci < chan_dim; ++ci) {
-          for (int ei = 0; ei < dk; ++ei) {
-            int chan_n = (c * chan_dim) + ci;
-            int elem_n = (e * dk) + ei;
-            int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
-            if (chan_n >= og_dims[TENSOR_4D_CHANNELS] || elem_n >= og_frame_sz) {
-              blob.append(zero);
-            } else {
-              blob.append(tensor->at(index));
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-
-template <typename T>
-void Runner::send_input(const Op::LayerBase *l, Rah &rah, const Tensor<T> *tensor,
-                        uint32_t addr) {
-  auto dims = tensor->get_dims();
-  if (is_op_type(l, "QLinearConv")) {
-    const Op::Layer::QLinearConv *cc = dynamic_cast<const Op::Layer::QLinearConv*>(l);
-    IVec2D dims_wrapper = {dims};
-    uint32_t og_aligned_size = aligned_conv_input(dims_wrapper, cc->weights->dims()) * sizeof(T);
-    uint32_t total_size_with_packets = io_tensor_packet_size(og_aligned_size);
-    BinBlob blob(total_size_with_packets);
-    align_sa_input<T>(blob, cc, og_aligned_size, addr, tensor);
-    blob.append_dwp_header(0, 0);
-    if (get_verbose()) {
-      blob.write("input_data.bin");
-    }
-    GmlCheck gmlcheck;
-    gmlcheck.check_dwp(blob);
-    log_info("Start writing images to FPGA\n");
-    rah.write(blob.get_data(), blob.size());
-  } else {
-    log_fatal("cannot send input for layer of type {} - support missing\n",
-              l->op_type());
-  }
-  log_info("finish writing images to FPGA\n");
 }
 
 template <typename T>
