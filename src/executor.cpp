@@ -491,11 +491,20 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   tt.start();
   ConvEngine<inputT, weightT, intrT> cc_engine(cc);
   cc_engine.run(input, intr_output.get());
-  std::vector<float> scales =
-      compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
-  using variantT = std::variant<int8_t, uint8_t>;
-  std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
-  quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
+
+  if (l->output_type[0] == onnx::TensorProto_DataType_INT32) {
+    auto it_out = output->begin();
+    for (auto it_in = intr_output->begin(); it_in != intr_output->end();
+         ++it_in, ++it_out) {
+      *it_out = static_cast<outputT>(*it_in);
+    }
+  } else {
+    std::vector<float> scales =
+        compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
+    using variantT = std::variant<int8_t, uint8_t>;
+    std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
+    quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
+  }
   tt.stop();
   check_dispatch(l, output);
   if (l->dispatch) {
@@ -513,6 +522,9 @@ void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
   if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
              weight_type == onnx::TensorProto_DataType_UINT8) {
     run_qconv<uint8_t, uint8_t, int, uint8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+             output_type[0] == onnx::TensorProto_DataType_INT32) {
+    run_qconv<int8_t, int8_t, int, int32_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
              weight_type == onnx::TensorProto_DataType_INT8) {
     run_qconv<int8_t, int8_t, int, int8_t>(this, tensor_pool);
@@ -620,21 +632,46 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   std::unique_ptr<Tensor<intrT>> intr_output{
       new TensorCreate<intrT>(cc->output_dims[0])};
   Tensor<inputT> *input2;
-  if (cc->inputs.size() > 1) {
-    // both inputs are non-initializers (i.e. available only at runtime)
+
+  if (l->input_type[0] == onnx::TensorProto_DataType_INT32) {
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
-    tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
-                cc->a_zp, cc->b_zp);
+    tensor_qadd(intr_output.get(), input1, input2, 1, 1, 0, 0);
+    if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
+      std::vector<float> x_scale;
+      std::vector<float> w_scale;
+      x_scale.push_back(cc->a_scale);
+      w_scale.push_back(cc->b_scale);
+      std::vector<float> scales =
+          compute_output_scale(x_scale, w_scale, cc->o_scale);
+      using variantT = std::variant<int8_t, uint8_t>;
+      std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
+      quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
+    } else {
+      auto it_out = output->begin();
+      for (auto it_in = intr_output->begin(); it_in != intr_output->end();
+           ++it_in, ++it_out) {
+        *it_out = static_cast<outputT>(*it_in);
+      }
+    }
   } else {
-    // one of the inputs is an initializer (available statically)
-    input2 = new TensorExtant<inputT>(cc->addend);
-    tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
-                cc->a_zp, cc->b_zp);
-    delete input2;
+    if (cc->inputs.size() > 1) {
+      // both inputs are non-initializers (i.e. available only at runtime)
+      input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
+      tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
+                  cc->a_zp, cc->b_zp);
+    } else {
+      // one of the inputs is an initializer (available statically)
+      input2 = new TensorExtant<inputT>(cc->addend);
+      tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
+                  cc->a_zp, cc->b_zp);
+      delete input2;
+    }
+    using variantT = std::variant<int8_t, uint8_t>;
+    std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
+    quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale,
+                             zero_points);
   }
-  using variantT = std::variant<int8_t, uint8_t>;
-  std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
-  quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale, zero_points);
+
   check_dispatch(l, output);
 }
 
@@ -649,6 +686,12 @@ void Op::Layer::QLinearAdd::run(TensorPool &tensor_pool) {
     run_qadd<int8_t, float, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
     run_qadd<uint8_t, float, uint8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32 &&
+             output_type[0] == onnx::TensorProto_DataType_INT32) {
+    run_qadd<int32_t, int32_t, int32_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32 &&
+             output_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_qadd<int32_t, int32_t, int8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
