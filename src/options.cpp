@@ -4,6 +4,7 @@
 #include "onnx_parser.h"
 #include "rt.h"
 #include "utils.h"
+#include "optimization.h"
 // #include <cassert>
 // #include <string>
 // #include <vector>
@@ -68,6 +69,7 @@ static void dispatch_compile_ops() {
 static void dispatch_sim_ops() {
   std::string s = gbl_args["sim"].as<std::string>();
   Op::Parser parser(s);
+  split_large_kernel(parser.get_graph());
   dispatch_simulator(parser);
 }
 

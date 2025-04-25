@@ -434,6 +434,7 @@ class ConvEngine {
   int kw;
   int m_stride_h;
   int m_stride_w;
+  int ki;
   std::vector<int> pad_vec;
 
   std::vector<int> w_zero_points;
@@ -477,10 +478,15 @@ template <typename inputT, typename weightT, typename outputT>
 ConvEngine<inputT, weightT, outputT>::ConvEngine(
     const Op::Layer::QLinearConv *cc) {
   weights = new TensorExtant<weightT>(cc->weights);
-  bias = new TensorExtant<outputT>(cc->bias);
+  if (cc->bias) {
+    bias = new TensorExtant<outputT>(cc->bias);
+  } else {
+    bias = nullptr;
+  }
   kn = cc->m_cp.kn;
   kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
   kw = cc->m_cp.k[TENSOR_2D_WIDTH];
+  ki = cc->m_cp.ki;
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
   using variantT = std::variant<int8_t, uint8_t>;
@@ -524,7 +530,7 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
 
   for (int ibi = 0; ibi < nb; ++ibi) {
     for (int ici = 0; ici < ic; ++ici) {
-      for (int ohi = 0, toh = 0; toh < oh; ohi += m_stride_h, toh += 1) {
+      for (int ohi = ki, toh = 0; toh < oh; ohi += m_stride_h, toh += 1) {
         for (int owi = 0, tow = 0; tow < ow; owi += m_stride_w, tow += 1) {
           out_index = ibi * o_strides[0] + k * o_strides[1] +
                       toh * o_strides[2] + tow * o_strides[3];
@@ -572,7 +578,9 @@ void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input,
     tc[k].join();
   }
   delete padded_input;
-  tensor_vector_add(output, output, bias);
+  if (bias != nullptr) {
+    tensor_vector_add(output, output, bias);
+  }
 }
 
 template <typename inputT, typename weightT, typename outputT>
