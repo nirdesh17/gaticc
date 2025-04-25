@@ -75,6 +75,7 @@ struct ConvParams {
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
   int dilation[2];
+  int ki;        /* work as offset for skipping rows*/
 };
 
 struct GemmParams {
@@ -874,3 +875,6 @@ template <typename T> bool isa(const Op::LayerBase *l) {
 
 Op::LayerBase *get_last_layer(const Op::Parser &parser);
 } // namespace Op
+
+std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g);
+std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g);

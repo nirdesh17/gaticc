@@ -840,6 +840,7 @@ Op::Layer::QLinearConv::QLinearConv() {
   m_cp.stride[TENSOR_2D_WIDTH] = 1;
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
+  m_cp.ki = 0;
 }
 
 const char *Op::Layer::QLinearConv::op_type() const { return m_optype; }
@@ -2518,6 +2519,26 @@ std::vector<int> Op::get_dims_from_value_info(const onnx::ValueInfoProto &v) {
     }
   }
   return dims;
+}
+
+std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g) {
+  std::vector<Op::Vertex> ret;
+  auto edges = boost::in_edges(v, g);
+  for (auto itr = edges.first; itr != edges.second; ++itr) {
+    Op::Vertex src_v = boost::source(*itr, g);
+    ret.push_back(src_v);
+  }
+  return ret;
+}
+
+std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g) {
+  std::vector<Op::Vertex> ret;
+  auto edges = boost::out_edges(v, g);
+  for (auto itr = edges.first; itr != edges.second; ++itr) {
+    Op::Vertex src_v = boost::target(*itr, g);
+    ret.push_back(src_v);
+  }
+  return ret;
 }
 
 IVec2D Op::get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g) {
