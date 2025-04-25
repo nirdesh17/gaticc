@@ -249,6 +249,7 @@ struct Clip : public LayerBase {
   int get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) override;
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct Gemm : public LayerBase {

@@ -193,6 +193,30 @@ void Op::Layer::Relu::run(TensorPool &tensor_pool) {
 }
 
 template <typename T>
+static void run_clip(Op::LayerBase *l, TensorPool &tensor_pool) {
+  auto *cc = dynamic_cast<Op::Layer::Clip *>(l);
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
+  Relu<T> relu(cc->m_max);
+  relu.exec(input, output);
+  check_dispatch(l, output);
+}
+
+void Op::Layer::Clip::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_relu<float>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
+template <typename T>
 static void run_maxpool(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Maxpool *cc = dynamic_cast<Op::Layer::Maxpool *>(l);
   Tensor<T> *input; Tensor<T> *output;
