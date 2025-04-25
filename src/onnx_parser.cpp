@@ -2230,32 +2230,6 @@ void Op::Model::bare_summary(void) const {
   }
 }
 
-void Op::Model::create_execution_order(void) {
-  std::queue<Op::Vertex> S;
-  Op::Graph gcopy = g;
-  S.push(Op::get_root_node(&gcopy));
-
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    execution_order.push_back(gcopy[n]);
-    S.pop();
-
-    auto out_edges = boost::out_edges(n, gcopy);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
-    }
-
-    for (auto [src, dest] : edges_to_remove) {
-      if (!Op::are_equal_nodes(src, dest, &gcopy)) {
-        boost::remove_edge(src, dest, gcopy);
-        if (boost::in_degree(dest, gcopy) == 0) {
-          S.push(dest);
-        }
-      }
-    }
-  }
-}
 
 void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
 
@@ -2730,7 +2704,32 @@ std::vector<int> Op::get_true_rc_inputs(const Op::LayerBase *node) {
   return ret;
 }
 
-std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
+std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const{
+  std::vector<Op::LayerBase *> execution_order;
+  std::queue<Op::Vertex> S;
+  Op::Graph gcopy = g;
+  S.push(Op::get_root_node(&gcopy));
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    execution_order.push_back(gcopy[n]);
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, gcopy);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    }
+
+    for (auto [src, dest] : edges_to_remove) {
+      if (!Op::are_equal_nodes(src, dest, &gcopy)) {
+        boost::remove_edge(src, dest, gcopy);
+        if (boost::in_degree(dest, gcopy) == 0) {
+          S.push(dest);
+        }
+      }
+    }
+  }
   return execution_order;
 }
 
@@ -2779,6 +2778,8 @@ bool Op::is_gemm_like(std::string op_type) {
 void Op::Model::summary(void) const { print_opgraph(g); }
 
 Op::Graph Op::Model::get_graph() const { return g; }
+
+Op::Graph &Op::Model::get_graph() { return g; }
 
 Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
   return boost::adjacent_vertices(v, g);
@@ -2900,8 +2901,6 @@ Op::Parser::Parser(std::string const &filename) {
    * be removed from the struct and all its users must use LayerBase
    * io */
   m_model.save_first_layer_input_dims(m_graph.input().at(0));
-
-  m_model.create_execution_order();
   
   std::vector<TPDT> input_types;
   for (const auto &i : m_graph.input()) {
@@ -2930,11 +2929,13 @@ Op::Parser::Parser(std::string const &filename) {
 void Op::Parser::summary() const { m_model.bare_summary(); }
 void Op::Parser::bare_summary() const { m_model.bare_summary(); }
 
-std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const {
+std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const{
   return m_model.get_execution_order();
 }
 
 Op::Graph Op::Parser::get_graph() const { return m_model.get_graph(); }
+
+Op::Graph &Op::Parser::get_graph() { return m_model.get_graph(); }
 
 TPDT Op::Parser::get_model_input_type(void) const {
   std::vector<Op::LayerBase *> order = get_execution_order();

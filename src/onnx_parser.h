@@ -775,7 +775,6 @@ class Model {
   std::map<std::string, onnx::NodeProto> constant_pool;
   std::map<std::string, onnx::NodeProto> name_node_map;
 
-  std::vector<LayerBase *> execution_order;
 
   bool is_graph_input(const std::string &s) const;
   bool is_graph_output(const std::string &s) const;
@@ -788,7 +787,6 @@ class Model {
   Op::Neighbours get_neighbouring_vertices(Op::Vertex v) const;
 
 public:
-  void create_execution_order(void);
   void update_registers(void);
   void deduce_types(const std::vector<TPDT> &input_types);
   void deduce_shapes(const IVec2D &input_dims);
@@ -824,6 +822,7 @@ public:
   bool has_graph_output(Op::LayerBase *l) const;
 
   Op::Graph get_graph() const;
+  Op::Graph &get_graph();
 };
 
 class Parser {
@@ -844,13 +843,14 @@ public:
   Parser(std::string const &filename);
   void summary(void) const;
   void bare_summary(void) const;
-  std::vector<LayerBase *> get_execution_order(void) const;
+  std::vector<Op::LayerBase *> get_execution_order(void) const;
   TPDT get_model_input_type(void) const;
   TPDT get_model_output_type(void) const;
   int get_total_registers(void) const;
   /* true if 'l' has an output that is also a graph_output */
   bool has_graph_output(Op::LayerBase *l) const;
   Op::Graph get_graph() const;
+  Op::Graph &get_graph();
   ~Parser();
 };
 
