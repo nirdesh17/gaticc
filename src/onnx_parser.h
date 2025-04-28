@@ -878,3 +878,4 @@ Op::LayerBase *get_last_layer(const Op::Parser &parser);
 
 std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g);
 std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g);
+std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy);
