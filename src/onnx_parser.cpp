@@ -2709,10 +2709,13 @@ std::vector<int> Op::get_true_rc_inputs(const Op::LayerBase *node) {
   return ret;
 }
 
-std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const{
+std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
+  return crt_exec_order(g);
+}
+
+std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
   std::vector<Op::LayerBase *> execution_order;
   std::queue<Op::Vertex> S;
-  Op::Graph gcopy = g;
   S.push(Op::get_root_node(&gcopy));
 
   while (!S.empty()) {

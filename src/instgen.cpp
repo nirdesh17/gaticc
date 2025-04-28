@@ -98,33 +98,6 @@ static std::vector<T> insert_inst(const std::vector<T> &v, FlagFunc<T> func,
   return ret;
 }
 
-static std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
-  std::vector<Op::LayerBase *> execution_order;
-  std::stack<Op::Vertex> S;
-  S.push(Op::get_root_node(&gcopy));
-
-  while (!S.empty()) {
-    Op::Vertex n = S.top();
-    execution_order.push_back(gcopy[n]);
-    S.pop();
-
-    auto out_edges = boost::out_edges(n, gcopy);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
-    }
-    for (auto [src, dest] : edges_to_remove) {
-      if (!Op::are_equal_nodes(src, dest, &gcopy)) {
-        boost::remove_edge(src, dest, gcopy);
-        if (boost::in_degree(dest, gcopy) == 0) {
-          S.push(dest);
-        }
-      }
-    }
-  }
-  return execution_order;
-}
-
 static void connect_parents_to_children(const std::vector<Op::Vertex> &parents,
                                         const std::vector<Op::Vertex> &children,
                                         Op::Graph &g) {
