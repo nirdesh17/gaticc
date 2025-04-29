@@ -948,7 +948,7 @@ static std::bitset<INST_SIZE_BITS> gen_fc_output(const Op::Layer::QGemm *cc, Add
     std::tie(kern_itr, chan_itr) = cc->get_iterations();
     int va_size = get_va_size();
     auto sa_arch = get_sa_arch();
-    int img_dim_output = va_size / sa_arch[SA_ARCH_COLS];
+    int img_dim_output = va_size / sa_arch[SA_ARCH_N];
 
     return gen_output(
         0,                         // acc_addr (not used in FC, set to 0)
