@@ -111,6 +111,10 @@ int calc_shift_val(float inverted) {
 int calc_shift_val(float inverted) {
   int shift_val = 16;
   int calib_scale = inverted * (1<<shift_val);
+  while (calib_scale < 10) {
+    shift_val++;
+    calib_scale = inverted * (1<<shift_val);
+  }
   while (calib_scale > (1<<15)) {
     shift_val--;
     calib_scale = inverted * (1<<shift_val);
