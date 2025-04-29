@@ -462,33 +462,12 @@ InstBlob Pass::insert_start_inst(const InstBlob &insts) {
   return ret;
 }
 
-static void check_quantized(const Op::Graph graph) {
-  auto vp = boost::vertices(graph);
-  for (auto it = vp.first; it != vp.second; ++it) {
-    const auto &node = graph[*it];
-    std::string op_type = node->op_type();
-    std::string out_type =
-        onnx::TensorProto_DataType_Name(node->output_type[0]);
-    if ((op_type.find("Conv") != std::string::npos ||
-         op_type.find("Gemm") != std::string::npos) &&
-        node->output_type[0] != onnx::TensorProto_DataType_INT8 &&
-        node->output_type[0] != onnx::TensorProto_DataType_UINT8) {
-      log_fatal("Found layer of type {} that has {} as input/output "
-                "unsupported by underlying acceleration hardware. Consider "
-                "quantizing the model to have INT8/UINT8 type",
-                op_type, out_type);
-    }
-  }
-}
-
 InstGen::InstGen(const Op::Parser &parser) {
   /* TODO: redo this. consider making a new execution specific IR */
   Op::Graph graph = parser.get_graph();
   /* pass_reassign_registers is being called for its side-effect
    * which is the modification of LayerBase->{inputs,outputs} registers.
    */
-
-  check_quantized(graph);
 
   Pass::reassign_registers(graph);
   /* This function is called by its side-effect that adjusts
