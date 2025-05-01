@@ -691,6 +691,9 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
     inst_set(conv_inst, CONV_TYPE_DW, CONV_ConvType);
   } else {
     inst_set(conv_inst, CONV_TYPE_REGULAR, CONV_ConvType);
+    if (!is_sa_regular_optimal(sa_arch)) {
+      inst_set(conv_inst, 1, CONV_ChannelDuplicate);
+    }
   }
   return conv_inst;
 }
@@ -795,9 +798,6 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   auto oi = gen_output(acc_addr, out_addr, citr, kitr, ido, ida, accen,
                        cc->dispatch, string_hash(cc->name), on_chip, oh, ow);
 
-  if (is_regular_conv(cc->weights->dims(), cc->input_dims.at(0)) && !is_sa_regular_optimal(sa_arch)) {
-    inst_set(oi, 1, CONV_ChannelDuplicate);
-  }
   return oi;
 }
 
