@@ -446,6 +446,7 @@ class ConvEngine {
   std::vector<float> w_scales;
 
   void _kernel(int k, const Tensor<inputT> *input, Tensor<outputT> *output);
+  void _dw_kernel(int k, const Tensor<inputT> *input, Tensor<outputT> *output);
 
 public:
   ConvEngine(const Op::Layer::Conv *cc);
@@ -457,7 +458,11 @@ public:
 template <typename inputT, typename weightT, typename outputT>
 ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::Conv *cc) {
   weights = new TensorExtant<weightT>(cc->weights);
-  bias = new TensorExtant<outputT>(cc->bias);
+  if (cc->bias) {
+    bias = new TensorExtant<outputT>(cc->bias);
+  } else {
+    bias = nullptr;
+  }
   kn = cc->m_cp.kn;
   kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
   kw = cc->m_cp.k[TENSOR_2D_WIDTH];
@@ -512,11 +517,6 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
   int ic = input->dims_at(TENSOR_4D_CHANNELS);
   int oh = output->dims_at(TENSOR_4D_HEIGHT);
   int ow = output->dims_at(TENSOR_4D_WIDTH);
-
-  // std::vector<int> out_index(4);
-  // std::vector<int> w_index(4);
-  // std::vector<int> in_index(4);
-  //
   int out_index = 0;
   int w_index = 0;
   int in_index = 0;
@@ -539,8 +539,7 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
           outputT w_int_sum = 0;
           for (int khi = 0; khi < kh; ++khi) {
             for (int kwi = 0; kwi < kw; ++kwi) {
-              w_index = k * w_strides[0] + ici * w_strides[1] +
-                        khi * w_strides[2] + kwi * w_strides[3];
+              w_index = k * w_strides[0] + ici * w_strides[1] + khi * w_strides[2] + kwi * w_strides[3];
               in_index = ibi * i_strides[0] + ici * i_strides[1] +
                          (ohi + khi) * i_strides[2] +
                          (owi + kwi) * i_strides[3];
@@ -564,19 +563,82 @@ void ConvEngine<inputT, weightT, outputT>::_kernel(int k,
 }
 
 template <typename inputT, typename weightT, typename outputT>
+void ConvEngine<inputT, weightT, outputT>::_dw_kernel(
+    int k, const Tensor<inputT> *input, Tensor<outputT> *output) {
+  int nb = input->dims_at(TENSOR_4D_BATCH);
+  int ic = input->dims_at(TENSOR_4D_CHANNELS);
+  int oh = output->dims_at(TENSOR_4D_HEIGHT);
+  int ow = output->dims_at(TENSOR_4D_WIDTH);
+  int out_index = 0;
+  int w_index = 0;
+  int in_index = 0;
+  std::vector<int> o_strides = output->get_strides();
+  std::vector<int> w_strides = weights->get_strides();
+  std::vector<int> i_strides = input->get_strides();
+  auto w_zp = w_zero_points.at(k);
+  auto x_zp = x_zero_points.at(0);
+
+  for (int ibi = 0; ibi < nb; ++ibi) {
+    for (int ohi = ki, toh = 0; toh < oh; ohi += m_stride_h, toh += 1) {
+      for (int owi = 0, tow = 0; tow < ow; owi += m_stride_w, tow += 1) {
+        out_index = ibi * o_strides[0] + k * o_strides[1] + toh * o_strides[2] +
+                    tow * o_strides[3];
+        outputT acc = output->at(out_index);
+        outputT x_int_sum = 0;
+        outputT w_int_sum = 0;
+        for (int khi = 0; khi < kh; ++khi) {
+          for (int kwi = 0; kwi < kw; ++kwi) {
+            w_index = k * w_strides[0] + 0 * w_strides[1] +
+                      khi * w_strides[2] + kwi * w_strides[3];
+            in_index = ibi * i_strides[0] + k * i_strides[1] +
+                       (ohi + khi) * i_strides[2] + (owi + kwi) * i_strides[3];
+
+            outputT x_int = static_cast<outputT>(input->at(in_index));
+            x_int_sum += x_int;
+            outputT w_int = static_cast<outputT>(weights->at(w_index));
+            w_int_sum += w_int;
+            outputT val2 = x_int * w_int;
+            acc += val2;
+          }
+        }
+        acc -= (w_zp * x_int_sum);
+        acc -= (x_zp * w_int_sum);
+        acc += (x_zp * w_zp * kh * kw);
+        output->set(out_index, acc);
+      }
+    }
+  }
+}
+
+template <typename inputT, typename weightT, typename outputT>
 void ConvEngine<inputT, weightT, outputT>::run(const Tensor<inputT> *input,
                                                Tensor<outputT> *output) {
   Tensor<inputT> *padded_input =
       tensor_pad(input, pad_vec, static_cast<inputT>(x_zero_points.at(0)));
 
+  bool dw = false;
+  if (is_depthwise_conv(weights->get_dims(), input->get_dims())) {
+    dw = true;
+  }
   std::vector<std::thread> tc;
+#if 1
   for (int k = 0; k < kn; ++k) {
-    tc.push_back(std::thread(&ConvEngine<inputT, weightT, outputT>::_kernel,
-                             this, k, padded_input, output));
+    if (dw) {
+      tc.push_back(std::thread(&ConvEngine<inputT, weightT, outputT>::_dw_kernel,
+                               this, k, padded_input, output));
+    } else {
+      tc.push_back(std::thread(&ConvEngine<inputT, weightT, outputT>::_kernel,
+                               this, k, padded_input, output));
+    }
   }
   for (int k = 0; k < kn; ++k) {
     tc[k].join();
   }
+#else
+  for (int k = 0; k < kn; ++k) {
+    ConvEngine<inputT, weightT, outputT>::_kernel(k, padded_input, output);
+  }
+#endif
   delete padded_input;
   if (bias != nullptr) {
     tensor_vector_add(output, output, bias);

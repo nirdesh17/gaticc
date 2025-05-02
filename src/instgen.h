@@ -175,34 +175,6 @@ void pretty_print(const InstBlob &blob);
 void pretty_print(const std::bitset<INST_SIZE_BITS> &inst);
 void pretty_print_html(const InstBlob &blob);
 
-template <typename T> inline bool is_pointwise_conv(const T &dims) {
-  if (dims[TENSOR_4D_HEIGHT] == 1 && dims[TENSOR_4D_WIDTH] == 1) {
-    return true;
-  }
-  return false;
-}
-
-template <typename T1, typename T2> inline bool is_depthwise_conv(const T1 &dims, const T2 &input_dims) {
-  if (dims[TENSOR_4D_CHANNELS] == 1 && input_dims[TENSOR_4D_CHANNELS] > 1) {
-    return true;
-  }
-  return false;
-}
-
-template <typename T1, typename T2> inline bool is_regular_conv(const T1 &dims, const T2 &input_dims) {
-  if (dims[TENSOR_4D_CHANNELS] == input_dims[TENSOR_4D_CHANNELS] && 
-      dims[TENSOR_4D_WIDTH] * dims[TENSOR_4D_HEIGHT] > 1) {
-    return true;
-  }
-  return false;
-}
-
-inline bool is_sa_regular_optimal(const std::vector<int>& sa_arch) {
-  if (sa_arch[SA_ARCH_COLS] != sa_arch[SA_ARCH_N]) {
-    return false;
-  }
-  return true; 
-}
 
 template <typename T1, typename T2>
 std::vector<int> aligned_conv_weight_dims(const T1 &wdims, const T2 &idims) {

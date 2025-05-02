@@ -116,6 +116,8 @@ Op::Layer::Conv::Conv() {
   m_cp.stride[TENSOR_2D_WIDTH] = 1;
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
+  weights = nullptr;
+  bias = nullptr;
 }
 
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
@@ -841,6 +843,8 @@ Op::Layer::QLinearConv::QLinearConv() {
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
   m_cp.ki = 0;
+  weights = nullptr;
+  bias = nullptr;
 }
 
 const char *Op::Layer::QLinearConv::op_type() const { return m_optype; }
