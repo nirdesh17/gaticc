@@ -763,9 +763,12 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   uint32_t acc_addr = gen.ps_addr_from_register(cc->inputs.at(0));
   uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
   auto odims = cc->output_dims.at(0);
-  int citr = 0; int kitr = 0;
-  if (is_regular_conv(cc->weights->dims(), cc->input_dims.at(0)) && !is_sa_regular_optimal(sa_arch)) {
-    kitr = ceil_div((int)cc->weights->dims(TENSOR_4D_BATCH), (int) sa_arch[SA_ARCH_N]);
+  int citr = 0;
+  int kitr = 0;
+  if (is_regular_conv(cc->weights->dims(), cc->input_dims.at(0)) &&
+      !is_sa_regular_optimal(sa_arch)) {
+    kitr = ceil_div((int)cc->weights->dims(TENSOR_4D_BATCH),
+                    (int)sa_arch[SA_ARCH_N]);
     citr = cc->weights->dims(TENSOR_4D_CHANNELS);
   } else {
     std::tie(kitr, citr) = cc->get_iterations();
@@ -777,7 +780,8 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   int ida = ceil_mod(odims.at(TENSOR_4D_WIDTH) * odims.at(TENSOR_4D_HEIGHT),
                      get_conv_acc_mod());
   bool accen = true;
-  if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2]) {
+  if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[SA_ARCH_N] ||
+      is_depthwise_conv(cc->weights->dims(), cc->input_dims.at(0))) {
     accen = false;
   }
   int accbuf_size = 0;
