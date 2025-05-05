@@ -244,8 +244,8 @@ inline int get_conv_in_mod() {
  */
 inline int get_conv_acc_mod() {
   auto sa_arch = get_sa_arch();
-  int accumulant_mod = ((WORD_SIZE / sa_arch[1]) / (ACC_SIZE / 8));
-  return accumulant_mod;
+  int accumulant_mod = ((WORD_SIZE / sa_arch[SA_ARCH_N]) / (ACC_SIZE / 8));
+  return accumulant_mod < 1 ? 1 : accumulant_mod;
 }
 
 template <typename T1, typename T2> IVec2D aligned_conv_input_dims(const T1 &dims, const T2 &wdims) {
