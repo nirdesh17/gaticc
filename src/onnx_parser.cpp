@@ -2190,21 +2190,9 @@ long Op::time_estimate(Op::Graph graph) {
     if (is_conv_like(node->op_type())) {
       int input_columns = node->output_dims[0][TENSOR_4D_WIDTH] *
                           node->output_dims[0][TENSOR_4D_HEIGHT];
-      int available_pe_columns = sa_arch[SA_ARCH_COLS] * sa_arch[SA_ARCH_N];
-      int channels = node->input_dims[0][TENSOR_4D_CHANNELS];
-      int kernels = 0;
-      if (isa<const Op::Layer::Conv *>(node)) {
-        kernels = dynamic_cast<const Op::Layer::Conv *>(node)->m_cp.kn;
-      } else if (isa<const Op::Layer::QLinearConv *>(node)) {
-        kernels = dynamic_cast<const Op::Layer::QLinearConv *>(node)->m_cp.kn;
-      } else {
-        log_fatal("dunno what typa conv this ({}) is, mate\n", node->name);
-      }
-      channels =
-          (channels < sa_arch[SA_ARCH_N]) ? sa_arch[SA_ARCH_N] : channels;
-      kernels =
-          (kernels < sa_arch[SA_ARCH_COLS]) ? sa_arch[SA_ARCH_N] : kernels;
-      int t = ((channels * kernels) / available_pe_columns) * input_columns;
+      int kern_itr = 0; int chan_itr = 0;
+      std::tie(kern_itr, chan_itr) = node->get_iterations();
+      int t = kern_itr * chan_itr * input_columns;
       cycles += t;
       std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
       Op::print_node(*itr, &graph);
@@ -2221,7 +2209,7 @@ long Op::time_estimate(Op::Graph graph) {
       Op::print_node(*itr, &graph);
     }
   }
-  std::cout << "Total Estimated time for convolutions: "
+  std::cout << "Total Estimated time: "
             << (float)cycles / (frequency * 1e3) << "ms\n";
   return cycles;
 }
