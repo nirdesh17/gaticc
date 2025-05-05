@@ -851,10 +851,10 @@ const char *Op::Layer::QLinearConv::op_type() const { return m_optype; }
 std::string Op::Layer::QLinearConv::params() const {
   std::string ret;
   std::stringstream ss;
-  ss << "(IW,IH: " << this->input_dims[0][TENSOR_4D_WIDTH] << ","
-     << this->input_dims[0][TENSOR_4D_HEIGHT] << ") "
-     << "(KN,IC,KH,KW: " << m_cp.kn << ","
-     << this->input_dims[0][TENSOR_4D_CHANNELS] << ","
+  ss << "(IC,IH,IW: " << this->input_dims[0][TENSOR_4D_CHANNELS] << ","
+     << this->input_dims[0][TENSOR_4D_HEIGHT] << "," << this->input_dims[0][TENSOR_2D_WIDTH] << ") "
+     << "(KN,KC,KH,KW: " << m_cp.kn << ","
+     << weights->dims()[TENSOR_4D_CHANNELS] << ","
      << m_cp.k[TENSOR_2D_WIDTH] << "," << m_cp.k[TENSOR_2D_HEIGHT] << ") "
      << "(S,P,D: " << m_cp.stride[TENSOR_2D_WIDTH] << "," << m_cp.pad[I_LEFT]
      << "," << m_cp.dilation[TENSOR_2D_WIDTH] << ") ";
