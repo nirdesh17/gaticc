@@ -1903,6 +1903,7 @@ static void sa_align_aux_regular(const Op::LayerBase *l, BinBlob &blob, const Te
   int kern_iterations = 0; int chan_iterations = 0;
   std::tie(kern_iterations, chan_iterations) = l->get_iterations();
 
+  int count = 0;
   for (int kern = 0; kern < kern_iterations; ++kern) {
     for (int chan = 0; chan < chan_iterations; ++chan) {
       for (int srow = sa_arch[SA_ARCH_ROW] - 1; srow >= 0; srow--) {
@@ -1918,6 +1919,7 @@ static void sa_align_aux_regular(const Op::LayerBase *l, BinBlob &blob, const Te
               int index = k * strides[0] + c * strides[1] + srow;
               blob.append(tensor->at(index));
             }
+            count++;
           }
         }
       }
@@ -1925,7 +1927,9 @@ static void sa_align_aux_regular(const Op::LayerBase *l, BinBlob &blob, const Te
   }
   for (decltype(deficit_zeros) i = 0; i < deficit_zeros; ++i) {
     blob.append(zero);
+    count++;
   }
+  log_info2("Inserted {} elements\n", count * sizeof(T));
 }
 template <typename T>
 static void sa_align_aux_pointwise(const Op::LayerBase *l, BinBlob &blob, const Tensor<T> *tensor) {
@@ -1937,6 +1941,7 @@ static void sa_align_aux_pointwise(const Op::LayerBase *l, BinBlob &blob, const 
   auto strides = tensor->get_strides();
 
   T zero = 0;
+  int count = 0;
   for (int ki = 0; ki < kern_itr; ++ki) {
     for (int ci = 0; ci < chan_itr; ++ci) {
       for (int c = sa_arch[SA_ARCH_N] - 1; c >= 0; --c) {
@@ -1950,10 +1955,12 @@ static void sa_align_aux_pointwise(const Op::LayerBase *l, BinBlob &blob, const 
           } else {
             blob.append(tensor->at(index));
           }
+          count++;
         }
       }
     }
   }
+  log_info2("Inserted {} elements\n", count * sizeof(T));
 }
 
 template <typename T> static void sa_align_aux(const Op::LayerBase *l, BinBlob &blob, const Tensor<T> *tensor) {
@@ -1982,6 +1989,8 @@ static void conv_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
   for (size_t i = 0; i < deficit_bytes; ++i) {
     blob.append(zero);
   }
+  int count = size + deficit_bytes;
+  log_info2("Inserted {} elements\n", count * sizeof(T));
 }
 
 template <typename T>
@@ -2004,6 +2013,7 @@ static void fc_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
   int iterations = ceil_div(aligned_dims, tail_blocks * dk);
 
   T zero = 0;
+  int count = 0;
   for (int i = 0; i < iterations; ++i) {
     for (int j = 0; j < dk; ++j) {
       for (int k = 0; k < tail_blocks; ++k) {
@@ -2013,9 +2023,11 @@ static void fc_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
         } else {
           blob.append(tensor->at(index));
         }
+        count++;
       }
     }
   }
+  log_info2("Inserted {} elements\n", count * sizeof(T));
 }
 
 template <typename T>
@@ -2035,6 +2047,7 @@ static void fc_weight_align_aux(BinBlob &blob, const Tensor<T> *tensor, bool tra
   }
   std::vector<int> index(2);
   T zero = 0;
+  int count = 0;
   for (int i = 0; i < hiterations; ++i) {
     for (int j = 0; j < viterations; ++j) {
       for (int k = 0; k < va_size; ++k) {
@@ -2047,9 +2060,11 @@ static void fc_weight_align_aux(BinBlob &blob, const Tensor<T> *tensor, bool tra
         } else {
           blob.append(tensor->at(index));
         }
+        count++;
       }
     }
   }
+  log_info2("Inserted {} elements\n", count * sizeof(T));
 }
 
 static void sa_align(const Op::LayerBase *l, BinBlob &blob, const onnx::TensorProto *tensor) {
@@ -2542,15 +2557,16 @@ void GmlCheck::check_dwp(const BinBlob &binblob) const {
 
   std::vector<std::string> payloads;
 
+  int packet_count = 0;
   for (int i = 0; i < size;) {
     uint32_t sop = bytes2int(data + i);
     uint32_t ds = bytes2int(data + i + 4);
     uint32_t addr = bytes2int(data + i + 8);
+    log_info2("PACKET #{}\n", packet_count++);
     log_info2("OFFSET: {}\n", i);
     log_info2("DWP: {}\n", sop);
     log_info2("DS: {}\n", ds);
     log_info2("ADDR: {}\n", addr);
-    log_info2("...\n");
     if (sop != DWP_SOP) {
       log_fatal(
           "GmlCheck: sop at index {} with value {} does not match DWP_SOP {}\n",
@@ -2561,6 +2577,23 @@ void GmlCheck::check_dwp(const BinBlob &binblob) const {
       log_fatal(
           "GmlCheck: Not enough bytes, starting at {}, ds: {}, size: {}\n", i,
           ds, size);
+    }
+
+    if (get_verbose2()) {
+      if (ds >= 16) {
+        for (int j = i; j < i+8; ++j) {
+          std::cout << (int) data[j] << ' ';
+        }
+        std::cout << "... ";
+        for (int j = i+ds-1; j > i+ds-1-8; --j) {
+          std::cout << (int) data[j] << ' '; 
+        }
+      } else {
+        for (int j = i; j < i+ds; ++j) {
+          std::cout << (int) data[j] << ' '; 
+        }
+      }
+      std::cout << '\n';
     }
 
     std::string ss;
