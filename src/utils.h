@@ -876,3 +876,7 @@ get_byte_vector(const std::bitset<sz> num) {
   }
   return ret;
 }
+
+/* replace 'c' with 'r' */
+std::string sed(const std::string& src, char c, char r);
+

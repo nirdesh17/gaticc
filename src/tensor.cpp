@@ -73,3 +73,10 @@ template <> TensorExtant<double>::TensorExtant(const onnx::TensorProto *ptr) {
               ptr->name());
   }
 }
+
+template<> std::string numpy_dtype<float>()   { return "<f4"; }
+template<> std::string numpy_dtype<double>()  { return "<f8"; }
+template<> std::string numpy_dtype<int8_t>()  { return "|i1"; }
+template<> std::string numpy_dtype<uint8_t>() { return "|u1"; }
+template<> std::string numpy_dtype<int32_t>() { return "<i4"; }
+template<> std::string numpy_dtype<int64_t>() { return "<i8"; }

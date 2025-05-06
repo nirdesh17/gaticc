@@ -503,3 +503,49 @@ template <typename T> Tensor<T> *get_slice(Tensor<T> *src, std::vector<int> s) {
   }
   return ret;
 }
+
+template<typename T> std::string numpy_dtype();
+
+/* Homemade .npy pickle function */
+template <typename T>
+void pickle_tensor(const Tensor<T> *t, std::string filename) {
+  /* replace '/' with '_' */
+  auto mod_filename = sed(filename, '/', '_') + std::string(".npy");
+  static_assert(std::is_arithmetic<T>::value,
+                "Only arithmetic types supported");
+  // Compute total number of elements
+  size_t total_elems = t->size();
+  std::vector<int> shape = t->get_dims();
+
+  std::ofstream out(mod_filename, std::ios::binary);
+  if (!out) {
+    log_fatal("pickle_tensor: Failed to open file {}\n", mod_filename);
+  }
+  out.write("\x93NUMPY", 6);
+  out.put(1); // major version
+  out.put(0); // minor version
+  std::string shape_str = "(";
+  for (size_t i = 0; i < shape.size(); ++i) {
+    shape_str += std::to_string(shape[i]);
+    if (i + 1 < shape.size())
+      shape_str += ", ";
+  }
+  if (shape.size() == 1)
+    shape_str += ",";
+  shape_str += ")";
+  std::string header = "{'descr': '" + numpy_dtype<T>() +
+                       "', 'fortran_order': False, 'shape': " + shape_str +
+                       ", }";
+  size_t header_len = header.size() + 1; // +1 for '\n'
+  size_t total_len = 10 + header_len;
+  size_t pad = (16 - (total_len % 16)) % 16;
+  header += std::string(pad, ' ');
+  header += '\n';
+  uint16_t header_size = static_cast<uint16_t>(header.size());
+  out.put(static_cast<char>(header_size & 0xFF));
+  out.put(static_cast<char>((header_size >> 8) & 0xFF));
+  out.write(header.c_str(), header.size());
+  /* FIXME: this copies the tensor twice, avoid this */
+  const char *data = reinterpret_cast<const char *>(t->get().data());
+  out.write(data, total_elems * sizeof(T));
+}

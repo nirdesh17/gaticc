@@ -373,3 +373,8 @@ std::vector<int> concat_shape(const IVec2D &dims, int axis) {
   return new_shape;
 }
 
+std::string sed(const std::string& src, char c, char r) {
+  std::string ret(src);
+  std::replace(ret.begin(), ret.end(), c, r);
+  return ret;
+}
