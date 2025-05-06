@@ -325,6 +325,15 @@ class Argparse {
        "http://<server-ip>:8080/pretty-print.html "
        "replacing <server-ip> with your machine's IP address. "
        "This will display the HTML content in your browser"},
+      {"How to use --remote for running inference over LAN",
+       "Make sure both the host and the device are on the same network. Find "
+       "the "
+       "ip of the device by running `ip a` on the device or by setting up mDNS "
+       "resolution (vicharak.local) and 'ping'ing it. Next, start the server with "
+       "`sudo python scripts/server.py` "
+       "On the host, run the command as you would on the device, and append "
+       "`--remote <ip>` along "
+       "with the command"},
   };
 
 public:
@@ -333,7 +342,7 @@ public:
   bool has_option(const std::string &name) const;
   void print_usage() const;
   void print_version() const;
-  void set_option(const char* opt_name, const char* val);
+  void set_option(const char *opt_name, const char *val);
 };
 
 /* This is globally available for all functions. Alternatively,
