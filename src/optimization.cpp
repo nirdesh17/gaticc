@@ -48,6 +48,7 @@ Op::Vertex create_qadd(Op::Graph &g,
   new_add->a_scale = cc->x_scale[0];
   new_add->b_scale = cc->w_scale[0];
   new_add->o_scale = cc->y_scale;
+  new_add->device = 0;
 
   new_add->a_zp = std::visit([](auto zp) { return static_cast<int>(zp); },
                              cc->x_zero_point[0]);
@@ -96,6 +97,7 @@ slice_large_convolution(const onnx::TensorProto &initializer) {
 
     auto *sliced_tensor = new onnx::TensorProto();
     sliced_tensor->set_data_type(initializer.data_type());
+    sliced_tensor->set_name(initializer.name() + "_slice_" + std::to_string(h));
     sliced_tensor->add_dims(N);
     sliced_tensor->add_dims(C);
     sliced_tensor->add_dims(1);
@@ -169,5 +171,24 @@ void split_large_kernel(Op::Graph &g) {
   for (auto v : vertices_to_remove) {
     boost::remove_vertex(v, g);
   }
+
+  auto vp = boost::vertices(g);
+  Op::Vertex v = *(vp.first);
+  Op::Vertex new_vertex=boost::add_vertex(g);
+
+  // std::cout<<"name "<<g[v]->name<<std::endl;
+  // std::cout<<"input type and output type: "<<g[v]->input_type[0]<<" "<<g[v]->output_type[0]<<std::endl;
+  // std::cout<<"input dims and output dims: "<<g[v]->input_dims[0]<<" "<<g[v]->output_dims[0]<<std::endl;
+
+  auto *dum=new Op::Layer::Noop();
+  dum->name="Noop";
+  dum->input_dims=g[v]->input_dims;
+  dum->output_dims=g[v]->input_dims;
+  dum->device=0;
+  dum->input_type.push_back(onnx::TensorProto_DataType_FLOAT);
+  dum->output_type.push_back(onnx::TensorProto_DataType_FLOAT);
+  g[new_vertex]=dum;
+  boost::add_edge(new_vertex, v, g);
+
   Op::RegisterAllocator allocator(g);
 }

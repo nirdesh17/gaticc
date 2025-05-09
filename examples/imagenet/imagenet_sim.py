@@ -3,7 +3,7 @@ import classes
 import gati
 
 def gen():
-    arr = np.load("imagenet_100.npy")
+    arr = np.load("imagenet_10.npy")
     return arr
 
 def post(arr):
@@ -13,7 +13,7 @@ def post(arr):
     return label
 
 if __name__ == "__main__":
-    onnx_path = "../../tests/models/imagenet_resnet50-int8-symmetric.onnx"
+    onnx_path = "/home/nirdesh/vicharak/sysim/onnx/resnet50-int8-symmetric.onnx"
     with open("results.txt", "w"): pass
     gati.sim(onnx_path, "imagenet_sim.py", "gen", "post")
-    print(f"Match: {gati.match('imagenet_100_labels.txt', 'results.txt')}%")
+    print(f"Match: {gati.match('imagenet_10_labels.txt', 'results.txt')}%")

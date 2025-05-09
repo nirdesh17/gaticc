@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "executor.h"
+#include "optimization.h"
 #include "instgen.h"
 #include "onnx_parser.h"
 #include "sim.h"
@@ -14,7 +15,7 @@ static std::set<std::string> miniblock_tbl{
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv",
-    "Gemm",        "QLinearAdd", "NonMaxSuppression"};
+    "Gemm",        "QLinearAdd", "NonMaxSuppression", "Noop"};
 
 static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS};
 
@@ -442,6 +443,8 @@ InstGen::InstGen(const Op::Parser &parser) {
    * which is the modification of LayerBase->{inputs,outputs} registers.
    */
 
+  split_large_kernel(graph);
+
   Pass::reassign_registers(graph);
   /* This function is called by its side-effect that adjusts
    * a megablocks' y_scale to account of shift introduced
@@ -449,6 +452,7 @@ InstGen::InstGen(const Op::Parser &parser) {
    */
   Pass::adjust_scale_shift(graph);
 
+  std::cout<<"ok\n";
   AddressGen generator(graph);
   auto exec_order = generator.get_exec_order();
   if (gbl_args.has_option("print-exec-graph")) {
@@ -616,7 +620,8 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   uint32_t input_bytes =
       aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
-
+  input_addr_start += +(cc->m_cp.ki * cc->input_dims[0][TENSOR_4D_WIDTH] *
+                        sa_arch[SA_ARCH_COLS]);
   uint32_t weight_bytes = aligned_conv_weight(cc) * Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
   uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
@@ -705,12 +710,18 @@ gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
   return output_inst;
 }
 
+uint32_t prev_addr = -1;
 static std::bitset<INST_SIZE_BITS>
 gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   auto sa_arch = get_sa_arch();
   assert(cc->outputs.size() == 1);
   uint32_t acc_addr = gen.ps_addr_from_register(cc->inputs.at(0));
   uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
+
+  if (cc->m_cp.ki > 0) {
+    acc_addr = prev_addr;
+  }
+  prev_addr = out_addr;
   auto odims = cc->output_dims.at(0);
   int citr = 0; int kitr = 0;
   if (is_regular_conv(cc->weights->dims(), cc->input_dims.at(0)) && !is_sa_regular_optimal(sa_arch)) {
@@ -726,7 +737,7 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   int ida = ceil_mod(odims.at(TENSOR_4D_WIDTH) * odims.at(TENSOR_4D_HEIGHT),
                      get_conv_acc_mod());
   bool accen = true;
-  if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2]) {
+  if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2] && cc->m_cp.ki == 0) {
     accen = false;
   }
   int accbuf_size = 0;
@@ -766,8 +777,19 @@ int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen,
   /* there'll always be weights */
   int dwp_packets = 1;
   auto output_inst = gen_conv_output(this, gen);
-  auto bias_inst = gen_conv_bias(this, gen, tbl);
-  auto quant_inst = gen_conv_quant(this, gen);
+
+  std::bitset<256> bias_inst;
+  std::bitset<256> quant_inst;
+
+  if (this->bias == nullptr) {
+    bias_inst.reset();
+    quant_inst.reset();
+    inst_set(bias_inst, OP_TailBlock, TailBlock_Opcode);
+    inst_set(quant_inst, OP_TailBlock, TailBlock_Opcode);
+  } else {
+    bias_inst = gen_conv_bias(this, gen, tbl);
+    quant_inst = gen_conv_quant(this, gen);
+  }
 
   int has_bias = inst_get(bias_inst, TailBlock_BiasEn);
   if (has_bias) {
@@ -782,6 +804,10 @@ int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen,
   return dwp_packets;
 }
 
+int Op::Layer::Noop::get_inst(InstBlob &insts, AddressGen &,
+                            InitializerTable &) {
+  return 0;
+}
 int Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &,
                               InitializerTable &) {
   std::bitset<INST_SIZE_BITS> relu_inst;
@@ -1001,6 +1027,10 @@ void Op::Layer::QGemm::get_opcodes(std::vector<int> &opcodes) {
   opcodes.push_back(OP_TailBlock);
 }
 
+void Op::Layer::Noop::get_opcodes(std::vector<int> &opcodes) {}
+
+uint32_t Op::Layer::Noop::get_weight_size() { return 0; }
+
 uint32_t Op::Layer::Relu::get_weight_size() { return 0; }
 
 uint32_t Op::Layer::Maxpool::get_weight_size() { return 0; }
@@ -1011,14 +1041,16 @@ uint32_t Op::Layer::DequantizeLinear::get_weight_size() { return 0; }
 
 uint32_t Op::Layer::QuantizeLinear::get_weight_size() { return 0; }
 
-
 uint32_t Op::Layer::QLinearConv::get_weight_size() {
   uint32_t w = aligned_conv_weight(this) * Op::tensorproto_sizeof(weights);
   w = ceil_mod(w, WORD_SIZE);
-  uint32_t b = aligned_conv_bias(bias->dims()) * Op::tensorproto_sizeof(bias);
-  b = ceil_mod(b, WORD_SIZE);
-
-  return w + b;
+  if (bias != nullptr) {
+    uint32_t b = aligned_conv_bias(bias->dims()) * Op::tensorproto_sizeof(bias);
+    b = ceil_mod(b, WORD_SIZE);
+    return w + b;
+  } else {
+    return w;
+  }
 }
 
 uint32_t Op::Layer::QGemm::get_weight_size() {
@@ -1279,6 +1311,10 @@ gen_eltwise_add_quant(const Op::Layer::QLinearAdd *cc) {
  */
 int Op::Layer::QLinearAdd::get_inst(InstBlob &blob, AddressGen &gen,
                                     InitializerTable &tbl) {
+
+  if (this->input_type[0] == onnx::TensorProto_DataType_INT32) {
+    return 0;
+  }
   assert(this->device == DEVICE_FPGA);
   auto add_inst = gen_eltwise(this, gen, tbl, ELTWISE_ADD);
   gen_eltwise_input_quant(add_inst, this->a_scale, this->b_scale, this->a_zp, this->b_zp);
@@ -1635,6 +1671,8 @@ static std::string generate_pretty(const pretty_data &pd, int index) {
 
   html << generate_table_html("v  Convolution", pd.conv);
   html << generate_table_html("v  Fully Connected", pd.fc);
+  html << generate_table_html("v  Eltwise", pd.eltwise);
+  html << generate_table_html("v  NMS", pd.nms);
   html << generate_table_html("v  Output Block", pd.outputblock);
   html << generate_table_html("v  Tail Block", pd.tailblock);
   html << generate_table_html("v  Start Block", pd.startblock);
@@ -1906,8 +1944,9 @@ static void sa_align_aux_pointwise(const Op::LayerBase *l, BinBlob &blob, const 
 
 template <typename T> static void sa_align_aux(const Op::LayerBase *l, BinBlob &blob, const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
+  auto sa_arch = get_sa_arch();
   assert(dims.size() == 4);
-  if (is_pointwise_conv(dims)) {
+  if (is_pointwise_conv(dims) && !is_sa_regular_optimal(sa_arch)) {
     sa_align_aux_pointwise(l, blob, tensor);
   } else {
     sa_align_aux_regular(l, blob, tensor);
@@ -2107,12 +2146,15 @@ void Op::Layer::QLinearConv::align_weights(BinBlob &blob, InitializerTable &tbl)
     blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
     sa_align(this, blob, weights);
 
-    aligned_sz = aligned_conv_bias(bias->dims());
-    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
-    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-    log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
-    blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
-    conv_bias_align(blob, bias);
+    if (this->bias != nullptr) {
+      aligned_sz = aligned_conv_bias(bias->dims());
+      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
+      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+      log_info2("Appending initializer {} for size: {}, addr: {}\n",
+                bias->name(), aligned_sz, tbl.get(bias->name()));
+      blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
+      conv_bias_align(blob, bias);
+    }
 }
 
 void Op::Layer::QGemm::align_weights(BinBlob &blob, InitializerTable &tbl) {
@@ -2174,7 +2216,12 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   //blob.append(tbl);
 
   InitializerTable tbl = instgen.get_tbl();
-  for (Op::LayerBase *l : parser.get_execution_order()) {
+
+  Op::Graph graph = parser.get_graph();
+  split_large_kernel(graph);
+
+  auto m_exec_order = crt_exec_order(graph);
+  for (Op::LayerBase *l : m_exec_order) {
     l->align_weights(blob, tbl);
   }
 

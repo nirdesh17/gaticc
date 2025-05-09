@@ -108,6 +108,11 @@ static void parse_onnx_ints(const onnx::AttributeProto &attr,
   }
 }
 
+const char *Op::Layer::Noop::op_type() const { return m_optype; }
+
+Op::Layer::Noop::Noop() {
+ 
+}
 Op::Layer::Conv::Conv() {
   /* zero initialize */
   m_cp = {};
@@ -1867,7 +1872,8 @@ void Op::Layer::NMS::set_initializer_params(int n, const onnx::TensorProto &t) {
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
   auto verts = boost::vertices(*g);
-  bool ret = ((*g)[v]->name == (*g)[*verts.first]->name);
+  // bool ret = ((*g)[v]->name == (*g)[*verts.first]->name);
+  bool ret = boost::in_degree(v, *g) == 0;
   return ret;
 }
 
@@ -1876,9 +1882,19 @@ bool Op::are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g) {
 }
 
 Op::Vertex Op::get_root_node(const Op::Graph *g) {
+  // auto verts = boost::vertices(*g);
+  // return *(verts.first);
+  // std::cout<<"start get root node"<<std::endl;
+
   auto verts = boost::vertices(*g);
-  return *(verts.first);
+    for (auto it = verts.first; it != verts.second; ++it) {
+        if (boost::in_degree(*it, *g) == 0) {
+            return *it; // This node has no parent, hence a root
+        } 
+    }
+    
 }
+
 
 /* Op::Model */
 

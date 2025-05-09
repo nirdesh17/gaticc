@@ -137,6 +137,47 @@ static void check_dispatch(const Op::LayerBase *l, const Tensor<T> *output) {
   }
 }
 
+template <typename inputT, typename outputT>
+static void run_noop(Op::LayerBase *l, TensorPool &tensor_pool) {
+
+  
+  Tensor<inputT> *input;
+  Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
+  Timer<std::chrono::milliseconds> tt;
+  tt.start();
+  for (int i = 0; i < input->size(); ++i) {
+    output->set(i, input->at(i));
+  }
+  tt.stop();
+  check_dispatch(l, output);
+  if (get_verbose()) {
+    tt.report("Time taken: ");
+  }
+}
+void Op::Layer::Noop::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+
+  if (input_type[0] == onnx::TensorProto_DataType_INT32 &&
+      output_type[0] == onnx::TensorProto_DataType_INT32) {
+    run_noop<int32_t, int32_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+             output_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_noop<float, float>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+             output_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_noop<int8_t, int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
+             output_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_noop<uint8_t, uint8_t>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
 /* helper function for Op::Layer::Conv::run() */
 template <typename inputT, typename weightT, typename outputT>
 static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
