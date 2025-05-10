@@ -701,6 +701,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   uint32_t input_bytes =
       aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
+ 
 
   /* Adjust the input address to skip initial rows as defined by the 'ki' offset.
    * This tells the FPGA where to start reading the input data for convolution.
@@ -799,6 +800,7 @@ gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
   return output_inst;
 }
 
+uint32_t prev_addr = -1;
 static std::bitset<INST_SIZE_BITS>
 gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   auto sa_arch = get_sa_arch();
@@ -1403,6 +1405,10 @@ gen_eltwise_add_quant(const Op::Layer::QLinearAdd *cc) {
 int Op::Layer::QLinearAdd::get_inst(InstBlob &blob, AddressGen &gen,
                                     InitializerTable &tbl) {
   assert(this->device == DEVICE_FPGA);
+
+  if (this->input_type[0] == onnx::TensorProto_DataType_INT32) {
+    return 0;
+  }
   auto add_inst = gen_eltwise(this, gen, tbl, ELTWISE_ADD);
   gen_eltwise_input_quant(add_inst, this->a_scale, this->b_scale, this->a_zp, this->b_zp);
   auto out_inst = gen_eltwise_output(this, gen, tbl);
