@@ -1954,8 +1954,9 @@ static void sa_align_aux_pointwise(const Op::LayerBase *l, BinBlob &blob, const 
 
 template <typename T> static void sa_align_aux(const Op::LayerBase *l, BinBlob &blob, const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
+  auto sa_arch = get_sa_arch();
   assert(dims.size() == 4);
-  if (is_pointwise_conv(dims)) {
+  if (is_pointwise_conv(dims) && !is_sa_regular_optimal(sa_arch)) {
     sa_align_aux_pointwise(l, blob, tensor);
   } else {
     sa_align_aux_regular(l, blob, tensor);
