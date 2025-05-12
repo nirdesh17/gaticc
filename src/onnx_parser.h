@@ -907,3 +907,5 @@ inline bool is_sa_regular_optimal(const std::vector<int>& sa_arch) {
   }
   return true; 
 }
+
+std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy);
