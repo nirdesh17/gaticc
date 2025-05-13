@@ -108,6 +108,9 @@ static void parse_onnx_ints(const onnx::AttributeProto &attr,
   }
 }
 
+const char *Op::Layer::NoOp::op_type() const { return m_optype; }
+Op::Layer::NoOp::NoOp() {}
+
 Op::Layer::Conv::Conv() {
   /* zero initialize */
   m_cp = {};

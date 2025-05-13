@@ -208,6 +208,16 @@ struct LayerBase {
 
 namespace Layer {
 
+struct NoOp : public LayerBase {
+  const char *m_optype = "NoOp";
+  const char *op_type() const override;
+  NoOp();
+  void get_opcodes(std::vector<int> &op_codes) override;
+  int get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl) override;
+  uint32_t get_weight_size() override;
+  void run(TensorPool &tensor_pool) override;
+};
+
 struct Conv : public LayerBase {
   const onnx::TensorProto *weights;
   const onnx::TensorProto *bias;
