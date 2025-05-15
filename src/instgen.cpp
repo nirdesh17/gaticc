@@ -1302,6 +1302,7 @@ int Op::Layer::Clip::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable
   inst_set(clip_inst, OP_TailBlock, TailBlock_Opcode);
   inst_set(clip_inst, 1, TailBlock_ActEn);
   inst_set(clip_inst, ACT_CLIP, TailBlock_ActType);
+  inst_set(clip_inst, m_max, TailBlock_ActParam);
   insts.push_back(clip_inst);
   return 0;
 }
