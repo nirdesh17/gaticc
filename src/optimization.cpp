@@ -26,7 +26,7 @@ Op::Vertex create_qconv(Op::Graph &g, const Op::Layer::QLinearConv *cc,
   new_conv->weights = tensor;
   new_conv->m_cp.k[0] = tensor->dims(2);
   new_conv->m_cp.k[1] = tensor->dims(3);
-  new_conv->m_cp.ki = i;
+  new_conv->m_cp.ki = i+1;
 
   for (auto &output_type : new_conv->output_type) {
     output_type = onnx::TensorProto_DataType_INT32;

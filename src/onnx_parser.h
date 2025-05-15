@@ -75,7 +75,7 @@ struct ConvParams {
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
   int dilation[2];
-  int ki;        /* work as offset for skipping rows*/
+  int ki;        /* Acts as an offset indicating the row from which to start reading the input for convolution */
 };
 
 struct GemmParams {
