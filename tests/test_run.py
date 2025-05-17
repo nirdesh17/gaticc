@@ -47,6 +47,7 @@ mut = [
     'mnistpad1_6_28_int8.onnx',
     'mnist_int8_pad2.onnx',
     'imagenet_vgg_16_224_int8.onnx',
+    'imagenet_resnet50-int8-symmetric.onnx',
 ]
 
 def main():

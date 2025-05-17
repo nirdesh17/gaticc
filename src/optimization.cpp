@@ -180,7 +180,7 @@ void split_large_kernel(Op::Graph &g) {
   dum->name = "NoOp";
   dum->input_dims = g[v]->input_dims;
   dum->output_dims = g[v]->input_dims;
-  dum->device = 0;
+  dum->device = DEVICE_CPU;
   dum->input_type = g[v]->input_type;
   dum->output_type = g[v]->input_type;
   g[new_vertex] = dum;

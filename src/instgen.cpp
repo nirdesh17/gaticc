@@ -198,7 +198,7 @@ void Pass::absorb(Op::Graph &graph) {
     Op::LayerBase *l = graph[v];
 
     if (l->op_type() == "QLinearAdd" &&
-        l->input_type[0] == onnx::TensorProto_DataType_INT32 &&) {
+        l->input_type[0] == onnx::TensorProto_DataType_INT32 ) {
 
       if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
 
@@ -477,9 +477,9 @@ InstGen::InstGen(const Op::Parser &parser) {
    * which is the modification of LayerBase->{inputs,outputs} registers.
    */
 
-  split_large_kernel(graph);
+  // split_large_kernel(graph);
 
-  Pass::absorb(graph);
+  // Pass::absorb(graph);
 
   Pass::reassign_registers(graph);
   /* This function is called by its side-effect that adjusts
@@ -2265,8 +2265,8 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   InitializerTable tbl = instgen.get_tbl();
 
   Op::Graph graph = parser.get_graph();
-  split_large_kernel(graph);
-  Pass::absorb(graph);
+  // split_large_kernel(graph);
+  // Pass::absorb(graph);
   auto m_exec_order = crt_exec_order(graph);
   for (Op::LayerBase *l : m_exec_order) {
     l->align_weights(blob, tbl);
