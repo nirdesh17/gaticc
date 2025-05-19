@@ -10,7 +10,7 @@
 // #include <vector>
 #include "instgen.h"
 
-static void dispatch_simulator(const Op::Parser &parser) {
+void dispatch_simulator(const Op::Parser &parser) {
   if (!gbl_args.has_option("loadpy")) {
     log_fatal("Option --loadpy needs to be specified for simulation\n");
     gbl_args.print_usage();
@@ -33,12 +33,12 @@ static void dispatch_simulator(const Op::Parser &parser) {
   Executor e(engine, parser);
 }
 
-static void dispatch_timeest(const Op::Parser &parser) {
+void dispatch_timeest(const Op::Parser &parser) {
   Op::Graph graph = parser.get_graph();
   time_estimate(graph);
 }
 
-static void dispatch_info_ops() {
+void dispatch_info_ops() {
   std::string s = gbl_args["info"].as<std::string>();
   Op::Parser parser(s);
   if (gbl_args.has_option("summary")) {
@@ -50,7 +50,7 @@ static void dispatch_info_ops() {
   }
 }
 
-static void dispatch_compile_ops() {
+void dispatch_compile_ops() {
   std::string s = gbl_args["compile"].as<std::string>();
   Op::Parser parser(s);
   GmlGen gmlgen(GATI_INST_ORG);
@@ -66,19 +66,20 @@ static void dispatch_compile_ops() {
   }
 }
 
-static void dispatch_sim_ops() {
+void dispatch_sim_ops() {
   std::string s = gbl_args["sim"].as<std::string>();
   Op::Parser parser(s);
   split_large_kernel(parser.get_graph());
   dispatch_simulator(parser);
 }
 
-static void dispatch_run_ops() {
+void dispatch_run_ops() {
   if (!gbl_args.has_option("run_onnx")) {
     log_fatal(
         "couldn't find onnx file. Use --run-onnx to provide one or see help\n");
   }
   auto onnx_file = gbl_args["run_onnx"].as<std::string>();
+  std::cout << "onnx file2 " << onnx_file << '\n';
   Op::Parser parser(onnx_file);
   Runner runner(parser);
 }

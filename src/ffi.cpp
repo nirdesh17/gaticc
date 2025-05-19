@@ -54,7 +54,10 @@ PyObject *PyEngine::call_func(std::string const &func_name,
   py_fatal_err_check(dict, "PyModule_GetDict");
   PyObject *sum_fn =
       PyDict_GetItem(dict, PyUnicode_FromString(func_name.c_str()));
-  py_fatal_err_check(sum_fn, "PyDict_GetItem");
+  if (sum_fn == NULL) {
+    PyErr_Print();
+    log_fatal("PyDict_GetItem: {}\n", func_name.c_str());
+  }
   PyObject *ret = PyObject_CallObject(sum_fn, args);
   py_fatal_err_check(ret, "PyObject_CallObject");
   return ret;

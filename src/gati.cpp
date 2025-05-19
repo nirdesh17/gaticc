@@ -1,0 +1,63 @@
+#include "Python.h"
+#include "numpy_init.h"
+#include "utils.h"
+#include "gati.h"
+#include "options.h"
+#include <string>
+
+Argparse gbl_args;
+
+void *import_aux() {
+  Py_Initialize();
+  import_array();
+  if (PyErr_Occurred()) {
+    log_fatal("Failed to import numpy Python module(s).\n");
+  }
+  return NULL;
+}
+
+void init() {
+  import_aux();
+}
+
+void compile(const std::string& onnx_path, const std::string &gml_path, const vss& rest) {
+  gbl_args.set_option("compile", onnx_path.c_str());
+  gbl_args.set_option("output", gml_path.c_str());
+  for (const auto& i : rest) {
+    gbl_args.set_option(i.first.c_str(), i.second.c_str());
+  }
+  dispatch_compile_ops();
+}
+
+void summary(const std::string& onnx_path, const vss& rest) {
+  gbl_args.set_option("info", onnx_path.c_str());
+  gbl_args.set_option("summary", "");
+  for (const auto& i : rest) {
+    gbl_args.set_option(i.first.c_str(), i.second.c_str());
+  }
+  dispatch_info_ops();
+}
+
+void sim(const std::string& onnx_path, const std::string& loadpy, const std::string& preprocfn, const std::string& postprocfn, const vss& rest) {
+  gbl_args.set_option("sim", onnx_path.c_str());
+  gbl_args.set_option("loadpy", loadpy.c_str());
+  gbl_args.set_option("preprocfn", preprocfn.c_str());
+  gbl_args.set_option("postprocfn", postprocfn.c_str());
+  for (const auto& i : rest) {
+    gbl_args.set_option(i.first.c_str(), i.second.c_str());
+  }
+  dispatch_sim_ops();
+}
+
+void run(const std::string& onnx_path, const std::string& gml_path, const std::string& loadpy, const std::string& preprocfn, const std::string& postprocfn, const vss& rest) {
+  gbl_args.set_option("run", gml_path.c_str());
+  std::cout << "onnx path " << onnx_path << '\n';
+  gbl_args.set_option("run_onnx", onnx_path.c_str());
+  gbl_args.set_option("loadpy", loadpy.c_str());
+  gbl_args.set_option("preprocfn", preprocfn.c_str());
+  gbl_args.set_option("postprocfn", postprocfn.c_str());
+  for (const auto& i : rest) {
+    gbl_args.set_option(i.first.c_str(), i.second.c_str());
+  }
+  dispatch_run_ops();
+}
