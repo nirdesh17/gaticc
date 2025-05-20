@@ -3,6 +3,7 @@
 #include "executor.h"
 #include "instgen.h"
 #include "onnx_parser.h"
+#include "optimization.h"
 #include "sim.h"
 #include "utils.h"
 #include <queue>
@@ -210,6 +211,40 @@ Op::Graph Pass::reassign_registers(Op::Graph graph) {
   Op::Graph megablock_graph = create_megablock_graph(graph);
   Op::RegisterAllocator allocatr(megablock_graph);
   return megablock_graph;
+}
+
+/* Remove QLinearAdd nodes created during kernel decomposition.
+   These are not needed as we uses accumulant addition in FPGA hardware. */
+void Pass::absorb(Op::Graph &graph) {
+  Op::VertexIterator vi, vi_end, next;
+  std::tie(vi, vi_end) = boost::vertices(graph);
+
+  for (next = vi; vi != vi_end; vi = next) {
+    ++next;
+    Op::Vertex v = *vi;
+    Op::LayerBase *l = graph[v];
+
+    if (l->op_type() == "QLinearAdd" &&
+        l->input_type[0] == onnx::TensorProto_DataType_INT32 ) {
+
+      if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
+
+        Op::Vertex last_parent;
+        for (auto [in_begin, in_end] = boost::in_edges(v, graph);
+             in_begin != in_end; ++in_begin) {
+          last_parent = boost::source(*in_begin, graph);
+        }
+
+        Op::Vertex child =
+            boost::target(*boost::out_edges(v, graph).first, graph);
+
+        boost::add_edge(last_parent, child, graph);
+      }
+
+      boost::clear_vertex(v, graph);
+      boost::remove_vertex(v, graph);
+    }
+  }
 }
 
 /* In onnx, a QLinearConv can be followed by Relu, Maxpool, etc.
@@ -488,7 +523,6 @@ InstGen::InstGen(const Op::Parser &parser) {
    * which is the modification of LayerBase->{inputs,outputs} registers.
    */
 
-  check_quantized(graph);
 
   Pass::reassign_registers(graph);
   /* This function is called by its side-effect that adjusts
@@ -665,6 +699,15 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
       aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
+  /* Adjust the input address to skip initial rows as defined by the 'ki' offset.
+   * This tells the FPGA where to start reading the input data for convolution.
+   * Originally, the real convolution layer starts from offset 0.
+   * In decomposed convolution layers, we often start from offset 1.
+   * Since indexing is zero-based, we subtract 1 to align correctly with memory addressing. */
+  input_addr_start +=
+      +((cc->m_cp.ki > 0 ? cc->m_cp.ki - 1 : cc->m_cp.ki) *
+        cc->input_dims[0][TENSOR_4D_WIDTH] * sa_arch[SA_ARCH_COLS]);
+
   uint32_t weight_bytes = aligned_conv_weight(cc) * Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
   uint32_t weight_addr_end = ceil_mod(weight_addr_start + weight_bytes, WORD_SIZE);
@@ -759,6 +802,10 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   assert(cc->outputs.size() == 1);
   uint32_t acc_addr = gen.ps_addr_from_register(cc->inputs.at(0));
   uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
+  if (cc->m_cp.ki > 1) {
+    acc_addr = gen.io_addr_from_register(cc->m_cp.ki);
+  }
+
   auto odims = cc->output_dims.at(0);
   int citr = 0; int kitr = 0;
   if (is_regular_conv(cc->weights->dims(), cc->input_dims.at(0)) && !is_sa_regular_optimal(sa_arch)) {
@@ -774,7 +821,7 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   int ida = ceil_mod(odims.at(TENSOR_4D_WIDTH) * odims.at(TENSOR_4D_HEIGHT),
                      get_conv_acc_mod());
   bool accen = true;
-  if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2]) {
+  if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2] && cc->m_cp.ki <= 1) {
     accen = false;
   }
   int accbuf_size = 0;
@@ -814,8 +861,22 @@ int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen,
   /* there'll always be weights */
   int dwp_packets = 1;
   auto output_inst = gen_conv_output(this, gen);
-  auto bias_inst = gen_conv_bias(this, gen, tbl);
-  auto quant_inst = gen_conv_quant(this, gen);
+
+  std::bitset<INST_SIZE_BITS> bias_inst;
+  std::bitset<INST_SIZE_BITS> quant_inst;
+
+  if (this->m_cp.ki > 0) {
+    quant_inst.reset();
+    inst_set(quant_inst, OP_TailBlock, TailBlock_Opcode);
+  } else {
+    quant_inst = gen_conv_quant(this, gen);
+  }
+  if (this->bias == nullptr) {
+    bias_inst.reset();
+    inst_set(bias_inst, OP_TailBlock, TailBlock_Opcode);
+  } else {
+    bias_inst = gen_conv_bias(this, gen, tbl);
+  }
 
   int has_bias = inst_get(bias_inst, TailBlock_BiasEn);
   if (has_bias) {
@@ -1059,14 +1120,16 @@ uint32_t Op::Layer::DequantizeLinear::get_weight_size() { return 0; }
 
 uint32_t Op::Layer::QuantizeLinear::get_weight_size() { return 0; }
 
-
 uint32_t Op::Layer::QLinearConv::get_weight_size() {
   uint32_t w = aligned_conv_weight(this) * Op::tensorproto_sizeof(weights);
   w = ceil_mod(w, WORD_SIZE);
-  uint32_t b = aligned_conv_bias(bias->dims()) * Op::tensorproto_sizeof(bias);
-  b = ceil_mod(b, WORD_SIZE);
-
-  return w + b;
+  if (bias != nullptr) {
+    uint32_t b = aligned_conv_bias(bias->dims()) * Op::tensorproto_sizeof(bias);
+    b = ceil_mod(b, WORD_SIZE);
+    return w + b;
+  } else {
+    return w;
+  }
 }
 
 uint32_t Op::Layer::QGemm::get_weight_size() {
@@ -2155,12 +2218,15 @@ void Op::Layer::QLinearConv::align_weights(BinBlob &blob, InitializerTable &tbl)
     blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
     sa_align(this, blob, weights);
 
-    aligned_sz = aligned_conv_bias(bias->dims());
-    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
-    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-    log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
-    blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
-    conv_bias_align(blob, bias);
+    if (this->bias != nullptr) {
+      aligned_sz = aligned_conv_bias(bias->dims());
+      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
+      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+      log_info2("Appending initializer {} for size: {}, addr: {}\n",
+                bias->name(), aligned_sz, tbl.get(bias->name()));
+      blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
+      conv_bias_align(blob, bias);
+    }
 }
 
 void Op::Layer::QGemm::align_weights(BinBlob &blob, InitializerTable &tbl) {
@@ -2222,7 +2288,10 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   //blob.append(tbl);
 
   InitializerTable tbl = instgen.get_tbl();
-  for (Op::LayerBase *l : parser.get_execution_order()) {
+
+  Op::Graph graph = parser.get_graph();
+  auto m_exec_order = crt_exec_order(graph);
+  for (Op::LayerBase *l : m_exec_order) {
     l->align_weights(blob, tbl);
   }
 

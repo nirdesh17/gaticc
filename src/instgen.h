@@ -491,6 +491,7 @@ namespace Pass {
 
 std::vector<Op::LayerBase *> remove_dqxq(Op::Graph graph);
 Op::Graph reassign_registers(Op::Graph graph);
+void absorb(Op::Graph &graph);
 
 void adjust_scale_shift(Op::Graph graph);
 
