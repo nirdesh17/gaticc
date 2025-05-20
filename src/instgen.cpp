@@ -1642,6 +1642,8 @@ static std::string generate_pretty(const pretty_data &pd, int index) {
 
   html << generate_table_html("v  Convolution", pd.conv);
   html << generate_table_html("v  Fully Connected", pd.fc);
+  html << generate_table_html("v  Eltwise", pd.eltwise);
+  html << generate_table_html("v  NMS", pd.nms);
   html << generate_table_html("v  Output Block", pd.outputblock);
   html << generate_table_html("v  Tail Block", pd.tailblock);
   html << generate_table_html("v  Start Block", pd.startblock);
