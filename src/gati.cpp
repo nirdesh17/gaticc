@@ -7,6 +7,12 @@
 
 Argparse gbl_args;
 
+/* Must be called before any other functions in gaticc
+ * Returns a void* to silent -Wconversion-null created when
+ * import_array() macro is expanded, which optionally returns
+ * a NULL when conditions are not met.
+ * See: https://stackoverflow.com/a/61729835
+ * */
 void *import_aux() {
   Py_Initialize();
   import_array();
