@@ -491,7 +491,12 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(
   kn = cc->m_cp.kn;
   kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
   kw = cc->m_cp.k[TENSOR_2D_WIDTH];
-  ki = cc->m_cp.ki;
+  /* 'ki' is the starting row for the convolution operation on the input.
+   *  In the original convolution layer, the offset is 0 (starts from the first row).
+   *  But in the new decomposed convolution layer, the offset may start from 1.
+   *  Since indexing starts at 0, we subtract 1 when the offset is greater than 0.
+   */
+  ki = cc->m_cp.ki > 0 ? cc->m_cp.ki - 1 : cc->m_cp.ki;
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
   using variantT = std::variant<int8_t, uint8_t>;
