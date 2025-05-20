@@ -83,6 +83,8 @@ void dispatch_run_ops() {
   auto onnx_file = gbl_args["run_onnx"].as<std::string>();
   std::cout << "onnx file2 " << onnx_file << '\n';
   Op::Parser parser(onnx_file);
+  split_large_kernel(parser.get_graph());
+  Pass::absorb(parser.get_graph());
   Runner runner(parser);
 }
 
