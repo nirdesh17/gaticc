@@ -140,22 +140,26 @@
 #define TailBlock_PoolModCount_LOW 147
 #define TailBlock_PoolModCount_HIGH 150
 #define TailBlock_PoolModCount_COUNT 4
+// Same as above but for cols
+#define TailBlock_PoolModCountCols_LOW 151
+#define TailBlock_PoolModCountCols_HIGH 154
+#define TailBlock_PoolModCountCols_COUNT 4
 // Same as PadSides for convolution
-#define TailBlock_PoolPadSides_LOW 151
-#define TailBlock_PoolPadSides_HIGH 154
+#define TailBlock_PoolPadSides_LOW 155
+#define TailBlock_PoolPadSides_HIGH 158
 #define TailBlock_PoolPadSides_COUNT 4
-#define TailBlock_BiasEn_LOW 155
-#define TailBlock_BiasEn_HIGH 155
+#define TailBlock_BiasEn_LOW 159
+#define TailBlock_BiasEn_HIGH 159
 #define TailBlock_BiasEn_COUNT 1
 // There are two known bias widths 8/32. This is that field.
-#define TailBlock_BiasWidth_LOW 156
-#define TailBlock_BiasWidth_HIGH 163
+#define TailBlock_BiasWidth_LOW 160
+#define TailBlock_BiasWidth_HIGH 167
 #define TailBlock_BiasWidth_COUNT 8
-#define TailBlock_BiasStartAddress_LOW 164
-#define TailBlock_BiasStartAddress_HIGH 195
+#define TailBlock_BiasStartAddress_LOW 168
+#define TailBlock_BiasStartAddress_HIGH 199
 #define TailBlock_BiasStartAddress_COUNT 32
-#define TailBlock_BiasEndAddress_LOW 196
-#define TailBlock_BiasEndAddress_HIGH 227
+#define TailBlock_BiasEndAddress_LOW 200
+#define TailBlock_BiasEndAddress_HIGH 231
 #define TailBlock_BiasEndAddress_COUNT 32
 
 #define OP_OutputBlock 0x02
@@ -368,7 +372,7 @@
 #define EltWise_BZeroPoint_HIGH 225
 #define EltWise_BZeroPoint_COUNT 8
 
-#define ISA_VERSION 5
+#define ISA_VERSION 6
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define POOL_MAX 0x00
@@ -524,6 +528,8 @@ inline Table get_tailblock_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("PoolCeil");
 	tbl.tbl.insert({"PoolModCount", bitset_range_get<TailBlock_PoolModCount_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolModCount_LOW, TailBlock_PoolModCount_HIGH)});
 	tbl.order.push_back("PoolModCount");
+	tbl.tbl.insert({"PoolModCountCols", bitset_range_get<TailBlock_PoolModCountCols_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolModCountCols_LOW, TailBlock_PoolModCountCols_HIGH)});
+	tbl.order.push_back("PoolModCountCols");
 	tbl.tbl.insert({"PoolPadSides", bitset_range_get<TailBlock_PoolPadSides_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolPadSides_LOW, TailBlock_PoolPadSides_HIGH)});
 	tbl.order.push_back("PoolPadSides");
 	tbl.tbl.insert({"BiasEn", bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(inst, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH)});
