@@ -65,6 +65,7 @@ Op::Vertex create_qadd(Op::Graph &g,
     new_add->output_type = new_add->input_type;
   }
 
+  new_add->device = DEVICE_UNKNOWN;
   g[new_vertex] = new_add;
   return new_vertex;
 }
@@ -96,6 +97,7 @@ slice_large_convolution(const onnx::TensorProto &initializer) {
 
     auto *sliced_tensor = new onnx::TensorProto();
     sliced_tensor->set_data_type(initializer.data_type());
+    sliced_tensor->set_name(initializer.name() + "_slice_" + std::to_string(h));
     sliced_tensor->add_dims(N);
     sliced_tensor->add_dims(C);
     sliced_tensor->add_dims(1);
@@ -169,5 +171,20 @@ void split_large_kernel(Op::Graph &g) {
   for (auto v : vertices_to_remove) {
     boost::remove_vertex(v, g);
   }
+
+  auto vp = boost::vertices(g);
+  Op::Vertex v = *(vp.first);
+  Op::Vertex new_vertex = boost::add_vertex(g);
+
+  auto *dum = new Op::Layer::NoOp();
+  dum->name = "NoOp";
+  dum->input_dims = g[v]->input_dims;
+  dum->output_dims = g[v]->input_dims;
+  dum->device = DEVICE_CPU;
+  dum->input_type = g[v]->input_type;
+  dum->output_type = g[v]->input_type;
+  g[new_vertex] = dum;
+  boost::add_edge(new_vertex, v, g);
+
   Op::RegisterAllocator allocator(g);
 }
