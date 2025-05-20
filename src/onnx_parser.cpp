@@ -1873,9 +1873,7 @@ void Op::Layer::NMS::set_initializer_params(int n, const onnx::TensorProto &t) {
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
-  auto verts = boost::vertices(*g);
-  bool ret = ((*g)[v]->name == (*g)[*verts.first]->name);
-  return ret;
+  return boost::in_degree(v, *g) == 0;
 }
 
 bool Op::are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g) {
@@ -1884,7 +1882,11 @@ bool Op::are_equal_nodes(Op::Vertex v1, Op::Vertex v2, const Op::Graph *g) {
 
 Op::Vertex Op::get_root_node(const Op::Graph *g) {
   auto verts = boost::vertices(*g);
-  return *(verts.first);
+  for (auto it = verts.first; it != verts.second; ++it) {
+    if (is_root_node(*it, g)) {
+      return *it;
+    }
+  }
 }
 
 /* Op::Model */
@@ -3021,23 +3023,25 @@ Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
 
   std::queue<Op::Vertex> S;
   S.push(get_root_node(&g));
+  Op::Vertex n = S.front();
+  Op::LayerBase *node = g[n];
+
+  if (Op::is_root_node(n, &g)) {
+    for (int i = 0; i < node->input_dims.size(); i++) {
+      node->inputs.push_back(acquire(node->name));
+    }
+    for (int i = 0; i < node->output_dims.size(); i++) {
+      node->outputs.push_back(acquire(node->name));
+    }
+    if (register_set.at(node->inputs.at(0)) == 1) {
+      relinquish(node->inputs.at(0));
+    }
+  }
 
   while (!S.empty()) {
     Op::Vertex n = S.front();
     Op::LayerBase *node = g[n];
     S.pop();
-
-    if (Op::is_root_node(n, &g)) {
-      for(int i=0;i<node->input_dims.size();i++){
-        node->inputs.push_back(acquire(node->name));
-      }
-      for(int i=0;i<node->output_dims.size();i++){
-        node->outputs.push_back(acquire(node->name));
-      }
-      if (register_set.at(node->inputs.at(0)) == 1) {
-        relinquish(node->inputs.at(0));
-      }
-    }
 
     auto out_edges = boost::out_edges(n, g);
     std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
