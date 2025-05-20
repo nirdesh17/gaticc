@@ -196,10 +196,12 @@ Op::Graph Pass::create_megablock_graph(Op::Graph graph) {
 Op::LayerBase *Op::get_last_layer(const Op::Parser &parser) {
   auto graph = parser.get_graph();
   auto mega_block = Pass::create_megablock_graph(graph);
-  auto [vertex_it, vertex_end] = boost::vertices(mega_block);
-  vertex_it = vertex_end;
-  --vertex_it;
-  return mega_block[*vertex_it];
+  auto verts = boost::vertices(mega_block);
+  for (auto it = verts.first; it != verts.second; ++it) {
+    if (boost::out_degree(*it, mega_block) == 0) {
+      return mega_block[*it];
+    }
+  }
 }
 
 /* addresses are only used by megablocks (i.e. blocks that directly
