@@ -11,11 +11,11 @@
 
 static std::set<std::string> miniblock_tbl{
   "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
-  "QLinearAveragePool", "Conv", "Gemm",    "QLinearAdd", "QLinearGlobalAveragePool"};
+  "QLinearAveragePool", "Conv", "Gemm",    "QLinearAdd", "QLinearGlobalAveragePool", "NoOp"};
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv",
-    "Gemm",        "QLinearAdd", "NonMaxSuppression"};
+    "Gemm",        "QLinearAdd", "NonMaxSuppression", "NoOp"};
 
 static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS};
 
@@ -814,6 +814,11 @@ gen_conv_quant(const Op::Layer::QLinearConv *cc, AddressGen &) {
   return gen_quant(cc->x_scale, cc->w_scale, cc->y_scale, zero_points);
 }
 
+int Op::Layer::NoOp::get_inst(InstBlob &insts, AddressGen &,
+                              InitializerTable &) {
+  return 0;
+}
+
 int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen,
                                      InitializerTable &tbl) {
   auto conv_inst = gen_conv_inst(this, gen, tbl);
@@ -1068,6 +1073,10 @@ void Op::Layer::QGemm::get_opcodes(std::vector<int> &opcodes) {
   /* for quantization */
   opcodes.push_back(OP_TailBlock);
 }
+
+void Op::Layer::NoOp::get_opcodes(std::vector<int> &opcodes) {}
+
+uint32_t Op::Layer::NoOp::get_weight_size() { return 0; }
 
 uint32_t Op::Layer::Relu::get_weight_size() { return 0; }
 
