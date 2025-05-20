@@ -671,15 +671,13 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   inst_set(conv_inst, weight_addr_start, CONV_WeightStartAddress);
   inst_set(conv_inst, weight_addr_end, CONV_WeightEndAddress);
 
-  if (cc->m_cp.stride[TENSOR_2D_HEIGHT] > 1) {
-    if (!gbl_args.has_option("im2colbuf-size")) {
-      log_fatal("--im2colbuf-size has to be provided. None found.\n");
-    }
-    int im2col_buf = gbl_args["im2colbuf-size"].as<int>();
-    auto od = cc->output_dims.at(0);
-    if (im2col_buf > od[TENSOR_4D_HEIGHT] * od[TENSOR_4D_WIDTH]) {
-      inst_set(conv_inst, 1, CONV_Im2colPrefetch);
-    }
+  if (!gbl_args.has_option("im2colbuf-size")) {
+    log_fatal("--im2colbuf-size has to be provided. None found.\n");
+  }
+  int im2col_buf = gbl_args["im2colbuf-size"].as<int>();
+  auto od = cc->output_dims.at(0);
+  if (im2col_buf > od[TENSOR_4D_HEIGHT] * od[TENSOR_4D_WIDTH]) {
+    inst_set(conv_inst, 1, CONV_Im2colPrefetch);
   }
 
   if (is_pointwise_conv(cc->weights->dims())) {
