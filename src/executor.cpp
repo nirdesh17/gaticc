@@ -243,7 +243,7 @@ void Op::Layer::Clip::run(TensorPool &tensor_pool) {
   assert(input_type[0] == output_type[0]);
 
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
-    run_relu<float>(this, tensor_pool);
+    run_clip<float>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
