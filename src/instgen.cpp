@@ -894,6 +894,7 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &,
   check_overflow(m_cp.pad[I_LEFT], TailBlock_PoolPadding_COUNT);
   inst_set(maxpool_inst, m_cp.pad[I_LEFT], TailBlock_PoolPadding);
   inst_set(maxpool_inst, input_dims[0][TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT], TailBlock_PoolModCount);
+  inst_set(maxpool_inst, input_dims[0][TENSOR_4D_WIDTH] % m_cp.k[TENSOR_2D_WIDTH], TailBlock_PoolModCountCols);
 
   insts.push_back(maxpool_inst);
   return 0;
