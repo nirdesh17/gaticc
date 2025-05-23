@@ -412,6 +412,11 @@
 #define ZerothEndAddress_HIGH 63
 #define ZerothEndAddress_COUNT 32
 
+int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst);
+
+template <std::size_t b1N, std::size_t b2N>
+unsigned long bitset_range_get(const std::bitset<b2N> &src, int start, int stop);
+
 struct Table {
   std::map<std::string, int> tbl;
   std::vector<std::string> order;
@@ -424,7 +429,7 @@ struct pretty_data {
   Table conv;
   Table fc;
   Table outputblock;
-  Table startblock;
+  Table start;
   Table tailblock;
   Table nms;
   Table eltwise;
@@ -433,7 +438,7 @@ struct pretty_data {
     conv.clear();
     fc.clear();
     outputblock.clear();
-    startblock.clear();
+    start.clear();
     tailblock.clear();
     nms.clear();
     eltwise.clear();
@@ -695,4 +700,141 @@ inline Table get_eltwise_table(const std::bitset<INST_SIZE_BITS>& inst) {
 inline void pretty_print_eltwise(const std::bitset<INST_SIZE_BITS>& inst) {
 	auto tbl = get_eltwise_table(inst);
 	print_table(tbl);
+}
+
+static void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
+  int op_code = extract_opcode(inst);
+  switch (op_code) {
+  case OP_CONV:
+    pretty_print_conv(inst);
+    break;
+  case OP_TailBlock:
+    pretty_print_tailblock(inst);
+    break;
+  case OP_OutputBlock:
+    pretty_print_outputblock(inst);
+    break;
+  case OP_FC:
+    pretty_print_fc(inst);
+    break;
+  case OP_START:
+    pretty_print_start(inst);
+    break;
+  case OP_NMS:
+    pretty_print_nms(inst);
+    break;
+  case OP_EltWise:
+    pretty_print_eltwise(inst);
+    break;
+  default:
+    log_fatal("can't pretty print instruction with opcode {}\n", op_code);
+    break;
+  }
+}
+
+static void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
+                              std::vector<pretty_data> &data,
+                              pretty_data &inst_data) {
+  int op_code = extract_opcode(inst);
+  switch (op_code) {
+  case OP_CONV:
+    inst_data.conv = get_conv_table(inst);
+    break;
+  case OP_TailBlock:
+    inst_data.tailblock = get_tailblock_table(inst);
+    break;
+  case OP_OutputBlock:
+    inst_data.outputblock = get_outputblock_table(inst);
+    break;
+  case OP_FC:
+    inst_data.fc = get_fc_table(inst);
+    break;
+  case OP_START:
+    inst_data.start = get_start_table(inst);
+    data.push_back(inst_data);
+    inst_data.clear();
+    break;
+  case OP_NMS:
+    inst_data.nms = get_nms_table(inst);
+    break;
+  case OP_EltWise:
+    inst_data.eltwise = get_eltwise_table(inst);
+    break;
+  default:
+    log_fatal("can't pretty print instruction with opcode {}\n", op_code);
+    break;
+  }
+}
+
+static std::string generate_table_html(const std::string &tableName,
+                                       const Table &table) {
+  if (table.is_empty())
+    return "";
+
+  std::ostringstream html;
+  html << "<div class='collapsible'>" << tableName << "</div>\n";
+  html << "<div class='content'>\n";
+  html << "<ul>\n";
+
+  for (const auto &key : table.order) {
+    if (table.tbl.count(key)) {
+      html << "<li>" << key << ": " << table.tbl.at(key) << "</li>\n";
+    }
+  }
+
+  html << "</ul>\n</div>\n";
+  return html.str();
+}
+
+static std::string generate_pretty(const pretty_data &pd, int index) {
+  std::ostringstream html;
+  html << "<div class='collapsible'>v Layer " << index << "</div>\n";
+  html << "<div class='content'>\n";
+  html << generate_table_html("v  Conv", pd.conv);
+  html << generate_table_html("v  Tail Block", pd.tailblock);
+  html << generate_table_html("v  Output Block", pd.outputblock);
+  html << generate_table_html("v  Fc", pd.fc);
+  html << generate_table_html("v  Start", pd.start);
+  html << generate_table_html("v  Nms", pd.nms);
+  html << generate_table_html("v  Elt Wise", pd.eltwise);
+  html << "</div>\n";
+  return html.str();
+}
+
+static void generate_html(const std::vector<pretty_data> &data,
+                          const std::string &filename) {
+  std::ofstream file(filename);
+  if (!file.is_open()) {
+    log_fatal("Could not open file {}\n", filename);
+  }
+
+  file << "<!DOCTYPE html>\n<html>\n<head>\n";
+  file << "<style>\n";
+  file << "body { font-family: monospace; }\n";
+  file << ".collapsible { cursor: pointer; padding: 10px; background-color: #f1f1f1; border: 1px solid #ddd; margin-top: 5px; }\n";
+  file << ".content { display: none; padding: 10px; border-left: 1px solid #ddd; margin-left: 10px; }\n";
+  file << ".content ul { list-style-type: none; padding-left: 0; }\n";
+  file << "</style>\n";
+  file << "<script>\n";
+  file << "document.addEventListener('DOMContentLoaded', function() {\n";
+  file << "  const coll = document.querySelectorAll('.collapsible');\n";
+  file << "  coll.forEach(function(el) {\n";
+  file << "    el.addEventListener('click', function() {\n";
+  file << "      this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';\n";
+  file << "    });\n";
+  file << "  });\n";
+  file << "});\n";
+  file << "</script>\n";
+  file << "</head>\n<body>\n";
+
+  for (size_t i = 0; i < data.size(); i++) {
+    file << generate_pretty(data[i], i);
+  }
+
+  file << "</body>\n</html>\n";
+
+  file.close();
+  std::cout << "HTML file generated: " << filename << "\n";
+  std::cout << "Run python -m http.server 5587 to start the server\n";
+  std::cout << "Open http://localhost:5587/pretty-print.html in your browser to view it\n";
 }

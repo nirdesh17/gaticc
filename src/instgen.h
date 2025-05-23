@@ -172,7 +172,6 @@ public:
 };
 
 void pretty_print(const InstBlob &blob);
-void pretty_print(const std::bitset<INST_SIZE_BITS> &inst);
 void pretty_print_html(const InstBlob &blob);
 
 
