@@ -3,6 +3,7 @@ import shutil
 import numpy as np
 import socket
 import struct
+import _gati
 
 
 # Using gati.py
@@ -31,6 +32,8 @@ import struct
 # window, and search up function names present in the imagenet.py in this 
 # doc. Docstring based comments on each function should explain their purpose.
 
+_gati.init()
+
 keep_quiet = False
 
 gbl_arch = {
@@ -42,17 +45,9 @@ gbl_arch = {
         "im2colbuf-size": 1024
         }
 
-dispatch_compare_arg = ""
+dispatch_compare_arg = []
 remote_ip = ""
 remote_arg = ""
-
-def _exec(cmd_string, sudo=False):
-    if os.getenv('PYTHONPATH') is None:
-        raise OSError("Env variable PYTHONPATH needs to be set to ${GATICC_ROOT}/python")
-    if sudo:
-        return os.system(f"sudo PYTHONPATH={os.getenv('PYTHONPATH')} gaticc {cmd_string}")
-    else:
-        return os.system(f"gaticc {cmd_string}")
 
 def set_arch(ramsize=None, sa_arch=None, vasize=None, accbuf_size=None, fcbuf_size=None, im2colbuf_size=None, config=None):
     """
@@ -117,24 +112,12 @@ def set_dispatch(dispatch_list):
     global dispatch_compare_arg
     if not isinstance(dispatch_list, list) or len(dispatch_list) < 1:
         raise ValueError(f"provided dispatch list {dispatch_list} should be a list with size greater than 0")
-    dispatch_compare_arg = ""
+    dispatch_compare_arg = []
     if isinstance(dispatch_list[0], str):
-        dispatch_compare_arg += "--dispatch "
-        for index,i in enumerate(dispatch_list):
-            dispatch_compare_arg += f"{i}"
-            if index < len(dispatch_list)-1:
-                dispatch_compare_arg += ","
+        dispatch_compare_arg = [("dispatch", ",".join(map(str, dispatch_list)))]
     elif isinstance(dispatch_list[0], list) or isinstance(dispatch_list[0], tuple):
-        dispatch_compare_arg += " --dispatch "
-        for index,(i,_) in enumerate(dispatch_list):
-            dispatch_compare_arg += f"{i}"
-            if index < len(dispatch_list)-1:
-                dispatch_compare_arg += ","
-        dispatch_compare_arg += " --compare-layer "
-        for index,(_,i) in enumerate(dispatch_list):
-            dispatch_compare_arg += f"{i}"
-            if index < len(dispatch_list)-1:
-                dispatch_compare_arg += ","
+        dispatch_compare_arg += [("dispatch", ",".join(i for i, _ in dispatch_list))]
+        dispatch_compare_arg += [("compare-layer", ",".join(i for _, i in dispatch_list))]
     else:
         raise ValueError(f"dispatch_list contains values of type {type(dispatch_list)}, can't handle it")
 
@@ -146,54 +129,28 @@ def set_keep_quiet(val=True):
 def set_remote(ip):
     global remote_ip
     global remote_arg
-    if "local" in ip:
-        remote_ip = os.popen(f"ping -c 1 {ip}").read().split('(')[1].split(')')[0]
-    else:
-        remote_ip = ip
-    remote_arg = f"--remote {remote_ip}"
+    remote_ip = os.popen(f"ping -c 1 {ip}").read().split('(')[1].split(')')[0] if "local" in ip else ip
+    remote_arg = [("remote", str(remote_ip))]
 
-def get_arch():
-    return gbl_arch
+def get_arch(): return gbl_arch
+def get_arch_list(arch) -> list[tuple]: return [(str(i), str(arch[i])) for i in arch]
+def kwargs2list(**kwargs) -> list[tuple]: return [(str(i).replace('_','-'), str(kwargs[i])) for i in kwargs]
+def args2list(*args) -> list[tuple]: return [(str(i), "") for i in args]
 
-def get_arch_string(arch) -> str:
-    cmd_string = ""
-    for i in arch:
-        cmd_string += f" --{i} {arch[i]} "
-    return cmd_string
-
-def kwarg2cmdstring(**kwargs) -> str:
-    cmd_string = ""
-    for i in kwargs:
-        cmd_string += f" --{i} {kwargs[i]} "
-    return cmd_string
-
-def args2cmdstring(*args) -> str:
-    cmd_string = ""
-    for i in args:
-        cmd_string += f" --{i} "
-    return cmd_string
+remove_dupes = lambda pairs: {next(d for d in pairs if d[0] == k) for k in dict(pairs)}
 
 def version():
     """
-    Retrieve and display the version of the gaticc tool.
-
-    This function executes the `gaticc --version` command and outputs the result to the console.
-    It requires the PYTHONPATH environment variable to be set correctly.
-
-    Raises:
-        OSError: If the PYTHONPATH environment variable is not set.
+    Prints version info on stdout
     """
-    return _exec("--version")
+    _gati.version()
+    return 0
 
 def compile(
         onnx_path: str,
         out_path: str,
         *args,
-        ramsize: int = 512,
-        sa_arch: str = "9,4,4",
-        vasize: int = 32,
-        accbuf_size: int = 4096,
-        fcbuf_size: int = 32768
+        **kwargs,
         ):
     """
     Compile an ONNX model for the target hardware architecture.
@@ -214,10 +171,11 @@ def compile(
     Raises:
         OSError: If the PYTHONPATH environment variable is not set.
     """
+    rest = remove_dupes(kwargs2list(**kwargs) + args2list(*args) + get_arch_list(get_arch()) + dispatch_compare_arg)
     if not keep_quiet:
-        print(f"GATICC COMPILE: Using arch: {get_arch()}")
-    cmd_string = f"-c {onnx_path} -o {out_path} {get_arch_string(get_arch())} {args2cmdstring(*args)} {dispatch_compare_arg}"
-    return _exec(cmd_string)
+        print(f"GATICC COMPILE: Using arch: {rest}")
+    _gati.compile(onnx_path, out_path, rest)
+    return 0 # FIXME: need to return the exit status of the compile
 
 def _flash_remote(ip, bitstream_file):
     PORT_BITSTREAM = 8081
@@ -250,6 +208,7 @@ def run(
         preprocfn: str,
         postprocfn: str,
         *args,
+        **kwargs,
         ):
     """
     Run a compiled model on the target hardware.
@@ -268,17 +227,13 @@ def run(
     Raises:
         OSError: If the PYTHONPATH environment variable is not set or if sudo privileges are unavailable.
     """
+    rest = remove_dupes(kwargs2list(**kwargs) + args2list(*args) + get_arch_list(get_arch()) + dispatch_compare_arg + remote_arg)
     if not keep_quiet:
-        print(f"GATICC RUN: Using arch: {get_arch()}")
-    cmd_string = (
-            f"-r {gml_path} --run-onnx {onnx_path} --loadpy {loadpy} "
-            f"--preprocfn {preprocfn} --postprocfn {postprocfn} "
-            f"{get_arch_string(get_arch())} {args2cmdstring(*args)} {dispatch_compare_arg} {remote_arg}"
-            )
-    return _exec(cmd_string, sudo=True)
+        print(f"GATICC COMPILE: Using arch: {rest}")
+    _gati.run(onnx_path, gml_path, loadpy, preprocfn, postprocfn, rest)
 
 def summary(onnx_path: str):
-    return _exec(f"-i {onnx_path} --summary")
+  return _gati.info(onnx_path, [("summary", "")])
 
 def match(label_file: str, prediction_file: str) -> float:
     """
@@ -323,6 +278,7 @@ def sim(
         preprocfn: str,
         postprocfn: str,
         *args,
+        **kwargs,
         ):
     """
     Run a compiled model on the target hardware.
@@ -340,9 +296,6 @@ def sim(
     Raises:
         OSError: If the PYTHONPATH environment variable is not set or if sudo privileges are unavailable.
     """
-    cmd_string = (
-            f"-s {onnx_path} --loadpy {loadpy} "
-            f"--preprocfn {preprocfn} --postprocfn {postprocfn} "
-            f" {args2cmdstring(*args)} {dispatch_compare_arg} "
-            )
-    return _exec(cmd_string)
+    rest = remove_dupes(args2list(*args) + kwargs2list(**kwargs) + dispatch_compare_arg)
+    _gati.sim(onnx_path, loadpy, preprocfn, postprocfn, rest)
+    return 0 #FIXME: retunr actual return stat

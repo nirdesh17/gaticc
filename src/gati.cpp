@@ -44,9 +44,8 @@ void compile(const std::string& onnx_path, const std::string &gml_path, const vs
   dispatch_compile_ops();
 }
 
-void summary(const std::string& onnx_path, const vss& rest) {
+void info(const std::string& onnx_path, const vss& rest) {
   gbl_args.set_option("info", onnx_path.c_str());
-  gbl_args.set_option("summary", "");
   for (const auto& i : rest) {
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
   }
