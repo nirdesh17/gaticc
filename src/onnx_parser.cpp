@@ -40,6 +40,10 @@ void Op::LayerBase::set_attributes(const onnx::NodeProto &node) {
   return;
 }
 
+void Op::LayerBase::set_constant_params(int n, const onnx::NodeProto &) {
+  return;
+}
+
 void Op::LayerBase::infer_shape(const IVec2D &input_dims) {
   ignore_unused(input_dims);
   log_fatal("Shape Inference Un-implemented for this layer {}: {}\n",
@@ -224,7 +228,32 @@ std::string Op::Layer::Clip::params() const {
 void Op::Layer::Clip::set_attributes(const onnx::NodeProto &node) {
   /* TODO: this */
   if (node.op_type() == "Constant") {
+    for (auto i : node.input()) {
+      std::cout << "input " << i << '\n';
+    }
+    for (auto i : node.output()) {
+      std::cout << "output " << i << '\n';
+    }
+    std::cout << '\n';
   }
+}
+
+enum CLIP_INITIALIZERS { CLIP_MIN = 1, CLIP_MAX = 2 };
+
+void Op::Layer::Clip::set_constant_params(int n, const onnx::NodeProto &node) {
+  float val = 0.0f;
+  for (const auto& a : node.attribute()) {
+    if (a.name() == "value") {
+      const onnx::TensorProto &t = a.t();
+      if (t.float_data_size() > 0) {
+        val = t.float_data(0);
+      } else if (!t.raw_data().empty()) {
+        std::memcpy(&val, t.raw_data().data(), sizeof(float));
+      }
+    }
+  }
+  m_min = (n == CLIP_MIN) ? val : m_min; 
+  m_max = (n == CLIP_MAX) ? val : m_max;
 }
 
 void Op::Layer::Clip::infer_shape(const IVec2D &input_dims) {
@@ -238,7 +267,6 @@ void Op::Layer::Clip::infer_type(const std::vector<TPDT> &input_types) {
   this->output_type = input_types;
 }
 
-enum CLIP_INITIALIZERS { CLIP_MIN = 1, CLIP_MAX = 2 };
 
 void Op::Layer::Clip::set_initializer_params(int n,
                                              const onnx::TensorProto &t) {
@@ -1913,7 +1941,7 @@ void Op::Model::add(Op::LayerBase *layer, const onnx::NodeProto &node) {
     }
     auto itr4 = constant_pool.find(node.input(i));
     if (itr4 != constant_pool.end()) {
-      layer->set_attributes(itr4->second);
+      layer->set_constant_params(i, itr4->second);
     }
   }
   for (auto i : node.output()) {
