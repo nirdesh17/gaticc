@@ -452,6 +452,29 @@ static int count_total_megablocks(const InstBlob &insts) {
   return cnt;
 }
 
+static IVec2D aligned_qla_dims(const IVec2D &d) {
+  IVec2D ret;
+  auto sa_arch = get_sa_arch();
+  for (int i = 0; i < d.size(); ++i) {
+    auto dd = d.at(i);
+    dd[TENSOR_4D_CHANNELS] = ceil_mod(dd[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+    ret.push_back(dd);
+  }
+  return ret;
+}
+
+static std::vector<int> aligned_qla(const IVec2D& d) {
+  auto ad = aligned_qla_dims(d);
+  std::vector<int> ret;
+  auto sa_arch = get_sa_arch();
+  for (int i = 0; i < ad.size(); ++i) {
+    int p = ad.at(i).at(TENSOR_4D_BATCH) * ad.at(i).at(TENSOR_4D_CHANNELS);
+    p *= ceil_mod(ad.at(i).at(TENSOR_4D_HEIGHT) * ad.at(i).at(TENSOR_4D_WIDTH), sa_arch[SA_ARCH_N]);
+    ret.push_back(p);
+  }
+  return ret;
+}
+
 InstBlob Pass::insert_start_inst(const InstBlob &insts) {
   InstBlob ret;
   int total_layers = count_total_megablocks(insts);
@@ -1220,15 +1243,12 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_WIDTH), EltWise_IW);
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_HEIGHT), EltWise_IH);
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_CHANNELS), EltWise_IC);
+  std::vector<int> ad = aligned_qla(l->input_dims);
   uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
-  uint32_t left_size =
-      prod(l->input_dims.at(0).begin(), l->input_dims.at(0).end(), 1) *
-      Op::tpdt_sizeof(l->input_type.at(0));
+  uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
   uint32_t left_end = left_start + left_size;
   uint32_t right_start = gen.io_addr_from_register(l->inputs.at(1));
-  uint32_t right_size =
-      prod(l->input_dims.at(1).begin(), l->input_dims.at(1).end(), 1) *
-      Op::tpdt_sizeof(l->input_type.at(1));
+  uint32_t right_size = ad.at(1) * Op::tpdt_sizeof(l->input_type.at(1));
   uint32_t right_end = right_start + right_size;
   inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
   inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
@@ -1407,6 +1427,14 @@ IVec2D Op::Layer::QGemm::aligned_output() const {
   return aligned_fc_io_dims(&output_dims.at(0));
 }
 
+
+IVec2D Op::Layer::QLinearAdd::aligned_input() const {
+  return aligned_qla_dims(input_dims);
+}
+
+IVec2D Op::Layer::QLinearAdd::aligned_output() const {
+  return aligned_qla_dims(input_dims);
+}
 
 std::pair<int,int> Op::Layer::QLinearConv::get_iterations() const {
   auto sa_arch = get_sa_arch();

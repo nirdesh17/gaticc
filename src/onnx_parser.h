@@ -458,6 +458,8 @@ struct QLinearAdd : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;
+  IVec2D aligned_input() const override;
+  IVec2D aligned_output() const override;
 };
 
 struct Transpose : public LayerBase {
