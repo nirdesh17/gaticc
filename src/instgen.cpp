@@ -804,7 +804,7 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   bool accen = true;
   if (!is_sa_regular_optimal(sa_arch) && is_regular_conv(cc->weights->dims(), cc->input_dims.at(0))) {
     accen = true;
-  } else if (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[SA_ARCH_N] ||
+  } else if (cc->input_dims[0][TENSOR_4D_CHANNELS] <= sa_arch[SA_ARCH_N] ||
       is_depthwise_conv(cc->weights->dims(), cc->input_dims.at(0)) || 
       (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2] && cc->m_cp.ki <= 1)) {
     accen = false;
