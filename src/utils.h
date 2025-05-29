@@ -17,6 +17,12 @@
 #include <typeinfo>
 #include <unistd.h>
 #include <variant>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+
+namespace py = pybind11;
+using namespace pybind11::literals;
 /* from https://github.com/vietjtnguyen/argagg
  * for options parsing. See class Argparse for more info
  */
@@ -637,7 +643,8 @@ public:
   bool has_value(int index);
   void resize(int size);
   void print() const;
-  /* TODO: add a destructor */
+  std::vector<std::any>::iterator begin();
+  std::vector<std::any>::iterator end();
 };
 
 template <typename T> void TensorPool::set(int index, T data) {

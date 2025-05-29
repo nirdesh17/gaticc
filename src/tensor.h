@@ -51,6 +51,7 @@ public:
   /* Write functions */
 
   /* insert one element at a time */
+  virtual T* data();
   virtual void insert(std::vector<int> &at, T data);
   virtual void push_back(T data);
   virtual void push_back(const std::vector<T> &data);
@@ -62,6 +63,10 @@ public:
   virtual typename std::vector<T>::iterator begin();
   virtual typename std::vector<T>::iterator end();
 };
+
+template <typename T> T* Tensor<T>::data() {
+  log_fatal("Un-implemented function\n");
+}
 
 template <typename T> void Tensor<T>::insert(std::vector<int> &, T) {
   log_fatal("Un-implemented function\n");
@@ -315,6 +320,10 @@ public:
 
   bool freeable() const override { return true; }
 
+  T* data() override {
+    return vec.data();
+  }
+  
   ~TensorCreate();
 };
 

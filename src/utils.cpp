@@ -5,6 +5,11 @@
 #include "version.h"
 #include <cstdarg>
 #include <regex>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+namespace py = pybind11;
+
 // #include <cstdint>
 // #include <typeinfo>
 
@@ -80,6 +85,69 @@ void TensorPool::print() const {
 bool TensorPool::has_value(int index) { return pool.at(index).has_value(); }
 
 void TensorPool::resize(int size) { pool.resize(size); }
+
+std::vector<std::any>::iterator TensorPool::begin() {
+  return pool.begin();
+}
+std::vector<std::any>::iterator TensorPool::end() {
+  return pool.end();
+}
+
+struct meta_info {
+  void *data;
+  int itemsize;
+  std::string format;
+  int ndim;
+  std::vector<ssize_t> shape;
+  std::vector<ssize_t> strides;
+};
+
+template <typename T>
+static meta_info get_meta_info(const std::any& val) {
+  meta_info ret;
+  Tensor<T> *t = std::any_cast<Tensor<T>*>(val);
+  auto dims = t->get_dims();
+  auto strides = t->get_strides();
+  ret.data = t->data();
+  ret.itemsize = sizeof(T);
+  ret.format = py::format_descriptor<T>::format();
+  ret.ndim = dims.size();
+  ret.shape.resize(dims.size());
+  std::copy(dims.begin(), dims.end(), ret.shape.begin());
+  ret.strides.resize(dims.size());
+  std::copy(dims.begin(), dims.end(), ret.strides.begin());
+  return ret;
+}
+
+py::list extract_pool(TensorPool &pool) {
+  py::list ret;
+  for (const auto &v : pool) {
+    meta_info meta;
+    if (v.type() == typeid(Tensor<int8_t> *)) {
+      meta = get_meta_info<int8_t>(v);
+    } else if (v.type() == typeid(Tensor<int16_t> *)) {
+      meta = get_meta_info<int16_t>(v);
+    } else if (v.type() == typeid(Tensor<int> *)) {
+      meta = get_meta_info<int>(v);
+    } else if (v.type() == typeid(Tensor<int64_t> *)) {
+      meta = get_meta_info<int64_t>(v);
+    } else if (v.type() == typeid(Tensor<float> *)) {
+      meta = get_meta_info<float>(v);
+    } else if (v.type() == typeid(Tensor<double> *)) {
+      meta = get_meta_info<double>(v);
+    } else if (v.type() == typeid(Tensor<uint8_t> *)) {
+      meta = get_meta_info<uint8_t>(v);
+    } else {
+      log_fatal("Unknown type: {}, cannot free. Support has to be added\n",
+                v.type().name());
+    }
+    py::array arr(py::buffer_info(nullptr, meta.itemsize, meta.format,
+                                  meta.ndim, meta.shape, meta.strides));
+    memcpy(arr.mutable_data(), meta.data, prod(meta.shape) * meta.itemsize);
+    ret.append(arr);
+  }
+  return ret;
+}
 
 /* path: such as "/usr/bin/file.txt"
  * returns: "file.txt"
