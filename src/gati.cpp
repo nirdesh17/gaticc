@@ -83,5 +83,6 @@ __attribute__((visibility("default"))) void sim2(const std::string& onnx_path, p
   for (const auto& i : rest) {
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
   }
-  //Executor executor(onnx_path, arr);
+  std::cout << "calling executor\n";
+  Executor executor(onnx_path, arr);
 }
