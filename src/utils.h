@@ -638,6 +638,7 @@ class TensorPool {
 public:
   template <typename T> void set(int index, T data);
   template <typename T> T get(int index);
+  template <typename T> void push_back(T data);
   void free();
   void free(int index);
   bool has_value(int index);
@@ -649,6 +650,10 @@ public:
 
 template <typename T> void TensorPool::set(int index, T data) {
   pool.at(index) = data;
+}
+
+template <typename T> void TensorPool::push_back(T data) {
+  pool.push_back(data);
 }
 
 template <typename T> T TensorPool::get(int index) {
@@ -895,4 +900,4 @@ get_byte_vector(const std::bitset<sz> num) {
 
 /* replace 'c' with 'r' */
 std::string sed(const std::string& src, char c, char r);
-
+py::list extract_pool(TensorPool &pool);

@@ -262,6 +262,12 @@ public:
     stride = get_stride_from_shape(dims);
   }
 
+  TensorCreate(Tensor<T> *t) {
+    vec = t->get();
+    dims = t->get_dims();
+    stride = t->get_strides();
+  }
+
   T at(std::vector<int> &at) const override {
     assert(at.size() == dims.size());
     int sum = 0;

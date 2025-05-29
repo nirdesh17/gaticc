@@ -77,12 +77,13 @@ void run(const std::string& onnx_path, const std::string& gml_path, const std::s
   dispatch_run_ops();
 }
 
-__attribute__((visibility("default"))) void sim2(const std::string& onnx_path, py::array arr, const vss& rest) {
+__attribute__((visibility("default"))) py::array sim2(const std::string& onnx_path, py::array arr, const vss& rest) {
   std::cout << "sim2 called\n";
   gbl_args.set_option("sim", onnx_path.c_str());
   for (const auto& i : rest) {
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
   }
-  std::cout << "calling executor\n";
-  Executor executor(onnx_path, arr);
+  Executor executor;
+  TensorPool ret = executor.run(onnx_path, arr);
+  return extract_pool(ret);
 }
