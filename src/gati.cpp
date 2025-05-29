@@ -5,6 +5,15 @@
 #include "options.h"
 #include <string>
 
+#include "pybind11/pybind11.h"
+#include "pybind11/numpy.h"
+#include "onnx_parser.h"
+#include "optimization.h"
+#include "executor.h"
+
+namespace py = pybind11;
+using namespace pybind11::literals;
+
 Argparse gbl_args;
 
 /* Must be called before any other functions in gaticc
@@ -66,4 +75,13 @@ void run(const std::string& onnx_path, const std::string& gml_path, const std::s
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
   }
   dispatch_run_ops();
+}
+
+__attribute__((visibility("default"))) void sim2(const std::string& onnx_path, py::array arr, const vss& rest) {
+  std::cout << "sim2 called\n";
+  gbl_args.set_option("sim", onnx_path.c_str());
+  for (const auto& i : rest) {
+    gbl_args.set_option(i.first.c_str(), i.second.c_str());
+  }
+  //Executor executor(onnx_path, arr);
 }
