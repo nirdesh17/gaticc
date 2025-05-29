@@ -4,6 +4,10 @@
 #include <iostream>
 #include <vector>
 
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+namespace py = pybind11;
+
 /* A general purpose interface to an n-dimensional tensor
  *
  * Implementation Details:
@@ -247,6 +251,17 @@ public:
     stride = get_stride_from_shape(dim);
   }
 
+  TensorCreate(py::array arr) {
+    // TODO: add a type check of arr and T here
+    auto buf = arr.request();
+    T *udata = static_cast<T *>(buf.ptr);
+    vec.assign(udata, udata + buf.size);
+    for (int i = 0; i < buf.shape.size(); ++i) {
+      dims.push_back(buf.shape.at(i));
+    }
+    stride = get_stride_from_shape(dims);
+  }
+
   T at(std::vector<int> &at) const override {
     assert(at.size() == dims.size());
     int sum = 0;
@@ -320,10 +335,8 @@ public:
 
   bool freeable() const override { return true; }
 
-  T* data() override {
-    return vec.data();
-  }
-  
+  T *data() override { return vec.data(); }
+
   ~TensorCreate();
 };
 

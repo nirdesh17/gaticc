@@ -11,7 +11,9 @@
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #endif
-
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+namespace py = pybind11;
 #include <vector>
 
 class DispatchTable {
@@ -48,10 +50,14 @@ class Executor {
   template <typename inputT, typename outputT>
   void execute(PyEngine &engine, const Op::Parser &parser);
 
+  template <typename inputT, typename outputT>
+  void execute(const Op::Parser &parser, Tensor<inputT>* arr);
+
   void print_extra_info(const Op::LayerBase *l);
 
 public:
   Executor(PyEngine &engine, const Op::Parser &parser);
+  Executor(const std::string& onnx_path, py::array arr);
 };
 
 template <typename T> Tensor<T> *read_model_input(const PyEngine &engine) {
@@ -146,6 +152,46 @@ void Executor::execute(PyEngine &engine, const Op::Parser &parser) {
         Tensor<outputT> *out =
             tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
         write_model_output<outputT>(engine, out, is_last_layer);
+      }
+    }
+  }
+  tt.stop();
+  if (get_verbose()) {
+    tt.report("Total time taken by the model: ");
+  }
+}
+
+template <typename inputT, typename outputT>
+void Executor::execute(const Op::Parser &parser, Tensor<inputT>* arr) {
+  Tensor<inputT> *full_batch = arr;
+
+  /* TODO: add checks here if inputs is batched and matches expected dims */
+  if (full_batch->dims_size() <= 1) {
+    log_fatal("Expects input images to be greater than 1 dimensional (N,...) "
+              "got a {} dimensional image\n", full_batch->dims_size());
+  }
+  std::vector<Op::LayerBase *> order = parser.get_execution_order();
+  Timer<std::chrono::seconds> tt; tt.start();
+  for (int i = 0; i < full_batch->dims_at(0); ++i) {
+    tensor_pool.free();
+
+    Tensor<inputT> *slice{get_slice(full_batch, std::vector<int>{i})};
+    if (order.at(0)->input_dims[0] != slice->get_dims()) {
+      log_fatal("Expected input dims {}, got input of dimensions {}\n",
+                order.at(0)->input_dims[0], slice->get_dims());
+    }
+    tensor_pool.set<Tensor<inputT> *>(0, slice);
+
+    for (Op::LayerBase *l : order) {
+      print_extra_info(l);
+      l->dispatch = dispatch_table.should_dispatch(l);
+      l->run(tensor_pool);
+
+      if (parser.has_graph_output(l)) {
+        Tensor<outputT> *out =
+            tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
+        out->print();
+        //write_model_output<outputT>(engine, out, is_last_layer);
       }
     }
   }

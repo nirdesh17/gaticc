@@ -4,6 +4,8 @@
 #include "executor.h"
 #include "sim.h"
 #include "utils.h"
+#include "onnx_parser.h"
+#include "optimization.h"
 
 DispatchTable::DispatchTable() {
   dump_all = false;
@@ -106,6 +108,33 @@ Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
   } else if (input_type == onnx::TensorProto_DataType_INT8 &&
              output_type == onnx::TensorProto_DataType_INT32) {
     execute<int8_t, int>(engine, parser);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+  }
+}
+
+Executor::Executor(const std::string& onnx_path, py::array arr) {
+  Op::Parser parser(onnx_path);
+  split_large_kernel(parser.get_graph());
+
+  TPDT input_type = parser.get_model_input_type();
+  TPDT output_type = parser.get_model_output_type();
+
+  int total_regs = parser.get_total_registers() + 1;
+  tensor_pool.resize(total_regs);
+
+  dispatch_table = DispatchTable();
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT &&
+      output_type == onnx::TensorProto_DataType_FLOAT) {
+    Tensor<float> *input = new TensorCreate<float>(arr);
+    execute<float, float>(parser, input);
+  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+             output_type == onnx::TensorProto_DataType_INT32) {
+    Tensor<int8_t> *input = new TensorCreate<int8_t>(arr);
+    execute<int8_t, int>(parser, input);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type),
