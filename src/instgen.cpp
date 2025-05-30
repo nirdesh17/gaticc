@@ -469,7 +469,7 @@ static std::vector<int> aligned_qla(const IVec2D& d) {
   auto sa_arch = get_sa_arch();
   for (int i = 0; i < ad.size(); ++i) {
     int p = ad.at(i).at(TENSOR_4D_BATCH) * ad.at(i).at(TENSOR_4D_CHANNELS);
-    p *= ceil_mod(ad.at(i).at(TENSOR_4D_HEIGHT) * ad.at(i).at(TENSOR_4D_WIDTH), sa_arch[SA_ARCH_N]);
+    p *= ceil_mod(ad.at(i).at(TENSOR_4D_HEIGHT) * ad.at(i).at(TENSOR_4D_WIDTH), get_conv_out_mod());
     ret.push_back(p);
   }
   return ret;
