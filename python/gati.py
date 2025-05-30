@@ -273,29 +273,23 @@ def match(label_file: str, prediction_file: str) -> float:
 
 
 def sim(
-        onnx_path: str,
-        loadpy: str,
-        preprocfn: str,
-        postprocfn: str,
-        *args,
-        **kwargs,
-        ):
-    """
-    Run a compiled model on the target hardware.
+    onnx_path: str,
+    arr: np.ndarray,
+    *args,
+    **kwargs,
+    ) -> np.ndarray:
+  """
+  Run the ONNX file entirely on the CPU (simulation)
 
-    Args:
-        onnx_path (str): Path to the original ONNX model file.
-        loadpy (str): Path to a Python script that loads input data.
-        preprocfn (str): Name of the preprocessing function in the loadpy script.
-        postprocfn (str): Name of the postprocessing function in the loadpy script.
-        *args: Additional command-line flags to pass to the gaticc runtime.
+  Args:
+    onnx_path (str): Path to the original ONNX model file.
+    arr (np.ndarray): Input to the model.
+    *args: Additional flags.
+    **kwargs: Additional key-value flags.
 
-    Prints:
-        A message showing the architecture configuration being used.
-
-    Raises:
-        OSError: If the PYTHONPATH environment variable is not set or if sudo privileges are unavailable.
-    """
-    rest = remove_dupes(args2list(*args) + kwargs2list(**kwargs) + dispatch_compare_arg)
-    _gati.sim(onnx_path, loadpy, preprocfn, postprocfn, rest)
-    return 0 #FIXME: retunr actual return stat
+  Returns:
+    arr (np.ndarray): an array of the shape [N, ...] where is the
+    batch size of the input
+  """
+  rest = remove_dupes(args2list(*args) + kwargs2list(**kwargs) + dispatch_compare_arg)
+  return _gati.sim2(onnx_path, arr, rest)
