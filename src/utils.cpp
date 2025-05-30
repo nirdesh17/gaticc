@@ -114,8 +114,10 @@ static meta_info get_meta_info(const std::any& val) {
   ret.ndim = dims.size();
   ret.shape.resize(dims.size());
   std::copy(dims.begin(), dims.end(), ret.shape.begin());
-  ret.strides.resize(dims.size());
-  std::copy(dims.begin(), dims.end(), ret.strides.begin());
+  ret.strides.resize(strides.size());
+  for (int i = 0; i < strides.size(); ++i) {
+    ret.strides[i] = strides[i] * sizeof(T);
+  }
   return ret;
 }
 

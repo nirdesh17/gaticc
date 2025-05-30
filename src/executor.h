@@ -191,7 +191,6 @@ TensorPool Executor::run_aux(const Op::Parser &parser, Tensor<inputT>* arr) {
       if (parser.has_graph_output(l)) {
         Tensor<outputT> *out = tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
         Tensor<outputT> *out_copy = new TensorCreate(out);
-        out->print();
         ret.push_back<Tensor<outputT>*>(out);
       }
     }

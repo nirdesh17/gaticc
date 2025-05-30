@@ -66,7 +66,6 @@ void sim(const std::string& onnx_path, const std::string& loadpy, const std::str
 
 void run(const std::string& onnx_path, const std::string& gml_path, const std::string& loadpy, const std::string& preprocfn, const std::string& postprocfn, const vss& rest) {
   gbl_args.set_option("run", gml_path.c_str());
-  std::cout << "onnx path " << onnx_path << '\n';
   gbl_args.set_option("run_onnx", onnx_path.c_str());
   gbl_args.set_option("loadpy", loadpy.c_str());
   gbl_args.set_option("preprocfn", preprocfn.c_str());
