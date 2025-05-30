@@ -235,41 +235,39 @@ def run(
 def summary(onnx_path: str):
   return _gati.info(onnx_path, [("summary", "")])
 
-def match(label_file: str, prediction_file: str) -> float:
-    """
-    Compare predicted labels against ground truth labels and calculate the match percentage.
+def match(label_file: str, predicted_labels: list) -> float:
+  """
+  Compare predicted labels against ground truth labels and calculate the match percentage.
 
-    Args:
-        label_file (str): Path to a file containing ground truth labels (one integer per line).
-        prediction_file (str): Path to a file containing predicted labels (one integer per line).
+  Args:
+      label_file (str): Path to a file containing ground truth labels (one integer per line).
+      prediction_file (str): Path to a file containing predicted labels (one integer per line).
 
-    Returns:
-        float: The percentage of matching labels (0.0 to 100.0).
+  Returns:
+      float: The percentage of matching labels (0.0 to 100.0).
 
-    Prints:
-        A list of indices where mismatches occurred, if any.
+  Prints:
+      A list of indices where mismatches occurred, if any.
 
-    Raises:
-        ValueError: If the number of labels in the two files does not match.
-        FileNotFoundError: If either file cannot be opened.
-    """
-    with open(label_file, "r") as f:
-        file_labels = [int(line.strip()) for line in f]
-    with open(prediction_file, "r") as f:
-        predicted_labels = [int(line.strip()) for line in f]
-    if len(file_labels) != len(predicted_labels):
-        raise ValueError("Label file and array must have the same number of elements.")
-    mismatches = []
-    matches = 0
-    for idx, (file_label, pred_label) in enumerate(zip(file_labels, predicted_labels)):
-        if file_label == pred_label:
-            matches += 1
-        else:
-            mismatches.append(idx)
-    match_percentage = (matches / len(file_labels)) * 100
-    if mismatches:
-        print(f"Mismatched indices: {mismatches}")
-    return match_percentage
+  Raises:
+      ValueError: If the number of labels in the two files does not match.
+      FileNotFoundError: If either file cannot be opened.
+  """
+  with open(label_file, "r") as f:
+      file_labels = [int(line.strip()) for line in f]
+  if len(file_labels) != len(predicted_labels):
+      raise ValueError("Label file and array must have the same number of elements.")
+  mismatches = []
+  matches = 0
+  for idx, (file_label, pred_label) in enumerate(zip(file_labels, predicted_labels)):
+      if file_label == pred_label:
+          matches += 1
+      else:
+          mismatches.append(idx)
+  match_percentage = (matches / len(file_labels)) * 100
+  if mismatches:
+      print(f"Mismatched indices: {mismatches}")
+  return match_percentage
 
 
 def sim(
