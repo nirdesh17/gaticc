@@ -4,22 +4,9 @@ import sys
 import argparse
 import numpy as np
 
-def gen_mnist():
-    arr = np.load("mnist_10.npy")
-    return arr
-
-def gen_imagenet():
-    arr = np.load("imagenet_10.npy")
-    return arr
-
-def gen_cifar():
-    arr = np.load("cifar_10.npy")
-    return arr
-
-def post(num):
-    m = np.argmax(num)
-    with open("results.txt", "a") as f: f.write(f"{m}\n")
-    return m
+def post(arr):
+  m = np.argmax(np.squeeze(arr, axis=1), axis=-1)
+  return m
 
 files = [
 'cifar10_vgg11.onnx',
@@ -74,21 +61,18 @@ if __name__ == "__main__":
         with open("results.txt", "w"): pass
         accuracy = 0
         if "mnist" in file:
-            ret = gati.sim(os.path.join(models_dir, file), "test_sim.py", "gen_mnist", "post")
-            if ret == 0:
-                accuracy = gati.match('mnist_10_labels.txt', 'results.txt')
+            ret = post(gati.sim(os.path.join(models_dir, file), np.load("mnist_10.npy")))
+            accuracy = gati.match('mnist_10_labels.txt', ret)
         elif "imagenet" in file:
-            ret = gati.sim(os.path.join(models_dir, file), "test_sim.py", "gen_imagenet", "post")
-            if ret == 0:
-                accuracy = gati.match('imagenet_10_labels.txt', 'results.txt')
+            ret = post(gati.sim(os.path.join(models_dir, file), np.load("imagenet_10.npy")))
+            accuracy = gati.match('imagenet_10_labels.txt', ret)
         elif "cifar" in file:
-            ret = gati.sim(os.path.join(models_dir, file), "test_sim.py", "gen_cifar", "post")
-            if ret == 0:
-                accuracy = gati.match('cifar_10_labels.txt', 'results.txt')
+            ret = post(gati.sim(os.path.join(models_dir, file), np.load("cifar_10.npy")))
+            accuracy = gati.match('cifar_10_labels.txt', ret)
         else:
-            ret = 1
+            raise NotImplemented(f"Could not deduce the dataset for file {file}")
 
-        if ret != 0 or accuracy < 50:
+        if accuracy < 50:
             failed.append((file, accuracy))
         else:
             passed.append((file, accuracy))

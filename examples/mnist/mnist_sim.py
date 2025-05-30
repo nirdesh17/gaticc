@@ -1,18 +1,11 @@
 import gati
 import numpy as np
 
-def gen():
-    arr = np.load("mnist_100.npy")
-    return arr
-
-def post(num):
-    m = np.argmax(num)
-    with open("results.txt", "a") as f: f.write(f"{m}\n")
-    print(f"number: {m}")
-    return m
+def post(arr):
+  m = np.argmax(np.squeeze(arr, axis=1), axis=-1)
+  return m
 
 if __name__ == "__main__":
-    onnx_path = "/home/metal/dev/gaticc/tests/models/mnist_6_28_int8.onnx"
-    with open("results.txt", "w"): pass
-    gati.sim(onnx_path, "mnist_sim.py", "gen", "post")
-    print(f"Match: {gati.match('mnist_100_labels.txt', 'results.txt')}%")
+  onnx_path = "/home/metal/dev/gaticc/tests/models/mnist_6_28_int8.onnx"
+  ret = post(gati.sim(onnx_path, np.load("mnist_10.npy")))
+  print(f"Match: {gati.match('mnist_10_labels.txt', ret)}%")
