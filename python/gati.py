@@ -292,4 +292,4 @@ def sim(
     batch size of the input
   """
   rest = remove_dupes(args2list(*args) + kwargs2list(**kwargs) + dispatch_compare_arg)
-  return _gati.sim2(onnx_path, arr, rest)
+  return _gati.sim(onnx_path, arr, rest)

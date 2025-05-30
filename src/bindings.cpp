@@ -13,7 +13,6 @@ PYBIND11_MODULE(_gati, m) {
   m.def("info", &info, "onnx_path"_a, "rest"_a = py::list());
   m.def("version", []() {gbl_args.print_version();});
   m.def("help", []() {gbl_args.print_usage();});
-  m.def("sim", &sim, "onnx_path"_a, "loadpy"_a, "preprocfn"_a, "postprocfn"_a, "rest"_a = py::list());
+  m.def("sim", &sim, "onnx_path"_a, "inp"_a, "rest"_a = py::list());
   m.def("run", &run, "onnx_path"_a, "gml_path"_a, "loadpy"_a, "preprocfn"_a, "postprocfn"_a, "rest"_a = py::list());
-  m.def("sim2", &sim2, "onnx_path"_a, "inp"_a, "rest"_a = py::list());
 }
