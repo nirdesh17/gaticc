@@ -10,6 +10,7 @@
 #include "onnx_parser.h"
 #include "optimization.h"
 #include "executor.h"
+#include "rt.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -72,5 +73,16 @@ void run(const std::string& onnx_path, const std::string& gml_path, const std::s
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
   }
   dispatch_run_ops();
+}
+
+__attribute__((visibility("default"))) void run2(const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
+  std::cout << "run2 called\n";
+  gbl_args.set_option("run", gml_path.c_str());
+  gbl_args.set_option("run_onnx", onnx_path.c_str());
+  for (const auto& i : rest) {
+    gbl_args.set_option(i.first.c_str(), i.second.c_str());
+  }
+  Runner runner;
+  runner.infer(onnx_path, gml_path, arr);
 }
 

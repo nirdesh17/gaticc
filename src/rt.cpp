@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <cstring>
 #include <thread>
+#include <optimization.h>
 
 Fstream::Fstream(const std::string &filename) {
   FILE *fp = fopen(filename.c_str(), "rb");
@@ -358,7 +359,49 @@ Runner::Runner(Op::Parser &parser) : m_parser{&parser} {
   infer_loop(*rah, fp);
 }
 
-Runner::~Runner() { delete m_engine; }
+Runner::Runner() {}
+
+void Runner::infer(const std::string& onnx_path, const std::string& gml_path, py::array arr) {
+  Op::Parser parser(onnx_path);
+  m_parser = &parser;
+  split_large_kernel(m_parser->get_graph());
+  Pass::absorb(m_parser->get_graph());
+  tensor_pool_init();
+  Fstream fp(gml_path);
+  /* TODO: use uniqueptr */
+  Rah *rah;
+  if (gbl_args.has_option("dry-run")) {
+    rah = new FakeRah();
+  } else if (gbl_args.has_option("remote")) {
+    std::string ip_addr = gbl_args["remote"].as<std::string>();
+    rah = new AirRah(ip_addr);
+  } else {
+    rah = new RealRah();
+  }
+  load_model(*rah, fp);
+  HashedDispatchTable hdt(fp);
+  TPDT input_type = parser.get_model_input_type();
+  TPDT output_type = parser.get_model_output_type();
+
+  if (input_type == onnx::TensorProto_DataType_FLOAT &&
+      output_type == onnx::TensorProto_DataType_FLOAT) {
+    Tensor<float> *input = new TensorCreate<float>(arr);
+    infer_aux<float, float>(*rah, hdt, input);
+  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
+             output_type == onnx::TensorProto_DataType_INT32) {
+    Tensor<int8_t> *input = new TensorCreate<int8_t>(arr);
+    infer_aux<int8_t, int>(*rah, hdt, input);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type),
+              Op::get_tensorproto_dtype_name(output_type));
+    //return TensorPool();
+  }
+}
+
+
+// TODO: remove this
+//Runner::~Runner() { delete m_engine; }
 
 /* make sure correct bitstream is loaded & rah.service
  * is running
