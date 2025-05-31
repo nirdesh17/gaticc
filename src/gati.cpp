@@ -1,5 +1,3 @@
-#include "Python.h"
-#include "numpy_init.h"
 #include "utils.h"
 #include "gati.h"
 #include "options.h"
@@ -16,25 +14,6 @@ namespace py = pybind11;
 using namespace pybind11::literals;
 
 Argparse gbl_args;
-
-/* Must be called before any other functions in gaticc
- * Returns a void* to silent -Wconversion-null created when
- * import_array() macro is expanded, which optionally returns
- * a NULL when conditions are not met.
- * See: https://stackoverflow.com/a/61729835
- * */
-void *import_aux() {
-  Py_Initialize();
-  import_array();
-  if (PyErr_Occurred()) {
-    log_fatal("Failed to import numpy Python module(s).\n");
-  }
-  return NULL;
-}
-
-void init() {
-  import_aux();
-}
 
 void compile(const std::string& onnx_path, const std::string &gml_path, const vss& rest) {
   gbl_args.set_option("compile", onnx_path.c_str());

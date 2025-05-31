@@ -5,46 +5,28 @@
 ## Install Dependencies 
 
 **Arch**:
-
 ```
-sudo pacman -S python3 python-numpy pkg-config python3-venv cmake
+sudo pacman -S python3 pkg-config cmake
 ```
 
 **Fedora**:
-    
 ``` 
-sudo dnf install python3-devel python3-numpy python3-venv cmake
+sudo dnf install python3-devel cmake
 ```
 
 **Ubuntu/Debian**:
-
 ```
-sudo apt install python3-dev python3-numpy pkg-config python3-venv cmake
-```
-
-**Python dependencies**:
-
-Regardless of the OS, these packages have to be installed. If pip on your system
-supports installing packages system-wide, run: 
-
-```
-pip install -r requirements.txt
+sudo apt install python3-dev pkg-config cmake
 ```
 
-Otherwise, create a virtual env and install it there:
-
+**MacOs**
 ```
-mkdir my_env
-cd my_env
-python -m venv .
-source bin/activate
-pip install -r requirements.txt
+brew install python pkg-config cmake
 ```
 
 ### On board
 
-If install gaticc on a board with an FPGA (Vaaman etc.), you would need
-additional dependencies that allow CPU-FPGA communication:
+On the board, you would need additional dependencies that allow CPU-FPGA communication:
 
 First, check if "Vaaman FPGA communication" is checked in the overlay config,
 find a detailed how-to
@@ -79,7 +61,7 @@ export PYTHONPATH="${GATICC_ROOT}/python:$PYTHONPATH"
 ```
 `${GATICC_ROOT}` should be replaced by absolute path/to/gaticc
 
-## Usage
+# Usage
 
 See,
 ```
@@ -87,9 +69,24 @@ gaticc -h
 ```
 for usage instructions.
 
-Additionally, checkout `examples/` directory for understanding the python
-interface that gaticc provides and `python/gati.py` for a comprehensive
-python API doc.
+## Python Interface
+
+Install numpy:
+```
+pip install numpy
+```
+Here's an example script to run simulation of a model (install model files from the model zoo):
+```
+import gati
+
+onnx_path = "tests/models/mnist_6_28_int8.onnx"
+print(np.argmax(np.squeeze(gati.sim(onnx_path, np.load("mnist_2.py")), axis=1), axis=-1))
+```
+
+For more examples, checkout `examples/` directory. It contains, scripts to
+compile, run, summarize etc.  
+
+For full api doc, read `python/gati.py` (or feed it to your favorite LLM).
 
 # Versioning
 
@@ -134,9 +131,7 @@ through the `bump_version.sh` script present in the root of this repo. Read the
 script (or `./bump_version.sh` to get usage message) to understand what all it
 does. Any push to master should be preceded by a version bump.
 
-# Contributing to gaticc
-
-## General 
+# Contribution Guidelines
 
 - Format all your commit messages according to <https://www.conventionalcommits.org/en/v1.0.0/>.
 - For bugs, create an issues here: <https://github.com/vicharak-in/gaticc/issues/>
@@ -156,117 +151,18 @@ does. Any push to master should be preceded by a version bump.
   suggestions. (suggest through ISSUES)
 - You can find some here: <https://google.github.io/styleguide/cppguide.html>
 
-# Guide to Writing Tests
+# Tests
 
-## Overview
+In the `tests/` directory individual python scripts are used to 
+test primary function of gaticc. These files are:
 
-This guide provides instructions on creating and running test files for various
-run functions in the `gaticc`. The goal is to understand the process of testing
-individual functions.
+- `test_compile.py`
+- `test_sim.py`
+- `test_summary.py`
+- `test_dispatch.py`
 
-## Important Files for Writing Tests
+See their `-h` help messages to understand how they ought to be used. 
 
-1. **executor.cpp**: Implements the logic for executing various neural network
-   operations by overriding the Op::LayerBase::run() method for different layer
-types. This file contains the execution logic for layers such as convolution,
-ReLU, max pooling, and more, handling both floating-point and quantized data
-types.
+# Model Zoo
 
-2. **onnx_parser.h**: Defines classes and structures for parsing ONNX models. It
-   includes definitions for different layer types, methods for setting
-parameters, and executing layers. The file also provides utilities for handling
-ONNX model components like initializers, value info, and attributes,
-facilitating the conversion of ONNX models into executable graphs.
-
-3. **sim.h**: Contains simulation functionalities for neural network operations.
-   This file includes classes and methods for simulating the execution of
-layers, handling operations like matrix multiplication, pooling and more. It
-also provides profiling tools to measure execution performance.
-
-4. **tensor.h**: Defines tensor data structures and methods for managing
-   dimensions and accessing data. This file is essential for handling
-multi-dimensional arrays in machine learning models, providing an abstract base
-class for tensors and concrete implementations for different tensor types. It
-includes methods for tensor operations such as element access, insertion, and
-dimension manipulation.
-
-## Understanding and Using Functions
-
-There are multiple functions, such as `run_conv`, `run_relu`, `run_maxpool`,
-etc., that simulate different CNN operations. To create a test file for any
-function, follow these general steps:
-
-1. **Identify the Function**:  Start by choosing the function you want to test
-   (e.g., `run_conv`, `run_relu`). These functions are typically found in the
-`executor.cpp` file.
-
-2. **Understand the Function Parameters**:  Look into the source file to
-   understand:
-   - What inputs the function expects (e.g., tensor data, dimensions,
-     configuration parameters).
-   - What outputs the function produces (e.g., modified tensors, numerical
-     results).
-   
-   For example, for `run_conv`, check what data format it accepts (like a
-    multi-dimensional array or tensor), the required kernel size, stride, etc.
-
-3. **Map to the Class and Methods**:  If the function is part of a class,
-   understand how the class is structured:
-   - **Constructor**: How to initialize the class object.
-   - **Methods**: Which methods of the class need to be called to properly
-     execute the function (e.g., initialization methods, setters for inputs).
-   - **Input/Output Parameters**: Identify the required formats for input and
-     output.
-
-4. **Create the Test File**:  Once you understand how the function works and its
-   requirements, create a test file for it (e.g.,
-`functionName_inputDims_outputDims.cpp`). Structure the file to:
-   - Initialize the necessary data (e.g., input tensors).
-   - Call the function with the appropriate arguments.
-   - Capture and check the output to ensure correctness.
-   - Include all required headers.
-
-5. **Add Executable in CMakeLists.txt**:  After writing the code, add its
-   executable in the `CMakeLists.txt` file of the tests directory as a CTest.
-Then, run and check if it's working as required.
-
-6. **Repeat for Other Functions**:  Follow the same steps for each function you
-   want to test, such as `run_flatten`, `run_gemm`, `run_quantize_linear`, etc.
-Each function may have unique inputs and outputs, so make sure to adjust
-accordingly.
-
-### Example Test File 
-
-- Find example test files in the
-  [gaticc/tests](https://github.com/vicharak-in/gaticc/tree/master/tests)
-directory. For reference on how to include new tests, check the `CMakeLists.txt`
-file located in the same folder. This will help you understand the structure and
-integration of new test cases.
-
-## Building and Running Test Files
-
-- By default, **Gaticc** builds only the main project without including test files. If you want to include the tests in the build, you need to enable the `BUILD_TESTING` flag during the configuration step. Follow these steps:
-  ```
-  cmake -B build -DBUILD_TESTING=ON
-  cmake --build build
-  ```
-
-- After building with tests enabled, you can execute individual test executables:
-  - Navigate to the `tests` folder within the `build` directory
-  - Run the desired test executable. For example:
-    ``` 
-    ./test_example 
-    ```
-- To run all tests together, use `ctest` from the build directory:
-  ```
-  cd build
-  ctest
-  ```
-
-> [!NOTE]  
-> The `BUILD_TESTING` flag is set to `OFF` by default. If tests are not
-> required, you can skip enabling this flag.
-
-## Supported Models
-
-- [Download Models](http://galactos.local:8471/)
+[Download models and other files](http://galactos.local:8471/)

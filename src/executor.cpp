@@ -1,6 +1,3 @@
-#define NO_IMPORT_ARRAY
-#include "numpy_init.h"
-
 #include "executor.h"
 #include "sim.h"
 #include "utils.h"
@@ -90,28 +87,6 @@ void Executor::print_extra_info(const Op::LayerBase *l) {
     std::cout << "Running " << l->op_type() << ' ' << l->name << ' '
               << Op::get_tensorproto_dtype_name(l->input_type[0]) << ' '
               << Op::get_tensorproto_dtype_name(l->output_type[0]) << '\n';
-  }
-}
-
-Executor::Executor(PyEngine &engine, const Op::Parser &parser) {
-  TPDT input_type = parser.get_model_input_type();
-  TPDT output_type = parser.get_model_output_type();
-
-  int total_regs = parser.get_total_registers() + 1;
-  tensor_pool.resize(total_regs);
-
-  dispatch_table = DispatchTable();
-
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
-    execute<float, float>(engine, parser);
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
-             output_type == onnx::TensorProto_DataType_INT32) {
-    execute<int8_t, int>(engine, parser);
-  } else {
-    log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
   }
 }
 

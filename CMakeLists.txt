@@ -39,7 +39,6 @@ endif()
 message(STATUS "Makefile verbosity set to ${CMAKE_VERBOSE_MAKEFILE}")
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-find_package(Python3 COMPONENTS NumPy REQUIRED)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
   set(PROTO_LIB_NAME libprotobuf-lited)
@@ -50,7 +49,6 @@ message(STATUS "Proto library name set to ${PROTO_LIB_NAME}")
 
 
 set(ALL_DIR
-    ${Python3_NumPy_INCLUDE_DIRS} 
     ${Python3_INCLUDE_DIRS}
     ${BOOST_PATH}
     ${PROTO_PATH}/src
@@ -62,7 +60,6 @@ set(ALL_DIR
 
 set(ALL_LIBS
     ${Python3_LIBRARIES} 
-    ${NumPy_LIBRARIES} 
     ${PROTO_BIN_PATH}/${PROTO_LIB_NAME}.so
     dl
 )

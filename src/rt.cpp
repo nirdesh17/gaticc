@@ -302,61 +302,15 @@ AirRah::~AirRah() {
   close(m_sock);
 }
 
-void Runner::check_args() {
-  if (!gbl_args.has_option("loadpy")) {
-    log_fatal("Option --loadpy needs to be specified\n");
-    gbl_args.print_usage();
-  }
-
-  if (!gbl_args.has_option("preprocfn")) {
-    log_fatal("Option --preprocfn needs to be specified\n");
-    gbl_args.print_usage();
-  }
-
-  if (!gbl_args.has_option("postprocfn")) {
-    log_fatal("Option --postprocfn needs to be specified\n");
-    gbl_args.print_usage();
-  }
-}
-
 void Runner::tensor_pool_init() {
   int total_regs = m_parser->get_total_registers() + 1;
   tensor_pool.resize(total_regs);
   tensor_pool.free();
 }
 
-void Runner::pyengine_init() {
-  log_info("starting PyEngine\n");
-  std::string mod_arg = gbl_args["loadpy"].as<std::string>();
-  std::string mod_name = extract_basename(mod_arg).stem().string();
-  std::filesystem::path mod_path = extract_dirname(mod_arg);
-  m_engine = new PyEngine(mod_name, mod_path);
-}
-
 std::string Runner::get_run_arg() {
   assert(gbl_args.has_option("run"));
   return gbl_args["run"].as<std::string>();
-}
-
-Runner::Runner(Op::Parser &parser) : m_parser{&parser} {
-  check_args();
-  tensor_pool_init();
-  pyengine_init();
-
-  std::string gml_file = get_run_arg();
-  Fstream fp(gml_file);
-
-  Rah *rah;
-  if (gbl_args.has_option("dry-run")) {
-    rah = new FakeRah();
-  } else if (gbl_args.has_option("remote")) {
-    std::string ip_addr = gbl_args["remote"].as<std::string>();
-    rah = new AirRah(ip_addr);
-  } else {
-    rah = new RealRah();
-  }
-  load_model(*rah, fp);
-  infer_loop(*rah, fp);
 }
 
 Runner::Runner() {}
@@ -398,10 +352,6 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
     return TensorPool();
   }
 }
-
-
-// TODO: remove this
-//Runner::~Runner() { delete m_engine; }
 
 /* make sure correct bitstream is loaded & rah.service
  * is running
@@ -456,16 +406,6 @@ void Runner::load_model(Rah &rah, const Fstream &fp) {
    */
 }
 
-void Runner::infer_loop(Rah &rah, const Fstream &fp) {
-  log_warn("Types are being hardcoded in inferloop\n");
-  using inputT = float;
-  log_info("reading input\n");
-  log_info("running preprocess on inputs\n");
-  HashedDispatchTable hdt(fp);
-  /* TODO: deduce the types dynamically */
-  run<inputT, int8_t, float>(rah, hdt);
-}
-
 void Runner::fake_exec(Op::LayerBase *l) {
   if (tensor_pool.has_value(l->outputs.at(0))) {
     tensor_pool.free(l->outputs.at(0));
@@ -473,20 +413,21 @@ void Runner::fake_exec(Op::LayerBase *l) {
 }
 
 void Runner::read_uart(BinBlob &blob, int uart_baud, int expected_size) {
-  PyObject *args = Py_BuildValue("(ii)", uart_baud, expected_size);
-  PyObject *ret = m_engine->call_func("read_uart", args);
-  if (ret == NULL) {
-    log_fatal("read_uart failed don't know why\n");
-  }
-  Tensor<int8_t> *rr = np2t<int8_t>(ret);
-  assert(rr->size() == blob.size());
-  char *data = blob.get_data();
-  for (int i = 0; i < rr->size(); ++i) {
-    data[i] = rr->at(i);
-  }
-  delete rr;
-  Py_XDECREF(ret);
-  Py_XDECREF(args);
+  log_fatal("read uart disabled\n");
+  //PyObject *args = Py_BuildValue("(ii)", uart_baud, expected_size);
+  //PyObject *ret = m_engine->call_func("read_uart", args);
+  //if (ret == NULL) {
+  //  log_fatal("read_uart failed don't know why\n");
+  //}
+  //Tensor<int8_t> *rr = np2t<int8_t>(ret);
+  //assert(rr->size() == blob.size());
+  //char *data = blob.get_data();
+  //for (int i = 0; i < rr->size(); ++i) {
+  //  data[i] = rr->at(i);
+  //}
+  //delete rr;
+  //Py_XDECREF(ret);
+  //Py_XDECREF(args);
 }
 
 void Runner::receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer) {

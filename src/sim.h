@@ -4,10 +4,6 @@
 #include "onnx_parser.h"
 #include "tensor.h"
 #include "utils.h"
-#ifndef PY_SSIZE_T_CLEAN
-#define PY_SSIZE_T_CLEAN
-#endif
-#include "Python.h"
 #include "boost/graph/adjacency_list.hpp"
 #include "boost/graph/graph_traits.hpp"
 #include <algorithm>

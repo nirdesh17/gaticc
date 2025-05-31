@@ -32,8 +32,6 @@ import _gati
 # window, and search up function names present in the imagenet.py in this 
 # doc. Docstring based comments on each function should explain their purpose.
 
-_gati.init()
-
 keep_quiet = False
 
 gbl_arch = {

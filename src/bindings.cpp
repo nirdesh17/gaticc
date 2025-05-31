@@ -8,7 +8,6 @@ namespace py = pybind11;
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(_gati, m) {
-  m.def("init", []() { init(); });
   m.def("compile", &compile, "onnx_path"_a, "gml_path"_a, "rest"_a = py::list());
   m.def("info", &info, "onnx_path"_a, "rest"_a = py::list());
   m.def("version", []() {gbl_args.print_version();});
