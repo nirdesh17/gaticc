@@ -116,8 +116,8 @@ class Runner {
             typename OutputT>
   void run(Rah &rah, HashedDispatchTable &hdt);
 
-  template <typename inputT, typename OutputT>
-  void infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr);
+  template <typename inputT, typename outputT>
+  TensorPool infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr);
 
   void receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer);
   void fake_exec(Op::LayerBase *l);
@@ -132,7 +132,7 @@ class Runner {
 public:
   Runner(Op::Parser &parser);
   Runner();
-  void infer(const std::string& onnx_path, const std::string& gml_path, py::array arr);
+  TensorPool infer(const std::string& onnx_path, const std::string& gml_path, py::array arr);
   
   // TODO: remove this
   //~Runner();
@@ -184,6 +184,7 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
               input_image->dims_size());
   }
   log_info("preprocess finish\n");
+  TensorPool ret;
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   for (int i = 0; i < input_image->dims_at(0); ++i) {
@@ -259,8 +260,8 @@ void Runner::run(Rah &rah, HashedDispatchTable &hdt) {
  *    on CPU normally, at the end, the final output is to be sent
  *    to the pre-processing pipeline.
  */
-template <typename inputT, typename OutputT>
-void Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr) {
+template <typename inputT, typename outputT>
+TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr) {
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
 
@@ -282,6 +283,7 @@ void Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr) 
               input_image->dims_size());
   }
   log_info("preprocess finish\n");
+  TensorPool ret;
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   for (int i = 0; i < input_image->dims_at(0); ++i) {
@@ -329,10 +331,17 @@ void Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr) 
         l->run(tensor_pool);
         sent = false;
       }
+
+      if (m_parser->has_graph_output(l)) {
+        Tensor<outputT> *out = tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
+        Tensor<outputT> *out_copy = new TensorCreate(out);
+        ret.push_back<Tensor<outputT>*>(out_copy);
+      }
     }
   }
   tt.stop();
   log_info("Infer loop, total time: {}ms\n", tt.difference().count());
+  return ret;
 }
 
 template <typename T>
@@ -378,8 +387,7 @@ template <typename T> void unalign_va_output(Tensor<T> *tensor, const T *data) {
 
 /* Converts a byte stream into a tensor and un-aligns if if necessary */
 template <typename T>
-void Runner::receive_output_aux(const T *data, const Op::LayerBase *l,
-                                bool is_last_layer) {
+void Runner::receive_output_aux(const T *data, const Op::LayerBase *l, bool is_last_layer) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
 
   std::vector<int> odims = l->pipelined_output_dims.at(0);
@@ -400,6 +408,7 @@ void Runner::receive_output_aux(const T *data, const Op::LayerBase *l,
 
   if (l->dispatch) {
     tensor->print();
+    //pool.push_back<Tensor<T>*>(tensor);
     //write_model_output<T>(*m_engine, tensor, is_last_layer);
     //pickle_tensor(tensor, "fpga_" + l->name);
   }

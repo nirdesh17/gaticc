@@ -47,7 +47,7 @@ gbl_arch = {
 
 dispatch_compare_arg = []
 remote_ip = ""
-remote_arg = ""
+remote_arg = []
 
 def set_arch(ramsize=None, sa_arch=None, vasize=None, accbuf_size=None, fcbuf_size=None, im2colbuf_size=None, config=None):
     """
@@ -228,6 +228,7 @@ def run(
         OSError: If the PYTHONPATH environment variable is not set or if sudo privileges are unavailable.
     """
     rest = remove_dupes(kwargs2list(**kwargs) + args2list(*args) + get_arch_list(get_arch()) + dispatch_compare_arg + remote_arg)
+    print(rest)
     if not keep_quiet:
         print(f"GATICC COMPILE: Using arch: {rest}")
     _gati.run(onnx_path, gml_path, loadpy, preprocfn, postprocfn, rest)

@@ -75,7 +75,7 @@ void run(const std::string& onnx_path, const std::string& gml_path, const std::s
   dispatch_run_ops();
 }
 
-__attribute__((visibility("default"))) void run2(const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
+__attribute__((visibility("default"))) py::array run2(const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
   std::cout << "run2 called\n";
   gbl_args.set_option("run", gml_path.c_str());
   gbl_args.set_option("run_onnx", onnx_path.c_str());
@@ -83,6 +83,6 @@ __attribute__((visibility("default"))) void run2(const std::string& onnx_path, c
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
   }
   Runner runner;
-  runner.infer(onnx_path, gml_path, arr);
+  TensorPool ret = runner.infer(onnx_path, gml_path, arr);
+  return extract_pool(ret);
 }
-

@@ -14,4 +14,4 @@ void compile(const string& onnx_path, const string &gml_path, const vss& );
 void info(const string& onnx_path, const vss& rest);
 __attribute__((visibility("default"))) py::array sim(const std::string& onnx_path, py::array arr, const vss& rest);
 void run(const string& onnx_path, const string& gml_path, const string& loadpy, const string& preprocfn, const string& postprocfn, const vss& rest);
-__attribute__((visibility("default"))) void run2(const string& onnx_path, const string& gml_path, py::array arr, const vss& rest);
+__attribute__((visibility("default"))) py::array run2(const string& onnx_path, const string& gml_path, py::array arr, const vss& rest);
