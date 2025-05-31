@@ -63,20 +63,7 @@ __attribute__((visibility("default"))) py::array sim(const std::string& onnx_pat
   return extract_pool(ret);
 }
 
-void run(const std::string& onnx_path, const std::string& gml_path, const std::string& loadpy, const std::string& preprocfn, const std::string& postprocfn, const vss& rest) {
-  gbl_args.set_option("run", gml_path.c_str());
-  gbl_args.set_option("run_onnx", onnx_path.c_str());
-  gbl_args.set_option("loadpy", loadpy.c_str());
-  gbl_args.set_option("preprocfn", preprocfn.c_str());
-  gbl_args.set_option("postprocfn", postprocfn.c_str());
-  for (const auto& i : rest) {
-    gbl_args.set_option(i.first.c_str(), i.second.c_str());
-  }
-  dispatch_run_ops();
-}
-
-__attribute__((visibility("default"))) py::array run2(const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
-  std::cout << "run2 called\n";
+__attribute__((visibility("default"))) py::array run(const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
   gbl_args.set_option("run", gml_path.c_str());
   gbl_args.set_option("run_onnx", onnx_path.c_str());
   for (const auto& i : rest) {

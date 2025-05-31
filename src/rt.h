@@ -407,10 +407,8 @@ void Runner::receive_output_aux(const T *data, const Op::LayerBase *l, bool is_l
   tensor_pool.set<Tensor<T> *>(l->outputs.at(0), tensor);
 
   if (l->dispatch) {
-    tensor->print();
-    //pool.push_back<Tensor<T>*>(tensor);
     //write_model_output<T>(*m_engine, tensor, is_last_layer);
-    //pickle_tensor(tensor, "fpga_" + l->name);
+    pickle_tensor(tensor, "fpga_" + l->name);
   }
   if (gbl_args.has_option("compare-layer")) {
     std::string arg = gbl_args["compare-layer"].as<std::string>();

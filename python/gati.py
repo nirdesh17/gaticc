@@ -204,9 +204,7 @@ def flash(
 def run(
         onnx_path: str,
         gml_path: str,
-        loadpy: str,
-        preprocfn: str,
-        postprocfn: str,
+        arr: np.ndarray,
         *args,
         **kwargs,
         ):
@@ -216,22 +214,16 @@ def run(
     Args:
         onnx_path (str): Path to the original ONNX model file.
         gml_path (str): Path to the compiled model file (e.g., GML format).
-        loadpy (str): Path to a Python script that loads input data.
-        preprocfn (str): Name of the preprocessing function in the loadpy script.
-        postprocfn (str): Name of the postprocessing function in the loadpy script.
+        arr (np.ndarray): Input to the model.
         *args: Additional command-line flags to pass to the gaticc runtime.
 
     Prints:
         A message showing the architecture configuration being used.
-
-    Raises:
-        OSError: If the PYTHONPATH environment variable is not set or if sudo privileges are unavailable.
     """
     rest = remove_dupes(kwargs2list(**kwargs) + args2list(*args) + get_arch_list(get_arch()) + dispatch_compare_arg + remote_arg)
-    print(rest)
     if not keep_quiet:
-        print(f"GATICC COMPILE: Using arch: {rest}")
-    _gati.run(onnx_path, gml_path, loadpy, preprocfn, postprocfn, rest)
+        print(f"GATICC RUN: Using arch: {rest}")
+    return _gati.run(onnx_path, gml_path, arr, rest)
 
 def summary(onnx_path: str):
   return _gati.info(onnx_path, [("summary", "")])
