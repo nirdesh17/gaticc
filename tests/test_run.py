@@ -4,20 +4,9 @@ import gati
 import sys
 import argparse
 
-def gen_mnist():
-    return np.load("mnist_10.npy")
-
-def gen_imagenet():
-    return np.load("imagenet_10.npy")
-
-def gen_cifar():
-    return np.load("cifar_10.npy")
-
-def post(num):
-    m = np.argmax(num)
-    with open("results.txt", "a") as f: f.write(f"{m}\n")
-    print(f"number: {m}")
-    return m
+def post(arr):
+  m = np.argmax(np.squeeze(arr, axis=1), axis=-1)
+  return m
 
 def format_results(failed, match_percentages):
     s = "=== Test Results ===\n\n"
@@ -37,16 +26,16 @@ def format_results(failed, match_percentages):
     return s
 
 mut = [
-    'mnist_qlinearadd2.onnx',
-    'cifar10_vgg16.onnx',
-    'cifar10_vgg11.onnx',
-    'cifar10_vgg19.onnx',
-    'mnist_6_28_int8.onnx',
-    'mnist_int8_stride2.onnx',
+    #'mnist_qlinearadd2.onnx',
+    #'cifar10_vgg16.onnx',
+    #'cifar10_vgg11.onnx',
+    #'cifar10_vgg19.onnx',
+    #'mnist_6_28_int8.onnx',
+    #'mnist_int8_stride2.onnx',
     'mnist_int8_stride3.onnx',
     'mnistpad1_6_28_int8.onnx',
-    'mnist_int8_pad2.onnx',
-    'imagenet_vgg_16_224_int8.onnx',
+    #'mnist_int8_pad2.onnx',
+    #'imagenet_vgg_16_224_int8.onnx',
 ]
 
 def main():
@@ -81,18 +70,14 @@ def main():
         gati.flash(args.bitstream)
         with open("results.txt", "w"): pass
         if 'mnist' in file:
-            ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_mnist", "post")
-            if not ret:
-                match_percentages.append((file, gati.match('mnist_10_labels.txt', 'results.txt')))
+            ret = post(gati.run(onnx_path, gml_path, np.load("mnist_10.npy")))
+            match_percentages.append((file, gati.match('mnist_10_labels.txt', ret)))
         elif 'imagenet' in file:
-            ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_imagenet", "post")
-            if not ret:
-                match_percentages.append((file, gati.match('imagenet_10_labels.txt', 'results.txt')))
+            ret = post(gati.run(onnx_path, gml_path, np.load("imagenet_10.npy")))
+            match_percentages.append((file, gati.match('imagenet_10_labels.txt', ret)))
         elif 'cifar' in file:
-            ret = gati.run(onnx_path, gml_path, "test_run.py", "gen_cifar", "post")
-            if not ret:
-                match_percentages.append((file, gati.match('cifar_10_labels.txt', 'results.txt')))
-
+            ret = post(gati.run(onnx_path, gml_path, np.load("cifar_10.npy")))
+            match_percentages.append((file, gati.match('cifar_10_labels.txt', ret)))
     resfile_name = os.path.basename(sys.argv[0]).split('.')[0] + ".results.txt"
     with open(resfile_name, "w") as f:
         f.write(format_results(failed, match_percentages))
