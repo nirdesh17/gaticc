@@ -36,7 +36,7 @@ class Executor {
   /* inputT: input type of the entire model
    * outputT: output type of the entire model
    */
-  template <typename inputT, typename outputT>
+  template <typename inputT>
   TensorPool run_aux(const Op::Parser &parser, Tensor<inputT>* arr);
   void print_extra_info(const Op::LayerBase *l);
 
@@ -45,18 +45,20 @@ public:
   TensorPool run(const std::string& onnx_path, py::array arr);
 };
 
-template <typename inputT, typename outputT>
-TensorPool Executor::run_aux(const Op::Parser &parser, Tensor<inputT>* arr) {
+template <typename inputT>
+TensorPool Executor::run_aux(const Op::Parser &parser, Tensor<inputT> *arr) {
   Tensor<inputT> *full_batch = arr;
 
   /* TODO: add checks here if inputs are batched and matches expected dims */
   if (full_batch->dims_size() <= 1) {
     log_fatal("Expects input images to be greater than 1 dimensional (N,...) "
-              "got a {} dimensional image\n", full_batch->dims_size());
+              "got a {} dimensional image\n",
+              full_batch->dims_size());
   }
   TensorPool ret;
   std::vector<Op::LayerBase *> order = parser.get_execution_order();
-  Timer<std::chrono::seconds> tt; tt.start();
+  Timer<std::chrono::seconds> tt;
+  tt.start();
   for (int i = 0; i < full_batch->dims_at(0); ++i) {
     tensor_pool.free();
 
@@ -71,10 +73,24 @@ TensorPool Executor::run_aux(const Op::Parser &parser, Tensor<inputT>* arr) {
       l->dispatch = dispatch_table.should_dispatch(l);
       l->run(tensor_pool);
 
-      if (parser.has_graph_output(l)) {
-        Tensor<outputT> *out = tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
-        Tensor<outputT> *out_copy = new TensorCreate(out);
-        ret.push_back<Tensor<outputT>*>(out);
+      if (parser.has_graph_output(l) || l->dispatch) {
+        for (auto type : l->output_type) {
+          /* TODO: use unique_ptr */
+          if (type == onnx::TensorProto_DataType_INT8) {
+            Tensor<int8_t> *out =
+                tensor_pool.get<Tensor<int8_t> *>(l->outputs.at(0));
+            Tensor<int8_t> *out_copy = new TensorCreate(out, l->name);
+            ret.push_back<Tensor<int8_t> *>(out_copy);
+          } else if (type == onnx::TensorProto_DataType_FLOAT) {
+            Tensor<float> *out =
+                tensor_pool.get<Tensor<float> *>(l->outputs.at(0));
+            Tensor<float> *out_copy = new TensorCreate(out, l->name);
+            ret.push_back<Tensor<float> *>(out_copy);
+          } else {
+            log_fatal("Output type of layer {} ({}) is not supported\n", l->name,
+                      Op::get_tensorproto_dtype_name(type));
+          }
+        }
       }
     }
   }

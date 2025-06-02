@@ -100,6 +100,7 @@ struct meta_info {
   int ndim;
   std::vector<ssize_t> shape;
   std::vector<ssize_t> strides;
+  std::string name;
 };
 
 template <typename T>
@@ -118,6 +119,7 @@ static meta_info get_meta_info(const std::any& val) {
   for (int i = 0; i < strides.size(); ++i) {
     ret.strides[i] = strides[i] * sizeof(T);
   }
+  ret.name = t->name();
   return ret;
 }
 
@@ -146,7 +148,7 @@ py::list extract_pool(TensorPool &pool) {
     py::array arr(py::buffer_info(nullptr, meta.itemsize, meta.format,
                                   meta.ndim, meta.shape, meta.strides));
     memcpy(arr.mutable_data(), meta.data, prod(meta.shape) * meta.itemsize);
-    ret.append(arr);
+    ret.append(py::make_tuple(meta.name, arr));
   }
   return ret;
 }

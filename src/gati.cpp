@@ -32,7 +32,7 @@ void info(const std::string& onnx_path, const vss& rest) {
   dispatch_info_ops();
 }
 
-__attribute__((visibility("default"))) py::array sim(const std::string& onnx_path, py::array arr, const vss& rest) {
+__attribute__((visibility("default"))) py::list sim(const std::string& onnx_path, py::array arr, const vss& rest) {
   gbl_args.set_option("sim", onnx_path.c_str());
   for (const auto& i : rest) {
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
@@ -42,7 +42,7 @@ __attribute__((visibility("default"))) py::array sim(const std::string& onnx_pat
   return extract_pool(ret);
 }
 
-__attribute__((visibility("default"))) py::array run(const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
+__attribute__((visibility("default"))) py::list run(const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
   gbl_args.set_option("run", gml_path.c_str());
   gbl_args.set_option("run_onnx", onnx_path.c_str());
   for (const auto& i : rest) {

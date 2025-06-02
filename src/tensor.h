@@ -31,6 +31,7 @@ namespace py = pybind11;
  */
 template <typename T> class Tensor {
 public:
+  virtual std::string name() const;
   /* Read functions */
   virtual T at(std::vector<int> &at) const = 0;
   virtual T at(std::vector<int> &&at) const = 0;
@@ -67,6 +68,10 @@ public:
   virtual typename std::vector<T>::iterator begin();
   virtual typename std::vector<T>::iterator end();
 };
+
+template <typename T> std::string Tensor<T>::name() const {
+  return "(null)";
+}
 
 template <typename T> T* Tensor<T>::data() {
   log_fatal("Un-implemented function\n");
@@ -236,6 +241,8 @@ template <typename T> class TensorCreate : public Tensor<T> {
   std::vector<int> stride;
   std::vector<T> vec;
 
+  std::string m_name{"null"};
+
 public:
   TensorCreate() = delete;
 
@@ -262,10 +269,18 @@ public:
     stride = get_stride_from_shape(dims);
   }
 
-  TensorCreate(Tensor<T> *t) {
+  TensorCreate(py::array arr, const std::string &name) : TensorCreate(arr) {
+    this->m_name = name;
+  }
+
+  TensorCreate(const Tensor<T> *t) {
     vec = t->get();
     dims = t->get_dims();
     stride = t->get_strides();
+  }
+
+  TensorCreate(const Tensor<T> *t, const std::string &name) : TensorCreate(t) {
+    this->m_name = name;
   }
 
   T at(std::vector<int> &at) const override {
@@ -342,6 +357,8 @@ public:
   bool freeable() const override { return true; }
 
   T *data() override { return vec.data(); }
+
+  std::string name() const override { return m_name; };
 
   ~TensorCreate();
 };

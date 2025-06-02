@@ -12,5 +12,5 @@ namespace py = pybind11;
 void init();
 void compile(const string& onnx_path, const string &gml_path, const vss& );
 void info(const string& onnx_path, const vss& rest);
-__attribute__((visibility("default"))) py::array sim(const std::string& onnx_path, py::array arr, const vss& rest);
-__attribute__((visibility("default"))) py::array run(const string& onnx_path, const string& gml_path, py::array arr, const vss& rest);
+__attribute__((visibility("default"))) py::list sim(const std::string& onnx_path, py::array arr, const vss& rest);
+__attribute__((visibility("default"))) py::list run(const string& onnx_path, const string& gml_path, py::array arr, const vss& rest);
