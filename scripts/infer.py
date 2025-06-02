@@ -2,7 +2,25 @@ import argparse
 import os
 import numpy as np
 import onnxruntime as ort
-import gati
+
+def match(label_file: str, prediction_file: str) -> float:
+  with open(label_file, "r") as f:
+      file_labels = [int(line.strip()) for line in f]
+  with open(prediction_file, "r") as f:
+      predicted_labels = [int(line.strip()) for line in f]
+  if len(file_labels) != len(predicted_labels):
+      raise ValueError("Label file and array must have the same number of elements.")
+  mismatches = []
+  matches = 0
+  for idx, (file_label, pred_label) in enumerate(zip(file_labels, predicted_labels)):
+      if file_label == pred_label:
+          matches += 1
+      else:
+          mismatches.append(idx)
+  match_percentage = (matches / len(file_labels)) * 100
+  if mismatches:
+      print(f"Mismatched indices: {mismatches}")
+  return match_percentage
 
 def run_inference(onnx_path, npy_path, labels_file, output_file="results.txt"):
     """Run ONNX model inference on NumPy input data and compare results.
@@ -37,7 +55,7 @@ def run_inference(onnx_path, npy_path, labels_file, output_file="results.txt"):
             f.write(f"{pred}\n")
 
     # Print match percentage
-    match_pct = gati.match(labels_file, output_file)
+    match_pct = match(labels_file, output_file)
     print(f"Match: {match_pct}%")
 
 if __name__ == "__main__":
