@@ -49,19 +49,19 @@ message(STATUS "Proto library name set to ${PROTO_LIB_NAME}")
 
 
 set(ALL_DIR
-    ${Python3_INCLUDE_DIRS}
-    ${BOOST_PATH}
-    ${PROTO_PATH}/src
-    ${PYBIND_PATH}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_BINARY_DIR}
+  ${Python3_INCLUDE_DIRS}
+  ${BOOST_PATH}
+  ${PROTO_PATH}/src
+  ${PYBIND_PATH}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 set(ALL_LIBS
-    ${Python3_LIBRARIES} 
-    ${PROTO_BIN_PATH}/${PROTO_LIB_NAME}.so
-    dl
+  ${Python3_LIBRARIES} 
+  ${PROTO_BIN_PATH}/${PROTO_LIB_NAME}.so
+  dl
 )
 
 add_subdirectory(${PYBIND_PATH})
@@ -70,9 +70,9 @@ set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libs")
 add_subdirectory(${PROTO_PATH} ${PROTO_BIN_PATH})
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h
-    COMMAND ${PROTOC_EXE} --cpp_out=${CMAKE_CURRENT_BINARY_DIR} --proto_path=${CMAKE_CURRENT_SOURCE_DIR} onnx.proto
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/onnx.proto protoc
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h
+  COMMAND ${PROTOC_EXE} --cpp_out=${CMAKE_CURRENT_BINARY_DIR} --proto_path=${CMAKE_CURRENT_SOURCE_DIR} onnx.proto
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/onnx.proto protoc
 )
 add_custom_target(pbgen DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.cc ${CMAKE_CURRENT_BINARY_DIR}/onnx.pb.h)
 
@@ -101,17 +101,20 @@ target_include_directories(${PYLIB_NAME} PRIVATE ${ALL_DIR})
 add_dependencies(${PYLIB_NAME} ${LIB_NAME} libprotobuf-lite pbgen)
 
 install(TARGETS ${EXE_NAME}
-    RUNTIME DESTINATION /usr/bin/
+  RUNTIME DESTINATION /usr/bin/
 )
 install(TARGETS ${LIB_NAME}
-    RUNTIME DESTINATION /usr/lib/
+  RUNTIME DESTINATION /usr/lib/
 )
 
-execute_process(COMMAND python3 -m site --user-site
-    OUTPUT_VARIABLE PYTHON_SITE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(
+  COMMAND python3 -c "import site, sys; print(site.getsitepackages()[0] if hasattr(site, 'getsitepackages') else site.USER_SITE)"
+  OUTPUT_VARIABLE PYTHON_SITE_DIR
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 
 install(TARGETS ${PYLIB_NAME}
-    LIBRARY DESTINATION ${PYTHON_SITE_DIR}
+  LIBRARY DESTINATION ${PYTHON_SITE_DIR}
 )
 
 if (BUILD_TESTING)
