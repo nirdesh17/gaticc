@@ -116,7 +116,7 @@ void split_large_kernel(Op::Graph &g) {
   for (auto vp = boost::vertices(g); vp.first != vp.second; ++vp.first) {
     auto v = *vp.first;
 
-    if (g[v]->op_type() == "QLinearConv") {
+    if (strcmp(g[v]->op_type(), "QLinearConv") == 0) {
       Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(g[v]);
 
       if (cc && is_large_conv(cc)) {
