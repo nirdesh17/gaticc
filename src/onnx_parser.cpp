@@ -2218,6 +2218,7 @@ long Op::time_estimate(Op::Graph graph) {
   }
   int frequency = gbl_args["timeest"].as<int>();
 
+  int qla_time = 0;
   for (auto itr = vb; itr != ve; ++itr) {
     LayerBase *node = graph[*itr];
     if (is_conv_like(node->op_type())) {
@@ -2240,8 +2241,15 @@ long Op::time_estimate(Op::Graph graph) {
       cycles += t;
       std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
       Op::print_node(*itr, &graph);
+    } else if (strcmp(node->op_type(), "QLinearAdd") == 0) {
+      int t = node->output_dims[0][TENSOR_4D_WIDTH] * node->output_dims[0][TENSOR_4D_HEIGHT] * ceil_div(node->output_dims[0][TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]) * 2;
+      cycles += t;
+      qla_time += t;
+      std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
+      Op::print_node(*itr, &graph);
     }
   }
+  std::cout << "QLA Time: " << (float) qla_time / (frequency * 1e3) << "ms\n";
   std::cout << "Total Estimated time: "
             << (float)cycles / (frequency * 1e3) << "ms\n";
   return cycles;
