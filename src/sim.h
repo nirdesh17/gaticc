@@ -297,7 +297,7 @@ void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
                  int i1_zp, int i2_zp) {
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-    outputT v = (i2_scale * (input1->at(i) - i1_zp)) + (i1_scale * (input2->at(i) - i2_zp));
+    outputT v = (i1_scale * (input1->at(i) - i1_zp)) + (i2_scale * (input2->at(i) - i2_zp));
     output->set(i, v);
   }
 }
@@ -348,6 +348,8 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val) {
+#if 1 /* switch this off for debugging with regular float quantization */
+  /* FPGA style quantization (this is how it's implemented on the FPGA) */
   float inverted = 1 / scale;
   if ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) &&
       (std::is_same<inputT, int32_t>())) {
@@ -362,6 +364,10 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
     inputT rounded = std::round(((float)v / scale + zero_point));
     return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
   }
+#else
+  inputT rounded = std::round(((float)v / scale + zero_point));
+  return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
+#endif
 }
 
 template <typename inputT, typename outputT>
@@ -728,7 +734,8 @@ void logsoftmax(Tensor<T> *output, Tensor<T> *input, int axis) {
 /* FPGA style binary average calculation without division
  * operations
  */
-template <typename T> static T avg(std::vector<T> v) {
+template <typename T> static T avg(const std::vector<T>& vec) {
+  auto v = vec;
   if (v.size() == 1) {
     return v.at(0);
   }
@@ -746,6 +753,17 @@ template <typename T> static T avg(std::vector<T> v) {
     v = new_vec;
   }
   return v.at(0);
+}
+
+/* floats and doubles dont go well with log-based averages */
+template <> float avg<float>(const std::vector<float>& v) {
+  float sum = std::accumulate(v.cbegin(), v.cend(), (float)0);
+  return static_cast<float>(static_cast<float>(sum) / v.size());
+}
+
+template <> double avg<double>(const std::vector<double>& v) {
+  double sum = std::accumulate(v.cbegin(), v.cend(), (double)0);
+  return static_cast<double>(static_cast<double>(sum) / v.size());
 }
 
 template <typename T>
@@ -783,7 +801,7 @@ void average_pool(const Tensor<T> *input, Tensor<T> *output,
             vals.push_back(padded_input->at(in_index));
           }
         }
-        T avg_val = avg(vals);
+        T avg_val = avg<T>(vals);
         std::vector<int> out_index{0, ici, ihi / mp.stride[TENSOR_2D_HEIGHT],
                                    iwi / mp.stride[TENSOR_2D_WIDTH]};
         output->insert(out_index, avg_val);
