@@ -100,11 +100,14 @@ target_link_libraries(${PYLIB_NAME} PRIVATE ${GATI_LIB_PATH} ${ALL_LIBS})
 target_include_directories(${PYLIB_NAME} PRIVATE ${ALL_DIR})
 add_dependencies(${PYLIB_NAME} ${LIB_NAME} libprotobuf-lite pbgen)
 
-install(TARGETS ${EXE_NAME}
-  RUNTIME DESTINATION /usr/bin/
-)
+include(GNUInstallDirs)
 install(TARGETS ${LIB_NAME}
-  RUNTIME DESTINATION /usr/lib/
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+install(TARGETS ${EXE_NAME}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 execute_process(
