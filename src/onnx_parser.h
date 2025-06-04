@@ -102,6 +102,9 @@ using IOAddrTbl = std::map<std::string, IOAddrPair>;
 
 struct LayerBase {
   std::string name;
+  std::vector<std::string> input_names;
+  std::vector<std::string> output_names;
+
   virtual const char *op_type() const;
   /* Returns a pretty-formatted string of hyper-parameters that
    * the layer takes. Layers without any parameters may not override
@@ -812,6 +815,7 @@ public:
   void save_value_info(const onnx::ValueInfoProto &t);
   void save_initializers(const onnx::TensorProto &t);
   void save_attribute(const onnx::NodeProto &node);
+  void save_input_output_names();
 
   void add(LayerBase *layer, const onnx::NodeProto &node);
   void add_to_constant_pool(onnx::NodeProto node);

@@ -104,10 +104,10 @@ TensorPool Executor::run(const std::string& onnx_path, py::array arr) {
   tensor_pool.resize(total_regs);
 
   if (input_type == onnx::TensorProto_DataType_FLOAT) {
-    Tensor<float> *input = new TensorCreate<float>(arr);
+    Tensor<float> *input = new TensorCreate<float>(arr, "data");
     return run_aux<float>(parser, input);
   } else if (input_type == onnx::TensorProto_DataType_INT8) {
-    Tensor<int8_t> *input = new TensorCreate<int8_t>(arr);
+    Tensor<int8_t> *input = new TensorCreate<int8_t>(arr, "data");
     return run_aux<int8_t>(parser, input);
   } else {
     log_fatal("Unsupported input type {}\n", Op::get_tensorproto_dtype_name(input_type));
@@ -124,7 +124,7 @@ static std::pair<Tensor<inputT>*, Tensor<outputT>*> get_tensorpool_io(TensorPool
     pool.free(l->outputs.at(0));
   }
   Tensor<inputT> *input = pool.get<Tensor<inputT> *>(l->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims.at(0));
+  Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims.at(0), l->output_names.at(0));
   pool.set<Tensor<outputT> *>(l->outputs.at(0), output);
   return std::pair(input, output); 
 }
@@ -664,7 +664,7 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0]);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
   std::unique_ptr<Tensor<intrT>> intr_output{
       new TensorCreate<intrT>(cc->output_dims[0])};
@@ -694,8 +694,14 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
     if (cc->inputs.size() > 1) {
       // both inputs are non-initializers (i.e. available only at runtime)
       input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
-      tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
-                  cc->a_zp, cc->b_zp);
+      if (input1->name() == cc->input_names.at(0 /* QLA_A */) &&
+          input2->name() == cc->input_names.at(3 /* QLA_B */)) {
+        tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
+                    cc->a_zp, cc->b_zp);
+      } else {
+        tensor_qadd(intr_output.get(), input2, input1, cc->a_scale, cc->b_scale,
+                    cc->a_zp, cc->b_zp);
+      }
     } else {
       // one of the inputs is an initializer (available statically)
       input2 = new TensorExtant<inputT>(cc->addend);
@@ -708,7 +714,6 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
     quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale,
                              zero_points);
   }
-
   check_dispatch(l, output);
 }
 

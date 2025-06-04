@@ -1152,6 +1152,7 @@ Op::Layer::QLinearAdd::QLinearAdd() { addend = nullptr; }
 const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
 
 enum QLA_INITIALIZERS {
+  QLA_A = 0,
   QLA_SCALE = 1,
   QLA_ZERO_POINT = 2,
   QLA_B = 3,
@@ -2010,6 +2011,22 @@ void Op::Model::connect(const onnx::NodeProto &node) {
 
 void Op::Model::save_initializers(const onnx::TensorProto &t) {
   initializer_map.insert({t.name(), t});
+}
+
+void Op::Model::save_input_output_names() {
+  auto exec_order = crt_exec_order(g);
+  for (Op::LayerBase *l : exec_order) {
+    auto itr = name_node_map.find(l->name);
+    if (itr == name_node_map.end()) {
+      log_fatal("Couldn't find layer {} in name_node_map\n", l->name);
+    }
+    for (auto i : itr->second.input()) {
+      l->input_names.push_back(i);
+    }
+    for (auto i : itr->second.output()) {
+      l->output_names.push_back(i);
+    }
+  }
 }
 
 void Op::Model::save_graph_outputs(const onnx::ValueInfoProto &t) {
@@ -2960,6 +2977,7 @@ Op::Parser::Parser(std::string const &filename) {
   log_info2("Updating Registers through register allocator\n");
   m_model.update_registers();
   log_info2("Parsing Finished\n");
+  m_model.save_input_output_names();
 }
 
 void Op::Parser::summary() const { m_model.bare_summary(); }

@@ -258,6 +258,10 @@ public:
     stride = get_stride_from_shape(dim);
   }
 
+  TensorCreate(std::vector<int> const &dim, const std::string& name): TensorCreate(dim) {
+    this->m_name = name;
+  }
+
   TensorCreate(py::array arr) {
     // TODO: add a type check of arr and T here
     auto buf = arr.request();
@@ -391,6 +395,7 @@ public:
   void print() const override;
   bool freeable() const override;
   std::vector<int> get_strides() const override;
+  std::string name() const override;
 
   ~TensorSlice();
 
@@ -424,6 +429,11 @@ TensorSlice<T>::TensorSlice(Tensor<T> *src, std::vector<int> slice) {
     this->dims.push_back(src->dims_at(i));
   }
   this->slice_size = prod(dims.begin(), dims.end(), 1);
+}
+
+template <typename T>
+std::string TensorSlice<T>::name() const {
+  return src->name();
 }
 
 template <typename T> T TensorSlice<T>::at(std::vector<int> &index) const {

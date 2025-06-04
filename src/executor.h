@@ -86,6 +86,11 @@ TensorPool Executor::run_aux(const Op::Parser &parser, Tensor<inputT> *arr) {
                 tensor_pool.get<Tensor<float> *>(l->outputs.at(0));
             Tensor<float> *out_copy = new TensorCreate(out, l->name);
             ret.push_back<Tensor<float> *>(out_copy);
+          } else if (type == onnx::TensorProto_DataType_INT32) {
+            Tensor<int> *out =
+                tensor_pool.get<Tensor<int> *>(l->outputs.at(0));
+            Tensor<int> *out_copy = new TensorCreate(out, l->name);
+            ret.push_back<Tensor<int> *>(out_copy);
           } else {
             log_fatal("Output type of layer {} ({}) is not supported\n", l->name,
                       Op::get_tensorproto_dtype_name(type));

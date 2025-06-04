@@ -57,6 +57,8 @@ Op::Vertex create_qadd(Op::Graph &g,
 
   new_add->input_dims = g[new_decomposed_conv[i]]->output_dims;
   new_add->output_dims = new_add->input_dims;
+  new_add->input_names.push_back(new_add->name + "inputs");
+  new_add->output_names.push_back(new_add->name + "outputs");
 
   new_add->input_type.push_back(onnx::TensorProto_DataType_INT32);
   if (i == n - 2) {
@@ -183,6 +185,8 @@ void split_large_kernel(Op::Graph &g) {
   dum->device = DEVICE_CPU;
   dum->input_type = g[v]->input_type;
   dum->output_type = g[v]->input_type;
+  dum->input_names.push_back("noop_inputs");
+  dum->output_names.push_back("noop_outputs");
   g[new_vertex] = dum;
   boost::add_edge(new_vertex, v, g);
 
