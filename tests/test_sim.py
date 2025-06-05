@@ -5,13 +5,15 @@ import argparse
 import numpy as np
 
 def post(arr):
-  m = np.argmax(np.squeeze(arr, axis=1), axis=-1)
+  m = np.argmax(np.squeeze(np.stack([i[1] for i in arr]), axis=1), axis=-1)
   return m
 
 files = [
 'cifar10_vgg11.onnx',
 'cifar10_vgg16.onnx',
 'cifar10_vgg19.onnx',
+'imagenet_mobilenetv2-int8-symmetric.onnx',
+'imagenet_resnet50-int8-symmetric.onnx',
 'imagenet_vgg_16_224_int8.onnx',
 'imagenet_vgg_16_224_uint8.onnx',
 'mnist_6_28_int8.onnx',
