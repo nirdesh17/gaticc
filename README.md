@@ -6,17 +6,17 @@
 
 **Arch**:
 ```
-sudo pacman -S python3 pkg-config cmake
+sudo pacman -S python3 python-pip pkg-config cmake
 ```
 
 **Fedora**:
 ``` 
-sudo dnf install python3-devel cmake
+sudo dnf install python3-devel python-pip cmake
 ```
 
 **Ubuntu/Debian**:
 ```
-sudo apt install python3-dev pkg-config cmake
+sudo apt install python3-dev python3 python3-pip pkg-config cmake
 ```
 
 **MacOs**
@@ -52,14 +52,8 @@ cd /path/to/gaticc
 mkdir build
 cmake -B build
 cmake --build build && sudo cmake --install build
+sudo pip install -e .
 ```
-
-Additionally, make sure PYTHONPATH environment is set. 
-Do it by adding the following line to your ~/.bashrc or ~/.zshrc or .${SHELL}rc
-```
-export PYTHONPATH="${GATICC_ROOT}/python:$PYTHONPATH"
-```
-`${GATICC_ROOT}` should be replaced by absolute path/to/gaticc
 
 # Usage
 
@@ -71,10 +65,6 @@ for usage instructions.
 
 ## Python Interface
 
-Install numpy:
-```
-pip install numpy
-```
 Here's an example script to run simulation of a model (install model files from the model zoo):
 ```
 import gati
