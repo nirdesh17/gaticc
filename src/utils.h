@@ -378,65 +378,69 @@ inline bool has_fs(const char *p) {
   return false;
 }
 
-inline void log(const char *p) {
+inline void log(std::ostream &out, const char *p) {
   while (*p) {
     if (has_fs(p)) {
       std::cerr << "insufficient arguments for print";
       abort();
     }
-    std::cout << *p;
+    out << *p;
     ++p;
   }
 }
 
-template <typename T> void log(const char *p, T v) {
+template <typename T> void log(std::ostream &out, const char *p, T v) {
   while (*p) {
     const char s = *p;
     ++p;
     if (has_fs(p - 1)) {
-      std::cout << v;
+      out << v;
       ++p;
-      log(p);
+      log(out, p);
       break;
     } else {
-      std::cout << s;
+      out << s;
     }
   }
 }
 
 template <typename T, typename... Args>
-void log(const char *p, T v, Args... args) {
+void log(std::ostream &out, const char *p, T v, Args... args) {
   while (*p) {
     const char s = *p;
     p++;
     if (has_fs(p - 1)) {
-      std::cout << v;
+      out << v;
       ++p;
-      log(p, args...);
+      log(out, p, args...);
       break;
     } else {
-      std::cout << s;
+      out << s;
     }
   }
 }
 
 template <typename T, typename... Args>
-void log(const char *type, const char *p, T v, Args... args) {
-  std::cout << type << " ";
-  log(p, v, args...);
+void log(std::ostream &out, const char *type, const char *p, T v, Args... args) {
+  out << type << " ";
+  log(out, p, v, args...);
 }
 
 template <typename T, typename... Args>
 void log_info(const char *p, T v, Args... args) {
   if (get_verbose()) {
-    log("INFO:", p, v, args...);
+    std::stringstream out;
+    log(out, "INFO:", p, v, args...);
+    std::cout << out.str();
   }
 }
 
 template <typename T, typename... Args>
 void log_info2(const char *p, T v, Args... args) {
   if (get_verbose2()) {
-    log("INFO:", p, v, args...);
+    std::stringstream out;
+    log(out, "INFO:", p, v, args...);
+    std::cout << out.str();
   }
 }
 
@@ -445,15 +449,18 @@ inline void log_info2(const char *p) { log_info2("{}", p); }
 
 template <typename T, typename... Args>
 [[noreturn]] void log_fatal(const char *p, T v, Args... args) {
-  log("FATAL:", p, v, args...);
-  exit(1);
+  std::stringstream out;
+  log(out, "FATAL:", p, v, args...);
+  throw std::runtime_error(out.str());
 }
 
 [[noreturn]] inline void log_fatal(const char *p) { log_fatal("{}", p); }
 
 template <typename T, typename... Args>
 void log_warn(const char *p, T v, Args... args) {
-  log("WARNING:", p, v, args...);
+  std::stringstream out;
+  log(out, "WARNING:", p, v, args...);
+  std::cout << out.str();
 }
 
 inline void log_warn(const char *p) { log_warn("{}", p); }

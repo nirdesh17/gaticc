@@ -42,15 +42,13 @@ void dispatch_compile_ops() {
 }
 
 void dispatch_sim_ops() {
-  std::cout << "command line driver disabled, use the python interface\n";
+  log_fatal("command line driver disabled, use the python interface\n");
   //Executor executor;
   //TensorPool ret = executor.run(onnx_path, arr);
-  exit(1);
 }
 
 void dispatch_run_ops() {
-  std::cout << "command line driver disabled, use the python interface\n";
-  exit(1);
+  log_fatal("command line driver disabled, use the python interface\n");
 }
 
 int dispatch() {
