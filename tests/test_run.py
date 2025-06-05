@@ -1,88 +1,68 @@
-import numpy as np
-import os
-import gati
-import sys
-import argparse
-
-def post(arr):
-  m = np.argmax(np.squeeze(arr, axis=1), axis=-1)
-  return m
-
-def format_results(failed, match_percentages):
-    s = "=== Test Results ===\n\n"
-    s += "Failed Compilations:\n"
-    if failed:
-        s += "\n".join(f"  - {f}" for f in failed) + "\n"
-    else:
-        s += "  None\n"
-    s += "\nModel Matches:\n"
-    if match_percentages:
-        s += "  Model Name".ljust(30) + "Match Percentage\n"
-        s += "  " + "-" * 50 + "\n"
-        for model, percentage in match_percentages:
-            s += f"  {model.ljust(30)}{percentage:.2f}%\n"
-    else:
-        s += "  None\n"
-    return s
+import os, sys, json, subprocess, argparse
 
 mut = [
-    #'mnist_qlinearadd2.onnx',
-    #'cifar10_vgg16.onnx',
-    #'cifar10_vgg11.onnx',
-    #'cifar10_vgg19.onnx',
-    #'mnist_6_28_int8.onnx',
-    #'mnist_int8_stride2.onnx',
-    'mnist_int8_stride3.onnx',
-    'mnistpad1_6_28_int8.onnx',
-    #'mnist_int8_pad2.onnx',
-    #'imagenet_vgg_16_224_int8.onnx',
+  'mnist_6_28_int8.onnx', 'mnist_int8_pad2.onnx', 'mnist_int8_stride2.onnx',
+  'mnist_int8_stride3.onnx', 'mnistpad1_6_28_int8.onnx', #'imagenet_vgg_16_224_int8.onnx',
+  'cifar10_vgg11.onnx', 'cifar10_vgg16.onnx', 'cifar10_vgg19.onnx',
+  'mnist_int8_k1x7_nomaxpool.onnx', 'mnist_int8_stride2_pad0.onnx',
+  'mnist_int8_stride2_pad2.onnx', 'mnist_average_pool_int8.onnx'
 ]
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--models', nargs='+', required=True, help='Path to models directory or ONNX file(s)')
-    parser.add_argument('-a', '--arch', default='9,4,4', help='Architecture config (sa-arch)')
-    parser.add_argument('-b', '--bitstream', required=True, help='Bitstream file')
-    parser.add_argument('-l', '--hostname', required=True, help='Remote IP or localhost')
-    args = parser.parse_args()
+def run_all(args):
+  models = [f for f in os.listdir(args.models[0]) if f in mut] if len(args.models)==1 and os.path.isdir(args.models[0]) else [os.path.basename(f) for f in args.models]
+  models_dir = args.models[0] if os.path.isdir(args.models[0]) else os.path.dirname(args.models[0]) or '.'
+  failed, matches = [], []
+  for m in models:
+    print(f"Running: {os.path.join(models_dir, m)}")
+    res = f"/tmp/{m}.res.json"
+    try:
+      subprocess.run([sys.executable, sys.argv[0], '--run-one', '-m', os.path.join(models_dir, m), '-a', args.arch, '-b', args.bitstream, '-l', args.hostname, '--out', res], check=True)
+      with open(res) as f: out = json.load(f)
+      (matches if out.get("status") == "ok" else failed).append((m, out.get("match", 0)))
+    except KeyboardInterrupt:
+      print(f"Skipped: {m}")
+      failed.append((m, 0))
+    except: failed.append((m, 0))
+  with open("test_run.results.txt", "w") as f: f.write(fmt(failed, matches))
+  print("\n" + fmt(failed, matches))
 
-    failed = []
-    match_percentages = []
-    gati.set_keep_quiet(True)
-    gati.set_arch(config={"sa-arch": args.arch})
+def run_one(args):
+  import numpy as np, gati
+  gati.set_keep_quiet(True)
+  gati.set_arch(config={"sa-arch": args.arch})
+  if args.hostname != 'localhost': gati.set_remote(args.hostname)
+  onnx = args.models[0]
+  gml = "/tmp/model.gml"
+  res = {"status": "fail"}
+  try:
+    if gati.compile(onnx, gml) != 0: raise Exception("compile failed")
+    gati.flash(args.bitstream)
+    if "mnist" in onnx: data, lbl = np.load("mnist_10.npy"), "mnist_10_labels.txt"
+    elif "imagenet" in onnx: data, lbl = np.load("imagenet_10.npy"), "imagenet_10_labels.txt"
+    elif "cifar" in onnx: data, lbl = np.load("cifar_10.npy"), "cifar_10_labels.txt"
+    else: raise Exception("unknown dataset")
+    post = lambda arr: np.argmax(np.squeeze(np.stack([i[1] for i in arr]), 1), -1)
+    out = post(gati.run(onnx, gml, data))
+    res = {"status": "ok", "match": gati.match(lbl, out)}
+  except Exception as e:
+    res["error"] = str(e)
+  if args.out: json.dump(res, open(args.out, "w"))
 
-    if len(args.models) == 1 and os.path.isdir(args.models[0]):
-        models = [f for f in os.listdir(args.models[0]) if f in mut]
-        models_dir = args.models[0]
-    else:
-        models = [os.path.basename(f) for f in args.models]
-        models_dir = os.path.dirname(args.models[0]) or '.'
-
-    for file in models:
-        print(f"File: {file}")
-        onnx_path = os.path.join(models_dir, file)
-        gml_path = "/tmp/model.gml"
-        if gati.compile(onnx_path, gml_path) != 0:
-            failed.append(file)
-            continue
-        if args.hostname != 'localhost':
-            gati.set_remote(args.hostname)
-        gati.flash(args.bitstream)
-        with open("results.txt", "w"): pass
-        if 'mnist' in file:
-            ret = post(gati.run(onnx_path, gml_path, np.load("mnist_10.npy")))
-            match_percentages.append((file, gati.match('mnist_10_labels.txt', ret)))
-        elif 'imagenet' in file:
-            ret = post(gati.run(onnx_path, gml_path, np.load("imagenet_10.npy")))
-            match_percentages.append((file, gati.match('imagenet_10_labels.txt', ret)))
-        elif 'cifar' in file:
-            ret = post(gati.run(onnx_path, gml_path, np.load("cifar_10.npy")))
-            match_percentages.append((file, gati.match('cifar_10_labels.txt', ret)))
-    resfile_name = os.path.basename(sys.argv[0]).split('.')[0] + ".results.txt"
-    with open(resfile_name, "w") as f:
-        f.write(format_results(failed, match_percentages))
-    print(f"Results written to: {resfile_name}\n")
-    print(format_results(failed, match_percentages))
+def fmt(failed, matches):
+  out = "=== Test Results ===\n\nFailed:\n"
+  out += "".join(f"  - {m}\n" for m, _ in failed) if failed else "  None\n"
+  out += "\nMatches:\n"
+  out += "  Model".ljust(32) + "Match %\n" + "  " + "-"*45 + "\n"
+  out += "".join(f"  {m.ljust(30)}{p:.2f}%\n" for m, p in matches) if matches else "  None\n"
+  return out
 
 if __name__ == "__main__":
-    main()
+  p = argparse.ArgumentParser()
+  p.add_argument('-m', '--models', nargs='+', required=True)
+  p.add_argument('-a', '--arch', default='9,4,4')
+  p.add_argument('-b', '--bitstream', required=True)
+  p.add_argument('-l', '--hostname', required=True)
+  p.add_argument('--run-one', action='store_true')
+  p.add_argument('--out')
+  args = p.parse_args()
+  run_one(args) if args.run_one else run_all(args)
