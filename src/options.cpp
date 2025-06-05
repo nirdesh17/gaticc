@@ -1,6 +1,5 @@
 #include "options.h"
 #include "executor.h"
-#include "ffi.h"
 #include "onnx_parser.h"
 #include "rt.h"
 #include "utils.h"

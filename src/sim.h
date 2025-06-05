@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ffi.h"
 #include "onnx_parser.h"
 #include "tensor.h"
 #include "utils.h"
