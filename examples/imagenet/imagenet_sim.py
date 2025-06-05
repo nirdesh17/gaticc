@@ -3,7 +3,7 @@ import classes
 import gati
 
 def post(arr):
-  m = np.argmax(np.squeeze(arr, axis=1), axis=-1)
+  m = np.argmax(np.squeeze(np.stack([i[1] for i in arr]), axis=1), axis=-1)
   return m
 
 if __name__ == "__main__":
