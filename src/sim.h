@@ -294,8 +294,6 @@ template <typename inputT, typename outputT>
 void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
                  const Tensor<inputT> *input2, float i1_scale, float i2_scale,
                  int i1_zp, int i2_zp) {
-  std::cout << "i1 " << input1->name() << ' ' << i1_scale << '\n';
-  std::cout << "i2 " << input2->name() << ' ' << i2_scale << '\n';
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   for (int i = 0; i < input1->dims_iterator(-1); ++i) {
     outputT v = (i1_scale * (input1->at(i) - i1_zp)) + (i2_scale * (input2->at(i) - i2_zp));
