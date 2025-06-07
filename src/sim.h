@@ -290,15 +290,88 @@ void tensor_add(Tensor<outputT> *output, const Tensor<inputT> *input1,
  * returns: (i1_scale * (i1[i] - i1_zp) + i2_scale * (i2[i] - i2_zp))
  */
 
+template <int FRAC_BITS = 16, typename BaseType = int32_t> class FixedPoint {
+  static_assert(std::is_integral<BaseType>::value,
+                "BaseType must be an integral type");
+  static_assert(std::is_signed<BaseType>::value, "BaseType must be signed");
+
+  BaseType value;
+
+public:
+  using WideType = typename std::conditional<sizeof(BaseType) <= 4, int64_t,
+                                             __int128_t>::type;
+  constexpr static BaseType SCALE = BaseType(1) << FRAC_BITS;
+
+  // Constructors
+  FixedPoint() : value(0) {}
+  FixedPoint(float f) : value(static_cast<BaseType>(f * SCALE)) {}
+  FixedPoint(int i) : value(static_cast<BaseType>(i) << FRAC_BITS) {}
+
+  // Raw access
+  BaseType raw() const { return value; }
+  static FixedPoint fromRaw(BaseType rawVal) {
+    FixedPoint fp;
+    fp.value = rawVal;
+    return fp;
+  }
+
+  // Conversion
+  float toFloat() const { return static_cast<float>(value) / SCALE; }
+
+  // Arithmetic
+  FixedPoint operator+(const FixedPoint &other) const {
+    return fromRaw(value + other.value);
+  }
+
+  FixedPoint operator-(const FixedPoint &other) const {
+    return fromRaw(value - other.value);
+  }
+
+  FixedPoint operator*(const FixedPoint &other) const {
+    WideType prod = static_cast<WideType>(value) * other.value;
+    return fromRaw(static_cast<BaseType>(prod >> FRAC_BITS));
+  }
+
+  FixedPoint operator/(const FixedPoint &other) const {
+    WideType dividend = (static_cast<WideType>(value) << FRAC_BITS);
+    return fromRaw(static_cast<BaseType>(dividend / other.value));
+  }
+
+  // Stream output
+  friend std::ostream &operator<<(std::ostream &os, const FixedPoint &fp) {
+    return os << fp.toFloat();
+  }
+};
+
 template <typename inputT, typename outputT>
 void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
                  const Tensor<inputT> *input2, float i1_scale, float i2_scale,
                  int i1_zp, int i2_zp) {
+#if 0
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   for (int i = 0; i < input1->dims_iterator(-1); ++i) {
     outputT v = (i1_scale * (input1->at(i) - i1_zp)) + (i2_scale * (input2->at(i) - i2_zp));
     output->set(i, v);
   }
+#endif
+
+#if 0
+  int shift1 = calc_shift_val(i1_scale);
+  int shift2 = calc_shift_val(i2_scale);
+
+  int scale1 = i1_scale * (1 << shift1); 
+  int scale2 = i2_scale * (1 << shift2); 
+  for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+    outputT v = static_cast<int>(std::round(((scale1 * (input1->at(i) - i1_zp)))))>>shift1 + static_cast<int>(std::round(((scale2 * (input2->at(i) - i2_zp)))))>>shift2;
+    output->set(i, v);
+  }
+#endif
+  using fp_t = FixedPoint<16,int32_t>;
+  for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+    outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) + (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp)))).toFloat();
+    output->set(i, v);
+  }
+
 }
 
 /* Add a tensor and a vector. Each element of the
@@ -347,7 +420,7 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val) {
-#if 1 /* switch this off for debugging with regular float quantization */
+#if 0 /* switch this off for debugging with regular float quantization */
   /* FPGA style quantization (this is how it's implemented on the FPGA) */
   float inverted = 1 / scale;
   if ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) &&
