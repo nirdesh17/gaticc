@@ -339,11 +339,11 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
   if (input_type == onnx::TensorProto_DataType_FLOAT &&
       output_type == onnx::TensorProto_DataType_FLOAT) {
     Tensor<float> *input = new TensorCreate<float>(arr);
-    return infer_aux<float, float>(*rah, hdt, input);
+    return infer_aux<float>(*rah, hdt, input);
   } else if (input_type == onnx::TensorProto_DataType_INT8 &&
              output_type == onnx::TensorProto_DataType_INT32) {
     Tensor<int8_t> *input = new TensorCreate<int8_t>(arr);
-    return infer_aux<int8_t, int>(*rah, hdt, input);
+    return infer_aux<int8_t>(*rah, hdt, input);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type),

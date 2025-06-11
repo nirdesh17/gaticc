@@ -111,7 +111,7 @@ class Runner {
             typename OutputT>
   void run(Rah &rah, HashedDispatchTable &hdt);
 
-  template <typename inputT, typename outputT>
+  template <typename inputT>
   TensorPool infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr);
 
   void receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer);
@@ -151,12 +151,13 @@ public:
  *    on CPU normally, at the end, the final output is to be sent
  *    to the pre-processing pipeline.
  */
-template <typename inputT, typename outputT>
+template <typename inputT>
 TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr) {
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
 
   Op::LayerBase *last_layer = Op::get_last_layer(*m_parser);
+  last_layer->dispatch = hdt.should_dispatch(last_layer);
   bool is_last_layer = true;
   Pass::extract_conv_true_odims(graph);
   AddressGen generator(graph);
@@ -187,6 +188,7 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
     }
     tensor_pool.set<Tensor<inputT> *>(0, slice);
 
+    bool dump_and_exit = false;
     bool sent = false;
     for (Op::LayerBase *l : order) {
       assert(l->device != DEVICE_UNKNOWN);
@@ -196,13 +198,11 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
                Op::get_device_name(l->device));
       if (l->device == DEVICE_CPU && sent == false) {
         l->run(tensor_pool);
-      }
-
+      } 
       if (l->device == DEVICE_FPGA && sent == false) {
         l->send_input(tensor_pool, generator, rah, io_addr_tbl);
         sent = true;
-      }
-
+      } 
       if (l->device == DEVICE_FPGA && sent == true) {
         if (l->dispatch) {
           log_info("l->dispatch {} for layer {}\n", l->dispatch,
@@ -213,20 +213,46 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
           log_info("receiving output\n");
           receive_output(rah, l, is_last_layer);
           log_info("receiving output finish\n");
+          if (!last_layer->dispatch) {
+            dump_and_exit = true;
+            goto _dump;
+          }
         } else {
           fake_exec(l);
         }
-      }
-
+      } 
       if (l->device == DEVICE_CPU && sent == true) {
-        l->run(tensor_pool);
-        sent = false;
+        if (last_layer->dispatch) {
+          l->run(tensor_pool);
+        } 
       }
-
-      if (m_parser->has_graph_output(l)) {
-        Tensor<outputT> *out = tensor_pool.get<Tensor<outputT> *>(l->outputs.at(0));
-        Tensor<outputT> *out_copy = new TensorCreate(out);
-        ret.push_back<Tensor<outputT>*>(out_copy);
+_dump:
+      if (m_parser->has_graph_output(l) || l->dispatch) {
+        for (auto type : l->output_type) {
+          /* TODO: use unique_ptr */
+          if (type == onnx::TensorProto_DataType_INT8) {
+            Tensor<int8_t> *out =
+                tensor_pool.get<Tensor<int8_t> *>(l->outputs.at(0));
+            Tensor<int8_t> *out_copy = new TensorCreate(out, l->name);
+            ret.push_back<Tensor<int8_t> *>(out_copy);
+          } else if (type == onnx::TensorProto_DataType_FLOAT) {
+            Tensor<float> *out =
+                tensor_pool.get<Tensor<float> *>(l->outputs.at(0));
+            Tensor<float> *out_copy = new TensorCreate(out, l->name);
+            ret.push_back<Tensor<float> *>(out_copy);
+          } else if (type == onnx::TensorProto_DataType_INT32) {
+            Tensor<int> *out =
+                tensor_pool.get<Tensor<int> *>(l->outputs.at(0));
+            Tensor<int> *out_copy = new TensorCreate(out, l->name);
+            ret.push_back<Tensor<int> *>(out_copy);
+          } else {
+            log_fatal("Output type of layer {} ({}) is not supported\n", l->name,
+                      Op::get_tensorproto_dtype_name(type));
+          }
+        }
+      }
+      if (dump_and_exit) {
+        break;
       }
     }
   }
@@ -285,6 +311,7 @@ void Runner::receive_output_aux(const T *data, const Op::LayerBase *l, bool is_l
   Tensor<T> *tensor = new TensorCreate<T>(odims);
 
   if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearAdd")) {
+    log_warn("Dangerous dynamic_cast here\n");
     unalign_sa_output(dynamic_cast<const Op::Layer::QLinearConv*>(l), tensor, data);
   } else if (is_op_type(l, "QGemm")) {
     unalign_va_output(tensor, data);
