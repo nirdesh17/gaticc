@@ -3,6 +3,10 @@ import torch.nn as nn
 import random
 from onnxruntime.quantization import quantize_static, CalibrationDataReader, QuantType, QuantFormat
 import logging
+import onnx
+from onnx import helper, TensorProto, numpy_helper
+import numpy as np
+
 
 
 # model_description specifies the structure of the model as a list of layers. 
@@ -135,8 +139,65 @@ def foo():
         extra_options={"ActivationSymmetric": True}
     )
 
+def infer_shape(dims, target):
+    total = 1
+    for d in dims: total *= d
+    known = 1
+    out = []
+    infer = -1
+    for i, d in enumerate(target):
+        if d == -1:
+            if infer != -1: raise ValueError("Multiple -1s")
+            infer = i
+            out.append(1)
+        else:
+            known *= d
+            out.append(d)
+    if infer != -1:
+        if total % known: raise ValueError("Incompatible shape")
+        out[infer] = total // known
+    elif known != total:
+        raise ValueError("Mismatched element count")
+    return out
+
+def stringize(li):
+  s = ""
+  for i in li:
+    s += str(i) + "_"
+  return s
+
+
+def gen_transpose_reshape(input_dims, transpose_perm, reshape_shape):
+  input_tensor = helper.make_tensor_value_info('input', TensorProto.FLOAT, input_dims)
+  output_tensor = helper.make_tensor_value_info('output', TensorProto.FLOAT, infer_shape(input_dims, reshape_shape))
+  transpose_node = helper.make_node(
+      'Transpose',
+      inputs=['input'],
+      outputs=['transposed'],
+      perm=[0, 2, 3, 1]
+  )
+  reshape_shape = np.array([1, -1, 91], dtype=np.int64)
+  shape_initializer = numpy_helper.from_array(reshape_shape, name='shape_tensor')
+  reshape_node = helper.make_node(
+      'Reshape',
+      inputs=['transposed', 'shape_tensor'],
+      outputs=['output']
+  )
+  graph_def = helper.make_graph( nodes=[transpose_node, reshape_node],
+      name='TransposeReshapeGraph',
+      inputs=[input_tensor],
+      outputs=[output_tensor],
+      initializer=[shape_initializer]
+  )
+  model_def = helper.make_model(graph_def, producer_name='onnx-example')
+  onnx.save(model_def, f'transpose_reshape_{stringize(input_dims)}.onnx')
+
 #num_models = 1 # Number of models to generate
 #onnx_models = gen_onnx(num_models, description=model_description if model_description else None)
 #print(onnx_models)
 
-foo()
+gen_transpose_reshape([1,546,2,2], [0,2,3,1], [1,-1,91])
+gen_transpose_reshape([1,546,3,3], [0,2,3,1], [1,-1,91])
+gen_transpose_reshape([1,546,5,5], [0,2,3,1], [1,-1,91])
+gen_transpose_reshape([1,546,10,10], [0,2,3,1], [1,-1,91])
+gen_transpose_reshape([1,546,19,19], [0,2,3,1], [1,-1,91])
