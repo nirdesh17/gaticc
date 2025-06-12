@@ -55,8 +55,8 @@ class Argparse {
        *                                                       args */
       {
           {"help", {"-h", "--help"}, "print help and exit", 0},
-          {"verbose", {"-v", "--v", "--verbose"}, "verbose", 0},
-          {"verbose2", {"--vv", "--verbose2"}, "verbose", 0},
+          {"verbose", {"-v", "--v", "--verbose"}, "print log messages to standard out", 0},
+          {"verbose2", {"--vv", "--verbose2"}, "print more log messages to standard out", 0},
           {"timeest",
            {"--timeest"},
            "print estimated time that a model would take based on FLOP counts "
@@ -178,12 +178,6 @@ class Argparse {
           {"receive-over-uart",
            {"--receive-over-uart"},
            "receive over /dev/ttyUSB0. Args: baudrate (as set by the FPGA)",
-           1},
-          {"compare-layer",
-           {"--compare-layer"},
-           "compare layer with a golden value. The golden tensor can be "
-           "generated "
-           "by the simulator. Args: [path to golden .npy tensor]",
            1},
           {"accbuf-size",
            {"--accbuf-size"},

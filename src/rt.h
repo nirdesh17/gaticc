@@ -121,9 +121,6 @@ class Runner {
   template <typename T>
   void receive_output_aux(const T *data, const Op::LayerBase *l, bool is_last_layer);
 
-  template <typename T>
-  void compare_layer(const Op::LayerBase *l, const Tensor<T> *tensor, fs::path &path);
-
 public:
   Runner();
   TensorPool infer(const std::string& onnx_path, const std::string& gml_path, py::array arr);
