@@ -227,7 +227,7 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
         } 
       }
 _dump:
-      if (m_parser->has_graph_output(l) || l->dispatch) {
+      if (m_parser->has_graph_output(l) || (l->dispatch && !(last_layer->dispatch && l->device == DEVICE_FPGA))) {
         for (auto type : l->output_type) {
           /* TODO: use unique_ptr */
           if (type == onnx::TensorProto_DataType_INT8) {
