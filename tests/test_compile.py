@@ -46,9 +46,13 @@ def main():
         print(f"\nTesting for arch: {arch}")
         for file in os.listdir(models_dir):
             model_path = os.path.join(models_dir, file)
-            print(f"  Compiling: {file}")
-            ret = gati.compile(model_path, "/tmp/model.gml")
-            (failed if ret != 0 else passed).append((arch, file))
+            print(f"Compiling: {file}")
+            try:
+              gati.compile(model_path, "/tmp/model.gml")
+            except RuntimeError as e:
+              print("Caught ", e)
+              failed.append((arch, file))
+            passed.append((arch, file))
 
     total = len(passed) + len(failed)
     result_text = (
