@@ -1,43 +1,29 @@
+import os, sys, argparse
 import gati
-import sys
-import os
 
-# regressions for testing the parsing/summary feature of gaticc
+def get_tbl(rows): return "\n".join(str(r) for r in rows) + "\n"
 
-def get_tbl(l):
-    s = ''
-    for i in l:
-        for j in i:
-            s += str(j)
-        s += '\n'
-    return s
+def main():
+  p = argparse.ArgumentParser()
+  p.add_argument('-m', '--models', required=True)
+  p.add_argument('-o', '--output', default="test_summary.results.txt")
+  a = p.parse_args()
 
-if __name__ == "__main__":
-    failed = []
-    passed = []
-    if len(sys.argv) > 1:
-        models_dir = sys.argv[1]
-    else: 
-        raise SystemExit(f"Insufficient args: Usage: {sys.argv[0]} <path to models dir>")
-    print(f"Using onnx models from: {models_dir}")
-    gati.set_keep_quiet(True)
-    for file in os.listdir(models_dir):
-        print(f"File: {file}")
-        try:
-          gati.summary(os.path.join(models_dir, file))
-          ret = 0
-        except RuntimeError as e:
-          ret = 1
+  if not os.path.isdir(a.models): sys.exit("bad dir")
+  gati.set_keep_quiet(True)
 
-        if ret != 0:
-            failed.append(file)
-        else:
-            passed.append(file)
-    resfile_name = os.path.basename(sys.argv[0]).split('.')[0] + ".results.txt"
-    with open(f"{resfile_name}", "w") as f:
-        f.write(f"Failed Summaries\n")
-        f.write(get_tbl(failed))
-        f.write(f"Passed Summaries\n")
-        f.write(get_tbl(passed))
-        f.write(f"Results: {len(passed)}/{len(passed)+len(failed)}")
-    print(f"Results written to: {resfile_name}\n")
+  fail, ok = [], []
+
+  for f in os.listdir(a.models):
+    path = os.path.join(a.models, f)
+    try: gati.summary(path); ok.append(f)
+    except: fail.append(f)
+
+  txt  = "Failed Summaries\n" + get_tbl(fail)
+  txt += "Passed Summaries\n" + get_tbl(ok)
+  txt += f"Results: {len(ok)}/{len(ok)+len(fail)}\n"
+
+  open(a.output, "w").write(txt)
+  print(txt)
+
+if __name__ == "__main__": main()
