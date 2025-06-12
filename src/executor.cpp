@@ -441,8 +441,8 @@ void Op::Layer::MatMul::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename outputT>
-static void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::Add *cc = dynamic_cast<Op::Layer::Add *>(l);
+static void run_eltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Eltwise *cc = dynamic_cast<Op::Layer::Eltwise *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
@@ -454,26 +454,26 @@ static void run_add(Op::LayerBase *l, TensorPool &tensor_pool) {
   if (cc->inputs.size() > 1) {
     // both inputs are non-initializers (i.e. available only at runtime)
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
-    tensor_add(output, input1, input2);
+    tensor_eltwise(output, input1, input2, cc->operator_type);
   } else {
     // one of the inputs is an initializer (available statically)
-    input2 = new TensorExtant<inputT>(cc->addend);
-    tensor_add(output, input1, input2);
+    input2 = new TensorExtant<inputT>(cc->constant_data);
+    tensor_eltwise(output, input1, input2, cc->operator_type);
     delete input2;
   }
   check_dispatch(l, output);
 }
 
-void Op::Layer::Add::run(TensorPool &tensor_pool) {
+void Op::Layer::Eltwise::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
       output_type[0] == onnx::TensorProto_DataType_FLOAT) {
-    run_add<float, float>(this, tensor_pool);
+    run_eltwise<float, float>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
              output_type[0] == onnx::TensorProto_DataType_INT32) {
-    run_add<int8_t, int>(this, tensor_pool);
+    run_eltwise<int8_t, int>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
@@ -658,8 +658,8 @@ void Op::Layer::QLinearMatMul::run(TensorPool &tensor_pool) {
 }
 
 template <typename inputT, typename intrT, typename outputT>
-static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Op::Layer::QLinearAdd *cc = dynamic_cast<Op::Layer::QLinearAdd *>(l);
+static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::QLinearEltwise *cc = dynamic_cast<Op::Layer::QLinearEltwise *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
@@ -672,7 +672,8 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   if (l->input_type[0] == onnx::TensorProto_DataType_INT32) {
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
-    tensor_qadd(intr_output.get(), input1, input2, 1, 1, 0, 0);
+    tensor_qeltwise(intr_output.get(), input1, input2, 1, 1, 0, 0,
+                    cc->operator_type);
     if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
       std::vector<float> x_scale;
       std::vector<float> w_scale;
@@ -694,19 +695,19 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
     if (cc->inputs.size() > 1) {
       // both inputs are non-initializers (i.e. available only at runtime)
       input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
-      if (input1->name() == cc->input_names.at(0 /* QLA_A */) &&
-          input2->name() == cc->input_names.at(3 /* QLA_B */)) {
-        tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
-                    cc->a_zp, cc->b_zp);
+      if (input1->name() == cc->input_names.at(0 /* QLE_A */) &&
+          input2->name() == cc->input_names.at(3 /* QLE_B */)) {
+        tensor_qeltwise(intr_output.get(), input1, input2, cc->a_scale,
+                        cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
       } else {
-        tensor_qadd(intr_output.get(), input2, input1, cc->a_scale, cc->b_scale,
-                    cc->a_zp, cc->b_zp);
+        tensor_qeltwise(intr_output.get(), input2, input1, cc->a_scale,
+                        cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
       }
     } else {
       // one of the inputs is an initializer (available statically)
-      input2 = new TensorExtant<inputT>(cc->addend);
-      tensor_qadd(intr_output.get(), input1, input2, cc->a_scale, cc->b_scale,
-                  cc->a_zp, cc->b_zp);
+      input2 = new TensorExtant<inputT>(cc->constant_data);
+      tensor_qeltwise(intr_output.get(), input1, input2, cc->a_scale,
+                      cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
       delete input2;
     }
     using variantT = std::variant<int8_t, uint8_t>;
@@ -717,23 +718,23 @@ static void run_qadd(Op::LayerBase *l, TensorPool &tensor_pool) {
   check_dispatch(l, output);
 }
 
-void Op::Layer::QLinearAdd::run(TensorPool &tensor_pool) {
+void Op::Layer::QLinearEltwise::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
       output_type[0] == onnx::TensorProto_DataType_FLOAT) {
-    run_qadd<float, float, float>(this, tensor_pool);
+    run_qeltwise<float, float, float>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
-    run_qadd<int8_t, float, int8_t>(this, tensor_pool);
+    run_qeltwise<int8_t, float, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
-    run_qadd<uint8_t, float, uint8_t>(this, tensor_pool);
+    run_qeltwise<uint8_t, float, uint8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT32 &&
              output_type[0] == onnx::TensorProto_DataType_INT32) {
-    run_qadd<int32_t, int32_t, int32_t>(this, tensor_pool);
+    run_qeltwise<int32_t, int32_t, int32_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT32 &&
              output_type[0] == onnx::TensorProto_DataType_INT8) {
-    run_qadd<int32_t, int32_t, int8_t>(this, tensor_pool);
+    run_qeltwise<int32_t, int32_t, int8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),

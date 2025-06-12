@@ -324,10 +324,11 @@ struct Dropout : public LayerBase {
   void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
-struct Add : public LayerBase {
-  const char *m_optype = "Add";
-  const onnx::TensorProto *addend;
-  Add();
+struct Eltwise : public LayerBase {
+  const char *m_optype = "Eltwise";
+  const onnx::TensorProto *constant_data;
+  const int operator_type; 
+  Eltwise(int op);
   const char *op_type() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
@@ -441,16 +442,17 @@ struct QLinearMatMul : public LayerBase {
   void run(TensorPool &tensor_pool) override;
 };
 
-struct QLinearAdd : public LayerBase {
-  const onnx::TensorProto *addend;
+struct QLinearEltwise : public LayerBase {
+  const onnx::TensorProto *constant_data;
+  const int operator_type;
   float a_scale;
   float b_scale;
   int a_zp;
   int b_zp;
   std::vector<float> o_scale;
   std::vector<std::variant<int8_t, uint8_t>> zero_point;
-  QLinearAdd();
-  const char *m_optype = "QLinearAdd";
+  QLinearEltwise(int op);
+  const char *m_optype = "QLinearEltwise";
   const char *op_type() const override;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void infer_shape(const IVec2D &input_dims) override;

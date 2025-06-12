@@ -284,7 +284,7 @@ void Runner::receive_output_aux(const T *data, const Op::LayerBase *l, bool is_l
   std::vector<int> odims = l->pipelined_output_dims.at(0);
   Tensor<T> *tensor = new TensorCreate<T>(odims);
 
-  if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearAdd")) {
+  if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearEltwise")) {
     unalign_sa_output(dynamic_cast<const Op::Layer::QLinearConv*>(l), tensor, data);
   } else if (is_op_type(l, "QGemm")) {
     unalign_va_output(tensor, data);

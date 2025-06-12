@@ -277,11 +277,24 @@ void reshape(const Tensor<T> *input, Tensor<T> *output,
 
 /* Element wise tensor addition */
 template <typename inputT, typename outputT>
-void tensor_add(Tensor<outputT> *output, const Tensor<inputT> *input1,
-                const Tensor<inputT> *input2) {
+void tensor_eltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
+                    const Tensor<inputT> *input2, int op) {
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
-  for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-    output->set(i, input1->at(i) + input2->at(i));
+
+  if (op == ELTWISE_ADD) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      output->set(i, input1->at(i) + input2->at(i));
+    }
+  } else if (op == ELTWISE_MULT) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      output->set(i, input1->at(i) * input2->at(i));
+    }
+  } else if (op == ELTWISE_SUB) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      output->set(i, input1->at(i) - input2->at(i));
+    }
+  } else {
+    log_fatal("Unsupported eltwise operation %d\n", op);
   }
 }
 
@@ -289,15 +302,32 @@ void tensor_add(Tensor<outputT> *output, const Tensor<inputT> *input1,
  *
  * returns: (i1_scale * (i1[i] - i1_zp) + i2_scale * (i2[i] - i2_zp))
  */
-
 template <typename inputT, typename outputT>
-void tensor_qadd(Tensor<outputT> *output, const Tensor<inputT> *input1,
-                 const Tensor<inputT> *input2, float i1_scale, float i2_scale,
-                 int i1_zp, int i2_zp) {
+void tensor_qeltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
+                     const Tensor<inputT> *input2, float i1_scale,
+                     float i2_scale, int i1_zp, int i2_zp, int op) {
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
-  for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-    outputT v = (i1_scale * (input1->at(i) - i1_zp)) + (i2_scale * (input2->at(i) - i2_zp));
-    output->set(i, v);
+
+  if (op == ELTWISE_ADD) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      outputT v = (i1_scale * (input1->at(i) - i1_zp)) +
+                  (i2_scale * (input2->at(i) - i2_zp));
+      output->set(i, v);
+    }
+  } else if (op == ELTWISE_MULT) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      outputT v = (i1_scale * (input1->at(i) - i1_zp)) *
+                  (i2_scale * (input2->at(i) - i2_zp));
+      output->set(i, v);
+    }
+  } else if (op == ELTWISE_SUB) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      outputT v = (i1_scale * (input1->at(i) - i1_zp)) -
+                  (i2_scale * (input2->at(i) - i2_zp));
+      output->set(i, v);
+    }
+  } else {
+    log_fatal("Unsupported eltwise operation %d\n", op);
   }
 }
 

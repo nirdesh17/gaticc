@@ -11,11 +11,11 @@
 
 static std::set<std::string> miniblock_tbl{
   "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
-  "QLinearAveragePool", "Conv", "Gemm",    "QLinearAdd", "QLinearGlobalAveragePool", "NoOp"};
+  "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "QLinearGlobalAveragePool", "NoOp"};
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv",
-    "Gemm",        "QLinearAdd", "NonMaxSuppression", "NoOp"};
+    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp"};
 
 static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS};
 
@@ -199,7 +199,7 @@ void Pass::absorb(Op::Graph &graph) {
     Op::Vertex v = *vi;
     Op::LayerBase *l = graph[v];
 
-    if (l->op_type() == "QLinearAdd" &&
+    if (l->op_type() == "QLinearEltwise" &&
         l->input_type[0] == onnx::TensorProto_DataType_INT32 ) {
 
       if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
@@ -324,7 +324,7 @@ void Pass::extract_conv_true_odims(Op::Graph gcopy) {
     Op::Vertex v = candidates.top();
     Op::LayerBase *l = gcopy[v];
 
-    if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearAdd")) {
+    if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearEltwise")) {
       cc = l;
     } else if (is_megablock(l) || changes_dimension_count(l)) {
       cc = nullptr;
@@ -452,7 +452,7 @@ static int count_total_megablocks(const InstBlob &insts) {
   return cnt;
 }
 
-static IVec2D aligned_qla_dims(const IVec2D &d) {
+static IVec2D aligned_qle_dims(const IVec2D &d) {
   IVec2D ret;
   auto sa_arch = get_sa_arch();
   for (int i = 0; i < d.size(); ++i) {
@@ -463,8 +463,8 @@ static IVec2D aligned_qla_dims(const IVec2D &d) {
   return ret;
 }
 
-static std::vector<int> aligned_qla(const IVec2D& d) {
-  auto ad = aligned_qla_dims(d);
+static std::vector<int> aligned_qle(const IVec2D& d) {
+  auto ad = aligned_qle_dims(d);
   std::vector<int> ret;
   auto sa_arch = get_sa_arch();
   for (int i = 0; i < ad.size(); ++i) {
@@ -1215,15 +1215,15 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob &insts, AddressGen &,
   return 0;
 }
 
-void Op::Layer::QLinearAdd::get_opcodes(std::vector<int> &op_codes) {
+void Op::Layer::QLinearEltwise::get_opcodes(std::vector<int> &op_codes) {
   op_codes.push_back(OP_EltWise);
   op_codes.push_back(OP_OutputBlock);
   /* for quantization */
   op_codes.push_back(OP_TailBlock);
 }
 
-uint32_t Op::Layer::QLinearAdd::get_weight_size() {
-  log_warn("Treating QLinearAdd as a weight-less operator consisting of "
+uint32_t Op::Layer::QLinearEltwise::get_weight_size() {
+  log_warn("Treating QLinearEltwise as a weight-less operator consisting of "
            " only inputs and outputs\n");
   return 0;
 }
@@ -1243,7 +1243,7 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_WIDTH), EltWise_IW);
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_HEIGHT), EltWise_IH);
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_CHANNELS), EltWise_IC);
-  std::vector<int> ad = aligned_qla(l->input_dims);
+  std::vector<int> ad = aligned_qle(l->input_dims);
   uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
   uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
   uint32_t left_end = left_start + left_size;
@@ -1329,7 +1329,7 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise_output(const Op::LayerBase *l,
 }
 
 static std::bitset<INST_SIZE_BITS>
-gen_eltwise_add_quant(const Op::Layer::QLinearAdd *cc) {
+gen_eltwise_quant(const Op::Layer::QLinearEltwise *cc) {
   std::bitset<INST_SIZE_BITS> quant_inst;
 
   using variantT = std::variant<int8_t, uint8_t>;
@@ -1377,13 +1377,13 @@ gen_eltwise_add_quant(const Op::Layer::QLinearAdd *cc) {
  * a part of any pipeline, get_inst() for QLinearAdd pushes multiple
  * instructions just like other megablocks like QLinearConv and QGemm
  */
-int Op::Layer::QLinearAdd::get_inst(InstBlob &blob, AddressGen &gen,
+int Op::Layer::QLinearEltwise::get_inst(InstBlob &blob, AddressGen &gen,
                                     InitializerTable &tbl) {
   assert(this->device == DEVICE_FPGA);
-  auto add_inst = gen_eltwise(this, gen, tbl, ELTWISE_ADD);
+  auto add_inst = gen_eltwise(this, gen, tbl, this->operator_type);
   gen_eltwise_input_quant(add_inst, this->a_scale, this->b_scale, this->a_zp, this->b_zp);
   auto out_inst = gen_eltwise_output(this, gen, tbl);
-  auto quant_inst = gen_eltwise_add_quant(this);
+  auto quant_inst = gen_eltwise_quant(this);
   blob.push_back(add_inst);
   blob.push_back(out_inst);
   blob.push_back(quant_inst);
@@ -1428,12 +1428,12 @@ IVec2D Op::Layer::QGemm::aligned_output() const {
 }
 
 
-IVec2D Op::Layer::QLinearAdd::aligned_input() const {
-  return aligned_qla_dims(input_dims);
+IVec2D Op::Layer::QLinearEltwise::aligned_input() const {
+  return aligned_qle_dims(input_dims);
 }
 
-IVec2D Op::Layer::QLinearAdd::aligned_output() const {
-  return aligned_qla_dims(input_dims);
+IVec2D Op::Layer::QLinearEltwise::aligned_output() const {
+  return aligned_qle_dims(input_dims);
 }
 
 std::pair<int,int> Op::Layer::QLinearConv::get_iterations() const {
