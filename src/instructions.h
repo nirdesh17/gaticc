@@ -39,42 +39,52 @@
 #define CONV_Stride_LOW 76
 #define CONV_Stride_HIGH 79
 #define CONV_Stride_COUNT 4
-#define CONV_Pad_LOW 80
-#define CONV_Pad_HIGH 82
-#define CONV_Pad_COUNT 3
-// Bit vector where each bit represents a side (left,bottom,rig
-// ht,top) of a feature map that should be padded with 'Pad'
-#define CONV_PadSides_LOW 83
-#define CONV_PadSides_HIGH 86
-#define CONV_PadSides_COUNT 4
-#define CONV_ImageStartAddress_LOW 87
-#define CONV_ImageStartAddress_HIGH 118
+#define CONV_PadLeft_LOW 80
+#define CONV_PadLeft_HIGH 82
+#define CONV_PadLeft_COUNT 3
+#define CONV_PadBottom_LOW 83
+#define CONV_PadBottom_HIGH 85
+#define CONV_PadBottom_COUNT 3
+#define CONV_PadRight_LOW 86
+#define CONV_PadRight_HIGH 88
+#define CONV_PadRight_COUNT 3
+#define CONV_PadTop_LOW 89
+#define CONV_PadTop_HIGH 91
+#define CONV_PadTop_COUNT 3
+#define CONV_StartRowSkip_LOW 92
+#define CONV_StartRowSkip_HIGH 95
+#define CONV_StartRowSkip_COUNT 4
+#define CONV_EndRowSkip_LOW 96
+#define CONV_EndRowSkip_HIGH 99
+#define CONV_EndRowSkip_COUNT 4
+#define CONV_ImageStartAddress_LOW 100
+#define CONV_ImageStartAddress_HIGH 131
 #define CONV_ImageStartAddress_COUNT 32
-#define CONV_ImageEndAddress_LOW 119
-#define CONV_ImageEndAddress_HIGH 150
+#define CONV_ImageEndAddress_LOW 132
+#define CONV_ImageEndAddress_HIGH 163
 #define CONV_ImageEndAddress_COUNT 32
-#define CONV_WeightStartAddress_LOW 151
-#define CONV_WeightStartAddress_HIGH 182
+#define CONV_WeightStartAddress_LOW 164
+#define CONV_WeightStartAddress_HIGH 195
 #define CONV_WeightStartAddress_COUNT 32
-#define CONV_WeightEndAddress_LOW 183
-#define CONV_WeightEndAddress_HIGH 214
+#define CONV_WeightEndAddress_LOW 196
+#define CONV_WeightEndAddress_HIGH 227
 #define CONV_WeightEndAddress_COUNT 32
 // Set if the entire image can be fetched in im2col blocks at o
 // nce
-#define CONV_Im2colPrefetch_LOW 215
-#define CONV_Im2colPrefetch_HIGH 215
+#define CONV_Im2colPrefetch_LOW 228
+#define CONV_Im2colPrefetch_HIGH 228
 #define CONV_Im2colPrefetch_COUNT 1
 // Channel count for weight
-#define CONV_KC_LOW 216
-#define CONV_KC_HIGH 227
+#define CONV_KC_LOW 229
+#define CONV_KC_HIGH 240
 #define CONV_KC_COUNT 12
-#define CONV_ConvType_LOW 228
-#define CONV_ConvType_HIGH 229
+#define CONV_ConvType_LOW 241
+#define CONV_ConvType_HIGH 242
 #define CONV_ConvType_COUNT 2
 // If a regular conv is supposed to be performed on a pointwise
 // -optimal architecture, this flag is set
-#define CONV_ChannelDuplicate_LOW 230
-#define CONV_ChannelDuplicate_HIGH 230
+#define CONV_ChannelDuplicate_LOW 243
+#define CONV_ChannelDuplicate_HIGH 243
 #define CONV_ChannelDuplicate_COUNT 1
 
 #define OP_TailBlock 0x01
@@ -169,54 +179,57 @@
 #define OutputBlock_AccumulantAddr_LOW 4
 #define OutputBlock_AccumulantAddr_HIGH 35
 #define OutputBlock_AccumulantAddr_COUNT 32
-#define OutputBlock_OutputAddr_LOW 36
-#define OutputBlock_OutputAddr_HIGH 67
+#define OutputBlock_AccumulantReadFirst_LOW 36
+#define OutputBlock_AccumulantReadFirst_HIGH 36
+#define OutputBlock_AccumulantReadFirst_COUNT 1
+#define OutputBlock_OutputAddr_LOW 37
+#define OutputBlock_OutputAddr_HIGH 68
 #define OutputBlock_OutputAddr_COUNT 32
-#define OutputBlock_ChannelItr_LOW 68
-#define OutputBlock_ChannelItr_HIGH 79
+#define OutputBlock_ChannelItr_LOW 69
+#define OutputBlock_ChannelItr_HIGH 80
 #define OutputBlock_ChannelItr_COUNT 12
-#define OutputBlock_KernelItr_LOW 80
-#define OutputBlock_KernelItr_HIGH 91
+#define OutputBlock_KernelItr_LOW 81
+#define OutputBlock_KernelItr_HIGH 92
 #define OutputBlock_KernelItr_COUNT 12
 // Following the SA, there are tail blocks. Some of the tail bl
 // ocks like maxpool modify the shape of the output, this field
 //  accounts for that. In cases, when shape is not modified, th
 // is field is equal to ImageDimAcc
-#define OutputBlock_ImageDimOutput_LOW 92
-#define OutputBlock_ImageDimOutput_HIGH 107
+#define OutputBlock_ImageDimOutput_LOW 93
+#define OutputBlock_ImageDimOutput_HIGH 108
 #define OutputBlock_ImageDimOutput_COUNT 16
 // Output of the conv operation (HxW)
-#define OutputBlock_ImageDimAcc_LOW 108
-#define OutputBlock_ImageDimAcc_HIGH 123
+#define OutputBlock_ImageDimAcc_LOW 109
+#define OutputBlock_ImageDimAcc_HIGH 124
 #define OutputBlock_ImageDimAcc_COUNT 16
 // For layer with fewer channels than number of columns in the 
 // systolic array, accumulation of partial sums across iteratio
 // ns is disabled
-#define OutputBlock_AccEn_LOW 124
-#define OutputBlock_AccEn_HIGH 124
+#define OutputBlock_AccEn_LOW 125
+#define OutputBlock_AccEn_HIGH 125
 #define OutputBlock_AccEn_COUNT 1
 // If this layer's output is supposed to be sent back to the CP
 // U, this flag is set
-#define OutputBlock_DispatchEn_LOW 125
-#define OutputBlock_DispatchEn_HIGH 125
+#define OutputBlock_DispatchEn_LOW 126
+#define OutputBlock_DispatchEn_HIGH 126
 #define OutputBlock_DispatchEn_COUNT 1
 // This is a integrity id that the FPGA should attach to the Ad
 // dr part of the receiving DWP packet.
-#define OutputBlock_DispatchID_LOW 126
-#define OutputBlock_DispatchID_HIGH 157
+#define OutputBlock_DispatchID_LOW 127
+#define OutputBlock_DispatchID_HIGH 158
 #define OutputBlock_DispatchID_COUNT 32
 // If output dimensions of a conv operation can fit on the FPGA
 //  output buffers, they should not be sent to the DRAM, all of
 //  the conv can happen on chip saving latency. This flag sets 
 // that bit.
-#define OutputBlock_OnChipAcc_LOW 158
-#define OutputBlock_OnChipAcc_HIGH 158
+#define OutputBlock_OnChipAcc_LOW 159
+#define OutputBlock_OnChipAcc_HIGH 159
 #define OutputBlock_OnChipAcc_COUNT 1
-#define OutputBlock_OH_LOW 159
-#define OutputBlock_OH_HIGH 168
+#define OutputBlock_OH_LOW 160
+#define OutputBlock_OH_HIGH 169
 #define OutputBlock_OH_COUNT 10
-#define OutputBlock_OW_LOW 169
-#define OutputBlock_OW_HIGH 178
+#define OutputBlock_OW_LOW 170
+#define OutputBlock_OW_HIGH 179
 #define OutputBlock_OW_COUNT 10
 
 #define OP_FC 0x03
@@ -462,10 +475,18 @@ inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("KH");
 	tbl.tbl.insert({"Stride", bitset_range_get<CONV_Stride_COUNT, INST_SIZE_BITS>(inst, CONV_Stride_LOW, CONV_Stride_HIGH)});
 	tbl.order.push_back("Stride");
-	tbl.tbl.insert({"Pad", bitset_range_get<CONV_Pad_COUNT, INST_SIZE_BITS>(inst, CONV_Pad_LOW, CONV_Pad_HIGH)});
-	tbl.order.push_back("Pad");
-	tbl.tbl.insert({"PadSides", bitset_range_get<CONV_PadSides_COUNT, INST_SIZE_BITS>(inst, CONV_PadSides_LOW, CONV_PadSides_HIGH)});
-	tbl.order.push_back("PadSides");
+	tbl.tbl.insert({"PadLeft", bitset_range_get<CONV_PadLeft_COUNT, INST_SIZE_BITS>(inst, CONV_PadLeft_LOW, CONV_PadLeft_HIGH)});
+	tbl.order.push_back("PadLeft");
+	tbl.tbl.insert({"PadBottom", bitset_range_get<CONV_PadBottom_COUNT, INST_SIZE_BITS>(inst, CONV_PadBottom_LOW, CONV_PadBottom_HIGH)});
+	tbl.order.push_back("PadBottom");
+	tbl.tbl.insert({"PadRight", bitset_range_get<CONV_PadRight_COUNT, INST_SIZE_BITS>(inst, CONV_PadRight_LOW, CONV_PadRight_HIGH)});
+	tbl.order.push_back("PadRight");
+	tbl.tbl.insert({"PadTop", bitset_range_get<CONV_PadTop_COUNT, INST_SIZE_BITS>(inst, CONV_PadTop_LOW, CONV_PadTop_HIGH)});
+	tbl.order.push_back("PadTop");
+	tbl.tbl.insert({"StartRowSkip", bitset_range_get<CONV_StartRowSkip_COUNT, INST_SIZE_BITS>(inst, CONV_StartRowSkip_LOW, CONV_StartRowSkip_HIGH)});
+	tbl.order.push_back("StartRowSkip");
+	tbl.tbl.insert({"EndRowSkip", bitset_range_get<CONV_EndRowSkip_COUNT, INST_SIZE_BITS>(inst, CONV_EndRowSkip_LOW, CONV_EndRowSkip_HIGH)});
+	tbl.order.push_back("EndRowSkip");
 	tbl.tbl.insert({"ImageStartAddress", bitset_range_get<CONV_ImageStartAddress_COUNT, INST_SIZE_BITS>(inst, CONV_ImageStartAddress_LOW, CONV_ImageStartAddress_HIGH)});
 	tbl.order.push_back("ImageStartAddress");
 	tbl.tbl.insert({"ImageEndAddress", bitset_range_get<CONV_ImageEndAddress_COUNT, INST_SIZE_BITS>(inst, CONV_ImageEndAddress_LOW, CONV_ImageEndAddress_HIGH)});
@@ -552,6 +573,8 @@ inline Table get_outputblock_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("Opcode");
 	tbl.tbl.insert({"AccumulantAddr", bitset_range_get<OutputBlock_AccumulantAddr_COUNT, INST_SIZE_BITS>(inst, OutputBlock_AccumulantAddr_LOW, OutputBlock_AccumulantAddr_HIGH)});
 	tbl.order.push_back("AccumulantAddr");
+	tbl.tbl.insert({"AccumulantReadFirst", bitset_range_get<OutputBlock_AccumulantReadFirst_COUNT, INST_SIZE_BITS>(inst, OutputBlock_AccumulantReadFirst_LOW, OutputBlock_AccumulantReadFirst_HIGH)});
+	tbl.order.push_back("AccumulantReadFirst");
 	tbl.tbl.insert({"OutputAddr", bitset_range_get<OutputBlock_OutputAddr_COUNT, INST_SIZE_BITS>(inst, OutputBlock_OutputAddr_LOW, OutputBlock_OutputAddr_HIGH)});
 	tbl.order.push_back("OutputAddr");
 	tbl.tbl.insert({"ChannelItr", bitset_range_get<OutputBlock_ChannelItr_COUNT, INST_SIZE_BITS>(inst, OutputBlock_ChannelItr_LOW, OutputBlock_ChannelItr_HIGH)});
