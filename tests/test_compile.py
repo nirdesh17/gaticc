@@ -49,10 +49,13 @@ def main():
             print(f"Compiling: {file}")
             try:
               gati.compile(model_path, "/tmp/model.gml")
+              ret = 0
             except RuntimeError as e:
-              print("Caught ", e)
+              ret = 1
+            if ret != 0:
               failed.append((arch, file))
-            passed.append((arch, file))
+            else:
+              passed.append((arch, file))
 
     total = len(passed) + len(failed)
     result_text = (

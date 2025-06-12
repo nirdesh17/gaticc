@@ -23,7 +23,12 @@ if __name__ == "__main__":
     gati.set_keep_quiet(True)
     for file in os.listdir(models_dir):
         print(f"File: {file}")
-        ret = gati.summary(os.path.join(models_dir, file))
+        try:
+          gati.summary(os.path.join(models_dir, file))
+          ret = 0
+        except RuntimeError as e:
+          ret = 1
+
         if ret != 0:
             failed.append(file)
         else:
