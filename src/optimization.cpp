@@ -41,7 +41,7 @@ Op::Vertex create_qadd(Op::Graph &g,
                        std::vector<Op::Vertex> &new_decomposed_conv,
                        const Op::Layer::QLinearConv *cc, int n, int i) {
   Op::Vertex new_vertex = boost::add_vertex(g);
-  auto *new_add = new Op::Layer::QLinearAdd;
+  auto *new_add = new Op::Layer::QLinearEltwise(ELTWISE_ADD); 
 
   new_add->name = "qadd_" + std::to_string(i);
 

@@ -46,6 +46,7 @@ def main():
 
   for f in files:
     try:
+      print(f"Sim {f}")
       if "mnist" in f:
         acc = gati.match('mnist_10_labels.txt', post(gati.sim(os.path.join(a.models, f), np.load("mnist_10.npy"))))
       elif "imagenet" in f:

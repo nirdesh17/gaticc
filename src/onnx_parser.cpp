@@ -504,15 +504,17 @@ void Op::Layer::Dropout::infer_type(const std::vector<TPDT> &input_types) {
   this->output_type = input_types;
 }
 
-Op::Layer::Add::Add() { addend = nullptr; }
-
-const char *Op::Layer::Add::op_type() const { return m_optype; }
-
-void Op::Layer::Add::set_initializer_params(int, const onnx::TensorProto &t) {
-  addend = &t;
+Op::Layer::Eltwise::Eltwise(int op) : operator_type(op) {
+  constant_data = nullptr;
 }
 
-void Op::Layer::Add::infer_shape(const IVec2D &input_dims) {
+const char *Op::Layer::Eltwise::op_type() const { return m_optype; }
+
+void Op::Layer::Eltwise::set_initializer_params(int, const onnx::TensorProto &t) {
+  constant_data = &t;
+}
+
+void Op::Layer::Eltwise::infer_shape(const IVec2D &input_dims) {
   /* TODO: allow support for broadcasts */
   assert(input_dims.size() >= 1);
   auto og = input_dims[0];
@@ -525,7 +527,7 @@ void Op::Layer::Add::infer_shape(const IVec2D &input_dims) {
   this->pipelined_output_dims = this->output_dims;
 }
 
-void Op::Layer::Add::infer_type(const std::vector<TPDT> &input_types) {
+void Op::Layer::Eltwise::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
   this->input_type = input_types;
   this->output_type = input_types;
@@ -1147,62 +1149,64 @@ void Op::Layer::QLinearMatMul::infer_type(
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
-Op::Layer::QLinearAdd::QLinearAdd() { addend = nullptr; }
+Op::Layer::QLinearEltwise::QLinearEltwise(int op) : operator_type(op) {
+  constant_data = nullptr;
+}
 
-const char *Op::Layer::QLinearAdd::op_type() const { return m_optype; }
+const char *Op::Layer::QLinearEltwise::op_type() const { return m_optype; }
 
-enum QLA_INITIALIZERS {
-  QLA_A = 0,
-  QLA_SCALE = 1,
-  QLA_ZERO_POINT = 2,
-  QLA_B = 3,
-  QLA_B_SCALE = 4,
-  QLA_B_ZERO_POINT = 5,
-  QLA_C_SCALE = 6,
-  QLA_C_ZERO_POINT = 7
+enum QLE_INITIALIZERS {
+  QLE_A = 0,
+  QLE_SCALE = 1,
+  QLE_ZERO_POINT = 2,
+  QLE_B = 3,
+  QLE_B_SCALE = 4,
+  QLE_B_ZERO_POINT = 5,
+  QLE_C_SCALE = 6,
+  QLE_C_ZERO_POINT = 7
 };
 
-std::vector<float> Op::Layer::QLinearAdd::get_output_scale(void) {
+std::vector<float> Op::Layer::QLinearEltwise::get_output_scale(void) {
   return o_scale;
 }
-void Op::Layer::QLinearAdd::set_output_scale(const std::vector<float>& v) {
+void Op::Layer::QLinearEltwise::set_output_scale(const std::vector<float>& v) {
   assert(v.size() == o_scale.size());
   o_scale = v;
 }
 
-void Op::Layer::QLinearAdd::set_initializer_params(int n,
+void Op::Layer::QLinearEltwise::set_initializer_params(int n,
                                                    const onnx::TensorProto &t) {
   switch (n) {
-  case QLA_SCALE:
+  case QLE_SCALE:
     assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
     for (auto i : t.float_data()) {
       a_scale = i;
     }
     break;
-  case QLA_ZERO_POINT:
+  case QLE_ZERO_POINT:
     assert(t.int32_data_size() > 0);
     a_zp = (int)t.int32_data(0);
     break;
-  case QLA_B:
-    addend = &t;
+  case QLE_B:
+    constant_data = &t;
     break;
-  case QLA_B_SCALE:
+  case QLE_B_SCALE:
     assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
     for (auto i : t.float_data()) {
       b_scale = i;
     }
     break;
-  case QLA_B_ZERO_POINT:
+  case QLE_B_ZERO_POINT:
     assert(t.int32_data_size() > 0);
     b_zp = (int)t.int32_data(0);
     break;
-  case QLA_C_SCALE:
+  case QLE_C_SCALE:
     assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
     for (auto i : t.float_data()) {
       o_scale.push_back(i);
     }
     break;
-  case QLA_C_ZERO_POINT:
+  case QLE_C_ZERO_POINT:
     if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
       zero_point.push_back((uint8_t)t.int32_data(0));
     } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
@@ -1217,12 +1221,12 @@ void Op::Layer::QLinearAdd::set_initializer_params(int n,
   }
 }
 
-void Op::Layer::QLinearAdd::infer_shape(const IVec2D &input_dims) {
+void Op::Layer::QLinearEltwise::infer_shape(const IVec2D &input_dims) {
   if (this->output_dims.size() != 0) {
     return;
   }
-  if (this->addend != nullptr) {
-    std::vector<int> weight_dims = get_tensorproto_shape(*this->addend);
+  if (this->constant_data != nullptr) {
+    std::vector<int> weight_dims = get_tensorproto_shape(*this->constant_data);
     if (!is_broadcastable(input_dims[0], weight_dims)) {
       log_fatal(
           "input_dims and weight_dims can't be broadcasted for layer {}\n",
@@ -1238,7 +1242,7 @@ void Op::Layer::QLinearAdd::infer_shape(const IVec2D &input_dims) {
   this->pipelined_output_dims = this->output_dims;
 }
 
-void Op::Layer::QLinearAdd::infer_type(const std::vector<TPDT> &input_types) {
+void Op::Layer::QLinearEltwise::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
   if (this->input_type.size() != 0) {
     return;
@@ -2235,7 +2239,7 @@ long Op::time_estimate(Op::Graph graph) {
   }
   int frequency = gbl_args["timeest"].as<int>();
 
-  int qla_time = 0;
+  int qle_time = 0;
   for (auto itr = vb; itr != ve; ++itr) {
     LayerBase *node = graph[*itr];
     if (is_conv_like(node->op_type())) {
@@ -2258,15 +2262,15 @@ long Op::time_estimate(Op::Graph graph) {
       cycles += t;
       std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
       Op::print_node(*itr, &graph);
-    } else if (strcmp(node->op_type(), "QLinearAdd") == 0) {
+    } else if (strcmp(node->op_type(), "QLinearEltwise") == 0) {
       int t = node->output_dims[0][TENSOR_4D_WIDTH] * node->output_dims[0][TENSOR_4D_HEIGHT] * ceil_div(node->output_dims[0][TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]) * 2;
       cycles += t;
-      qla_time += t;
+      qle_time += t;
       std::cout << "Time: " << (float)t / (frequency * 1e3) << "ms\n";
       Op::print_node(*itr, &graph);
     }
   }
-  std::cout << "QLA Time: " << (float) qla_time / (frequency * 1e3) << "ms\n";
+  std::cout << "QLE Time: " << (float) qle_time / (frequency * 1e3) << "ms\n";
   std::cout << "Total Estimated time: "
             << (float)cycles / (frequency * 1e3) << "ms\n";
   return cycles;
@@ -2867,7 +2871,11 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "Clip") {
     m_model.add(new Op::Layer::Clip(), node);
   } else if (opt == "Add") {
-    m_model.add(new Op::Layer::Add(), node);
+    m_model.add(new Op::Layer::Eltwise(ELTWISE_ADD), node);
+  } else if (opt == "Mul") {
+    m_model.add(new Op::Layer::Eltwise(ELTWISE_MULT), node);
+  } else if (opt == "Sub") {
+    m_model.add(new Op::Layer::Eltwise(ELTWISE_SUB), node);
   } else if (opt == "GlobalAveragePool") {
     m_model.add(new Op::Layer::QLinearAveragePool(true), node);
   } else if (opt == "BatchNormalization") {
@@ -2885,7 +2893,11 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "QLinearMatMul") {
     m_model.add(new Op::Layer::QLinearMatMul(), node);
   } else if (opt == "QLinearAdd") {
-    m_model.add(new Op::Layer::QLinearAdd(), node);
+    m_model.add(new Op::Layer::QLinearEltwise(ELTWISE_ADD), node);
+  } else if (opt == "QLinearMul") {
+    m_model.add(new Op::Layer::QLinearEltwise(ELTWISE_MULT), node);
+  } else if (opt == "QLinearMul") {
+    m_model.add(new Op::Layer::QLinearEltwise(ELTWISE_SUB), node);
   } else if (opt == "Transpose") {
     m_model.add(new Op::Layer::Transpose(), node);
   } else if (opt == "MatMul") {
@@ -2914,8 +2926,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Concat(), node);
   } else if (opt == "NonMaxSuppression") {
     m_model.add(new Op::Layer::NMS(), node);
-  }
-  else {
+  } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }
 }
