@@ -495,7 +495,13 @@ static void run_quantize_linear(Op::LayerBase *l, TensorPool &tensor_pool) {
   } else {
     log_fatal("cant deduce zero point type for layer {}\n", l->name);
   }
+  Timer<std::chrono::microseconds> tt;
+  tt.start();
   quantize<inputT, outputT>(input, output, scales, zero_point);
+  tt.stop();
+  if (get_verbose()) {
+    log_info("Quantize linear time: {} us\n", tt.difference().count());
+  }
   check_dispatch(l, output);
 }
 

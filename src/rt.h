@@ -178,7 +178,12 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
   for (int i = 0; i < input_image->dims_at(0); ++i) {
     tensor_pool.free();
 
+    Timer<std::chrono::microseconds> slice_tt;
+    slice_tt.start();
     Tensor<inputT> *slice{get_slice(input_image, std::vector<int>{i})};
+    print_vec("slice shape ", slice->get_dims());
+    slice_tt.stop();
+    log_info("Slice time {} us\n", slice_tt.difference().count());
     if (order.at(0)->input_dims[0] != slice->get_dims()) {
       log_fatal("Expected input dims {}, got input of dimensions {}\n",
                 order.at(0)->input_dims[0], slice->get_dims());
@@ -194,7 +199,11 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
       log_info("Running layer {} on {}\n", l->name,
                Op::get_device_name(l->device));
       if (l->device == DEVICE_CPU && sent == false) {
+        Timer<std::chrono::microseconds> run_tt;
+        run_tt.start();
         l->run(tensor_pool);
+        run_tt.stop();
+        log_info("CPU Proc run: {} us\n", run_tt.difference().count());
       } 
       if (l->device == DEVICE_FPGA && sent == false) {
         l->send_input(tensor_pool, generator, rah, io_addr_tbl);

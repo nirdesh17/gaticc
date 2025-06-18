@@ -347,6 +347,7 @@ template <typename inputT, typename outputT>
 void tensor_qeltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
                      const Tensor<inputT> *input2, float i1_scale,
                      float i2_scale, int i1_zp, int i2_zp, int op) {
+  std::cout << "qaltwise " << typeid(outputT).name() << '\n';
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
   using fp_t = FixedPoint<16, int32_t>;
   if (op == ELTWISE_ADD) {
@@ -415,12 +416,12 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val) {
-#if 0 /* switch this off for debugging with regular float quantization */
+#if 1 /* switch this off for debugging with regular float quantization */
   /* FPGA style quantization (this is how it's implemented on the FPGA) */
-  float inverted = 1 / scale;
-  if ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) &&
+  if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) &&
       (std::is_same<inputT, int32_t>())) {
     /* fpga style quantization */
+    float inverted = 1 / scale;
     int int_scale = (int)((float)inverted * (float)(1 << shift_val));
     inputT ret =
         (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
@@ -459,6 +460,7 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output,
     log_fatal("cant find saturation values for quantization (unimplemented)\n");
   }
 
+
   if (input->dims_size() == 4) {
     const auto bscales =
         broadcast_vec(scales, input->dims_at(TENSOR_4D_CHANNELS));
@@ -466,17 +468,28 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output,
     int shift_val = calc_shift_val(inverted);
     const auto bzero_points =
         broadcast_vec(zero_point, input->dims_at(TENSOR_4D_CHANNELS));
+    auto out_strides = output->get_strides();
+    auto quant_aux = [&bscales, &bzero_points, &min_lim, &max_lim, &shift_val, &output, &input, &out_strides](const int batch, const int channel) {
+      int bc = batch * out_strides[0] + channel * out_strides[1];
+      for (int k = 0; k < input->dims_at(TENSOR_4D_HEIGHT); ++k) {
+        for (int l = 0; l < input->dims_at(TENSOR_4D_WIDTH); ++l) {
+          int in_index = bc + k * out_strides[2] + l * out_strides[3];
+          inputT val = input->at(in_index);
+          outputT new_val = quantize_fn<inputT, outputT>(
+              val, bscales[channel], bzero_points[channel], min_lim, max_lim, shift_val);
+          output->set(in_index, new_val);
+        }
+      }
+    };
+    std::vector<std::thread> tc;
     for (int i = 0; i < input->dims_at(TENSOR_4D_BATCH); ++i) {
       for (int j = 0; j < input->dims_at(TENSOR_4D_CHANNELS); ++j) {
-        for (int k = 0; k < input->dims_at(TENSOR_4D_HEIGHT); ++k) {
-          for (int l = 0; l < input->dims_at(TENSOR_4D_WIDTH); ++l) {
-            std::vector<int> in_index{i, j, k, l};
-            inputT val = input->at(in_index);
-            outputT new_val = quantize_fn<inputT, outputT>(
-                val, bscales[j], bzero_points[j], min_lim, max_lim, shift_val);
-            output->insert(in_index, new_val);
-          }
-        }
+        tc.push_back(std::thread(quant_aux, i, j));
+      }
+    }
+    for (int i = 0; i < input->dims_at(TENSOR_4D_BATCH); ++i) {
+      for (int j = 0; j < input->dims_at(TENSOR_4D_CHANNELS); ++j) {
+        tc[i * input->dims_at(TENSOR_4D_CHANNELS) + j].join();
       }
     }
   } else if (input->dims_size() == 2) {

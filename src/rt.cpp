@@ -536,7 +536,7 @@ void Op::LayerBase::send_input(TensorPool &, AddressGen &, Rah &, IOAddrTbl &) c
 template <typename T>
 static void sa_align_input(BinBlob &blob, const Op::Layer::QLinearConv *l, uint32_t data_size, uint32_t addr,
                               const Tensor<T> *tensor) {
-  Timer<std::chrono::milliseconds> tt;
+  Timer<std::chrono::microseconds> tt;
   tt.start();
   blob.append_dwp_header(data_size, addr);
   assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
@@ -576,7 +576,7 @@ static void sa_align_input(BinBlob &blob, const Op::Layer::QLinearConv *l, uint3
     }
   }
   tt.stop();
-  log_info("SA Align time: {}ms\n", tt.difference().count());
+  log_info("SA Align time: {} us\n", tt.difference().count());
 }
 
 template <typename T>
