@@ -65,8 +65,10 @@ public:
   virtual void shrink_to_fit();
   virtual void set(int index, T val);
   virtual Tensor<T> &operator=(const Tensor<T> &rhs);
+  virtual Tensor<T> &operator=(Tensor<T> &&rhs);
   virtual typename std::vector<T>::iterator begin();
   virtual typename std::vector<T>::iterator end();
+  virtual std::vector<T>&& rget();
 };
 
 template <typename T> std::string Tensor<T>::name() const {
@@ -104,12 +106,23 @@ template <typename T> Tensor<T> &Tensor<T>::operator=(const Tensor<T> &) {
   log_fatal("Un-implemented function\n");
 }
 
+template <typename T> Tensor<T> &Tensor<T>::operator=(Tensor<T> &&) {
+  log_fatal("Un-implemented function\n");
+}
+
 template <typename T> typename std::vector<T>::iterator Tensor<T>::begin() {
   log_fatal("Un-implemented function\n");
+  return std::vector<T>().begin();
 }
 
 template <typename T> typename std::vector<T>::iterator Tensor<T>::end() {
   log_fatal("Un-implemented function\n");
+  return std::vector<T>().end();
+}
+
+template <typename T> std::vector<T>&& Tensor<T>::rget() {
+  log_fatal("Un-implemented function\n");
+  return std::vector<T>();
 }
 
 template <typename T> Tensor<T>::~Tensor() {}
@@ -342,14 +355,21 @@ public:
   int size() const override { return vec.size(); }
 
   std::vector<T> get() const override { return vec; }
+  std::vector<T>&& rget() override { return std::move(vec); }
 
   std::vector<int> get_strides() const override { return stride; }
 
   void set(int index, T val) override { vec.at(index) = val; }
 
-  virtual Tensor<T> &operator=(const Tensor<T> &rhs) {
+  virtual Tensor<T> &operator=(const Tensor<T> &rhs) override {
     this->dims = rhs.get_dims();
     this->vec = rhs.get();
+    return *this;
+  }
+
+  virtual Tensor<T> &operator=(Tensor<T> &&rhs) override {
+    this->dims = rhs.get_dims();
+    this->vec = std::move(rhs.rget());
     return *this;
   }
 

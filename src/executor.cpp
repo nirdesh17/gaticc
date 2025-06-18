@@ -120,6 +120,10 @@ TensorPool Executor::run(const std::string& onnx_path, py::array arr) {
  */
 template <typename inputT, typename outputT>
 static std::pair<Tensor<inputT>*, Tensor<outputT>*> get_tensorpool_io(TensorPool &pool, const Op::LayerBase *l) {
+  print_vec("linputs ", l->inputs);
+  std::cout << '\n';
+  print_vec("loutputs ", l->outputs);
+  std::cout << '\n';
   if (pool.has_value(l->outputs.at(0))) {
     pool.free(l->outputs.at(0));
   }
@@ -141,13 +145,10 @@ static void check_dispatch(const Op::LayerBase *l, const Tensor<T> *output) {
 
 template <typename T>
 static void run_noop(Op::LayerBase *l, TensorPool &tensor_pool) {
-
   Tensor<T> *input;
   Tensor<T> *output;
   std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
-  for (int i = 0; i < input->size(); ++i) {
-    output->set(i, input->at(i));
-  }
+  *output = std::move(*input);
   check_dispatch(l, output);
 }
 
