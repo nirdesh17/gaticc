@@ -206,8 +206,12 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
         log_info("CPU Proc run: {} us\n", run_tt.difference().count());
       } 
       if (l->device == DEVICE_FPGA && sent == false) {
+        Timer<std::chrono::microseconds> run_tt;
+        run_tt.start();
         l->send_input(tensor_pool, generator, rah, io_addr_tbl);
         sent = true;
+        run_tt.stop();
+        log_info("Send Input time: {} us\n", run_tt.difference().count());
       } 
       if (l->device == DEVICE_FPGA && sent == true) {
         if (l->dispatch) {
@@ -217,7 +221,11 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
             is_last_layer = false;
           }
           log_info("receiving output\n");
+          Timer<std::chrono::microseconds> run_tt;
+          run_tt.start();
           receive_output(rah, l, is_last_layer);
+          run_tt.stop();
+          log_info("Receive output time: {} us\n", run_tt.difference().count());
           log_info("receiving output finish\n");
           if (!last_layer->dispatch) {
             dump_and_exit = true;
