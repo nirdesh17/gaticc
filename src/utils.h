@@ -177,7 +177,7 @@ class Argparse {
            1},
           {"receive-over-uart",
            {"--receive-over-uart"},
-           "receive over /dev/ttyUSB0. Args: baudrate (as set by the FPGA)",
+           "receive over /dev/ttyUSB0, via scripts/uart_server.py",
            1},
           {"accbuf-size",
            {"--accbuf-size"},
@@ -267,7 +267,7 @@ class Argparse {
        "~/path/to/lib/python{version}/site-packages "
        "--sa-arch <sa-arch> --ramsize <ramsize> --vasize <vasize> "
        "--accbuf-size <accbuf-size> --fcbuf-size <fcbuf-size> "
-       "--receive-over-uart <baudrate>"},
+       "--receive-over-uart"},
       {"Run an inference but dispatch intermidiate layers and receive over "
        "UART",
        "gaticc -r model.gml --run-onnx model.onnx --loadpy <py_file> "
@@ -276,7 +276,7 @@ class Argparse {
        "~/path/to/lib/python{version}/site-packages "
        "--sa-arch <sa-arch> --ramsize <ramsize> --vasize <vasize> "
        "--accbuf-size <accbuf-size> --fcbuf-size <fcbuf-size> "
-       "--dispatch <layer1>,<layer2>,<layer3> --receive-over-uart <baudrate>"},
+       "--dispatch <layer1>,<layer2>,<layer3> --receive-over-uart"},
   };
 
   SSVector _concepts = {
