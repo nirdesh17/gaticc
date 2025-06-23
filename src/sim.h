@@ -15,7 +15,6 @@
 #include <thread>
 #include <type_traits>
 #include <utility>
-#include <valarray>
 #include <vector>
 
 template <typename T> class Relu {
@@ -96,43 +95,27 @@ template <typename T> void flatten(const Tensor<T> *input, Tensor<T> *output) {
   output->set_dims(new_dims);
 }
 
-std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm);
-
-template <typename T> std::valarray<T> vec2val(const std::vector<T> &v) {
-  std::valarray<T> ret(v.size());
-  for (size_t i = 0; i < v.size(); ++i) {
-    ret[i] = v[i];
-  }
-  return ret;
-}
-
-template <typename T> std::valarray<T> vec2val(std::vector<T> &&v) {
-  return vec2val(v);
-}
-
 void increment_shape(std::vector<int> &ii, const std::vector<int> &limit_shape);
 int calc_shift_val(float inverted_scale);
 
-/* TODO: use valarray where fits */
 template <typename T>
-void transpose(Tensor<T> *input, Tensor<T> *output, std::vector<int> perm) {
-  output->set_dims(permute(input->get_dims(), perm));
-  std::valarray<int> ishape = vec2val(input->get_dims());
-  std::valarray<int> istride = get_stride_from_shape(ishape);
-  std::valarray<int> ostride =
-      get_stride_from_shape(vec2val(output->get_dims()));
-
-  std::vector<int> ii(input->dims_size(), 0);
+void transpose(Tensor<T> *input, Tensor<T> *output, const std::vector<int> &perm) {
+  std::vector<int> in_dims = input->get_dims();
+  std::vector<int> out_dims = permute(in_dims, perm);
+  output->set_dims(out_dims);
+  std::vector<int> istride = get_stride_from_shape(in_dims);
+  std::vector<int> ostride = get_stride_from_shape(out_dims);
+  std::vector<int> idx(in_dims.size(), 0);
   int total_elements = input->dims_iterator(-1);
   for (int i = 0; i < total_elements; ++i) {
-    std::valarray<int> t0 = vec2val(ii);
-    std::valarray<int> t1 = istride * t0;
-    int iindex = std::accumulate(std::begin(t1), std::end(t1), 0);
-    std::valarray<int> t2 = vec2val(permute(ii, perm));
-    std::valarray<int> t3 = ostride * t2;
-    int oindex = std::accumulate(std::begin(t3), std::end(t3), 0);
+    int iindex = dot(idx, istride);
+    std::vector<int> permuted_idx(in_dims.size());
+    for (size_t d = 0; d < in_dims.size(); ++d) {
+      permuted_idx[d] = idx[perm[d]];
+    }
+    int oindex = dot(permuted_idx, ostride);
     output->set(oindex, input->at(iindex));
-    increment_shape(ii, input->get_dims());
+    increment_shape(idx, in_dims);
   }
 }
 

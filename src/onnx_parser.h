@@ -475,6 +475,8 @@ struct Transpose : public LayerBase {
   std::vector<int> perm;
   void set_attributes(const onnx::NodeProto &node) override;
   void run(TensorPool &tensor_pool) override;
+  void infer_shape(const IVec2D &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
 struct MatMul : public LayerBase {

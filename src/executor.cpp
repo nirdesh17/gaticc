@@ -120,10 +120,6 @@ TensorPool Executor::run(const std::string& onnx_path, py::array arr) {
  */
 template <typename inputT, typename outputT>
 static std::pair<Tensor<inputT>*, Tensor<outputT>*> get_tensorpool_io(TensorPool &pool, const Op::LayerBase *l) {
-  print_vec("linputs ", l->inputs);
-  std::cout << '\n';
-  print_vec("loutputs ", l->outputs);
-  std::cout << '\n';
   if (pool.has_value(l->outputs.at(0))) {
     pool.free(l->outputs.at(0));
   }

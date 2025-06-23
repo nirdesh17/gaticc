@@ -1,17 +1,6 @@
 #include "sim.h"
 #include "utils.h"
 
-std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm) {
-  std::for_each(perm.begin(), perm.end(), [&v](int i) {
-    ignore_unused(i);
-    assert((i < v.size()) ? true : false);
-  });
-  std::vector<int> ret(v.size());
-  for (size_t i = 0; i < v.size(); ++i) {
-    ret.at(i) = v.at(perm.at(i));
-  }
-  return ret;
-}
 
 /* n-dimensional-index incrementer
  * ii is a n-dimensional index

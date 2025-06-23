@@ -724,10 +724,7 @@ std::vector<T> operator*(const std::vector<T> &v1, const std::vector<T> &v2) {
   return ret;
 }
 
-/* strides arrays are used pre-dominantly in elementwise vector-to-vector
- * style multiplications and addition, thus makes sense to use a valarray
- * here
- */
+/* https://stackoverflow.com/questions/53097952/how-to-understand-numpy-strides-for-layman */
 template <typename Container>
 inline Container get_stride_from_shape(const Container &shape) {
   Container ret(shape.size());
@@ -902,3 +899,5 @@ get_byte_vector(const std::bitset<sz> num) {
 /* replace 'c' with 'r' */
 std::string sed(const std::string& src, char c, char r);
 py::list extract_pool(TensorPool &pool);
+std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm);
+int dot(const std::vector<int>& a, const std::vector<int>& b);

@@ -450,3 +450,23 @@ std::string sed(const std::string& src, char c, char r) {
   std::replace(ret.begin(), ret.end(), c, r);
   return ret;
 }
+
+std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm) {
+  std::for_each(perm.begin(), perm.end(), [&v](int i) {
+    ignore_unused(i);
+    assert((i < v.size()) ? true : false);
+  });
+  std::vector<int> ret(v.size());
+  for (size_t i = 0; i < v.size(); ++i) {
+    ret.at(i) = v.at(perm.at(i));
+  }
+  return ret;
+}
+
+int dot(const std::vector<int> &a, const std::vector<int> &b) {
+  int sum = 0;
+  for (size_t i = 0; i < a.size(); ++i) {
+    sum += a[i] * b[i];
+  }
+  return sum;
+}

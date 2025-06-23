@@ -276,7 +276,9 @@ public:
   }
 
   TensorCreate(py::array arr) {
-    // TODO: add a type check of arr and T here
+    if (!py::isinstance<py::array_t<T>>(arr)) {
+      log_fatal("input array type mismatch: Expected array of type {}\n", typeid(T).name());
+    }
     auto buf = arr.request();
     T *udata = static_cast<T *>(buf.ptr);
     vec.assign(udata, udata + buf.size);
@@ -337,6 +339,7 @@ public:
 
   void set_dims(std::vector<int> const &temp_dims) override {
     dims = temp_dims;
+    stride = get_stride_from_shape(temp_dims);
     return;
   }
   std::vector<int> get_dims() const override { return dims; }

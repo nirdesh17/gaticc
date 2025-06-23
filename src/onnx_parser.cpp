@@ -1281,6 +1281,19 @@ void Op::Layer::Transpose::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
+void Op::Layer::Transpose::infer_shape(const IVec2D &input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims;
+  for (const auto& i : input_dims) {
+    this->output_dims.push_back(permute(i, this->perm));
+  }
+}
+void Op::Layer::Transpose::infer_type(const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type = input_types;
+}
+
 Op::Layer::MatMul::MatMul() { m_cp = {}; }
 
 const char *Op::Layer::MatMul::op_type() const { return m_optype; }
