@@ -81,24 +81,6 @@ class Argparse {
            "contain pre/post process functions for --sim"
            "\n\tArgs: [script_name.py]",
            1},
-          {"preprocfn",
-           {"--preprocfn"},
-           "Function that'll be called to get inputs that should be fed to the "
-           "inference engine. Accepts no arguments, Returns a numpy array of "
-           "atleast two dims, first being the batch and rest inputs i.e. "
-           "(batch_size, ...). If --inputpath is used, this function must "
-           "accept "
-           "an argument of a numpy tensor, preprocess and return it to the "
-           "engine"
-           "\n\tArgs: [func_name]",
-           1},
-          {"postprocfn",
-           {"--postprocfn"},
-           "Results from the inference engine would be handed to this "
-           "function. "
-           "Should expect (batch_size, ...) dimensional array"
-           "\n\tArgs: [func_name]",
-           1},
           {"input_path",
            {"--inputpath"},
            "specify input to model as a resident file path (one file at a "
@@ -519,41 +501,6 @@ void print_vec(const char *s, Container const &v) {
   std::cout << "]";
 }
 
-/* custom compare function to handle floats separately */
-template <typename T> bool xcmp(T a, T b) {
-  if (is_float_like(a)) {
-    /* epsilon value suggests inquality of two floats is
-     * fine uptill 3 digits precision */
-    return (std::fabs(a - b) < 0.0005f);
-  } else {
-    return a == b;
-  }
-}
-
-/* TODO: two types do not make sense */
-template <typename expectedT, typename computedT>
-bool generate_report(const char *test_name, std::vector<expectedT> &expected,
-                     std::vector<computedT> &computed) {
-  std::cout << "Test Name: " << test_name << ' ';
-  bool status = false;
-  assert(expected.size() == computed.size() && "expected - computed unequal");
-  for (int i = 0; i < expected.size(); ++i) {
-    status = xcmp<expectedT>(expected.at(i), computed.at(i));
-    if (!status) {
-      std::cout << "Failing at " << i << " for " << expected.at(i) << ' '
-                << computed.at(i) << '\n';
-    }
-  }
-  if (status) {
-    std::cout << "Status: " << "Pass" << '\n';
-  } else {
-    std::cout << "Status: " << "Fail" << '\n';
-  }
-  return status;
-}
-
-// void print_vec_point(const char *s, std::vector<Point> const &v);
-
 template <typename T = std::chrono::seconds> class Timer {
   using Tp = std::chrono::time_point<std::chrono::high_resolution_clock>;
   Tp m_start;
@@ -678,7 +625,7 @@ template <class InputIt, class T> T prod(InputIt first, InputIt last, T init) {
 }
 
 template <typename T> T prod(const std::vector<T>& v) {
-  T product = 1;
+  T product = static_cast<T>(1);
   for (const auto& i : v) {
     product *= i;
   }
