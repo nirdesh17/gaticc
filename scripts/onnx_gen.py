@@ -6,6 +6,7 @@ import logging
 import onnx
 from onnx import helper, TensorProto, numpy_helper
 import numpy as np
+import onnx.checker
 
 
 
@@ -172,6 +173,7 @@ def gen_transpose_reshape(input_dims, transpose_perm, reshape_shape):
   output_tensor = helper.make_tensor_value_info('output', TensorProto.FLOAT, infer_shape(input_dims, reshape_shape))
   transpose_node = helper.make_node(
       'Transpose',
+      name="transpose_0",
       inputs=['input'],
       outputs=['transposed'],
       perm=[0, 2, 3, 1]
@@ -180,6 +182,7 @@ def gen_transpose_reshape(input_dims, transpose_perm, reshape_shape):
   shape_initializer = numpy_helper.from_array(reshape_shape, name='shape_tensor')
   reshape_node = helper.make_node(
       'Reshape',
+      name="reshape_0",
       inputs=['transposed', 'shape_tensor'],
       outputs=['output']
   )
@@ -190,6 +193,7 @@ def gen_transpose_reshape(input_dims, transpose_perm, reshape_shape):
       initializer=[shape_initializer]
   )
   model_def = helper.make_model(graph_def, producer_name='onnx-example')
+  onnx.checker.check_model(model_def)
   onnx.save(model_def, f'transpose_reshape_{stringize(input_dims)}.onnx')
 
 #num_models = 1 # Number of models to generate
