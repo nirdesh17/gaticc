@@ -622,6 +622,23 @@ gen_quant(const std::vector<float> &x_scale, const std::vector<float> &w_scale,
   return quant_inst;
 }
 
+void decomp_inst(std::bitset<INST_SIZE_BITS> &conv_inst, const Op::Layer::QLinearConv *cc,
+                 uint32_t &input_addr_start) {
+
+  auto sa_arch = get_sa_arch();
+  int pad_cnt = cc->m_cp.pad[I_LEFT];
+
+  check_overflow(cc->m_cp.pad[I_UP], CONV_PadTop_COUNT);
+  inst_set(conv_inst, (cc->m_cp.pad[I_UP] - (cc->m_cp.ki - 1)) < 0 ? 0 : (cc->m_cp.pad[I_UP] - (cc->m_cp.ki - 1)), CONV_PadTop);
+
+  check_overflow(cc->m_cp.pad[I_DOWN], CONV_PadBottom_COUNT);
+  inst_set(conv_inst, ((cc->m_cp.ki - 1) - cc->m_cp.pad[I_DOWN]) < 0 ? 0 : ((cc->m_cp.ki - 1) - cc->m_cp.pad[I_DOWN]), CONV_PadBottom);
+
+  inst_set(conv_inst, ((cc->m_cp.ki - 1) - pad_cnt) < 0 ? 0 : (cc->m_cp.ki - 1) - pad_cnt, CONV_StartRowSkip);
+  inst_set(conv_inst, (pad_cnt - (cc->m_cp.ki - 1)) < 0 ? 0 : pad_cnt - (cc->m_cp.ki - 1), CONV_EndRowSkip);
+
+}
+
 static std::bitset<INST_SIZE_BITS>
 gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
               InitializerTable &tbl) {
@@ -654,20 +671,18 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   check_overflow(cc->m_cp.stride[TENSOR_2D_HEIGHT], CONV_Stride_COUNT);
   inst_set(conv_inst, cc->m_cp.stride[TENSOR_2D_HEIGHT], CONV_Stride);
   int pad_cnt = cc->m_cp.pad[I_LEFT];
-  for (int i = 0; i < 4; ++i) {
-    if (cc->m_cp.pad[I_LEFT] != pad_cnt) {
-      log_fatal("For layer {}, all pads need to be equal\n",
-                cc->m_cp.pad[I_LEFT]);
-    }
-  }
-  check_overflow(cc->m_cp.pad[I_LEFT], CONV_Pad_COUNT);
-  inst_set(conv_inst, cc->m_cp.pad[I_LEFT], CONV_Pad);
 
-  std::bitset<CONV_PadSides_COUNT> pad_side;
-  for (int i = 0; i < CONV_PadSides_COUNT; ++i) {
-    pad_side[i] = cc->m_cp.pad[i] > 0 ? 1 : 0;
-  }
-  inst_set(conv_inst, pad_side, CONV_PadSides);
+  check_overflow(cc->m_cp.pad[I_LEFT], CONV_PadLeft_COUNT);
+  inst_set(conv_inst, cc->m_cp.pad[I_LEFT], CONV_PadLeft);
+
+  check_overflow(cc->m_cp.pad[I_RIGHT], CONV_PadRight_COUNT);
+  inst_set(conv_inst, cc->m_cp.pad[I_RIGHT], CONV_PadRight);
+
+  check_overflow(cc->m_cp.pad[I_UP], CONV_PadTop_COUNT);
+  inst_set(conv_inst, cc->m_cp.pad[I_UP], CONV_PadTop);
+
+  check_overflow(cc->m_cp.pad[I_DOWN], CONV_PadBottom_COUNT);
+  inst_set(conv_inst, cc->m_cp.pad[I_DOWN], CONV_PadBottom);
 
   assert(cc->inputs.size() == 1);
   auto sa_arch = get_sa_arch();
@@ -676,14 +691,9 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
       aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
 
-  /* Adjust the input address to skip initial rows as defined by the 'ki' offset.
-   * This tells the FPGA where to start reading the input data for convolution.
-   * Originally, the real convolution layer starts from offset 0.
-   * In decomposed convolution layers, we often start from offset 1.
-   * Since indexing is zero-based, we subtract 1 to align correctly with memory addressing. */
-  input_addr_start +=
-      +((cc->m_cp.ki > 0 ? cc->m_cp.ki - 1 : cc->m_cp.ki) *
-        cc->input_dims[0][TENSOR_4D_WIDTH] * sa_arch[SA_ARCH_COLS]);
+  if (cc->m_cp.ki > 0) {
+    decomp_inst(conv_inst, cc, input_addr_start);
+  }
 
   uint32_t weight_bytes = aligned_conv_weight(cc) * Op::tensorproto_sizeof(cc->weights);
   uint32_t weight_addr_start = gen.alloc(weight_bytes);
@@ -754,7 +764,7 @@ static std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv* c
 static std::bitset<INST_SIZE_BITS>
 gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
            int imgdimout, int imgdimacc, int accen, int dispatchen,
-           int dispatchid, int onchip, int oh, int ow) {
+           int dispatchid, int onchip, int oh, int ow, int accreadfirst = 0) {
   std::bitset<INST_SIZE_BITS> output_inst;
   inst_set(output_inst, OP_OutputBlock, OutputBlock_Opcode);
   inst_set(output_inst, out_addr, OutputBlock_OutputAddr);
@@ -764,6 +774,7 @@ gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
   inst_set(output_inst, imgdimout, OutputBlock_ImageDimOutput);
   inst_set(output_inst, imgdimacc, OutputBlock_ImageDimAcc);
   inst_set(output_inst, accen, OutputBlock_AccEn);
+  inst_set(output_inst, accreadfirst, OutputBlock_AccumulantReadFirst);
   if (dispatchen) {
     inst_set(output_inst, 1, OutputBlock_DispatchEn);
     inst_set(output_inst, dispatchid, OutputBlock_DispatchID);
@@ -802,12 +813,17 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   int ida = ceil_mod(odims.at(TENSOR_4D_WIDTH) * odims.at(TENSOR_4D_HEIGHT),
                      get_conv_acc_mod());
   bool accen = true;
+  bool accreadfirst = false;
   if (!is_sa_regular_optimal(sa_arch) && is_regular_conv(cc->weights->dims(), cc->input_dims.at(0))) {
     accen = true;
   } else if (cc->input_dims[0][TENSOR_4D_CHANNELS] <= sa_arch[SA_ARCH_N] ||
-      is_depthwise_conv(cc->weights->dims(), cc->input_dims.at(0)) || 
-      (cc->input_dims[0][TENSOR_4D_CHANNELS] < sa_arch[2] && cc->m_cp.ki <= 1)) {
+             is_depthwise_conv(cc->weights->dims(), cc->input_dims.at(0))) {
     accen = false;
+  }
+
+  if (cc->m_cp.ki > 1) {
+    accen = true;
+    accreadfirst = true;
   }
   int accbuf_size = 0;
   if (gbl_args.has_option("accbuf-size")) {
@@ -825,7 +841,7 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   int oh = odims.at(TENSOR_4D_HEIGHT);
   int ow = odims.at(TENSOR_4D_WIDTH);
   auto oi = gen_output(acc_addr, out_addr, citr, kitr, ido, ida, accen,
-                       cc->dispatch, string_hash(cc->name), on_chip, oh, ow);
+                       cc->dispatch, string_hash(cc->name), on_chip, oh, ow, accreadfirst);
 
   return oi;
 }
