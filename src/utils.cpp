@@ -214,10 +214,10 @@ std::vector<int> get_dims_after_pad(std::vector<int> current_dims,
 }
 
 bool islying(int i, int j, int rows, int cols, const std::vector<int> &pad) {
-  if (((j >= 0 && j < pad[0]) ||
-       (j >= (cols + pad[0]) && j < (cols + pad[0] + pad[2]))) ||
-      ((i >= 0 && i < pad[1]) ||
-       (i >= (rows + pad[1]) && i < (rows + pad[1] + pad[3])))) {
+  if (((j >= 0 && j < pad[I_LEFT]) ||
+       (j >= (cols + pad[I_LEFT]) && j < (cols + pad[I_LEFT] + pad[I_RIGHT]))) ||
+      ((i >= 0 && i < pad[I_UP]) ||
+       (i >= (rows + pad[I_UP]) && i < (rows + pad[I_UP] + pad[I_DOWN])))) {
     return true;
   } else {
     return false;
