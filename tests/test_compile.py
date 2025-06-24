@@ -12,20 +12,21 @@ def tbl(title, rows): return "\n".join([title, "-"*len(title)] + ([fmt(a,n) for 
 
 def main():
   p = argparse.ArgumentParser()
-  p.add_argument('-m', '--models', required=True)
+  p.add_argument('-m', '--models', nargs='+', required=True)
   p.add_argument('-o', '--output', default="test_compile.results.txt")
   a = p.parse_args()
-  models, out = a.models, a.output or __file__.replace('.py', '.results.txt')
-  if not os.path.isdir(models): sys.exit("bad dir")
+  models = a.models
+  if len(models) == 1 and os.path.isdir(models[0]):
+    models = [os.path.join(models[0], f) for f in os.listdir(models[0])]
+  out = a.output
 
   gati.set_keep_quiet(True)
   fail, ok = [], []
 
   for arch in archs:
     gati.set_arch(config=arch)
-    for f in os.listdir(models):
-      path = os.path.join(models, f)
-      try: gati.compile(path, "/tmp/model.gml"); ok.append((arch, f))
+    for f in models:
+      try: gati.compile(f, "/tmp/model.gml"); ok.append((arch, f))
       except: fail.append((arch, f))
 
   txt = tbl("Failed", fail) + tbl("Passed", ok) + f"Results: {len(ok)} passed / {len(ok)+len(fail)} total\n"
