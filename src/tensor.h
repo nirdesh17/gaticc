@@ -537,7 +537,7 @@ Tensor<T> *tensor_pad(const Tensor<T> *input, const std::vector<int> &pads,
           if (islying(k, l, input->dims_at(2), input->dims_at(3), pads)) {
             output->insert(out_index, pad_val);
           } else {
-            std::vector<int> in_index{i, j, k - pads[1], l - pads[0]};
+            std::vector<int> in_index{i, j, k - pads[0], l - pads[1]};
             output->insert(out_index, input->at(in_index));
           }
         }

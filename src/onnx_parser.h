@@ -42,10 +42,10 @@
  *  UP, RIGHT, DOWN
  */
 
-#define I_LEFT 0
-#define I_RIGHT 2
-#define I_UP 1
-#define I_DOWN 3
+#define I_LEFT 1
+#define I_RIGHT 3
+#define I_UP 0
+#define I_DOWN 2
 
 /*For NMS*/
 #define I_NMS_INPUT_BOXES 0
@@ -753,15 +753,15 @@ inline int sa_odims_row(Op::ConvParams const &cp,
                         const std::vector<int> &input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
   return ((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] +
-           cp.pad[I_LEFT] + cp.pad[I_RIGHT]) /
+           cp.pad[I_UP] + cp.pad[I_DOWN]) /
           cp.stride[TENSOR_2D_HEIGHT]) +
          1;
 }
 
 inline int sa_odims_cols(Op::ConvParams const &cp,
                          const std::vector<int> &input_dims) {
-  return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_UP] +
-           cp.pad[I_DOWN]) /
+  return ((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] + cp.pad[I_LEFT] +
+           cp.pad[I_RIGHT]) /
           cp.stride[TENSOR_2D_WIDTH]) +
          1;
 }
@@ -770,7 +770,7 @@ inline int mp_odims_row(Op::PoolParams const &cp,
                         const std::vector<int> &input_dims) {
   // o = ((iw - kw + 2p) / s) + 1
   return std::floor((input_dims[TENSOR_4D_HEIGHT] - cp.k[TENSOR_2D_HEIGHT] +
-                     cp.pad[I_LEFT] + cp.pad[I_RIGHT]) /
+                     cp.pad[I_UP] + cp.pad[I_DOWN]) /
                     cp.stride[TENSOR_2D_HEIGHT]) +
          1;
 }
@@ -778,7 +778,7 @@ inline int mp_odims_row(Op::PoolParams const &cp,
 inline int mp_odims_cols(Op::PoolParams const &cp,
                          const std::vector<int> &input_dims) {
   return std::floor((input_dims[TENSOR_4D_WIDTH] - cp.k[TENSOR_2D_WIDTH] +
-                     cp.pad[I_UP] + cp.pad[I_DOWN]) /
+                     cp.pad[I_LEFT] + cp.pad[I_RIGHT]) /
                     cp.stride[TENSOR_2D_WIDTH]) +
          1;
 }
