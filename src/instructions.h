@@ -461,7 +461,6 @@
 #define ZerothEndAddress_HIGH 63
 #define ZerothEndAddress_COUNT 32
 
-
 int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst);
 
 template <std::size_t b1N, std::size_t b2N>
@@ -836,7 +835,6 @@ inline void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
     break;
   }
 }
-
 
 inline void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
                               std::vector<pretty_data> &data,
