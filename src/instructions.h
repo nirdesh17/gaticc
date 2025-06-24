@@ -372,6 +372,40 @@
 #define EltWise_BZeroPoint_HIGH 225
 #define EltWise_BZeroPoint_COUNT 8
 
+#define OP_TRANSPOSE 0x07
+#define TRANSPOSE_Opcode_LOW 0
+#define TRANSPOSE_Opcode_HIGH 3
+#define TRANSPOSE_Opcode_COUNT 4
+#define TRANSPOSE_IC_LOW 4
+#define TRANSPOSE_IC_HIGH 15
+#define TRANSPOSE_IC_COUNT 12
+#define TRANSPOSE_IH_LOW 16
+#define TRANSPOSE_IH_HIGH 25
+#define TRANSPOSE_IH_COUNT 10
+#define TRANSPOSE_IW_LOW 26
+#define TRANSPOSE_IW_HIGH 35
+#define TRANSPOSE_IW_COUNT 10
+#define TRANSPOSE_ImageStartAddress_LOW 36
+#define TRANSPOSE_ImageStartAddress_HIGH 67
+#define TRANSPOSE_ImageStartAddress_COUNT 32
+
+#define OP_RESHAPE 0x06
+#define RESHAPE_Opcode_LOW 0
+#define RESHAPE_Opcode_HIGH 3
+#define RESHAPE_Opcode_COUNT 4
+#define RESHAPE_IC_LOW 4
+#define RESHAPE_IC_HIGH 15
+#define RESHAPE_IC_COUNT 12
+#define RESHAPE_IH_LOW 16
+#define RESHAPE_IH_HIGH 25
+#define RESHAPE_IH_COUNT 10
+#define RESHAPE_IW_LOW 26
+#define RESHAPE_IW_HIGH 35
+#define RESHAPE_IW_COUNT 10
+#define RESHAPE_ImageStartAddress_LOW 36
+#define RESHAPE_ImageStartAddress_HIGH 67
+#define RESHAPE_ImageStartAddress_COUNT 32
+
 #define ISA_VERSION 6
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
@@ -694,5 +728,41 @@ inline Table get_eltwise_table(const std::bitset<INST_SIZE_BITS>& inst) {
 }
 inline void pretty_print_eltwise(const std::bitset<INST_SIZE_BITS>& inst) {
 	auto tbl = get_eltwise_table(inst);
+	print_table(tbl);
+}
+inline Table get_transpose_table(const std::bitset<INST_SIZE_BITS>& inst) {
+	Table tbl;
+	tbl.tbl.insert({"Opcode", bitset_range_get<TRANSPOSE_Opcode_COUNT, INST_SIZE_BITS>(inst, TRANSPOSE_Opcode_LOW, TRANSPOSE_Opcode_HIGH)});
+	tbl.order.push_back("Opcode");
+	tbl.tbl.insert({"IC", bitset_range_get<TRANSPOSE_IC_COUNT, INST_SIZE_BITS>(inst, TRANSPOSE_IC_LOW, TRANSPOSE_IC_HIGH)});
+	tbl.order.push_back("IC");
+	tbl.tbl.insert({"IH", bitset_range_get<TRANSPOSE_IH_COUNT, INST_SIZE_BITS>(inst, TRANSPOSE_IH_LOW, TRANSPOSE_IH_HIGH)});
+	tbl.order.push_back("IH");
+	tbl.tbl.insert({"IW", bitset_range_get<TRANSPOSE_IW_COUNT, INST_SIZE_BITS>(inst, TRANSPOSE_IW_LOW, TRANSPOSE_IW_HIGH)});
+	tbl.order.push_back("IW");
+	tbl.tbl.insert({"ImageStartAddress", bitset_range_get<TRANSPOSE_ImageStartAddress_COUNT, INST_SIZE_BITS>(inst, TRANSPOSE_ImageStartAddress_LOW, TRANSPOSE_ImageStartAddress_HIGH)});
+	tbl.order.push_back("ImageStartAddress");
+	return tbl;
+}
+inline void pretty_print_transpose(const std::bitset<INST_SIZE_BITS>& inst) {
+	auto tbl = get_transpose_table(inst);
+	print_table(tbl);
+}
+inline Table get_reshape_table(const std::bitset<INST_SIZE_BITS>& inst) {
+	Table tbl;
+	tbl.tbl.insert({"Opcode", bitset_range_get<RESHAPE_Opcode_COUNT, INST_SIZE_BITS>(inst, RESHAPE_Opcode_LOW, RESHAPE_Opcode_HIGH)});
+	tbl.order.push_back("Opcode");
+	tbl.tbl.insert({"IC", bitset_range_get<RESHAPE_IC_COUNT, INST_SIZE_BITS>(inst, RESHAPE_IC_LOW, RESHAPE_IC_HIGH)});
+	tbl.order.push_back("IC");
+	tbl.tbl.insert({"IH", bitset_range_get<RESHAPE_IH_COUNT, INST_SIZE_BITS>(inst, RESHAPE_IH_LOW, RESHAPE_IH_HIGH)});
+	tbl.order.push_back("IH");
+	tbl.tbl.insert({"IW", bitset_range_get<RESHAPE_IW_COUNT, INST_SIZE_BITS>(inst, RESHAPE_IW_LOW, RESHAPE_IW_HIGH)});
+	tbl.order.push_back("IW");
+	tbl.tbl.insert({"ImageStartAddress", bitset_range_get<RESHAPE_ImageStartAddress_COUNT, INST_SIZE_BITS>(inst, RESHAPE_ImageStartAddress_LOW, RESHAPE_ImageStartAddress_HIGH)});
+	tbl.order.push_back("ImageStartAddress");
+	return tbl;
+}
+inline void pretty_print_reshape(const std::bitset<INST_SIZE_BITS>& inst) {
+	auto tbl = get_reshape_table(inst);
 	print_table(tbl);
 }

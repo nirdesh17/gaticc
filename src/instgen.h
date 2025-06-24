@@ -353,6 +353,18 @@ template <typename T> int aligned_fc_io(const T &dims) {
   return ret[0][1];
 }
 
+template <typename T> std::vector<int> aligned_channels(const T &dims) {
+  if (dims.size() != 4) {
+    log_fatal("need dims to be 4-dimensional, got {}\n", dims.size());
+  }
+  auto sa_arch = get_sa_arch();
+  std::vector<int> ret{
+      dims.at(TENSOR_4D_BATCH),
+      ceil_mod(dims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]),
+      dims.at(TENSOR_4D_HEIGHT), dims.at(TENSOR_4D_WIDTH)};
+  return ret;
+}
+
 /* get nth byte (0 being LSB), of a */
 template <typename T> inline char get_byte(T a, int n) {
   assert(n < sizeof(T) && n >= 0);

@@ -1468,6 +1468,48 @@ std::pair<int,int> Op::Layer::QGemm::get_iterations() const {
   return std::pair(kern_itr, 1);
 }
 
+void Op::Layer::Transpose::get_opcodes(std::vector<int> &op_codes) {
+  op_codes.push_back(OP_TRANSPOSE); 
+}
+
+uint32_t Op::Layer::Transpose::get_weight_size() {
+  return 0;
+}
+
+int Op::Layer::Transpose::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+  std::bitset<INST_SIZE_BITS> tinst;
+  inst_set(tinst, OP_TRANSPOSE, TRANSPOSE_Opcode);
+  auto dims = aligned_channels(this->input_dims.at(0));
+  inst_set(tinst, dims.at(TENSOR_4D_CHANNELS), TRANSPOSE_IC);
+  inst_set(tinst, dims.at(TENSOR_4D_HEIGHT), TRANSPOSE_IH);
+  inst_set(tinst, dims.at(TENSOR_4D_WIDTH), TRANSPOSE_IW);
+  uint32_t addr = gen.io_addr_from_register(this->inputs.at(0));
+  inst_set(tinst, addr, TRANSPOSE_ImageStartAddress);
+  blob.push_back(tinst);
+  return 0;
+}
+
+void Op::Layer::Reshape::get_opcodes(std::vector<int> &op_codes) {
+  op_codes.push_back(OP_RESHAPE); 
+}
+
+uint32_t Op::Layer::Reshape::get_weight_size() {
+  return 0;
+}
+
+int Op::Layer::Reshape::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+  std::bitset<INST_SIZE_BITS> tinst;
+  inst_set(tinst, OP_RESHAPE, RESHAPE_Opcode);
+  auto dims = aligned_channels(this->input_dims.at(0));
+  inst_set(tinst, dims.at(TENSOR_4D_CHANNELS), RESHAPE_IC);
+  inst_set(tinst, dims.at(TENSOR_4D_HEIGHT), RESHAPE_IH);
+  inst_set(tinst, dims.at(TENSOR_4D_WIDTH), RESHAPE_IW);
+  uint32_t addr = gen.io_addr_from_register(this->inputs.at(0));
+  inst_set(tinst, addr, RESHAPE_ImageStartAddress);
+  blob.push_back(tinst);
+  return 0;
+}
+
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
   m_exec_order = crt_exec_order(graph);
 
@@ -2478,7 +2520,7 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) const {
     } else if (op == OP_FC) {
       ret = check_fc_weight_continuity(inst);
     } else if (op == OP_OutputBlock || op == OP_START || op == OP_EltWise ||
-               op == OP_NMS) {
+               op == OP_NMS || op == OP_TRANSPOSE || op == OP_RESHAPE) {
       // do nothing
     } else {
       log_fatal("Unhandled instruction in check_weight_address_continuity {}\n",

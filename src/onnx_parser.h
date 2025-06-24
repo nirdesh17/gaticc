@@ -375,6 +375,10 @@ struct Reshape : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
+
+  void get_opcodes(std::vector<int> &op_codes) override;
+  uint32_t get_weight_size() override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
 
 struct QuantizeLinear : public LayerBase {
@@ -477,6 +481,10 @@ struct Transpose : public LayerBase {
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
+
+  void get_opcodes(std::vector<int> &op_codes) override;
+  uint32_t get_weight_size() override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
 
 struct MatMul : public LayerBase {
