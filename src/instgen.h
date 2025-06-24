@@ -9,7 +9,7 @@
 
 #define check_overflow(value, bits)                                            \
   do {                                                                         \
-    if (value >= (1 << bits)) {                                                \
+    if (value >= (static_cast<int64_t>(1) << bits)) {                                                \
       log_fatal("value {} ({}) overflows a {} bit ({}) field\n", value,        \
                 #value, bits, #bits);                                          \
     }                                                                          \
