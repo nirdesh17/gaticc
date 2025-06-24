@@ -669,21 +669,17 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-  std::unique_ptr<Tensor<intrT>> intr_output{
-      new TensorCreate<intrT>(cc->output_dims[0])};
+  std::unique_ptr<Tensor<intrT>> intr_output{new TensorCreate<intrT>(cc->output_dims.at(0))};
   Tensor<inputT> *input2;
 
-  if (l->input_type[0] == onnx::TensorProto_DataType_INT32) {
+  if constexpr (std::is_same<inputT, int32_t>()) {
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
     tensor_qeltwise(intr_output.get(), input1, input2, 1, 1, 0, 0,
                     cc->operator_type);
-    if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
-      std::vector<float> x_scale;
-      std::vector<float> w_scale;
-      x_scale.push_back(cc->a_scale);
-      w_scale.push_back(cc->b_scale);
-      std::vector<float> scales =
-          compute_output_scale(x_scale, w_scale, cc->o_scale);
+    if constexpr (std::is_same<outputT, int8_t>()) {
+      std::vector<float> x_scale {cc->a_scale};
+      std::vector<float> w_scale {cc->b_scale};
+      std::vector<float> scales = compute_output_scale(x_scale, w_scale, cc->o_scale);
       using variantT = std::variant<int8_t, uint8_t>;
       std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
       quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
@@ -725,13 +721,14 @@ void Op::Layer::QLinearEltwise::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
+  using fp_t = FixedPoint<16, int32_t>;
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
       output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_qeltwise<float, float, float>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
-    run_qeltwise<int8_t, float, int8_t>(this, tensor_pool);
+    run_qeltwise<int8_t, fp_t, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
-    run_qeltwise<uint8_t, float, uint8_t>(this, tensor_pool);
+    run_qeltwise<uint8_t, fp_t, uint8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT32 &&
              output_type[0] == onnx::TensorProto_DataType_INT32) {
     run_qeltwise<int32_t, int32_t, int32_t>(this, tensor_pool);

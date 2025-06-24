@@ -281,11 +281,6 @@ void tensor_eltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
   }
 }
 
-/* Element wise tensor addition with scales and zp
- *
- * returns: (i1_scale * (i1[i] - i1_zp) + i2_scale * (i2[i] - i2_zp))
- */
-
 template <int FRAC_BITS = 16, typename BaseType = int32_t> class FixedPoint {
   static_assert(std::is_integral<BaseType>::value,
                 "BaseType must be an integral type");
@@ -306,6 +301,10 @@ public:
     fp.value = rawVal;
     return fp;
   }
+  operator int() const { return static_cast<int>(toFloat()); }
+  operator int8_t() const { return static_cast<int8_t>(toFloat()); }
+  operator uint8_t() const { return static_cast<uint8_t>(toFloat()); }
+  operator float() const { return toFloat(); }
   float toFloat() const { return static_cast<float>(value) / SCALE; }
   FixedPoint operator+(const FixedPoint &other) const {
     return fromRaw(value + other.value);
@@ -321,11 +320,18 @@ public:
     WideType dividend = (static_cast<WideType>(value) << FRAC_BITS);
     return fromRaw(static_cast<BaseType>(dividend / other.value));
   }
+  bool operator<(const FixedPoint &other) const {
+    return this->toFloat() < other.toFloat();
+  }
   friend std::ostream &operator<<(std::ostream &os, const FixedPoint &fp) {
     return os << fp.toFloat();
   }
 };
 
+/* Element wise tensor addition with scales and zp
+ *
+ * returns: (i1_scale * (i1[i] - i1_zp) + i2_scale * (i2[i] - i2_zp))
+ */
 template <typename inputT, typename outputT>
 void tensor_qeltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
                      const Tensor<inputT> *input2, float i1_scale,
@@ -335,17 +341,17 @@ void tensor_qeltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
   using fp_t = FixedPoint<16, int32_t>;
   if (op == ELTWISE_ADD) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) + (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp)))).toFloat();
+      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) + (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp))));
       output->set(i, v);
     }
   } else if (op == ELTWISE_MULT) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) * (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp)))).toFloat();
+      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) * (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp))));
       output->set(i, v);
     }
   } else if (op == ELTWISE_SUB) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) - (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp)))).toFloat();
+      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) - (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp))));
       output->set(i, v);
     }
   } else {
@@ -400,16 +406,27 @@ template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val) {
 #if 1 /* switch this off for debugging with regular float quantization */
+  constexpr int fpwidth = 16;
+  using fp_t = FixedPoint<fpwidth, int32_t>;
   /* FPGA style quantization (this is how it's implemented on the FPGA) */
-  if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) &&
-      (std::is_same<inputT, int32_t>())) {
+  if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) && (std::is_same<inputT, int32_t>())) {
     /* fpga style quantization */
     float inverted = 1 / scale;
     int int_scale = (int)((float)inverted * (float)(1 << shift_val));
-    inputT ret =
-        (inputT)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
+    int ret = (int)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
     ret += zero_point;
     outputT r = (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
+    return r;
+  } else if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) && std::is_same<inputT, fp_t>()) {
+    float inverted = 1 / scale;
+    int int_scale = (int)((float)inverted * (float)(1 << shift_val));
+    int64_t r1 = (int64_t) v.raw() * int_scale;
+    int64_t r2 = r1 + (1 << (shift_val - 1));
+    int64_t r3 = r2 >> shift_val;
+    int64_t r4 = r3 + (1 << (fpwidth-1));
+    int r5 = r4 >> fpwidth;
+    r5 += zero_point;
+    outputT r = (outputT)std::clamp<inputT>(r5, min_lim, max_lim);
     return r;
   } else {
     inputT rounded = std::round(((float)v / scale + zero_point));

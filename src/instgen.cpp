@@ -1277,7 +1277,8 @@ static void gen_eltwise_input_quant(std::bitset<INST_SIZE_BITS> &add_inst,
                                     float a_scale, float b_scale, int a_zp,
                                     int b_zp) {
   /* FIXME: a_scale and b_scale as fixed points */
-  int shifted_a_scale = a_scale;
+#if 0
+  int fp_ascale = a_scale;
   check_overflow(shifted_a_scale, EltWise_AScale_COUNT);
   inst_set(add_inst, shifted_a_scale, EltWise_AScale);
   int shifted_b_scale = b_scale;
@@ -1285,6 +1286,7 @@ static void gen_eltwise_input_quant(std::bitset<INST_SIZE_BITS> &add_inst,
   inst_set(add_inst, shifted_b_scale, EltWise_BScale);
   inst_set(add_inst, a_zp, EltWise_AZeroPoint);
   inst_set(add_inst, b_zp, EltWise_BZeroPoint);
+#endif
 }
 
 static std::bitset<INST_SIZE_BITS> gen_eltwise_output(const Op::LayerBase *l,
