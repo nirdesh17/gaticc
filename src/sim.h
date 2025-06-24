@@ -17,6 +17,9 @@
 #include <utility>
 #include <vector>
 
+using FIXED_POINT_BASE_TYPE = int32_t;
+const int FIXED_POINT_SPLIT = 16;
+
 template <typename T> class Relu {
   int clip_val;
 
@@ -327,6 +330,7 @@ public:
     return os << fp.toFloat();
   }
 };
+using fp_t = FixedPoint<FIXED_POINT_SPLIT, FIXED_POINT_BASE_TYPE>;
 
 /* Element wise tensor addition with scales and zp
  *
@@ -336,9 +340,7 @@ template <typename inputT, typename outputT>
 void tensor_qeltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
                      const Tensor<inputT> *input2, float i1_scale,
                      float i2_scale, int i1_zp, int i2_zp, int op) {
-  std::cout << "qaltwise " << typeid(outputT).name() << '\n';
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
-  using fp_t = FixedPoint<16, int32_t>;
   if (op == ELTWISE_ADD) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
       outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) + (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp))));
@@ -407,7 +409,6 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val) {
 #if 1 /* switch this off for debugging with regular float quantization */
   constexpr int fpwidth = 16;
-  using fp_t = FixedPoint<fpwidth, int32_t>;
   /* FPGA style quantization (this is how it's implemented on the FPGA) */
   if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) && (std::is_same<inputT, int32_t>())) {
     /* fpga style quantization */
@@ -423,8 +424,8 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
     int64_t r1 = (int64_t) v.raw() * int_scale;
     int64_t r2 = r1 + (1 << (shift_val - 1));
     int64_t r3 = r2 >> shift_val;
-    int64_t r4 = r3 + (1 << (fpwidth-1));
-    int r5 = r4 >> fpwidth;
+    int64_t r4 = r3 + (1 << (FIXED_POINT_SPLIT-1));
+    int r5 = r4 >> FIXED_POINT_SPLIT;
     r5 += zero_point;
     outputT r = (outputT)std::clamp<inputT>(r5, min_lim, max_lim);
     return r;

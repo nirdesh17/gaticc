@@ -26,6 +26,7 @@ using IOAddrPair =
     std::pair<std::vector<Op::VirtualAddress>, std::vector<Op::VirtualAddress>>;
 using IOAddrTbl = std::map<std::string, IOAddrPair>;
 
+
 /* Megablock and Miniblock
  *
  * All operators, implemented or not, can be divided into two sects: Megablock

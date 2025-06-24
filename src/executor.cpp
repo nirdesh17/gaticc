@@ -721,7 +721,6 @@ void Op::Layer::QLinearEltwise::run(TensorPool &tensor_pool) {
   assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
   assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
 
-  using fp_t = FixedPoint<16, int32_t>;
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
       output_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_qeltwise<float, float, float>(this, tensor_pool);
