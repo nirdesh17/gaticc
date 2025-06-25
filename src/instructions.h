@@ -12,79 +12,71 @@
 #define CONV_IH_LOW 14
 #define CONV_IH_HIGH 23
 #define CONV_IH_COUNT 10
-// Width of the output feature map
-#define CONV_OW_LOW 24
-#define CONV_OW_HIGH 33
-#define CONV_OW_COUNT 10
-// Height of the output feature map
-#define CONV_OH_LOW 34
-#define CONV_OH_HIGH 43
-#define CONV_OH_COUNT 10
 // Channel count for the input
-#define CONV_IC_LOW 44
-#define CONV_IC_HIGH 55
+#define CONV_IC_LOW 24
+#define CONV_IC_HIGH 35
 #define CONV_IC_COUNT 12
 // Kernel count for the input
-#define CONV_KN_LOW 56
-#define CONV_KN_HIGH 67
+#define CONV_KN_LOW 36
+#define CONV_KN_HIGH 47
 #define CONV_KN_COUNT 12
 // Kernel width
-#define CONV_KW_LOW 68
-#define CONV_KW_HIGH 71
+#define CONV_KW_LOW 48
+#define CONV_KW_HIGH 51
 #define CONV_KW_COUNT 4
 // Kernel Height
-#define CONV_KH_LOW 72
-#define CONV_KH_HIGH 75
+#define CONV_KH_LOW 52
+#define CONV_KH_HIGH 55
 #define CONV_KH_COUNT 4
-#define CONV_Stride_LOW 76
-#define CONV_Stride_HIGH 79
+#define CONV_Stride_LOW 56
+#define CONV_Stride_HIGH 59
 #define CONV_Stride_COUNT 4
-#define CONV_PadLeft_LOW 80
-#define CONV_PadLeft_HIGH 82
+#define CONV_PadLeft_LOW 60
+#define CONV_PadLeft_HIGH 62
 #define CONV_PadLeft_COUNT 3
-#define CONV_PadBottom_LOW 83
-#define CONV_PadBottom_HIGH 85
+#define CONV_PadBottom_LOW 63
+#define CONV_PadBottom_HIGH 65
 #define CONV_PadBottom_COUNT 3
-#define CONV_PadRight_LOW 86
-#define CONV_PadRight_HIGH 88
+#define CONV_PadRight_LOW 66
+#define CONV_PadRight_HIGH 68
 #define CONV_PadRight_COUNT 3
-#define CONV_PadTop_LOW 89
-#define CONV_PadTop_HIGH 91
+#define CONV_PadTop_LOW 69
+#define CONV_PadTop_HIGH 71
 #define CONV_PadTop_COUNT 3
-#define CONV_StartRowSkip_LOW 92
-#define CONV_StartRowSkip_HIGH 95
+#define CONV_StartRowSkip_LOW 72
+#define CONV_StartRowSkip_HIGH 75
 #define CONV_StartRowSkip_COUNT 4
-#define CONV_EndRowSkip_LOW 96
-#define CONV_EndRowSkip_HIGH 99
+#define CONV_EndRowSkip_LOW 76
+#define CONV_EndRowSkip_HIGH 79
 #define CONV_EndRowSkip_COUNT 4
-#define CONV_ImageStartAddress_LOW 100
-#define CONV_ImageStartAddress_HIGH 131
+#define CONV_ImageStartAddress_LOW 80
+#define CONV_ImageStartAddress_HIGH 111
 #define CONV_ImageStartAddress_COUNT 32
-#define CONV_ImageEndAddress_LOW 132
-#define CONV_ImageEndAddress_HIGH 163
+#define CONV_ImageEndAddress_LOW 112
+#define CONV_ImageEndAddress_HIGH 143
 #define CONV_ImageEndAddress_COUNT 32
-#define CONV_WeightStartAddress_LOW 164
-#define CONV_WeightStartAddress_HIGH 195
+#define CONV_WeightStartAddress_LOW 144
+#define CONV_WeightStartAddress_HIGH 175
 #define CONV_WeightStartAddress_COUNT 32
-#define CONV_WeightEndAddress_LOW 196
-#define CONV_WeightEndAddress_HIGH 227
+#define CONV_WeightEndAddress_LOW 176
+#define CONV_WeightEndAddress_HIGH 207
 #define CONV_WeightEndAddress_COUNT 32
 // Set if the entire image can be fetched in im2col blocks at o
 // nce
-#define CONV_Im2colPrefetch_LOW 228
-#define CONV_Im2colPrefetch_HIGH 228
+#define CONV_Im2colPrefetch_LOW 208
+#define CONV_Im2colPrefetch_HIGH 208
 #define CONV_Im2colPrefetch_COUNT 1
 // Channel count for weight
-#define CONV_KC_LOW 229
-#define CONV_KC_HIGH 240
+#define CONV_KC_LOW 209
+#define CONV_KC_HIGH 220
 #define CONV_KC_COUNT 12
-#define CONV_ConvType_LOW 241
-#define CONV_ConvType_HIGH 242
+#define CONV_ConvType_LOW 221
+#define CONV_ConvType_HIGH 222
 #define CONV_ConvType_COUNT 2
 // If a regular conv is supposed to be performed on a pointwise
 // -optimal architecture, this flag is set
-#define CONV_ChannelDuplicate_LOW 243
-#define CONV_ChannelDuplicate_HIGH 243
+#define CONV_ChannelDuplicate_LOW 223
+#define CONV_ChannelDuplicate_HIGH 223
 #define CONV_ChannelDuplicate_COUNT 1
 
 #define OP_TailBlock 0x01
@@ -194,7 +186,9 @@
 // Following the SA, there are tail blocks. Some of the tail bl
 // ocks like maxpool modify the shape of the output, this field
 //  accounts for that. In cases, when shape is not modified, th
-// is field is equal to ImageDimAcc
+// is field is equal to ImageDimAcc. Additionally, if FlatContr
+// oller flag is set to 1, this field is the product of ceil_mo
+// d(OC*OH*OW, AXI_WIDTH).
 #define OutputBlock_ImageDimOutput_LOW 93
 #define OutputBlock_ImageDimOutput_HIGH 108
 #define OutputBlock_ImageDimOutput_COUNT 16
@@ -231,6 +225,11 @@
 #define OutputBlock_OW_LOW 170
 #define OutputBlock_OW_HIGH 179
 #define OutputBlock_OW_COUNT 10
+// If 1, treat outputs from the megablock as flat bytes, not as
+//  aligned bytes with zeros in it
+#define OutputBlock_FlatController_LOW 180
+#define OutputBlock_FlatController_HIGH 180
+#define OutputBlock_FlatController_COUNT 1
 
 #define OP_FC 0x03
 #define FC_Opcode_LOW 0
@@ -374,17 +373,11 @@
 #define EltWise_BScale_LOW 200
 #define EltWise_BScale_HIGH 231
 #define EltWise_BScale_COUNT 32
-#define EltWise_AShift_LOW 232
-#define EltWise_AShift_HIGH 236
-#define EltWise_AShift_COUNT 5
-#define EltWise_BShift_LOW 237
-#define EltWise_BShift_HIGH 241
-#define EltWise_BShift_COUNT 5
-#define EltWise_AZeroPoint_LOW 242
-#define EltWise_AZeroPoint_HIGH 249
+#define EltWise_AZeroPoint_LOW 232
+#define EltWise_AZeroPoint_HIGH 239
 #define EltWise_AZeroPoint_COUNT 8
-#define EltWise_BZeroPoint_LOW 250
-#define EltWise_BZeroPoint_HIGH 257
+#define EltWise_BZeroPoint_LOW 240
+#define EltWise_BZeroPoint_HIGH 247
 #define EltWise_BZeroPoint_COUNT 8
 
 #define OP_TRANSPOSE 0x07
@@ -421,7 +414,7 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 7
+#define ISA_VERSION 8
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define POOL_MAX 0x00
@@ -460,6 +453,7 @@
 #define ZerothEndAddress_LOW 32
 #define ZerothEndAddress_HIGH 63
 #define ZerothEndAddress_COUNT 32
+
 
 int extract_opcode(const std::bitset<INST_SIZE_BITS> &inst);
 
@@ -505,10 +499,6 @@ inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("IW");
 	tbl.tbl.insert({"IH", bitset_range_get<CONV_IH_COUNT, INST_SIZE_BITS>(inst, CONV_IH_LOW, CONV_IH_HIGH)});
 	tbl.order.push_back("IH");
-	tbl.tbl.insert({"OW", bitset_range_get<CONV_OW_COUNT, INST_SIZE_BITS>(inst, CONV_OW_LOW, CONV_OW_HIGH)});
-	tbl.order.push_back("OW");
-	tbl.tbl.insert({"OH", bitset_range_get<CONV_OH_COUNT, INST_SIZE_BITS>(inst, CONV_OH_LOW, CONV_OH_HIGH)});
-	tbl.order.push_back("OH");
 	tbl.tbl.insert({"IC", bitset_range_get<CONV_IC_COUNT, INST_SIZE_BITS>(inst, CONV_IC_LOW, CONV_IC_HIGH)});
 	tbl.order.push_back("IC");
 	tbl.tbl.insert({"KN", bitset_range_get<CONV_KN_COUNT, INST_SIZE_BITS>(inst, CONV_KN_LOW, CONV_KN_HIGH)});
@@ -641,6 +631,8 @@ inline Table get_outputblock_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("OH");
 	tbl.tbl.insert({"OW", bitset_range_get<OutputBlock_OW_COUNT, INST_SIZE_BITS>(inst, OutputBlock_OW_LOW, OutputBlock_OW_HIGH)});
 	tbl.order.push_back("OW");
+	tbl.tbl.insert({"FlatController", bitset_range_get<OutputBlock_FlatController_COUNT, INST_SIZE_BITS>(inst, OutputBlock_FlatController_LOW, OutputBlock_FlatController_HIGH)});
+	tbl.order.push_back("FlatController");
 	return tbl;
 }
 inline void pretty_print_outputblock(const std::bitset<INST_SIZE_BITS>& inst) {
@@ -749,10 +741,6 @@ inline Table get_eltwise_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("AScale");
 	tbl.tbl.insert({"BScale", bitset_range_get<EltWise_BScale_COUNT, INST_SIZE_BITS>(inst, EltWise_BScale_LOW, EltWise_BScale_HIGH)});
 	tbl.order.push_back("BScale");
-	tbl.tbl.insert({"AShift", bitset_range_get<EltWise_AShift_COUNT, INST_SIZE_BITS>(inst, EltWise_AShift_LOW, EltWise_AShift_HIGH)});
-	tbl.order.push_back("AShift");
-	tbl.tbl.insert({"BShift", bitset_range_get<EltWise_BShift_COUNT, INST_SIZE_BITS>(inst, EltWise_BShift_LOW, EltWise_BShift_HIGH)});
-	tbl.order.push_back("BShift");
 	tbl.tbl.insert({"AZeroPoint", bitset_range_get<EltWise_AZeroPoint_COUNT, INST_SIZE_BITS>(inst, EltWise_AZeroPoint_LOW, EltWise_AZeroPoint_HIGH)});
 	tbl.order.push_back("AZeroPoint");
 	tbl.tbl.insert({"BZeroPoint", bitset_range_get<EltWise_BZeroPoint_COUNT, INST_SIZE_BITS>(inst, EltWise_BZeroPoint_LOW, EltWise_BZeroPoint_HIGH)});
@@ -835,6 +823,7 @@ inline void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
     break;
   }
 }
+
 
 inline void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
                               std::vector<pretty_data> &data,

@@ -11,13 +11,13 @@
 
 static std::set<std::string> miniblock_tbl{
   "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
-  "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "QLinearGlobalAveragePool", "NoOp"};
+  "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "QLinearGlobalAveragePool", "NoOp", "Transpose", "Reshape"};
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv",
-    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp"};
+    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose"};
 
-static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS};
+static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE};
 
 bool is_miniblock(const Op::LayerBase *l) {
   auto itr = miniblock_tbl.find(std::string(l->op_type()));
@@ -478,19 +478,18 @@ static std::vector<int> aligned_qle(const IVec2D& d) {
 InstBlob Pass::insert_start_inst(const InstBlob &insts) {
   InstBlob ret;
   int total_layers = count_total_megablocks(insts);
-  int layer_num = 0;
+  int layer_num = 1;
   for (size_t i = 0; i < insts.size(); ++i) {
     int op_code = extract_opcode(insts.at(i));
     if (is_megablock_op_code(op_code) && i != 0) {
       std::bitset<INST_SIZE_BITS> start_inst =
-          gen_start_inst(layer_num, total_layers - 1);
+          gen_start_inst(layer_num, total_layers);
       layer_num++;
       ret.push_back(start_inst);
     }
     ret.push_back(insts.at(i));
   }
-  std::bitset<INST_SIZE_BITS> last_start_inst =
-      gen_start_inst(layer_num, total_layers - 1);
+  std::bitset<INST_SIZE_BITS> last_start_inst = gen_start_inst(layer_num, total_layers);
   ret.push_back(last_start_inst);
   return ret;
 }
@@ -648,10 +647,6 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   inst_set(conv_inst, cc->input_dims[0][TENSOR_4D_WIDTH], CONV_IW);
   check_overflow(cc->input_dims[0][TENSOR_4D_HEIGHT], CONV_IH_COUNT);
   inst_set(conv_inst, cc->input_dims[0][TENSOR_4D_HEIGHT], CONV_IH);
-  check_overflow(cc->output_dims[0][TENSOR_4D_WIDTH], CONV_OW_COUNT);
-  inst_set(conv_inst, cc->output_dims[0][TENSOR_4D_WIDTH], CONV_OW);
-  check_overflow(cc->output_dims[0][TENSOR_4D_HEIGHT], CONV_OH_COUNT);
-  inst_set(conv_inst, cc->output_dims[0][TENSOR_4D_HEIGHT], CONV_OH);
   check_overflow(cc->input_dims[0][TENSOR_4D_CHANNELS], CONV_IC_COUNT);
   inst_set(conv_inst, cc->input_dims[0][TENSOR_4D_CHANNELS], CONV_IC);
   check_overflow(cc->weights->dims()[TENSOR_4D_CHANNELS], CONV_KC_COUNT);
@@ -764,7 +759,7 @@ static std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv* c
 static std::bitset<INST_SIZE_BITS>
 gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
            int imgdimout, int imgdimacc, int accen, int dispatchen,
-           int dispatchid, int onchip, int oh, int ow, int accreadfirst = 0) {
+           int dispatchid, int onchip, int oh, int ow, int accreadfirst = 0, int flat_ctrl = 0) {
   std::bitset<INST_SIZE_BITS> output_inst;
   inst_set(output_inst, OP_OutputBlock, OutputBlock_Opcode);
   inst_set(output_inst, out_addr, OutputBlock_OutputAddr);
@@ -782,6 +777,7 @@ gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
   inst_set(output_inst, onchip, OutputBlock_OnChipAcc);
   inst_set(output_inst, oh, OutputBlock_OH);
   inst_set(output_inst, ow, OutputBlock_OW);
+  inst_set(output_inst, flat_ctrl, OutputBlock_FlatController);
   return output_inst;
 }
 
@@ -1474,6 +1470,7 @@ std::pair<int,int> Op::Layer::QGemm::get_iterations() const {
 
 void Op::Layer::Transpose::get_opcodes(std::vector<int> &op_codes) {
   op_codes.push_back(OP_TRANSPOSE); 
+  op_codes.push_back(OP_OutputBlock); 
 }
 
 uint32_t Op::Layer::Transpose::get_weight_size() {
@@ -1490,11 +1487,17 @@ int Op::Layer::Transpose::get_inst(InstBlob &blob, AddressGen &gen, InitializerT
   uint32_t addr = gen.io_addr_from_register(this->inputs.at(0));
   inst_set(tinst, addr, TRANSPOSE_ImageStartAddress);
   blob.push_back(tinst);
+
+  uint32_t out_addr = gen.io_addr_from_register(this->outputs.at(0));
+  int ido = ceil_mod(prod(dims), WORD_SIZE);
+  auto odims = this->output_dims.at(0);
+  std::bitset<INST_SIZE_BITS> oinst = gen_output(0, out_addr, 1, 1, ido, 0, 0, this->dispatch, string_hash(this->name), 0, odims.at(TENSOR_4D_HEIGHT), odims.at(TENSOR_4D_WIDTH), 0, 1);
+  blob.push_back(oinst);
   return 0;
 }
 
 void Op::Layer::Reshape::get_opcodes(std::vector<int> &op_codes) {
-  op_codes.push_back(OP_RESHAPE); 
+  return;
 }
 
 uint32_t Op::Layer::Reshape::get_weight_size() {
@@ -1502,15 +1505,6 @@ uint32_t Op::Layer::Reshape::get_weight_size() {
 }
 
 int Op::Layer::Reshape::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
-  std::bitset<INST_SIZE_BITS> tinst;
-  inst_set(tinst, OP_RESHAPE, RESHAPE_Opcode);
-  auto dims = aligned_channels(this->input_dims.at(0));
-  inst_set(tinst, dims.at(TENSOR_4D_CHANNELS), RESHAPE_IC);
-  inst_set(tinst, dims.at(TENSOR_4D_HEIGHT), RESHAPE_IH);
-  inst_set(tinst, dims.at(TENSOR_4D_WIDTH), RESHAPE_IW);
-  uint32_t addr = gen.io_addr_from_register(this->inputs.at(0));
-  inst_set(tinst, addr, RESHAPE_ImageStartAddress);
-  blob.push_back(tinst);
   return 0;
 }
 
@@ -2289,6 +2283,9 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
       } else if (p_op == OP_NMS) {
         expected_chan_itr = 0;
         expected_kern_itr = 0;
+      } else if (p_op == OP_TRANSPOSE) {
+        expected_chan_itr = 1;
+        expected_kern_itr = 1;
       } else {
         log_fatal("GmlCheck: megablock of opcode {} cannot be handled\n", p_op);
       }
