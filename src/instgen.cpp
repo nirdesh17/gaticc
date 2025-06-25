@@ -1355,29 +1355,25 @@ gen_eltwise_quant(const Op::Layer::QLinearEltwise *cc) {
     }
   };
   std::for_each(zero_points.begin(), zero_points.end(), assert_zero);
-
-  std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
-  bitset_range_set(quant_inst, opcode, TailBlock_Opcode_LOW,
-                   TailBlock_Opcode_HIGH);
+  inst_set(quant_inst, OP_TailBlock, TailBlock_Opcode);
 
   float inverted_scale = 1 / scales[0];
   int shift_val = calc_shift_val(inverted_scale);
   int calib_scale = std::round((1 / scales[0]) * std::pow(2, shift_val));
 
   check_overflow(calib_scale, TailBlock_QuantScale_COUNT);
-  std::bitset<TailBlock_QuantScale_COUNT> qscale{calib_scale};
-  bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW,
-                   TailBlock_QuantScale_HIGH);
-
-  std::bitset<TailBlock_QuantShift_COUNT> qshift{shift_val};
-  bitset_range_set(quant_inst, qshift, TailBlock_QuantShift_LOW,
-                   TailBlock_QuantShift_HIGH);
+  inst_set(quant_inst, calib_scale, TailBlock_QuantScale);
+  /* For Element wise operations, the intermidiate results are
+   * FixedPoint on the FPGA. The addition of FIXED_POINT_SPLIT
+   * to shift_val is essentially casting the result back to
+   * int from FixedPoint 
+   */
+  int adjusted_shift_val = shift_val + FIXED_POINT_SPLIT;
+  check_overflow(adjusted_shift_val, TailBlock_QuantShift_COUNT);
+  inst_set(quant_inst, adjusted_shift_val, TailBlock_QuantShift);
 
   /* enable quant, ofcourse */
-  std::bitset<TailBlock_QuantEn_COUNT> qen{1};
-  bitset_range_set(quant_inst, qen, TailBlock_QuantEn_LOW,
-                   TailBlock_QuantEn_HIGH);
-
+  inst_set(quant_inst, 1, TailBlock_QuantEn);
   return quant_inst;
 }
 
