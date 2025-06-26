@@ -282,54 +282,6 @@ void tensor_eltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
   }
 }
 
-#if 0
-template <int FRAC_BITS = 16, typename BaseType = int32_t> class FixedPoint {
-  static_assert(std::is_integral<BaseType>::value,
-                "BaseType must be an integral type");
-  static_assert(std::is_signed<BaseType>::value, "BaseType must be signed");
-
-  BaseType value;
-
-public:
-  using WideType = typename std::conditional<sizeof(BaseType) <= 4, int64_t,
-                                             __int128_t>::type;
-  constexpr static BaseType SCALE = BaseType(1) << FRAC_BITS;
-  FixedPoint() : value(0) {}
-  FixedPoint(float f) : value(static_cast<BaseType>(f * SCALE)) {}
-  FixedPoint(int i) : value(static_cast<BaseType>(i) << FRAC_BITS) {}
-  BaseType raw() const { return value; }
-  static FixedPoint fromRaw(BaseType rawVal) {
-    FixedPoint fp;
-    fp.value = rawVal;
-    return fp;
-  }
-  operator int() const { return static_cast<int>(toFloat()); }
-  operator int8_t() const { return static_cast<int8_t>(toFloat()); }
-  operator uint8_t() const { return static_cast<uint8_t>(toFloat()); }
-  operator float() const { return toFloat(); }
-  float toFloat() const { return static_cast<float>(value) / SCALE; }
-  FixedPoint operator+(const FixedPoint &other) const {
-    return fromRaw(value + other.value);
-  }
-  FixedPoint operator-(const FixedPoint &other) const {
-    return fromRaw(value - other.value);
-  }
-  FixedPoint operator*(const FixedPoint &other) const {
-    WideType prod = static_cast<WideType>(value) * other.value;
-    return fromRaw(static_cast<BaseType>(prod >> FRAC_BITS));
-  }
-  FixedPoint operator/(const FixedPoint &other) const {
-    WideType dividend = (static_cast<WideType>(value) << FRAC_BITS);
-    return fromRaw(static_cast<BaseType>(dividend / other.value));
-  }
-  bool operator<(const FixedPoint &other) const {
-    return this->toFloat() < other.toFloat();
-  }
-  friend std::ostream &operator<<(std::ostream &os, const FixedPoint &fp) {
-    return os << fp.toFloat();
-  }
-};
-#else
 template <int FRAC_BITS, int TOTAL_BITS>
 class FixedPoint {
   static_assert(FRAC_BITS > 0 && FRAC_BITS < TOTAL_BITS, "FRAC_BITS must be positive and less than TOTAL_BITS");
@@ -406,7 +358,6 @@ public:
     return os << fp.toFloat();
   }
 };
-#endif
 using fp_t = FixedPoint<FIXED_POINT_SPLIT, FIXED_POINT_BASE_TYPE>;
 
 /* Element wise tensor addition with scales and zp
