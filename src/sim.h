@@ -17,8 +17,8 @@
 #include <utility>
 #include <vector>
 
-constexpr int FIXED_POINT_BASE_TYPE = 32;
-constexpr int FIXED_POINT_SPLIT = 16;
+constexpr int FIXED_POINT_BASE_TYPE = 18;
+constexpr int FIXED_POINT_SPLIT = 10;
 
 template <typename T> class Relu {
   int clip_val;
@@ -346,6 +346,14 @@ class FixedPoint {
       >::type
   >::type;
 
+  static constexpr BaseType MASK = (BaseType(1) << TOTAL_BITS) - 1;
+  static constexpr BaseType SIGN_BIT = BaseType(1) << (TOTAL_BITS - 1);
+  static BaseType mask(BaseType v) {
+    v &= MASK;
+    if (v & SIGN_BIT) { v |= ~MASK; }
+    return v;
+  }
+
   using WideType = typename std::conditional<(sizeof(BaseType) <= 4), int64_t, __int128_t>::type;
 
   BaseType value;
@@ -354,8 +362,8 @@ public:
   constexpr static BaseType SCALE = BaseType(1) << FRAC_BITS;
 
   FixedPoint() : value(0) {}
-  FixedPoint(float f) : value(static_cast<BaseType>(f * SCALE)) {}
-  FixedPoint(int i) : value(static_cast<BaseType>(i) << FRAC_BITS) {}
+  FixedPoint(float f) : value(mask(static_cast<BaseType>(f * SCALE))) {}
+  FixedPoint(int i) : value(mask(static_cast<BaseType>(i) << FRAC_BITS)) {}
 
   BaseType raw() const { return value; }
 
