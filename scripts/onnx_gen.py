@@ -169,32 +169,27 @@ def stringize(li):
 
 
 def gen_transpose_reshape(input_dims, transpose_perm, reshape_shape):
-  input_tensor = helper.make_tensor_value_info('input', TensorProto.FLOAT, input_dims)
-  output_tensor = helper.make_tensor_value_info('output', TensorProto.FLOAT, infer_shape(input_dims, reshape_shape))
-  transpose_node = helper.make_node(
-      'Transpose',
-      name="transpose_0",
-      inputs=['input'],
-      outputs=['transposed'],
-      perm=[0, 2, 3, 1]
-  )
-  reshape_shape = np.array([1, -1, 91], dtype=np.int64)
-  shape_initializer = numpy_helper.from_array(reshape_shape, name='shape_tensor')
-  reshape_node = helper.make_node(
-      'Reshape',
-      name="reshape_0",
-      inputs=['transposed', 'shape_tensor'],
-      outputs=['output']
-  )
-  graph_def = helper.make_graph( nodes=[transpose_node, reshape_node],
-      name='TransposeReshapeGraph',
-      inputs=[input_tensor],
-      outputs=[output_tensor],
-      initializer=[shape_initializer]
-  )
-  model_def = helper.make_model(graph_def, producer_name='onnx-example')
-  onnx.checker.check_model(model_def)
-  onnx.save(model_def, f'transpose_reshape_{stringize(input_dims)}.onnx')
+    scale = helper.make_tensor('scale', TensorProto.FLOAT, [1], [0.1])
+    zp = helper.make_tensor('zp', TensorProto.UINT8, [1], [0])
+    shape = numpy_helper.from_array(np.array(reshape_shape, dtype=np.int64), name='shape_tensor')
+
+    nodes = [
+        helper.make_node('QuantizeLinear', ['input', 'scale', 'zp'], ['q'], name="q1"),
+        helper.make_node('Transpose', ['q'], ['t'], perm=transpose_perm, name="t1"),
+        helper.make_node('Reshape', ['t', 'shape_tensor'], ['r'], name="r1"),
+        helper.make_node('DequantizeLinear', ['r', 'scale', 'zp'], ['output'], name="d1"),
+    ]
+
+    graph = helper.make_graph(
+        nodes, 'tr_graph',
+        [helper.make_tensor_value_info('input', TensorProto.FLOAT, input_dims)],
+        [helper.make_tensor_value_info('output', TensorProto.FLOAT, infer_shape(input_dims, reshape_shape))],
+        [scale, zp, shape]
+    )
+
+    model = helper.make_model(graph)
+    onnx.checker.check_model(model)
+    onnx.save(model, f'transpose_reshape_{stringize(input_dims)}.onnx')
 
 #num_models = 1 # Number of models to generate
 #onnx_models = gen_onnx(num_models, description=model_description if model_description else None)
