@@ -440,6 +440,8 @@ void Runner::receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer
              strcmp(l->op_type(), "QGemm") == 0) {
     expected_data_size =
         aligned_fc_io(&l->output_dims[0]) * Op::tpdt_sizeof(l->output_type[0]);
+  } else if (strcmp(l->op_type(), "Transpose") == 0) {
+    expected_data_size = ceil_mod(prod(l->output_dims.at(0)) * Op::tpdt_sizeof(l->output_type.at(0)), WORD_SIZE);
   } else {
     log_fatal("Unhandled layer of type: {}\n", l->op_type());
   }
@@ -608,6 +610,51 @@ void Op::Layer::QLinearConv::send_input(TensorPool &tensor_pool, AddressGen &gen
     sa_send_input<int8_t>(this, tensor_pool, generator, rah, tbl);
   } else if (input_type.at(0) == onnx::TensorProto_DataType_UINT8) {
     sa_send_input<uint8_t>(this, tensor_pool, generator, rah, tbl);
+  } else {
+    log_fatal("QLinearConv::send_input() can't handle {} type", get_tensorproto_dtype_name(input_type.at(0)));
+  }
+}
+
+/* align inputs to WORD_SIZE and push them to blob */
+template <typename T>
+static void word_align_input(BinBlob &blob, const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  auto real_size = prod(dims);
+  auto aligned_size = ceil_mod(real_size, WORD_SIZE);
+  for (int i = 0; i < real_size; ++i) {
+    blob.append(tensor->at(i));
+  }
+  T zero = 0;
+  for (int i = 0; i < aligned_size-real_size; ++i) {
+    blob.append(zero);
+  }
+}
+
+template <typename T>
+static void generic_send(const Op::LayerBase *l, TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &tbl) {
+  Tensor<T> *input_tensor = tensor_pool.get<Tensor<T> *>(l->inputs.at(0));
+  auto ireg = tbl.at(l->name).first.at(0);
+  uint32_t addr = generator.io_addr_from_register(ireg);
+  log_info("sending input for register {}, addr is {}\n", ireg, addr);
+  auto dims = input_tensor->get_dims();
+  uint32_t payload_size = ceil_mod(prod(dims), WORD_SIZE) * sizeof(T);
+  uint32_t packet_size = io_tensor_packet_size(payload_size);
+  BinBlob blob(packet_size);
+  blob.append_dwp_header(payload_size, addr);
+  word_align_input(blob, input_tensor);
+  blob.append_dwp_header(0, 0);
+  GmlCheck gmlcheck;
+  gmlcheck.check_dwp(blob);
+  log_info("Start writing images to FPGA\n");
+  rah.write(blob.get_data(), blob.size());
+  log_info("finish writing images to FPGA\n");
+}
+
+void Op::Layer::Transpose::send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const {
+  if (input_type.at(0) == onnx::TensorProto_DataType_INT8) {
+    generic_send<int8_t>(this, tensor_pool, generator, rah, io_tbl);
+  } else if (input_type.at(0) == onnx::TensorProto_DataType_UINT8) {
+    generic_send<uint8_t>(this, tensor_pool, generator, rah, io_tbl);
   } else {
     log_fatal("QLinearConv::send_input() can't handle {} type", get_tensorproto_dtype_name(input_type.at(0)));
   }

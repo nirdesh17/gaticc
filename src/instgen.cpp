@@ -11,7 +11,7 @@
 
 static std::set<std::string> miniblock_tbl{
   "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
-  "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "QLinearGlobalAveragePool", "NoOp", "Transpose", "Reshape"};
+  "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "QLinearGlobalAveragePool", "NoOp", "Transpose"};
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv",
@@ -1802,6 +1802,15 @@ void BinBlob::append(uint8_t a) {
 void BinBlob::append(int8_t a) {
   assert(sizeof(a) <= (m_size - m_ptr));
   generic_append(a);
+}
+
+void BinBlob::append(float a) {
+  assert(sizeof(a) <= (m_size - m_ptr));
+  uint8_t bytes[sizeof(a)];
+  std::memcpy(bytes, &a, sizeof(a));
+  for (int i = 0; i < sizeof(a); ++i) {
+    generic_append(bytes[i]);
+  }
 }
 
 void BinBlob::append_dwp_header(uint32_t size, uint32_t addr) {

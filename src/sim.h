@@ -246,14 +246,12 @@ void VA<inputT, weightT, biasT, outputT>::run(const Tensor<inputT> *input,
   }
 }
 
-std::vector<int64_t> deduce_new_shape(std::vector<int64_t> old_shape,
-                                      int input_total_size);
 
 template <typename T>
 void reshape(const Tensor<T> *input, Tensor<T> *output,
-             const std::vector<int64_t> &new_shape) {
+             const std::vector<int> &new_shape) {
   /* atmost 1 dimension can be -1 */
-  std::vector<int64_t> deduced_shape =
+  std::vector<int> deduced_shape =
       deduce_new_shape(new_shape, input->dims_iterator(-1));
   *output = *input;
   std::vector<int> dims(deduced_shape.size());

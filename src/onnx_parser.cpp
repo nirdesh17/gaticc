@@ -651,9 +651,32 @@ void Op::Layer::Reshape::set_initializer_params(int,
   }
 }
 
+/* Deduces and removes -1/0 from old_shape to return
+ * a correct new_shape.
+ * See https://onnx.ai/onnx/operators/onnx__Reshape.html#reshape
+ *
+ * TODO: handle 0s in shape (does not do it presently)
+ */
+std::vector<int> deduce_new_shape(std::vector<int> old_shape,
+                                      int input_total_size) {
+  auto itr = std::find(old_shape.begin(), old_shape.end(), -1);
+  if (itr != old_shape.end()) {
+    int remaining_size = std::abs(prod(old_shape.begin(), old_shape.end(), 1));
+    assert(input_total_size % remaining_size == 0 &&
+           "unable to deduce new shape");
+    int remaining_dim = input_total_size / remaining_size;
+    *itr = remaining_dim;
+  }
+  return old_shape;
+}
+
 void Op::Layer::Reshape::infer_shape(const IVec2D &input_dims) {
   this->input_dims = input_dims;
-  this->output_dims = input_dims;
+  if (new_shape.size() > 0) {
+    this->output_dims.push_back(deduce_new_shape(new_shape, prod(input_dims.at(0))));
+  } else {
+    this->output_dims = input_dims;
+  }
   this->pipelined_output_dims = this->output_dims;
 }
 
@@ -785,19 +808,39 @@ std::string Op::Layer::QuantizeLinear::params() const {
   return ret;
 }
 
+enum QL_INITIALIZERS {
+  QL_X = 0,
+  QL_YSCALE = 1,
+  QL_YZP = 2,
+};
+
 void Op::Layer::QuantizeLinear::set_initializer_params(
-    int, const onnx::TensorProto &t) {
-  /* TODO: use n */
-  if (t.data_type() == onnx::TensorProto_DataType_FLOAT) {
-    /* its a scale value */
-    scale = t.float_data(0);
-  } else if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
-    zero_point = (uint8_t)t.int32_data(0);
-  } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
-    zero_point = (int8_t)t.int32_data(0);
-  } else {
-    log_fatal("Could not find an initializer of expected types\n");
-  }
+    int n, const onnx::TensorProto &t) {
+  switch (n) {
+  case QL_X:
+    break;
+  case QL_YSCALE:
+    if (t.float_data_size() > 0) {
+      scale = t.float_data(0);
+    } else if (t.double_data_size() > 0) {
+      scale = static_cast<float>(t.double_data(0));
+    } else {
+      log_fatal("cant deduce the type of QL_YSCALE for tensor {}\n", t.name());
+    }
+    break;
+  case QL_YZP:
+    if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+      zero_point = (uint8_t)t.int32_data(0);
+    } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+      zero_point = (int8_t)t.int32_data(0);
+    } else {
+      log_fatal("cant deduce QL_YZP for tensor {}\n", t.name());
+    }
+    break;
+  default:
+    log_fatal(
+        "nth ({}): Too many or too little initializers to QuantizeLinear\n", n);
+  };
 }
 
 Op::Layer::QuantizeLinear::QuantizeLinear()
@@ -1287,6 +1330,7 @@ void Op::Layer::Transpose::infer_shape(const IVec2D &input_dims) {
   for (const auto& i : input_dims) {
     this->output_dims.push_back(permute(i, this->perm));
   }
+  this->pipelined_output_dims = this->output_dims;
 }
 void Op::Layer::Transpose::infer_type(const std::vector<TPDT> &input_types) {
   assert(input_types.size() >= 1);
@@ -1940,9 +1984,10 @@ Op::Vertex Op::get_root_node(const Op::Graph *g) {
 void Op::Model::add(Op::LayerBase *layer, const onnx::NodeProto &node) {
   Op::Vertex v = boost::add_vertex(layer, g);
 
-  if (node.has_name()) {
-    layer->name = node.name();
+  if (!node.has_name()) {
+    log_fatal("Layer of type {} has no name\n", node.op_type());
   }
+  layer->name = node.name();
 
   name_vertex_map.insert({node.name(), v});
 

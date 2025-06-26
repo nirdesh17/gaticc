@@ -320,18 +320,19 @@ template <typename T> void unalign_va_output(Tensor<T> *tensor, const T *data) {
 template <typename T>
 void Runner::receive_output_aux(const T *data, const Op::LayerBase *l, bool is_last_layer) {
   static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
-
   std::vector<int> odims = l->pipelined_output_dims.at(0);
   Tensor<T> *tensor = new TensorCreate<T>(odims);
 
   if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearEltwise")) {
+    log_warn("Dangerous type cast from QLinearEltwise to QLinearConv\n");
     unalign_sa_output(dynamic_cast<const Op::Layer::QLinearConv*>(l), tensor, data);
-  } else if (is_op_type(l, "QGemm")) {
+  } else if (is_op_type(l, "QGemm") || is_op_type(l, "Transpose")) {
     unalign_va_output(tensor, data);
   } else {
     log_fatal("cant handle un-alignment for layer of type {}\n", l->op_type());
   }
 
+  log_info2("Unalign complete\n");
   if (tensor_pool.has_value(l->outputs.at(0))) {
     tensor_pool.free(l->outputs.at(0));
   }

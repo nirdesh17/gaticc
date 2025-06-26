@@ -410,6 +410,7 @@ public:
   void append(uint8_t a);
   void append(int8_t a);
   void append(uint32_t a);
+  void append(float a);
   void append_dwp_header(uint32_t size, uint32_t addr);
 
   void append(const InstBlob &instblob, uint32_t addr);

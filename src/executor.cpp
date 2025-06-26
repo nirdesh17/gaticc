@@ -371,6 +371,8 @@ void Op::Layer::Reshape::run(TensorPool &tensor_pool) {
     run_reshape<int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
     run_reshape<int>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_reshape<uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),

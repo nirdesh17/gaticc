@@ -370,7 +370,7 @@ struct Reshape : public LayerBase {
   const char *m_optype = "Reshape";
   const char *op_type() const override;
   std::string params() const override;
-  std::vector<int64_t> new_shape;
+  std::vector<int> new_shape;
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const IVec2D &input_dims) override;
@@ -485,6 +485,8 @@ struct Transpose : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+
+  void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
 };
 
 struct MatMul : public LayerBase {
@@ -941,3 +943,4 @@ inline bool is_sa_regular_optimal(const std::vector<int>& sa_arch) {
 }
 
 std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy);
+std::vector<int> deduce_new_shape(std::vector<int> old_shape, int input_total_size);
