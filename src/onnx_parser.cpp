@@ -1270,6 +1270,8 @@ void Op::Layer::QLinearEltwise::infer_shape(const IVec2D &input_dims) {
   }
   if (this->constant_data != nullptr) {
     std::vector<int> weight_dims = get_tensorproto_shape(*this->constant_data);
+    print_vec("input_dims ", input_dims[0]);
+    print_vec("weight_dims ", weight_dims);
     if (!is_broadcastable(input_dims[0], weight_dims)) {
       log_fatal(
           "input_dims and weight_dims can't be broadcasted for layer {}\n",

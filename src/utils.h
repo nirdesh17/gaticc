@@ -157,10 +157,6 @@ class Argparse {
            "python function that'll be passed tensors returned by dipatchable "
            "nodes",
            1},
-          {"receive-over-uart",
-           {"--receive-over-uart"},
-           "receive over /dev/ttyUSB0, via scripts/uart_server.py",
-           1},
           {"accbuf-size",
            {"--accbuf-size"},
            "size of accumulant buffer for a single channel. Args: size in "

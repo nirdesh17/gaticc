@@ -411,62 +411,6 @@ void Runner::fake_exec(Op::LayerBase *l) {
   }
 }
 
-void Runner::read_uart(BinBlob &blob, std::string handler_ip,
-                       int expected_size) {
-  log_info("[gaticc] Connecting to Handler...\n");
-
-  int sock = socket(AF_INET, SOCK_STREAM, 0);
-  if (sock == -1) {
-    log_fatal("Socket creation failed: {}\n", strerror(errno));
-    return;
-  }
-
-  sockaddr_in server_addr{};
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(HANDLER_PORT);
-  inet_pton(AF_INET, handler_ip.c_str(), &server_addr.sin_addr);
-
-  if (connect(sock, (sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
-    log_fatal("Connection to Handler failed: {}\n", strerror(errno));
-    close(sock);
-    return;
-  }
-
-  std::string request = "{\"size\": " + std::to_string(expected_size) + "}\n";
-  send(sock, request.c_str(), request.size(), 0);
-  log_info("[gaticc] Sent request for {}  bytes\n", expected_size);
-
-  std::vector<char> buffer(expected_size);
-  int received_bytes = 0;
-
-  while (received_bytes < expected_size) {
-    int len = recv(sock, buffer.data() + received_bytes,
-                   expected_size - received_bytes, 0);
-    if (len > 0) {
-        received_bytes += len;
-    } else if (len == 0) {
-        log_fatal("Connection closed by server (received {} / {})\n", received_bytes, expected_size);
-        close(sock);
-        return;
-    } else {
-        log_fatal("Socket recv() failed: {}\n", strerror(errno));
-        close(sock);
-        return;
-    }
-  }
-  log_info("[gaticc] Received {} bytes", received_bytes);
-
-  if (received_bytes != expected_size) {
-    log_fatal("Incomplete data! Expected {}, received {}\n", expected_size,
-              received_bytes);
-    close(sock);
-    return;
-  }
-
-  memcpy(blob.get_data(), buffer.data(), received_bytes);
-  close(sock);
-}
-
 void Runner::receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer) {
   int expected_hash = string_hash(l->name);
   uint32_t expected_data_size = 0;
@@ -494,16 +438,7 @@ void Runner::receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer
 
   Timer<std::chrono::milliseconds> tt;
   tt.start();
-  if (gbl_args.has_option("receive-over-uart")) {
-    if (gbl_args.has_option("remote")) {
-      std::string handler_ip = gbl_args["remote"].as<std::string>();
-      read_uart(blob, handler_ip, expected_packet_size);
-    } else {
-      log_fatal("UART receive requires --remote option!\nPlease run with remote server and make sure UART server (port 5001) is running.\n");
-    }
-  } else {
-    rah.read(blob.get_data(), expected_packet_size);
-  }
+  rah.read(blob.get_data(), expected_packet_size);
   tt.stop();
   log_info("Data read time: {}\n", tt.difference().count());
 
