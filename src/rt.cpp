@@ -314,7 +314,7 @@ std::string Runner::get_run_arg() {
 
 Runner::Runner() {}
 
-TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_path, py::array arr) {
+TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_path, py::dict arr) {
   Op::Parser parser(onnx_path);
   m_parser = &parser;
   split_large_kernel(m_parser->get_graph());
@@ -336,14 +336,38 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
   TPDT input_type = parser.get_model_input_type();
   TPDT output_type = parser.get_model_output_type();
 
+  auto input_names = parser.get_model_input_names();
+  for (const auto& name : input_names) {
+    if (!arr.contains(name.c_str())) {
+      log_fatal("Input missing: model expects input named '{}'\n", name);
+    }
+  }
+
   if (input_type == onnx::TensorProto_DataType_FLOAT &&
       output_type == onnx::TensorProto_DataType_FLOAT) {
-    Tensor<float> *input = new TensorCreate<float>(arr);
-    return infer_aux<float>(*rah, hdt, input);
+    std::vector<Tensor<float>*> inputs_vec;
+    for (const auto& name : input_names) {
+      inputs_vec.push_back(new TensorCreate<float>(arr[name.c_str()]));
+    }
+    return infer_aux<float>(*rah, hdt, inputs_vec);
+
   } else if (input_type == onnx::TensorProto_DataType_INT8 &&
              output_type == onnx::TensorProto_DataType_INT32) {
-    Tensor<int8_t> *input = new TensorCreate<int8_t>(arr);
-    return infer_aux<int8_t>(*rah, hdt, input);
+    std::vector<Tensor<int8_t>*> inputs_vec;
+    for (const auto& name : input_names) {
+      inputs_vec.push_back(new TensorCreate<int8_t>(arr[name.c_str()]));
+    }
+    return infer_aux<int8_t>(*rah, hdt, inputs_vec);
+
+  } else if (input_type == onnx::TensorProto_DataType_FLOAT &&
+             output_type == onnx::TensorProto_DataType_INT64) {
+    // For NMS
+    std::vector<Tensor<float>*> inputs_vec;
+    for (const auto& name : input_names) {
+      inputs_vec.push_back(new TensorCreate<float>(arr[name.c_str()]));
+    }
+    return infer_aux<float>(*rah, hdt, inputs_vec);
+
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type),
@@ -773,4 +797,63 @@ void Op::Layer::Transpose::receive_output(TensorPool &tensor_pool, Rah &rah) con
     log_fatal("can't receive data of type {} from FPGA\n",
               Op::get_tensorproto_dtype_name(this->output_type[0]));
   }
+}
+
+template <typename T, typename QuantizeFn>
+static void append_nms_input_tensor(BinBlob &blob, const Tensor<T> *tensor,
+                                    uint32_t addr, QuantizeFn quantize) {
+  blob.append_dwp_header(ceil_mod(tensor->size(), 32), addr);
+
+  for (size_t i = 0; i < tensor->size(); ++i) {
+    auto q = quantize(tensor->at(i));
+    blob.append(q);
+  }
+
+  size_t padding = ceil_mod(tensor->size(), 32) - tensor->size();
+  using QuantizedType = decltype(quantize(T{}));
+  QuantizedType zero = 0;
+  for (size_t i = 0; i < padding; ++i) {
+    blob.append(zero);
+  }
+}
+
+void Op::Layer::NMS::send_input(TensorPool &tensor_pool, AddressGen &generator,
+                                Rah &rah, IOAddrTbl &io_tbl) const {
+  log_info("Starting NMS send input\n");
+
+  // Fetch input addresses
+  const auto &regs = io_tbl.at(this->name).first;
+  uint32_t addr_box = generator.io_addr_from_register(regs.at(0));
+  uint32_t addr_score = generator.io_addr_from_register(regs.at(1));
+  log_info("Sending inputs to addresses: box={} score={}\n", addr_box, addr_score);
+
+  // Fetch tensors
+  auto boxes = tensor_pool.get<Tensor<float>*>(this->inputs.at(0));
+  auto scores = tensor_pool.get<Tensor<float>*>(this->inputs.at(1));
+  assert(boxes && scores);
+  assert(boxes->get_dims()[0] == scores->get_dims()[0]);
+  assert(boxes->get_dims()[1] == scores->get_dims()[2]);
+
+  auto compute_aligned_size = [](size_t raw, size_t elem_size) {
+    return io_tensor_packet_size(ceil_mod(raw, 32) * elem_size);
+  };
+
+  uint32_t box_size_with_packets = compute_aligned_size(boxes->size(), sizeof(int8_t));
+  uint32_t score_size_with_packets = compute_aligned_size(scores->size(), sizeof(int8_t));
+  uint32_t total_size_with_packets = box_size_with_packets + score_size_with_packets;
+
+  BinBlob blob(total_size_with_packets);
+  append_nms_input_tensor(blob, boxes, addr_box, [](float x) -> int8_t {
+    return static_cast<int8_t>(std::round(x / 0.007843137718737125));
+  });
+
+  append_nms_input_tensor(blob, scores, addr_score, [](float x) -> uint8_t {
+    return static_cast<uint8_t>(std::round(x * 100));
+  });
+  blob.append_dwp_header(0, 0);
+  blob.write("nms_input_data.bin");
+
+  log_info("Start writing NMS input to FPGA\n");
+  rah.write(blob.get_data(), blob.size());
+  log_info("Finish writing NMS input to FPGA\n");
 }

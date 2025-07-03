@@ -34,23 +34,23 @@ __attribute__((visibility("default"))) int info(const std::string& onnx_path, co
   return 0;
 }
 
-__attribute__((visibility("default"))) py::list sim(const std::string& onnx_path, py::array arr, const vss& rest) {
+__attribute__((visibility("default"))) py::list sim(const std::string& onnx_path, py::dict dict, const vss& rest) {
   gbl_args.set_option("sim", onnx_path.c_str());
   for (const auto& i : rest) {
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
   }
   Executor executor;
-  TensorPool ret = executor.run(onnx_path, arr);
+  TensorPool ret = executor.run(onnx_path, dict);
   return extract_pool(ret);
 }
 
-__attribute__((visibility("default"))) py::list run(const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
+__attribute__((visibility("default"))) py::list run(const std::string& onnx_path, const std::string& gml_path, py::dict dict, const vss& rest) {
   gbl_args.set_option("run", gml_path.c_str());
   gbl_args.set_option("run_onnx", onnx_path.c_str());
   for (const auto& i : rest) {
     gbl_args.set_option(i.first.c_str(), i.second.c_str());
   }
   Runner runner;
-  TensorPool ret = runner.infer(onnx_path, gml_path, arr);
+  TensorPool ret = runner.infer(onnx_path, gml_path, dict);
   return extract_pool(ret);
 }

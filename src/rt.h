@@ -110,11 +110,12 @@ class Runner {
   void tensor_pool_init();
   std::string get_run_arg();
   template <typename inputT>
-  TensorPool infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr);
+  TensorPool infer_aux(Rah &rah, HashedDispatchTable &hdt, std::vector<Tensor<inputT> *> arr);
+
   void fake_exec(Op::LayerBase *l);
 public:
   Runner();
-  TensorPool infer(const std::string& onnx_path, const std::string& gml_path, py::array arr);
+  TensorPool infer(const std::string& onnx_path, const std::string& gml_path, py::dict arr);
 };
 
 /* infer_aux is a state-machine that passes through these states of execution:
@@ -140,7 +141,9 @@ public:
  *    to the pre-processing pipeline.
  */
 template <typename inputT>
-TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr) {
+TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt,
+                             std::vector<Tensor<inputT> *> arr
+) {
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
 
@@ -155,30 +158,49 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
 
   Op::RegisterAllocator allcator(m_parser->get_graph());
 
-  Tensor<inputT> *input_image = arr;
-  if (input_image->dims_size() <= 1) {
-    log_fatal("Expects input images to be greater than 1 dimensional (N,...) "
-              "got a {} dimensional "
-              "image\n",
-              input_image->dims_size());
+  int batch_size = -1;
+  for (size_t i = 0; i < arr.size(); ++i) {
+    if (arr[i]->dims_size() <= 1) {
+      log_info("Input[{}] has dims_size <=1, treating as param input.\n", i);
+      continue;
+    }
+    if (batch_size == -1) {
+      batch_size = arr[i]->dims_at(0);
+    } else if (arr[i]->dims_at(0) != batch_size) {
+      log_fatal("All inputs with rank>=2 must have the same batch size.\n");
+    }
   }
-  log_info("preprocess finish\n");
+
+  if (batch_size == -1) {
+    batch_size = 1;
+  }
+
+  log_info("Preprocess finish\n");
   TensorPool ret;
   Timer<std::chrono::milliseconds> tt;
   tt.start();
-  for (int i = 0; i < input_image->dims_at(0); ++i) {
-    tensor_pool.free();
 
-    Timer<std::chrono::microseconds> slice_tt;
-    slice_tt.start();
-    Tensor<inputT> *slice{get_slice(input_image, std::vector<int>{i})};
-    slice_tt.stop();
-    log_info("Slice time {} us\n", slice_tt.difference().count());
-    if (order.at(0)->input_dims[0] != slice->get_dims()) {
-      log_fatal("Expected input dims {}, got input of dimensions {}\n",
-                order.at(0)->input_dims[0], slice->get_dims());
+  for (int i = 0; i < batch_size; ++i) {
+    tensor_pool.free();
+    for (size_t j = 0; j < arr.size(); ++j) {
+      Timer<std::chrono::microseconds> slice_tt;
+      slice_tt.start();
+      Tensor<inputT> *slice;
+      if (arr[j]->dims_size() <= 1) {
+        log_info("Found a scalar input, not using it\n");
+        continue;
+      }
+      slice = get_slice(arr[j], {i});
+      slice_tt.stop();
+      log_info("Slice input[{}] time {} us\n", j,
+       slice_tt.difference().count());
+      
+      if (order.at(0)->input_dims[j] != slice->get_dims()) {
+        log_fatal("Expected dims {}, got {}\n", order.at(0)->input_dims[j],
+                  slice->get_dims());
+      }
+      tensor_pool.set<Tensor<inputT> *>(j, slice);
     }
-    tensor_pool.set<Tensor<inputT> *>(0, slice);
 
     bool dump_and_exit = false;
     bool sent = false;

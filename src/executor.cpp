@@ -94,7 +94,7 @@ Executor::Executor() {
   dispatch_table = DispatchTable();
 }
 
-TensorPool Executor::run(const std::string& onnx_path, py::array arr) {
+TensorPool Executor::run(const std::string &onnx_path, py::dict arr) {
   Op::Parser parser(onnx_path);
   split_large_kernel(parser.get_graph());
 
@@ -103,14 +103,36 @@ TensorPool Executor::run(const std::string& onnx_path, py::array arr) {
   int total_regs = parser.get_total_registers() + 1;
   tensor_pool.resize(total_regs);
 
+  auto input_names = parser.get_model_input_names();
+
+  log_info("Model expects inputs:");
+  for (const auto &name : input_names) {
+    log_info(" - {}", name);
+  }
+
+  for (const auto &name : input_names) {
+    if (!arr.contains(name.c_str())) {
+      log_fatal("Input missing: model expects input named '{}'\n", name);
+    }
+  }
+
   if (input_type == onnx::TensorProto_DataType_FLOAT) {
-    Tensor<float> *input = new TensorCreate<float>(arr, "data");
-    return run_aux<float>(parser, input);
+    std::vector<Tensor<float> *> inputs_vec;
+    for (const auto &name : input_names) {
+      inputs_vec.push_back(new TensorCreate<float>(arr[name.c_str()]));
+    }
+    return run_aux<float>(parser, inputs_vec);
+
   } else if (input_type == onnx::TensorProto_DataType_INT8) {
-    Tensor<int8_t> *input = new TensorCreate<int8_t>(arr, "data");
-    return run_aux<int8_t>(parser, input);
+    std::vector<Tensor<int8_t> *> inputs_vec;
+    for (const auto &name : input_names) {
+      inputs_vec.push_back(new TensorCreate<int8_t>(arr[name.c_str()]));
+    }
+    return run_aux<int8_t>(parser, inputs_vec);
+
   } else {
-    log_fatal("Unsupported input type {}\n", Op::get_tensorproto_dtype_name(input_type));
+    log_fatal("Unsupported input type: {}\n",
+              Op::get_tensorproto_dtype_name(input_type));
     return TensorPool();
   }
 }
@@ -141,16 +163,20 @@ static void check_dispatch(const Op::LayerBase *l, const Tensor<T> *output) {
 
 template <typename T>
 static void run_noop(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Tensor<T> *input;
-  Tensor<T> *output;
-  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
-  *output = std::move(*input);
-  check_dispatch(l, output);
+  assert(l->inputs.size() == l->outputs.size());
+  for (size_t i = 0; i < l->inputs.size(); ++i) {
+    Tensor<T>* input = tensor_pool.get<Tensor<T>*>(l->inputs[i]);
+    Tensor<T>* output = new TensorCreate<T>(input, l->output_names[i]);
+    tensor_pool.set<Tensor<T>*>(l->outputs[i], output);
+    *output = std::move(*input);
+  }
 }
 
 void Op::Layer::NoOp::run(TensorPool &tensor_pool) {
-  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
-  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  for (size_t i = 0; i < input_type.size(); ++i) {
+    assert(input_type[i] != onnx::TensorProto_DataType_UNDEFINED);
+    assert(output_type[i] != onnx::TensorProto_DataType_UNDEFINED);
+  }
 
   if (input_type[0] == onnx::TensorProto_DataType_INT32 &&
       output_type[0] == onnx::TensorProto_DataType_INT32) {

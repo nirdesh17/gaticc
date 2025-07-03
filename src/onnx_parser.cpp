@@ -3087,6 +3087,15 @@ int Op::Parser::get_total_registers(void) const {
   return max;
 }
 
+std::vector<std::string> Op::Parser::get_model_input_names() const {
+    std::vector<std::string> names;
+    const onnx::GraphProto &m_graph = model_proto->graph();
+    for (const auto& input : m_graph.input()) {
+        names.push_back(input.name());
+    }
+    return names;
+}
+
 bool Op::Parser::has_graph_output(Op::LayerBase *l) const {
   return m_model.has_graph_output(l);
 }
@@ -3216,7 +3225,9 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
 
-  dst_node->inputs.push_back(src_node->outputs.at(0));
+  for(Op::VirtualAddress out_reg : src_node->outputs){
+    dst_node->inputs.push_back(out_reg);
+  }
   int od = boost::out_degree(source, *g);
   if (od == 1) {
     for (Op::VirtualAddress reg_val : src_node->inputs) {

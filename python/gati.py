@@ -169,7 +169,7 @@ def flash(
 def run(
         onnx_path: str,
         gml_path: str,
-        arr: np.ndarray,
+        arr: dict,
         *args,
         **kwargs,
         ):
@@ -179,7 +179,7 @@ def run(
     Args:
         onnx_path (str): Path to the original ONNX model file.
         gml_path (str): Path to the compiled model file (e.g., GML format).
-        arr (np.ndarray): Input to the model.
+        arr (dict): Input to the model.
         *args: Additional command-line flags to pass to the gaticc runtime.
 
     Prints:
@@ -230,7 +230,7 @@ def match(label_file: str, predicted_labels: list) -> float:
 
 def sim(
     onnx_path: str,
-    arr: np.ndarray,
+    arr: dict,
     *args,
     **kwargs,
     ) -> np.ndarray:
@@ -239,7 +239,7 @@ def sim(
 
   Args:
     onnx_path (str): Path to the original ONNX model file.
-    arr (np.ndarray): Input to the model.
+    arr (dict): Input to the model.
     *args: Additional flags.
     **kwargs: Additional key-value flags.
 
