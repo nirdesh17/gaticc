@@ -179,6 +179,7 @@ struct LayerBase {
   virtual std::pair<int,int> get_iterations() const;
 
   virtual void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const;
+  virtual void receive_output(TensorPool &tensor_pool, Rah &rah) const;
 
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
@@ -487,6 +488,7 @@ struct Transpose : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 
   void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
 struct MatMul : public LayerBase {
@@ -536,6 +538,7 @@ struct QGemm : public LayerBase {
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;
   std::pair<int,int> get_iterations() const override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -568,6 +571,7 @@ struct QLinearConv : public LayerBase {
   void set_output_scale(const std::vector<float>& v) override;
   std::pair<int,int> get_iterations() const override;
   void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
 struct LogSoftmax : public LayerBase {

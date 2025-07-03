@@ -109,20 +109,9 @@ class Runner {
   void load_model(Rah &rah, const Fstream &fp);
   void tensor_pool_init();
   std::string get_run_arg();
-
-  template <typename inputT, typename DeviceOutputT,
-            typename OutputT>
-  void run(Rah &rah, HashedDispatchTable &hdt);
-
   template <typename inputT>
   TensorPool infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>* arr);
-
-  void receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer);
   void fake_exec(Op::LayerBase *l);
-
-  template <typename T>
-  void receive_output_aux(const T *data, const Op::LayerBase *l, bool is_last_layer);
-
 public:
   Runner();
   TensorPool infer(const std::string& onnx_path, const std::string& gml_path, py::array arr);
@@ -225,7 +214,7 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
           log_info("receiving output\n");
           Timer<std::chrono::microseconds> run_tt;
           run_tt.start();
-          receive_output(rah, l, is_last_layer);
+          l->receive_output(tensor_pool, rah);
           run_tt.stop();
           log_info("Receive output time: {} us\n", run_tt.difference().count());
           log_info("receiving output finish\n");
@@ -275,74 +264,6 @@ _dump:
   tt.stop();
   log_info("Infer loop, total time: {}ms\n", tt.difference().count());
   return ret;
-}
-
-template <typename T>
-void unalign_sa_output(const Op::Layer::QLinearConv *l, Tensor<T> *tensor, const T *data) {
-  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
-  IVec2D og_dims_v {tensor->get_dims()};
-  auto og_dims = og_dims_v.at(0);
-  auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
-  auto sa_arch = get_sa_arch();
-  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
-  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
-  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
-  int dk = WORD_SIZE / sa_arch[SA_ARCH_N];
-  int data_index = 0;
-
-  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
-    for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N]; ++c) {
-      for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
-        for (int ci = 0; ci < sa_arch[SA_ARCH_N]; ++ci) {
-          for (int ei = 0; ei < dk; ++ei) {
-            int chan_n = (c * sa_arch[SA_ARCH_N]) + ci;
-            int elem_n = (e * dk) + ei;
-            int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
-            if (chan_n < og_dims[TENSOR_4D_CHANNELS] && elem_n < og_frame_sz) {
-              tensor->set(index, data[data_index]);
-            } 
-            data_index++;
-          }
-        }
-      }
-    }
-  }
-}
-
-template <typename T> void unalign_va_output(Tensor<T> *tensor, const T *data) {
-  auto dims = tensor->get_dims();
-  size_t size = prod(dims.begin(), dims.end(), 1);
-  for (size_t i = 0; i < size; ++i) {
-    T v = data[i];
-    tensor->set(i, v);
-  }
-}
-
-/* Converts a byte stream into a tensor and un-aligns if if necessary */
-template <typename T>
-void Runner::receive_output_aux(const T *data, const Op::LayerBase *l, bool is_last_layer) {
-  static_assert(std::is_same<T, int8_t>() || std::is_same<T, uint8_t>());
-  std::vector<int> odims = l->pipelined_output_dims.at(0);
-  Tensor<T> *tensor = new TensorCreate<T>(odims);
-
-  if (is_op_type(l, "QLinearConv") || is_op_type(l, "QLinearEltwise")) {
-    log_warn("Dangerous type cast from QLinearEltwise to QLinearConv\n");
-    unalign_sa_output(dynamic_cast<const Op::Layer::QLinearConv*>(l), tensor, data);
-  } else if (is_op_type(l, "QGemm") || is_op_type(l, "Transpose")) {
-    unalign_va_output(tensor, data);
-  } else {
-    log_fatal("cant handle un-alignment for layer of type {}\n", l->op_type());
-  }
-
-  log_info2("Unalign complete\n");
-  if (tensor_pool.has_value(l->outputs.at(0))) {
-    tensor_pool.free(l->outputs.at(0));
-  }
-  tensor_pool.set<Tensor<T> *>(l->outputs.at(0), tensor);
-
-  if (l->dispatch) {
-    pickle_tensor(tensor, "fpga_" + l->name);
-  }
 }
 
 template <typename T> T get_dlsym(void *m_handle, std::string func_name) {

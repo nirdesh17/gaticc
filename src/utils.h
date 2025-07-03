@@ -795,6 +795,7 @@ template <typename T> uint32_t bytes2int(const T *data) {
 }
 
 inline int string_hash(const std::string &s) {
+  if (s.size() == 0) { log_fatal("string_hash: input string with size 0 can't be hashed"); }
   return std::accumulate(s.begin(), s.end(), 0);
 }
 
