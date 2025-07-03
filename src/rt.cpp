@@ -421,65 +421,6 @@ void Runner::fake_exec(Op::LayerBase *l) {
   }
 }
 
-#if 0
-void Runner::receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer) {
-  int expected_hash = string_hash(l->name);
-  uint32_t expected_data_size = 0;
-
-  if (strcmp(l->op_type(), "QLinearConv") == 0) {
-    expected_data_size = aligned_conv_output(l->pipelined_output_dims) *
-                         Op::tpdt_sizeof(l->output_type[0]);
-  } else if (strcmp(l->op_type(), "QLinearMatMul") == 0 ||
-             strcmp(l->op_type(), "QGemm") == 0) {
-    expected_data_size =
-        aligned_fc_io(&l->output_dims[0]) * Op::tpdt_sizeof(l->output_type[0]);
-  } else if (strcmp(l->op_type(), "Transpose") == 0) {
-    expected_data_size = ceil_mod(prod(l->output_dims.at(0)) * Op::tpdt_sizeof(l->output_type.at(0)), WORD_SIZE);
-  } else {
-    log_fatal("Unhandled layer of type: {}\n", l->op_type());
-  }
-  auto expected_dims = l->aligned_output()[0];
-  uint32_t expected_packet_size = io_tensor_packet_size(expected_data_size);
-
-  log_info("expected packet size in receive output: {}\n",
-           expected_packet_size);
-  log_info("expected data size in receive output: {}\n", expected_data_size);
-
-  BinBlob blob(expected_packet_size);
-
-  Timer<std::chrono::milliseconds> tt;
-  tt.start();
-  rah.read(blob.get_data(), expected_packet_size);
-  tt.stop();
-  log_info("Data read time: {}\n", tt.difference().count());
-
-  const unsigned char *data = (const unsigned char *)blob.get_data();
-
-  if (!gbl_args.has_option("dry-run")) {
-    /* dry-run is a false traversal of the run loop used for debugging,
-     * correctness is not really needed all that much
-     */
-    check_dwp_header(data, expected_packet_size, expected_data_size,
-                     expected_hash);
-  }
-
-  // check_dwp_footer(data, expected_packet_size, 0 /* expected data size */, 0
-  // /* expected hash */);
-  if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
-    const int8_t *real_data =
-        reinterpret_cast<const int8_t *>(data + DWP_HEADER_BYTES);
-    receive_output_aux<int8_t>(real_data, l, is_last_layer);
-  } else if (l->output_type[0] == onnx::TensorProto_DataType_UINT8) {
-    const uint8_t *real_data =
-        reinterpret_cast<const uint8_t *>(data + DWP_HEADER_BYTES);
-    receive_output_aux<uint8_t>(real_data, l, is_last_layer);
-  } else {
-    log_fatal("can't compute with tensor of type {}\n",
-              Op::get_tensorproto_dtype_name(l->output_type[0]));
-  }
-}
-#endif
-
 HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
   const unsigned char *data = (const unsigned char *)fp.get_data();
   size_t size = fp.get_size();
