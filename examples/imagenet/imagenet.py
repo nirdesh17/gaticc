@@ -2,6 +2,7 @@ import numpy as np
 import classes
 import os
 import gati
+import onnxruntime as ort
 
 #from PIL import Image
 #def preprocess(image):
@@ -35,7 +36,12 @@ if __name__ == "__main__":
   gml_path = "model.gml"
   gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
   gati.compile(onnx_path, gml_path)
-  #gati.set_remote("v11.local")
+  # gati.set_remote("v11.local")
   gati.flash(bitstream)
-  ret = post(gati.run(onnx_path, gml_path, np.load("imagenet_2.npy")))
+
+  sess = ort.InferenceSession(onnx_path)
+  input_names = [i.name for i in sess.get_inputs()]
+  input_dict = {n: np.load("imagenet_2.npy") for n in input_names}
+
+  ret = post(gati.run(onnx_path, gml_path, input_dict))
   print(f"Match: {gati.match('imagenet_2_labels.txt', ret)}%")

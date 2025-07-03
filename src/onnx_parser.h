@@ -710,6 +710,7 @@ struct NMS : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   uint32_t get_weight_size() override;
+  void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
 };
 
 } // namespace Layer
@@ -881,6 +882,7 @@ public:
   TPDT get_model_input_type(void) const;
   TPDT get_model_output_type(void) const;
   int get_total_registers(void) const;
+  std::vector<std::string> get_model_input_names() const;
   /* true if 'l' has an output that is also a graph_output */
   bool has_graph_output(Op::LayerBase *l) const;
   Op::Graph get_graph() const;

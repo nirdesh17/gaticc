@@ -19,6 +19,11 @@ static std::set<std::string> megablock_tbl{
 
 static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE};
 
+bool is_nms(const Op::LayerBase *l) {
+  return (std::string(l->op_type()) == "NonMaxSuppression");
+}
+
+
 bool is_miniblock(const Op::LayerBase *l) {
   auto itr = miniblock_tbl.find(std::string(l->op_type()));
   if (itr != miniblock_tbl.end()) {
@@ -377,7 +382,7 @@ void Op::Parser::pass_set_device(Op::Graph gcopy) {
   /* prologue */
   int itr_frm_start = 0;
   for (; itr_frm_start < static_cast<int>(order.size()); ++itr_frm_start) {
-    if (is_miniblock(order.at(itr_frm_start))) {
+    if (is_miniblock(order.at(itr_frm_start)) || is_nms(order.at(itr_frm_start))) {
       break;
     } else {
       order.at(itr_frm_start)->device = DEVICE_CPU;
@@ -385,7 +390,7 @@ void Op::Parser::pass_set_device(Op::Graph gcopy) {
   }
   int itr_from_end = order.size() - 1;
   for (; itr_from_end > 0; --itr_from_end) {
-    if (is_miniblock(order.at(itr_from_end))) {
+    if (is_miniblock(order.at(itr_from_end)) || is_nms(order.at(itr_frm_start))) {
       break;
     } else {
       order.at(itr_from_end)->device = DEVICE_CPU;

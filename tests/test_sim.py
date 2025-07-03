@@ -1,5 +1,5 @@
 # test_sim.py
-import os, sys, json, argparse, numpy as np, gati
+import os, sys, json, argparse, numpy as np, gati, onnxruntime as ort
 
 FILES = [
   'cifar10_vgg11.onnx','cifar10_vgg16.onnx','cifar10_vgg19.onnx',
@@ -23,27 +23,33 @@ LABELS = {
 post = lambda arr: np.argmax(np.squeeze(np.stack([x[1] for x in arr]),1),-1)
 
 def run_test(models_dir):
-  if not os.path.isdir(models_dir): raise ValueError(f"Invalid models dir: {models_dir}")
-  gati.set_keep_quiet(True); ok, fail = [], []
+  if not os.path.isdir(models_dir):
+    raise ValueError(f"Invalid models dir: {models_dir}")
+  gati.set_keep_quiet(True)
+  ok, fail = [], []
   for f in FILES:
     path, acc = os.path.join(models_dir,f), 0
     print(f"Sim {f}")
     try:
       key = next(k for k in LABELS if k in f)
       lbl, data = LABELS[key]
-      acc = gati.match(lbl, post(gati.sim(path, np.load(data))))
-    except: pass
-    (ok if acc >= 50 else fail).append({"model":f,"accuracy":acc})
+      sess = ort.InferenceSession(path)
+      names = [i.name for i in sess.get_inputs()]
+      input_data = {n:np.load(data) for n in names}
+      acc = gati.match(lbl, post(gati.sim(path, input_data)))
+    except Exception as e:
+      print(f"Error with {f}: {e}")
+    (ok if acc >=50 else fail).append({"model":f,"accuracy":acc})
   return {
-    "passed": ok, "failed": fail,
-    "summary": {"total": len(ok)+len(fail), "passed": len(ok), "failed": len(fail)}
+    "passed":ok,"failed":fail,
+    "summary":{"total":len(ok)+len(fail),"passed":len(ok),"failed":len(fail)}
   }
 
-if __name__ == "__main__":
-  p = argparse.ArgumentParser()
+if __name__=="__main__":
+  p=argparse.ArgumentParser()
   p.add_argument('-m','--models',required=True)
   p.add_argument('-o','--output',default="test_sim.results.json")
-  args = p.parse_args()
+  args=p.parse_args()
   with open(args.output,"w") as f:
     json.dump(run_test(args.models),f,indent=2)
     print(f"Saved results to {args.output}")

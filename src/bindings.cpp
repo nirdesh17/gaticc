@@ -32,12 +32,12 @@ auto safe_compile = [](const string& onnx_path, const string &gml_path, const vs
   WRAP_EXCEPT3(compile, onnx_path, gml_path, rest);
 };
 
-auto safe_sim = [](const string& onnx_path, py::array arr, const vss& rest) {
-  WRAP_EXCEPT3(sim, onnx_path, arr, rest);
+auto safe_sim = [](const string& onnx_path, py::dict dict, const vss& rest) {
+  WRAP_EXCEPT3(sim, onnx_path, dict, rest);
 };
 
-auto safe_run = [](const std::string& onnx_path, const std::string& gml_path, py::array arr, const vss& rest) {
-  WRAP_EXCEPT4(run, onnx_path, gml_path, arr, rest);
+auto safe_run = [](const std::string& onnx_path, const std::string& gml_path, py::dict dict, const vss& rest) {
+  WRAP_EXCEPT4(run, onnx_path, gml_path, dict, rest);
 };
 
 PYBIND11_MODULE(_gati, m) {
