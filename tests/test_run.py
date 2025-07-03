@@ -14,7 +14,6 @@ def run_all(args):
   models = [f for f in os.listdir(mdir) if f in mut] if os.path.isdir(args.models[0]) else [os.path.basename(f) for f in args.models]
   bitstreams = os.listdir(args.bitstreams[0]) if os.path.isdir(args.bitstreams[0]) else args.bitstreams
   failed,matches=[],[]
-  print(bitstreams)
   for b in bitstreams:
     print(f"\n=== Bitstream: {b} on {args.hostname} ===\n")
     for m in models:
