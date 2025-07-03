@@ -141,9 +141,8 @@ public:
  *    to the pre-processing pipeline.
  */
 template <typename inputT>
-TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt,
-                             std::vector<Tensor<inputT> *> arr
-) {
+TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, std::vector<Tensor<inputT> *> arr) {
+
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
 

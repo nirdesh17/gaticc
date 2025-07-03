@@ -18,8 +18,8 @@
 #include <unistd.h>
 #include <variant>
 
-#include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -55,8 +55,14 @@ class Argparse {
        *                                                       args */
       {
           {"help", {"-h", "--help"}, "print help and exit", 0},
-          {"verbose", {"-v", "--v", "--verbose"}, "print log messages to standard out", 0},
-          {"verbose2", {"--vv", "--verbose2"}, "print more log messages to standard out", 0},
+          {"verbose",
+           {"-v", "--v", "--verbose"},
+           "print log messages to standard out",
+           0},
+          {"verbose2",
+           {"--vv", "--verbose2"},
+           "print more log messages to standard out",
+           0},
           {"timeest",
            {"--timeest"},
            "print estimated time that a model would take based on FLOP counts "
@@ -128,6 +134,12 @@ class Argparse {
            "exec graph contains all nodes (in topological order) with which "
            "instructions are ordered. This option should be used with -c "
            "option",
+           0},
+          {"receive-over-uart",
+           {"--receive-over-uart"},
+           "Instruct the FPGA to send its outputs over serial connection on "
+           "FPGA "
+           "pins 28 (GND), 30 (TX), 32 (RX) (From FPGAs Side)",
            0},
           {"output",
            {"--output", "-o"},
@@ -307,7 +319,8 @@ class Argparse {
        "Make sure both the host and the device are on the same network. Find "
        "the "
        "ip of the device by running `ip a` on the device or by setting up mDNS "
-       "resolution (vicharak.local) and 'ping'ing it. Next, start the server with "
+       "resolution (vicharak.local) and 'ping'ing it. Next, start the server "
+       "with "
        "`sudo python scripts/server.py` "
        "On the host, run the command as you would on the device, and append "
        "`--remote <ip>` along "
@@ -393,7 +406,8 @@ void log(std::ostream &out, const char *p, T v, Args... args) {
 }
 
 template <typename T, typename... Args>
-void log(std::ostream &out, const char *type, const char *p, T v, Args... args) {
+void log(std::ostream &out, const char *type, const char *p, T v,
+         Args... args) {
   out << type << " ";
   log(out, p, v, args...);
 }
@@ -620,9 +634,9 @@ template <class InputIt, class T> T prod(InputIt first, InputIt last, T init) {
   return product;
 }
 
-template <typename T> T prod(const std::vector<T>& v) {
+template <typename T> T prod(const std::vector<T> &v) {
   T product = static_cast<T>(1);
-  for (const auto& i : v) {
+  for (const auto &i : v) {
     product *= i;
   }
   return product;
@@ -667,7 +681,8 @@ std::vector<T> operator*(const std::vector<T> &v1, const std::vector<T> &v2) {
   return ret;
 }
 
-/* https://stackoverflow.com/questions/53097952/how-to-understand-numpy-strides-for-layman */
+/* https://stackoverflow.com/questions/53097952/how-to-understand-numpy-strides-for-layman
+ */
 template <typename Container>
 inline Container get_stride_from_shape(const Container &shape) {
   Container ret(shape.size());
@@ -778,7 +793,6 @@ template <typename T> inline T ceil_div(T i, T j) {
 int count_digits(int a);
 void print_table(const std::map<std::string, int> &tbl);
 
-
 std::vector<int> get_sa_arch();
 int get_va_size();
 
@@ -795,7 +809,9 @@ template <typename T> uint32_t bytes2int(const T *data) {
 }
 
 inline int string_hash(const std::string &s) {
-  if (s.size() == 0) { log_fatal("string_hash: input string with size 0 can't be hashed"); }
+  if (s.size() == 0) {
+    log_fatal("string_hash: input string with size 0 can't be hashed");
+  }
   return std::accumulate(s.begin(), s.end(), 0);
 }
 
@@ -841,7 +857,7 @@ get_byte_vector(const std::bitset<sz> num) {
 }
 
 /* replace 'c' with 'r' */
-std::string sed(const std::string& src, char c, char r);
+std::string sed(const std::string &src, char c, char r);
 py::list extract_pool(TensorPool &pool);
 std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm);
-int dot(const std::vector<int>& a, const std::vector<int>& b);
+int dot(const std::vector<int> &a, const std::vector<int> &b);

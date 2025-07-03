@@ -314,6 +314,21 @@ std::string Runner::get_run_arg() {
 
 Runner::Runner() {}
 
+/* 'names' are from the parser, creates a std::vector with tensors that carry their
+ * respective names
+ */
+template <typename T>
+static std::vector<Tensor<T>*> dict2arr(py::dict arr, const std::vector<std::string>& names) {
+  std::vector<Tensor<T>*> inputs_vec;
+  for (const auto& i : names) {
+    if (!arr.contains(i.c_str())) {
+      log_fatal("Model expects input of name {}, but could not find it in the input provided\n", i);
+    }
+    inputs_vec.push_back(new TensorCreate<T>(arr[i.c_str()], i));
+  }
+  return inputs_vec;
+}
+
 TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_path, py::dict arr) {
   Op::Parser parser(onnx_path);
   m_parser = &parser;
@@ -321,53 +336,25 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
   Pass::absorb(m_parser->get_graph());
   tensor_pool_init();
   Fstream fp(gml_path);
-  /* TODO: use uniqueptr */
-  Rah *rah;
+  std::unique_ptr<Rah> rah;
   if (gbl_args.has_option("dry-run")) {
-    rah = new FakeRah();
+    rah = std::make_unique<FakeRah>();
   } else if (gbl_args.has_option("remote")) {
     std::string ip_addr = gbl_args["remote"].as<std::string>();
-    rah = new AirRah(ip_addr);
+    rah = std::make_unique<AirRah>(ip_addr);
   } else {
-    rah = new RealRah();
+    rah = std::make_unique<RealRah>();
   }
-  load_model(*rah, fp);
+  load_model(*rah.get(), fp);
   HashedDispatchTable hdt(fp);
   TPDT input_type = parser.get_model_input_type();
   TPDT output_type = parser.get_model_output_type();
-
   auto input_names = parser.get_model_input_names();
-  for (const auto& name : input_names) {
-    if (!arr.contains(name.c_str())) {
-      log_fatal("Input missing: model expects input named '{}'\n", name);
-    }
-  }
 
-  if (input_type == onnx::TensorProto_DataType_FLOAT &&
-      output_type == onnx::TensorProto_DataType_FLOAT) {
-    std::vector<Tensor<float>*> inputs_vec;
-    for (const auto& name : input_names) {
-      inputs_vec.push_back(new TensorCreate<float>(arr[name.c_str()]));
-    }
-    return infer_aux<float>(*rah, hdt, inputs_vec);
-
-  } else if (input_type == onnx::TensorProto_DataType_INT8 &&
-             output_type == onnx::TensorProto_DataType_INT32) {
-    std::vector<Tensor<int8_t>*> inputs_vec;
-    for (const auto& name : input_names) {
-      inputs_vec.push_back(new TensorCreate<int8_t>(arr[name.c_str()]));
-    }
-    return infer_aux<int8_t>(*rah, hdt, inputs_vec);
-
-  } else if (input_type == onnx::TensorProto_DataType_FLOAT &&
-             output_type == onnx::TensorProto_DataType_INT64) {
-    // For NMS
-    std::vector<Tensor<float>*> inputs_vec;
-    for (const auto& name : input_names) {
-      inputs_vec.push_back(new TensorCreate<float>(arr[name.c_str()]));
-    }
-    return infer_aux<float>(*rah, hdt, inputs_vec);
-
+  if (input_type == onnx::TensorProto_DataType_FLOAT) {
+    return infer_aux<float>(*rah.get(), hdt, dict2arr<float>(arr, input_names));
+  } else if (input_type == onnx::TensorProto_DataType_INT8) {
+    return infer_aux<int8_t>(*rah.get(), hdt, dict2arr<int8_t>(arr, input_names));
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type),
@@ -415,7 +402,6 @@ void Runner::load_model(Rah &rah, const Fstream &fp) {
 
   log_info("setting dispatch type\n");
   if (gbl_args.has_option("receive-over-uart")) {
-
     rah.write_meta(META_TYPE_DISPATCH, d_uart_vec);
   } else {
     rah.write_meta(META_TYPE_DISPATCH, d_rah_vec);
