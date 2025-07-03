@@ -1235,23 +1235,25 @@ void Op::Layer::QLinearEltwise::get_opcodes(std::vector<int> &op_codes) {
 }
 
 uint32_t Op::Layer::QLinearEltwise::get_weight_size() {
-  log_warn("Treating QLinearEltwise as a weight-less operator consisting of "
-           " only inputs and outputs\n");
-  return 0;
+  uint32_t w = 0;
+  if (constant_data != nullptr) {
+    w = aligned_eltwise_weight(this) * Op::tensorproto_sizeof(constant_data);
+    w = ceil_mod(w, WORD_SIZE);
+  }
+  return w;
 }
 
 static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
                                                AddressGen &gen,
-                                               InitializerTable &,
+                                               InitializerTable &tbl,
                                                int elt_type) {
+
+  const Op::Layer::QLinearEltwise *cc =
+      dynamic_cast<const Op::Layer::QLinearEltwise *>(l);
   std::bitset<INST_SIZE_BITS> add_inst;
   inst_set(add_inst, OP_EltWise, EltWise_Opcode);
   inst_set(add_inst, elt_type, EltWise_EltType);
-  if (l->inputs.size() < 2) {
-    log_fatal("Need eltwise operator {} ({}) to have more than two inputs, "
-              "found {} inputs\n",
-              l->name, l->op_type(), l->inputs.size());
-  }
+
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_WIDTH), EltWise_IW);
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_HEIGHT), EltWise_IH);
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_CHANNELS), EltWise_IC);
@@ -1259,9 +1261,21 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
   uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
   uint32_t left_end = left_start + left_size;
-  uint32_t right_start = gen.io_addr_from_register(l->inputs.at(1));
-  uint32_t right_size = ad.at(1) * Op::tpdt_sizeof(l->input_type.at(1));
-  uint32_t right_end = right_start + right_size;
+
+  uint32_t right_start = 0;
+  uint32_t right_end = 0;
+  if (l->inputs.size() < 2) {
+    uint32_t weight_bytes =
+        aligned_eltwise_weight(l) * Op::tensorproto_sizeof(cc->constant_data);
+    right_start = gen.alloc(weight_bytes);
+    right_end = ceil_mod(right_start + weight_bytes, WORD_SIZE);
+    tbl.push_back(cc->constant_data->name(), right_start);
+  } else {
+    right_start = gen.io_addr_from_register(l->inputs.at(1));
+    uint32_t right_size = ad.at(1) * Op::tpdt_sizeof(l->input_type.at(1));
+    right_end = right_start + right_size;
+  }
+
   inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
   inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
   inst_set(add_inst, right_start, EltWise_RightOperandStartAddress);
@@ -1387,7 +1401,9 @@ int Op::Layer::QLinearEltwise::get_inst(InstBlob &blob, AddressGen &gen,
   blob.push_back(add_inst);
   blob.push_back(out_inst);
   blob.push_back(quant_inst);
-  /* as qlinearadd does not insert any dwp packets in the blob */
+  if (this->constant_data != nullptr) {
+    return 1;
+  }
   return 0;
 }
 
@@ -1835,6 +1851,69 @@ void BinBlob::append(const InstBlob &instblob, uint32_t addr) {
 }
 
 template <typename T>
+static void sa_align_aux_eltwise(const Op::LayerBase *l, BinBlob &blob,
+                                 const Tensor<T> *tensor) {
+  auto dims = tensor->get_dims();
+  auto strides = tensor->get_strides();
+  auto sa_arch = get_sa_arch();
+
+  size_t elem_size = sizeof(T);
+  int sa_cols = sa_arch[SA_ARCH_N];
+  int elements_per_engine = (WORD_SIZE / sa_cols);
+
+  int chan_iterations = ceil_div(l->input_dims[0][TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+  int original_hw = l->input_dims.at(0)[TENSOR_4D_HEIGHT] * l->input_dims.at(0)[TENSOR_4D_WIDTH];
+  int hw = original_hw;
+  if (hw % elements_per_engine != 0) {
+    hw = hw + (hw % elements_per_engine);
+  }
+
+  T zero = 0;
+  int count = 0;
+
+  for (int n = 0; n < dims[TENSOR_4D_BATCH]; ++n) {
+    for (int chan_iter = 0; chan_iter < chan_iterations; ++chan_iter) {
+
+      std::vector<int> pixel_offsets(sa_cols, 0);
+      bool data_remaining = true;
+
+      while (data_remaining) {
+        data_remaining = false;
+
+        for (int engine = 0; engine < sa_cols; ++engine) {
+          int c = chan_iter * sa_cols + engine;
+
+          for (int i = 0; i < elements_per_engine; ++i) {
+            int flat_idx = pixel_offsets[engine]++;
+            if (c < dims[TENSOR_4D_CHANNELS]) {
+              if (flat_idx < original_hw) {
+                data_remaining = true;
+
+                int h = flat_idx / dims[TENSOR_4D_WIDTH];
+                int w = flat_idx % dims[TENSOR_4D_WIDTH];
+
+                int index = n * strides[0] + c * strides[1] + h * strides[2] +
+                            w * strides[3];
+                blob.append(tensor->at(index));
+                count++;
+              } else if (flat_idx < hw) {
+                blob.append(zero);
+                count++;
+              }
+            } else if (flat_idx < hw) {
+              blob.append(zero);
+              count++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  log_info2("Inserted {} elements for elementwise alignment\n", count * elem_size);
+}
+
+template <typename T>
 static void sa_align_aux_regular(const Op::LayerBase *l, BinBlob &blob, const Tensor<T> *tensor) {
   auto dims = tensor->get_dims();
   auto strides = tensor->get_strides();
@@ -2163,6 +2242,22 @@ void Op::Layer::QGemm::align_weights(BinBlob &blob, InitializerTable &tbl) {
     log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
     blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
     fc_bias_align(blob, bias);
+}
+
+void Op::Layer::QLinearEltwise::align_weights(BinBlob &blob,
+                                              InitializerTable &tbl) {
+  uint32_t aligned_sz = aligned_eltwise_weight(this);
+  aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(constant_data->data_type()));
+  aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+  log_info2("Appending initializer {} for size: {}, addr: {}\n",
+            constant_data->name(), aligned_sz, tbl.get(constant_data->name()));
+  blob.append_dwp_header(aligned_sz, tbl.get(constant_data->name()));
+  auto input2 = new TensorExtant<int8_t>(constant_data);
+  auto new_tensor1 = new TensorCreate<int8_t>(input_dims[0]);
+  broadcast_tensor(input2, new_tensor1);
+  sa_align_aux_eltwise(this, blob, new_tensor1);
+  delete new_tensor1;
+  delete input2;
 }
 
 char *BinBlob::get_data() { return m_data; }

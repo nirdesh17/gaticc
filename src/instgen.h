@@ -353,6 +353,24 @@ template <typename T> int aligned_fc_io(const T &dims) {
   return ret[0][1];
 }
 
+inline int aligned_eltwise_weight(const Op::LayerBase *l) {
+  auto sa_arch = get_sa_arch();
+  int chan_itr = 0;
+  int kern_itr = 0;
+  std::tie(kern_itr, chan_itr) = std::make_tuple(
+      1, ceil_div(l->input_dims[0][TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]));
+  int ret = chan_itr * sa_arch[SA_ARCH_N];
+  int total_elements =
+      l->input_dims[0][TENSOR_4D_HEIGHT] * l->input_dims[0][TENSOR_4D_WIDTH];
+
+  int elements_per_engine = WORD_SIZE / sa_arch[SA_ARCH_N];
+  if (total_elements % elements_per_engine != 0) {
+    total_elements = total_elements + (total_elements % elements_per_engine);
+  }
+  ret = ret * total_elements;
+  return ret;
+}
+
 template <typename T> std::vector<int> aligned_channels(const T &dims) {
   if (dims.size() != 4) {
     log_fatal("need dims to be 4-dimensional, got {}\n", dims.size());
