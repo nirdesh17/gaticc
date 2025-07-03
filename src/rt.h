@@ -172,7 +172,6 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, Tensor<inputT>*
     Timer<std::chrono::microseconds> slice_tt;
     slice_tt.start();
     Tensor<inputT> *slice{get_slice(input_image, std::vector<int>{i})};
-    print_vec("slice shape ", slice->get_dims());
     slice_tt.stop();
     log_info("Slice time {} us\n", slice_tt.difference().count());
     if (order.at(0)->input_dims[0] != slice->get_dims()) {
