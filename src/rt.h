@@ -12,9 +12,6 @@
 
 #define RAH_SO_STRING "librah.so"
 
-// For UART Server
-#define HANDLER_PORT 5001
-
 namespace fs = std::filesystem;
 
 /* Why re-invent streams?
@@ -119,7 +116,6 @@ class Runner {
 
   void receive_output(Rah &rah, const Op::LayerBase *l, bool is_last_layer);
   void fake_exec(Op::LayerBase *l);
-  void read_uart(BinBlob &blob, std::string handler_ip, int expected_size);
 
   template <typename T>
   void receive_output_aux(const T *data, const Op::LayerBase *l, bool is_last_layer);
