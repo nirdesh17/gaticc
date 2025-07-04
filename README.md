@@ -55,6 +55,11 @@ cmake --build build && sudo cmake --install build
 sudo pip install -e .
 ```
 
+Compile in debug mode:
+```
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+```
+
 # Usage
 
 See,
