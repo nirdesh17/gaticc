@@ -17,8 +17,8 @@
 #include <utility>
 #include <vector>
 
-constexpr int FIXED_POINT_BASE_TYPE = 18;
-constexpr int FIXED_POINT_SPLIT = 10;
+constexpr int FIXED_POINT_BASE_TYPE = 32;
+constexpr int FIXED_POINT_SPLIT = 16;
 
 template <typename T> class Relu {
   int clip_val;
@@ -288,11 +288,11 @@ class FixedPoint {
   static_assert(TOTAL_BITS <= 64, "TOTAL_BITS > 64 not supported");
 
   using BaseType = typename std::conditional<
-      (TOTAL_BITS <= 8), int8_t,
+      (TOTAL_BITS < 8), int8_t,
       typename std::conditional<
-          (TOTAL_BITS <= 16), int16_t,
+          (TOTAL_BITS < 16), int16_t,
           typename std::conditional<
-              (TOTAL_BITS <= 32), int32_t,
+              (TOTAL_BITS < 32), int32_t,
               int64_t
           >::type
       >::type
