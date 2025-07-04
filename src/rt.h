@@ -12,9 +12,6 @@
 
 #define RAH_SO_STRING "librah.so"
 
-// For UART Server
-#define HANDLER_PORT 5001
-
 namespace fs = std::filesystem;
 
 /* Why re-invent streams?
