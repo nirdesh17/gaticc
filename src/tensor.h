@@ -627,3 +627,18 @@ void pickle_tensor(const Tensor<T> *t, std::string filename) {
   const char *data = reinterpret_cast<const char *>(t->get().data());
   out.write(data, total_elems * sizeof(T));
 }
+
+/* 'names' are from the parser, creates a std::vector with tensors that carry their
+ * respective names
+ */
+template <typename T>
+static std::vector<Tensor<T>*> dict2arr(py::dict arr, const std::vector<std::string>& names) {
+  std::vector<Tensor<T>*> inputs_vec;
+  for (const auto& i : names) {
+    if (!arr.contains(i.c_str())) {
+      log_fatal("Model expects input of name {}, but could not find it in the input provided\n", i);
+    }
+    inputs_vec.push_back(new TensorCreate<T>(arr[i.c_str()], i));
+  }
+  return inputs_vec;
+}

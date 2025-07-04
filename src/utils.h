@@ -861,3 +861,4 @@ std::string sed(const std::string &src, char c, char r);
 py::list extract_pool(TensorPool &pool);
 std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm);
 int dot(const std::vector<int> &a, const std::vector<int> &b);
+

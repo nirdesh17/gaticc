@@ -314,21 +314,6 @@ std::string Runner::get_run_arg() {
 
 Runner::Runner() {}
 
-/* 'names' are from the parser, creates a std::vector with tensors that carry their
- * respective names
- */
-template <typename T>
-static std::vector<Tensor<T>*> dict2arr(py::dict arr, const std::vector<std::string>& names) {
-  std::vector<Tensor<T>*> inputs_vec;
-  for (const auto& i : names) {
-    if (!arr.contains(i.c_str())) {
-      log_fatal("Model expects input of name {}, but could not find it in the input provided\n", i);
-    }
-    inputs_vec.push_back(new TensorCreate<T>(arr[i.c_str()], i));
-  }
-  return inputs_vec;
-}
-
 TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_path, py::dict arr) {
   Op::Parser parser(onnx_path);
   m_parser = &parser;
@@ -356,9 +341,7 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
   } else if (input_type == onnx::TensorProto_DataType_INT8) {
     return infer_aux<int8_t>(*rah.get(), hdt, dict2arr<int8_t>(arr, input_names));
   } else {
-    log_fatal("Unsupported type combo: {}, {}\n",
-              Op::get_tensorproto_dtype_name(input_type),
-              Op::get_tensorproto_dtype_name(output_type));
+    log_fatal("Runner unsupported type: {}\n", Op::get_tensorproto_dtype_name(input_type));
     return TensorPool();
   }
 }

@@ -178,7 +178,14 @@ struct LayerBase {
 
   virtual std::pair<int,int> get_iterations() const;
 
+  /* Used by runtime. 
+   * all megablocks should override this. the overrides should do all the
+   * re-ordering and padding of zeros that the FPGA expects
+   */
   virtual void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const;
+  /* Reverse of send_input. The FPGA sends an aligned tensor, this override
+   * should unalign and remove pads to get the original expected tensor
+   */
   virtual void receive_output(TensorPool &tensor_pool, Rah &rah) const;
 
   std::vector<VirtualAddress> inputs;

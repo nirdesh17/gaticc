@@ -105,34 +105,14 @@ TensorPool Executor::run(const std::string &onnx_path, py::dict arr) {
 
   auto input_names = parser.get_model_input_names();
 
-  log_info("Model expects inputs:");
-  for (const auto &name : input_names) {
-    log_info(" - {}", name);
-  }
-
-  for (const auto &name : input_names) {
-    if (!arr.contains(name.c_str())) {
-      log_fatal("Input missing: model expects input named '{}'\n", name);
-    }
-  }
-
   if (input_type == onnx::TensorProto_DataType_FLOAT) {
-    std::vector<Tensor<float> *> inputs_vec;
-    for (const auto &name : input_names) {
-      inputs_vec.push_back(new TensorCreate<float>(arr[name.c_str()]));
-    }
-    return run_aux<float>(parser, inputs_vec);
-
+    return run_aux<float>(parser, dict2arr<float>(arr, input_names));
   } else if (input_type == onnx::TensorProto_DataType_INT8) {
-    std::vector<Tensor<int8_t> *> inputs_vec;
-    for (const auto &name : input_names) {
-      inputs_vec.push_back(new TensorCreate<int8_t>(arr[name.c_str()]));
-    }
-    return run_aux<int8_t>(parser, inputs_vec);
-
+    return run_aux<int8_t>(parser, dict2arr<int8_t>(arr, input_names));
+  } else if (input_type == onnx::TensorProto_DataType_UINT8) {
+    return run_aux<uint8_t>(parser, dict2arr<uint8_t>(arr, input_names));
   } else {
-    log_fatal("Unsupported input type: {}\n",
-              Op::get_tensorproto_dtype_name(input_type));
+    log_fatal("Executor unsupported type: {}\n", Op::get_tensorproto_dtype_name(input_type));
     return TensorPool();
   }
 }
