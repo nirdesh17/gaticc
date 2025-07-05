@@ -13,3 +13,5 @@ __attribute__((visibility("default"))) int compile(const string& onnx_path, cons
 __attribute__((visibility("default"))) int info(const string& onnx_path, const vss& rest);
 __attribute__((visibility("default"))) py::list sim(const std::string& onnx_path, py::array arr, const vss& rest);
 __attribute__((visibility("default"))) py::list run(const string& onnx_path, const string& gml_path, py::array arr, const vss& rest);
+__attribute__((visibility("default"))) std::vector<std::string> get_model_inputs(const std::string& onnx_path);
+__attribute__((visibility("default"))) std::vector<std::string> get_model_outputs(const std::string& onnx_path);

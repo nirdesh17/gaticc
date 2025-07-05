@@ -13,6 +13,12 @@ using namespace pybind11::literals;
     throw std::runtime_error(ss);\
   }\
 
+#define WRAP_EXCEPT2(fn, a1) \
+  try {\
+    return fn(a1);\
+  }\
+  CATCH_BLOCK \
+
 #define WRAP_EXCEPT3(fn, a1, a2, a3) \
   try {\
     return fn(a1, a2, a3);\
@@ -40,6 +46,14 @@ auto safe_run = [](const std::string& onnx_path, const std::string& gml_path, py
   WRAP_EXCEPT4(run, onnx_path, gml_path, arr, rest);
 };
 
+auto safe_get_model_inputs = [](const std::string& onnx_path) {
+  WRAP_EXCEPT2(get_model_inputs, onnx_path);
+};
+
+auto safe_get_model_outputs = [](const std::string& onnx_path) {
+  WRAP_EXCEPT2(get_model_outputs, onnx_path);
+};
+
 PYBIND11_MODULE(_gati, m) {
   m.def("compile", safe_compile, "onnx_path"_a, "gml_path"_a, "rest"_a = py::list());
   m.def("info", &info, "onnx_path"_a, "rest"_a = py::list());
@@ -47,4 +61,6 @@ PYBIND11_MODULE(_gati, m) {
   m.def("help", []() {gbl_args.print_usage();});
   m.def("sim", safe_sim, "onnx_path"_a, "inp"_a, "rest"_a = py::list());
   m.def("run", safe_run, "onnx_path"_a, "gml_path"_a, "inp"_a, "rest"_a = py::list());
+  m.def("get_model_inputs", safe_get_model_inputs,"onnx_path"_a);
+  m.def("get_model_outputs", safe_get_model_outputs,"onnx_path"_a);
 }

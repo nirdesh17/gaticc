@@ -3085,6 +3085,23 @@ int Op::Parser::get_total_registers(void) const {
   return max;
 }
 
+std::vector<std::string> Op::Parser::get_model_input_names(void) const {
+    std::vector<std::string> names;
+    const onnx::GraphProto &m_graph = model_proto->graph();
+    for (const auto& input : m_graph.input()) {
+        names.push_back(input.name());
+    }
+    return names;
+}
+std::vector<std::string> Op::Parser::get_model_output_names(void) const {
+    std::vector<std::string> names;
+    const onnx::GraphProto &m_graph = model_proto->graph();
+    for (const auto& output : m_graph.output()) {
+        names.push_back(output.name());
+    }
+    return names;
+}
+
 bool Op::Parser::has_graph_output(Op::LayerBase *l) const {
   return m_model.has_graph_output(l);
 }

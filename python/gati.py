@@ -272,3 +272,9 @@ def compare_layer(sim_arr: list[tuple[str, np.ndarray]], run_arr: list[tuple[str
     print(f"Matching {sa} with {ra}")
     ret = matcher(sim_d[sa], run_d[ra])
     print(f"Match Percent: {ret}")
+
+def get_model_inputs(onnx_path: str):
+  return _gati.get_model_inputs(onnx_path)
+
+def get_model_outputs(onnx_path: str):
+  return _gati.get_model_outputs(onnx_path)
