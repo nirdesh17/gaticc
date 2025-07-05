@@ -112,6 +112,30 @@ static void parse_onnx_ints(const onnx::AttributeProto &attr,
   }
 }
 
+void autopad_to_pads(int *pad, const int *k, const int *s, bool ceil_h,
+                     bool ceil_w, const std::string &auto_pad) {
+
+  int sh = ceil_h == 1 ? s[TENSOR_2D_HEIGHT] : 0;
+  int sw = ceil_w == 1 ? s[TENSOR_2D_WIDTH] : 0;
+
+  int pad_total_h = k[TENSOR_2D_HEIGHT] - sh;
+  int pad_total_w = k[TENSOR_2D_WIDTH] - sw;
+
+  if (auto_pad == "SAME_UPPER") {
+    pad[I_UP] = pad_total_h / 2;
+    pad[I_DOWN] = pad_total_h - pad[I_UP];
+
+    pad[I_LEFT] = pad_total_w / 2;
+    pad[I_RIGHT] = pad_total_w - pad[I_LEFT];
+  } else if (auto_pad == "SAME_LOWER") {
+    pad[I_DOWN] = pad_total_h / 2;
+    pad[I_UP] = pad_total_h - pad[I_DOWN];
+
+    pad[I_RIGHT] = pad_total_w / 2;
+    pad[I_LEFT] = pad_total_w - pad[I_RIGHT];
+  }
+}
+
 const char *Op::Layer::NoOp::op_type() const { return m_optype; }
 Op::Layer::NoOp::NoOp() {}
 
@@ -123,6 +147,7 @@ Op::Layer::Conv::Conv() {
   m_cp.stride[TENSOR_2D_WIDTH] = 1;
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
+  m_cp.auto_pad = "";
   weights = nullptr;
   bias = nullptr;
 }
@@ -131,11 +156,11 @@ const char *Op::Layer::Conv::op_type() const { return m_optype; }
 std::string Op::Layer::Conv::params() const {
   std::string ret;
   std::stringstream ss;
-  ss << "(IW,IH: " << this->input_dims[TENSOR_4D_WIDTH] << ","
-     << this->input_dims[TENSOR_4D_HEIGHT] << ") "
+  ss << "(IW,IH: " << this->input_dims[0][TENSOR_4D_WIDTH] << ","
+     << this->input_dims[0][TENSOR_4D_HEIGHT] << ") "
      << "(KN,IC,KH,KW: " << m_cp.kn << ","
-     << this->input_dims[TENSOR_4D_CHANNELS] << "," << m_cp.k[TENSOR_2D_WIDTH]
-     << "," << m_cp.k[TENSOR_2D_HEIGHT] << ") "
+     << this->input_dims[0][TENSOR_4D_CHANNELS] << ","
+     << m_cp.k[TENSOR_2D_WIDTH] << "," << m_cp.k[TENSOR_2D_HEIGHT] << ") "
      << "(S,P,D: " << m_cp.stride[TENSOR_2D_WIDTH] << "," << m_cp.pad[I_LEFT]
      << "," << m_cp.dilation[TENSOR_2D_WIDTH] << ") ";
   ret = ss.str();
@@ -173,6 +198,8 @@ void Op::Layer::Conv::set_attributes(const onnx::NodeProto &node) {
     } else if (itr->name() == "dilations") {
       assert(itr->ints().size() == 2 && "expected dilations to be 2 integers");
       parse_onnx_ints(*itr, m_cp.dilation);
+    } else if (itr->name() == "auto_pad") {
+      m_cp.auto_pad = itr->s();
     }
   }
 }
@@ -181,6 +208,14 @@ void Op::Layer::Conv::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   assert(input_dims[0].size() == 4); // NCHW
+
+  autopad_to_pads(this->m_cp.pad, this->m_cp.k, this->m_cp.stride,
+                  this->input_dims[0][TENSOR_4D_HEIGHT] %
+                          this->m_cp.stride[TENSOR_2D_HEIGHT] == 0,
+                  this->input_dims[0][TENSOR_4D_WIDTH] %
+                          this->m_cp.stride[TENSOR_2D_WIDTH] == 0,
+                  this->m_cp.auto_pad);
+
   this->output_dims.resize(1);
   this->output_dims[0].resize(4);
   this->output_dims[0][0] = input_dims[0][0];
@@ -392,6 +427,7 @@ Op::Layer::Maxpool::Maxpool() {
   m_cp.stride[TENSOR_2D_WIDTH] = 1;
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
+  m_cp.auto_pad = "";
 }
 
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
@@ -432,6 +468,8 @@ void Op::Layer::Maxpool::set_attributes(const onnx::NodeProto &node) {
                     node.name());
         }
       }
+    } else if (itr->name() == "auto_pad") {
+      m_cp.auto_pad = itr->s();
     }
   }
 }
@@ -440,6 +478,13 @@ void Op::Layer::Maxpool::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
+  
+  autopad_to_pads(this->m_cp.pad, this->m_cp.k, this->m_cp.stride,
+                  this->input_dims[0][TENSOR_4D_HEIGHT] %
+                          this->m_cp.stride[TENSOR_2D_HEIGHT] == 0,
+                  this->input_dims[0][TENSOR_4D_WIDTH] %
+                          this->m_cp.stride[TENSOR_2D_WIDTH] == 0,
+                  this->m_cp.auto_pad);
   this->output_dims.resize(1);
   this->output_dims[0].resize(4);
   this->output_dims[0][0] = input_dims[0][0];
@@ -919,6 +964,7 @@ Op::Layer::QLinearConv::QLinearConv() {
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
   m_cp.ki = 0;
+  m_cp.auto_pad = "";
   weights = nullptr;
   bias = nullptr;
 }
@@ -1064,6 +1110,8 @@ void Op::Layer::QLinearConv::set_attributes(const onnx::NodeProto &node) {
     } else if (itr->name() == "dilations") {
       assert(itr->ints().size() == 2 && "expected dilations to be 2 integers");
       parse_onnx_ints(*itr, m_cp.dilation);
+    } else if (itr->name() == "auto_pad") {
+      m_cp.auto_pad = itr->s();
     }
   }
 }
@@ -1072,6 +1120,14 @@ void Op::Layer::QLinearConv::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   assert(input_dims[0].size() == 4); // NCHW
+
+  autopad_to_pads(this->m_cp.pad, this->m_cp.k, this->m_cp.stride,
+                  this->input_dims[0][TENSOR_4D_HEIGHT] %
+                          this->m_cp.stride[TENSOR_2D_HEIGHT] == 0,
+                  this->input_dims[0][TENSOR_4D_WIDTH] %
+                          this->m_cp.stride[TENSOR_2D_WIDTH] == 0,
+                  this->m_cp.auto_pad);
+
   this->output_dims.resize(1);
   this->output_dims[0].resize(4);
   this->output_dims[0][0] = input_dims[0][0];

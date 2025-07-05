@@ -56,7 +56,8 @@ void maxpool(const Tensor<T> *input, Tensor<T> *output,
   const Tensor<T> *padded_input;
   if (pad_present) {
     padded_input = tensor_pad(
-        input, std::vector<int>{mp.pad[0], mp.pad[1], mp.pad[2], mp.pad[3]});
+        input, std::vector<int>{mp.pad[0], mp.pad[1], mp.pad[2], mp.pad[3]},
+        std::numeric_limits<T>::lowest());
   } else {
     padded_input = input;
   }
@@ -70,7 +71,7 @@ void maxpool(const Tensor<T> *input, Tensor<T> *output,
          ihi += mp.stride[TENSOR_2D_HEIGHT]) {
       for (int iwi = 0; iwi < output_width * mp.stride[TENSOR_2D_WIDTH];
            iwi += mp.stride[TENSOR_2D_WIDTH]) {
-        T max_val = std::numeric_limits<T>::min();
+        T max_val = std::numeric_limits<T>::lowest();
         for (int khi = 0; khi < mp.k[TENSOR_2D_HEIGHT]; ++khi) {
           for (int kwi = 0; kwi < mp.k[TENSOR_2D_WIDTH]; ++kwi) {
             std::vector<int> in_index{0, ici, (ihi + khi), (iwi + kwi)};
@@ -577,6 +578,7 @@ ConvEngine<inputT, weightT, outputT>::ConvEngine(const Op::Layer::Conv *cc) {
   kn = cc->m_cp.kn;
   kh = cc->m_cp.k[TENSOR_2D_HEIGHT];
   kw = cc->m_cp.k[TENSOR_2D_WIDTH];
+  ki = cc->m_cp.ki > 0 ? cc->m_cp.ki - 1 : cc->m_cp.ki;
   const int *pad = cc->m_cp.pad;
   pad_vec = std::vector<int>{pad[0], pad[1], pad[2], pad[3]};
   w_zero_points = std::vector<int>(cc->output_dims[0][TENSOR_4D_CHANNELS], 0);
