@@ -821,8 +821,8 @@ class Model {
 
 public:
   void update_registers(void);
-  void deduce_types(const std::vector<TPDT> &input_types);
-  void deduce_shapes(const IVec2D &input_dims);
+  void deduce_types(const onnx::GraphProto &m_graph);
+  void deduce_shapes(const onnx::GraphProto &m_graph);
 
   void save_graph_inputs(const onnx::ValueInfoProto &t);
   void save_graph_outputs(const onnx::ValueInfoProto &t);
