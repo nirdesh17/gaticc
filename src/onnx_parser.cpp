@@ -2946,7 +2946,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "Constant") {
     // do nothing, constants have already been added
   } else if (opt == "Clip") {
-    m_model.add(new Op::Layer::Clip(), node);
+    m_model.add(new Op::Layer::Relu(), node);
   } else if (opt == "Add") {
     m_model.add(new Op::Layer::Eltwise(ELTWISE_ADD), node);
   } else if (opt == "Mul") {
