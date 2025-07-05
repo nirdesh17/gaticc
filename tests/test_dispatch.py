@@ -8,11 +8,11 @@ MODELS = ['imagenet_vgg_16_224_int8.onnx']
 gen = lambda: np.expand_dims(np.load("imagenet_10.npy")[4],0)
 
 def simulate(onnx, cpu): 
-    print(f"[SIM] {cpu} on {onnx}"); gati.set_dispatch([cpu]); gati.sim(onnx,gen())
+  print(f"[SIM] {cpu} on {onnx}"); gati.set_dispatch([cpu]); gati.sim(onnx, {"data":gen()})
 
 def runfpga(onnx, gml, fpga, arch): 
     print(f"[FPGA] {fpga} arch {arch}"); gati.set_dispatch(fpga); gati.set_arch(config={"sa-arch":arch})
-    gati.compile(onnx,gml); gati.run(onnx,gml,gen())
+    gati.compile(onnx,gml); gati.run(onnx,gml,{"data":gen()})
 
 def compare(fpga_npy, cpu_npy, verbose=False):
     if not os.path.exists(fpga_npy) or not os.path.exists(cpu_npy): return -1,"ERROR"
