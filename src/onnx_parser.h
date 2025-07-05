@@ -75,7 +75,8 @@ struct ConvParams {
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
   int dilation[2];
-  int ki;        /* Acts as an offset indicating the row from which to start reading the input for convolution */
+  int ki;        /* Acts as an offset indicating the row from which to start reading             the input for convolution */
+  std::string auto_pad; /* auto_pad attribute, if any */
 };
 
 struct GemmParams {
@@ -93,6 +94,7 @@ struct PoolParams {
   int stride[2]; /* stride horizontally/vertically */
   int dilation[2];
   bool gbl;      /* global pooling */
+  std::string auto_pad; /* auto_pad attribute, if any */
 };
 
 using VirtualAddress = int;
@@ -959,3 +961,4 @@ inline bool is_sa_regular_optimal(const std::vector<int>& sa_arch) {
 std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy);
 std::vector<Op::LayerBase*> traverse(Op::Graph &g, Op::Vertex v);
 std::vector<int> deduce_new_shape(std::vector<int> old_shape, int input_total_size);
+void autopad_to_pads(int* pad, const int* k, const int* s, bool ceil_h, bool ceil_w, const std::string& auto_pad);
