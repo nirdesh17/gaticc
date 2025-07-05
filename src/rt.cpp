@@ -612,12 +612,7 @@ static void post_read(const Op::LayerBase *l, TensorPool &tensor_pool, Tensor<T>
 }
 
 template <typename T>
-static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const T *data) {
-  const Op::Layer::QLinearConv *l = dynamic_cast<const Op::Layer::QLinearConv *>(lb);
-  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
-  IVec2D og_dims_v {tensor->get_dims()};
-  auto og_dims = og_dims_v.at(0);
-  auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
+static void unalign_sa_aux(Tensor<T> *tensor, const T *data, std::vector<int>& og_dims, std::vector<int>& aligned_dims) {
   auto sa_arch = get_sa_arch();
   int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
   int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
@@ -642,6 +637,16 @@ static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const 
       }
     }
   }
+}
+
+template <typename T>
+static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const T *data) {
+  const Op::Layer::QLinearConv *l = dynamic_cast<const Op::Layer::QLinearConv *>(lb);
+  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
+  IVec2D og_dims_v {tensor->get_dims()};
+  auto og_dims = og_dims_v.at(0);
+  auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
+  unalign_sa_aux(tensor, data, og_dims, aligned_dims); 
 }
 
 template <typename T>
@@ -774,31 +779,7 @@ static void unalign_eltwise_output(Tensor<T> *tensor, const T *data) {
   IVec2D og_dims_v {tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
   auto aligned_dims = aligned_qle({og_dims});
-  auto sa_arch = get_sa_arch();
-  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
-  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
-  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
-  int dk = WORD_SIZE / sa_arch[SA_ARCH_N];
-  int data_index = 0;
-
-  /* FIXME: this is the same as conv, make this common for both */
-  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
-    for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N]; ++c) {
-      for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
-        for (int ci = 0; ci < sa_arch[SA_ARCH_N]; ++ci) {
-          for (int ei = 0; ei < dk; ++ei) {
-            int chan_n = (c * sa_arch[SA_ARCH_N]) + ci;
-            int elem_n = (e * dk) + ei;
-            int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
-            if (chan_n < og_dims[TENSOR_4D_CHANNELS] && elem_n < og_frame_sz) {
-              tensor->set(index, data[data_index]);
-            } 
-            data_index++;
-          }
-        }
-      }
-    }
-  }
+  unalign_sa_aux(tensor, data, og_dims, aligned_dims);
 }
 
 template <typename T>
