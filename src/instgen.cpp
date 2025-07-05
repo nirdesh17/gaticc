@@ -457,7 +457,7 @@ static int count_total_megablocks(const InstBlob &insts) {
   return cnt;
 }
 
-static IVec2D aligned_qle_dims(const IVec2D &d) {
+IVec2D aligned_qle_dims(const IVec2D &d) {
   IVec2D ret;
   auto sa_arch = get_sa_arch();
   for (int i = 0; i < d.size(); ++i) {
@@ -468,7 +468,7 @@ static IVec2D aligned_qle_dims(const IVec2D &d) {
   return ret;
 }
 
-static std::vector<int> aligned_qle(const IVec2D& d) {
+std::vector<int> aligned_qle(const IVec2D& d) {
   auto ad = aligned_qle_dims(d);
   std::vector<int> ret;
   auto sa_arch = get_sa_arch();

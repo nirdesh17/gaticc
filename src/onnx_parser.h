@@ -477,6 +477,7 @@ struct QLinearEltwise : public LayerBase {
   void set_output_scale(const std::vector<float>& v) override;
   IVec2D aligned_input() const override;
   IVec2D aligned_output() const override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
 struct Transpose : public LayerBase {
