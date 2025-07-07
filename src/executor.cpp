@@ -205,11 +205,42 @@ void Op::Layer::Conv::run(TensorPool &tensor_pool) {
 /* helper function for Op::Layer::Conv::run() */
 template <typename T>
 static void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
-  Tensor<T> *input; Tensor<T> *output;
+  Op::Layer::Relu *cc = dynamic_cast<Op::Layer::Relu *>(l);
+  Tensor<T> *input;
+  Tensor<T> *output;
   std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
-  Relu<T> relu;
+  Relu<T> relu(cc->m_cp.alpha);
   relu.exec(input, output);
-  check_dispatch(l, output);
+  check_dispatch(cc, output);
+}
+
+template <typename T>
+static void run_qleaky_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Relu *cc = dynamic_cast<Op::Layer::Relu *>(l);
+  Tensor<T> *input;
+  Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
+  Relu<float> relu(cc->m_cp.alpha);
+
+  std::unique_ptr<Tensor<float>> dequantized_input{
+      new TensorCreate<float>(cc->input_dims[0])};
+
+  std::unique_ptr<Tensor<float>> dequantized_output{
+      new TensorCreate<float>(cc->output_dims[0])};
+
+  using variantT = std::variant<int8_t, uint8_t>;
+
+  std::vector<int> x_zero_points = variant2vec<variantT, int>(cc->x_zero_point);
+  dequantize<T, float>(input, dequantized_input.get(), cc->x_scale,
+                       x_zero_points);
+
+  relu.exec(dequantized_input.get(), dequantized_output.get());
+
+  std::vector<int> y_zero_points = variant2vec<variantT, int>(cc->y_zero_point);
+  quantize<float, T>(dequantized_output.get(), output, cc->y_scale,
+                     y_zero_points);
+
+  check_dispatch(cc, output);
 }
 
 void Op::Layer::Relu::run(TensorPool &tensor_pool) {
@@ -219,7 +250,11 @@ void Op::Layer::Relu::run(TensorPool &tensor_pool) {
 
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_relu<float>(this, tensor_pool);
-  } else {
+  } else if(input_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_qleaky_relu<int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_qleaky_relu<uint8_t>(this, tensor_pool);
+  }  else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
               Op::get_tensorproto_dtype_name(output_type[0]));

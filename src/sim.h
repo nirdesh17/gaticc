@@ -22,22 +22,23 @@ constexpr int FIXED_POINT_SPLIT = 16;
 
 template <typename T> class Relu {
   int clip_val;
+  float alpha = 0.0f; // for leaky relu
 
 public:
   Relu(int clip_val);
-  Relu();
+  Relu(float alpha);
   void exec(const Tensor<T> *input, Tensor<T> *output);
 };
 
-template <typename T> Relu<T>::Relu(int clip_val) : clip_val{clip_val} {}
+template <typename T> Relu<T>::Relu(int clip_val) : clip_val{clip_val}, alpha(0.0f) {}
 
-template <typename T> Relu<T>::Relu() : clip_val{INT_MAX} {}
+template <typename T> Relu<T>::Relu(float alpha) : clip_val{INT_MAX}, alpha{alpha} {}
 
 template <typename T>
 void Relu<T>::exec(const Tensor<T> *input, Tensor<T> *output) {
   for (int i = 0; i < input->size(); ++i) {
     T x = input->at(i);
-    T v = (x < 0) ? 0 : ((x > clip_val) ? clip_val : x);
+    T v = (x < 0) ? (x * alpha) : ((x > clip_val) ? clip_val : x);
     output->set(i, v);
   }
 }
