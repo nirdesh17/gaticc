@@ -1,0 +1,14 @@
+README.md
+setup.py
+python/gati.py
+python/gati.egg-info/PKG-INFO
+python/gati.egg-info/SOURCES.txt
+python/gati.egg-info/dependency_links.txt
+python/gati.egg-info/requires.txt
+python/gati.egg-info/top_level.txt
+tests/test_compile.py
+tests/test_dispatch.py
+tests/test_full.py
+tests/test_run.py
+tests/test_sim.py
+tests/test_summary.py

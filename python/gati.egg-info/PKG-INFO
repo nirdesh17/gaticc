@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: gati
+Version: 0.8.2
+Requires-Dist: numpy
+Dynamic: requires-dist

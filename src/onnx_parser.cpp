@@ -2389,7 +2389,13 @@ void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
  * - The input shape for node 3 will be Y1
  * - The input shape for node 4 will be Y2
  */
-void Op::Model::deduce_shapes(const IVec2D &input_dims) {
+void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
+  IVec2D input_dims;
+  for (const auto &i : m_graph.input()) {
+    if (initializer_map.find(i.name()) == initializer_map.end()) {
+      input_dims.push_back(get_dims_from_value_info(i));
+    }
+  }
   std::queue<Op::Vertex> S;
   /* all nodes on which shape inference is done */
   std::unordered_set<Op::Vertex> done_set;
@@ -2443,7 +2449,13 @@ void Op::Model::deduce_shapes(const IVec2D &input_dims) {
 /* Operates almost exactly like deduce_shape but calls infer_type instead of 
  * infer_shape
  */
-void Op::Model::deduce_types(const std::vector<TPDT> &input_types) {
+void Op::Model::deduce_types(const onnx::GraphProto &m_graph) {
+  std::vector<TPDT> input_types;
+  for (const auto &i : m_graph.input()) {
+    if (initializer_map.find(i.name()) == initializer_map.end()) {
+      input_types.push_back(get_type_from_value_info(i));
+    }
+  }
   std::queue<Op::Vertex> S;
   std::unordered_set<Op::Vertex> done_set;
   Op::Graph gcopy = g;
@@ -3024,23 +3036,10 @@ Op::Parser::Parser(std::string const &filename) {
    * io */
   m_model.save_first_layer_input_dims(m_graph.input().at(0));
   
-  std::vector<TPDT> input_types;
-  for (const auto &i : m_graph.input()) {
-    input_types.push_back(get_type_from_value_info(i));
-  }
-  log_info2("Starting Type Inference\n");
-  m_model.deduce_types(input_types);
-  /* first layer's input dims */
-  google::protobuf::RepeatedPtrField<onnx::ValueInfoProto> m_graph_inputs =
-      m_graph.input();
-  IVec2D input_dims;
-  for (int i = 0; i < m_graph_inputs.size(); i++) {
-    std::vector<int> tmp_dims = get_dims_from_value_info(m_graph.input()[i]);
-    input_dims.push_back(tmp_dims);
-  }
-
+ 
+  m_model.deduce_types(m_graph);
   log_info2("Starting Shape Inference\n");
-  m_model.deduce_shapes(input_dims);
+  m_model.deduce_shapes(m_graph);
   log_info2("Setting devices\n");
   pass_set_device(get_graph());
   log_info2("Updating Registers through register allocator\n");
