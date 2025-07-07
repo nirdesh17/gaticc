@@ -2930,32 +2930,50 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return crt_exec_order(g);
 }
 
-std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
+
+std::vector<Op::LayerBase *> traverse(Op::Graph &g, Op::Vertex v) {
   std::vector<Op::LayerBase *> execution_order;
-  std::queue<Op::Vertex> S;
-  S.push(Op::get_root_node(&gcopy));
+  std::queue<Op::Vertex> Q;
+  Q.push(v);
 
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    execution_order.push_back(gcopy[n]);
-    S.pop();
+  while (!Q.empty()) {
+    Op::Vertex current = Q.front();
+    int out_degree = boost::out_degree(current, g);
+    Q.pop();
+    execution_order.push_back(g[current]);
 
-    auto out_edges = boost::out_edges(n, gcopy);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    auto out_edges = boost::out_edges(current, g);
+    std::vector<Op::Vertex> next_nodes;
+
+    for (auto it = out_edges.first; it != out_edges.second; ++it) {
+      Op::Vertex target = boost::target(*it, g);
+      if (!Op::are_equal_nodes(current, target, &g)) {
+        next_nodes.push_back(target);
+      }
     }
-
-    for (auto [src, dest] : edges_to_remove) {
-      if (!Op::are_equal_nodes(src, dest, &gcopy)) {
-        boost::remove_edge(src, dest, gcopy);
-        if (boost::in_degree(dest, gcopy) == 0) {
-          S.push(dest);
+    for (auto target : next_nodes) {
+      if (boost::in_degree(target, g) <= 1) {
+        if (out_degree > 1) {
+          auto sub_order = traverse(g, target);
+          execution_order.insert(execution_order.end(), sub_order.begin(),
+                                 sub_order.end());
+          out_degree--;
+        } else {
+          Q.push(target);
         }
       }
     }
+    for (auto target : next_nodes) {
+      boost::remove_edge(current, target, g);
+    }
+
   }
   return execution_order;
+}
+
+std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
+  Op::Vertex root = Op::get_root_node(&gcopy);
+  return traverse(gcopy, root);
 }
 
 void Op::print_opgraph(Op::Graph gcopy) {

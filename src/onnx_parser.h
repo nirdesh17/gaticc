@@ -957,5 +957,6 @@ inline bool is_sa_regular_optimal(const std::vector<int>& sa_arch) {
 }
 
 std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy);
+std::vector<Op::LayerBase*> traverse(Op::Graph &g, Op::Vertex v);
 std::vector<int> deduce_new_shape(std::vector<int> old_shape, int input_total_size);
 void autopad_to_pads(int* pad, const int* k, const int* s, bool ceil_h, bool ceil_w, const std::string& auto_pad);
