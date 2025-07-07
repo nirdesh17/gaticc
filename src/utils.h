@@ -615,7 +615,9 @@ template <typename T> void TensorPool::push_back(T data) {
 }
 
 template <typename T> T TensorPool::get(int index) {
-  assert(pool.at(index).has_value() && "pool at index does not have a value");
+  if (!pool.at(index).has_value()) {
+    log_fatal("pool at index ({}), does not have a value", index);
+  }
   if (pool.at(index).type() != typeid(T)) {
     log_fatal("at index {}, expected type {} but got {}\n", index,
               pool.at(index).type().name(), typeid(T).name());

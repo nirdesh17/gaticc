@@ -2687,16 +2687,8 @@ int Op::Layer::NMS::get_inst(InstBlob &insts, AddressGen &gen,
 
   insts.push_back(nms_inst);
 
-  std::bitset<INST_SIZE_BITS> nms_output_inst;
-
-  std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
-  inst_set(nms_output_inst, ob_opcode, OutputBlock_Opcode);
-
   uint32_t output_addr_start = gen.io_addr_from_register(layer->outputs.at(0));
-
-  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
-  inst_set(nms_output_inst, ostart, OutputBlock_OutputAddr);
-
-  insts.push_back(nms_output_inst);
+  auto out_inst = gen_output(0, output_addr_start, 0, 0, 0, 0, 0, this->dispatch, string_hash(this->name), 0, 0, 0, 0, 0);
+  insts.push_back(out_inst);
   return 0;
 }

@@ -267,6 +267,11 @@ _dump:
                 tensor_pool.get<Tensor<int> *>(l->outputs.at(0));
             Tensor<int> *out_copy = new TensorCreate(out, l->name);
             ret.push_back<Tensor<int> *>(out_copy);
+          } else if (type == onnx::TensorProto_DataType_INT64) {
+            Tensor<int64_t> *out =
+                tensor_pool.get<Tensor<int64_t> *>(l->outputs.at(0));
+            Tensor<int64_t> *out_copy = new TensorCreate(out, l->name);
+            ret.push_back<Tensor<int64_t> *>(out_copy);
           } else {
             log_fatal("Output type of layer {} ({}) is not supported\n", l->name,
                       Op::get_tensorproto_dtype_name(type));

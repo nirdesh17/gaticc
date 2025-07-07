@@ -816,6 +816,8 @@ void Op::Layer::NMS::receive_output(TensorPool &tensor_pool, Rah &rah) const {
     va_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
     va_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_INT64) {
+    va_receive<int64_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else {
     log_fatal("can't receive data of type {} from FPGA\n",
               Op::get_tensorproto_dtype_name(this->output_type[0]));

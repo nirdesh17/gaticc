@@ -39,7 +39,6 @@ static void check_dispatch_table_validity(const std::vector<std::string> &tbl,
 }
 
 DispatchTable::DispatchTable(Op::Graph graph) {
-  /* TODO: DRY in the constructor above */
   dump_all = false;
   dump_none = false;
   if (gbl_args.has_option("dispatch")) {

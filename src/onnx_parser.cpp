@@ -1983,6 +1983,7 @@ void Op::Layer::NMS::infer_shape(const IVec2D &input_dims) {
   this->input_dims = input_dims;
   this->output_dims = {
       {static_cast<int>(max_output_boxes), 3}}; //(selected_boxes, class, score)
+  this->pipelined_output_dims = this->output_dims;
 }
 
 void Op::Layer::NMS::infer_type(const std::vector<TPDT> &input_types) {
