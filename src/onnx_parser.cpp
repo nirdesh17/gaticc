@@ -3161,7 +3161,7 @@ int Op::Parser::get_total_registers(void) const {
   return max;
 }
 
-std::vector<std::string> Op::Parser::get_model_input_names() const {
+std::vector<std::string> Op::Parser::get_model_input_names(void) const {
   std::vector<std::string> names;
   const onnx::GraphProto &m_graph = model_proto->graph();
   for (const auto& input : m_graph.input()) {

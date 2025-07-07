@@ -898,7 +898,6 @@ public:
   std::vector<std::string> get_model_input_names(void) const;
   std::vector<std::string> get_model_output_names(void) const;
   int get_total_registers(void) const;
-  std::vector<std::string> get_model_input_names() const;
   /* true if 'l' has an output that is also a graph_output */
   bool has_graph_output(Op::LayerBase *l) const;
   Op::Graph get_graph() const;
