@@ -335,6 +335,11 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
   TPDT input_type = parser.get_model_input_type();
   TPDT output_type = parser.get_model_output_type();
   auto input_names = parser.get_model_input_names();
+  for (const auto& name : input_names) {
+    if (!arr.contains(name.c_str())) {
+      log_fatal("Input missing: model expects input named '{}'\n", name);
+    }
+  }
 
   if (input_type == onnx::TensorProto_DataType_FLOAT) {
     return infer_aux<float>(*rah.get(), hdt, dict2arr<float>(arr, input_names));

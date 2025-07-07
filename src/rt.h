@@ -156,45 +156,45 @@ TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, std::vector<Ten
 
   int batch_size = -1;
   for (size_t i = 0; i < arr.size(); ++i) {
-    if (arr[i]->dims_size() <= 1) {
-      log_info("Input[{}] has dims_size <=1, treating as param input.\n", i);
-      continue;
-    }
-    if (batch_size == -1) {
-      batch_size = arr[i]->dims_at(0);
-    } else if (arr[i]->dims_at(0) != batch_size) {
-      log_fatal("All inputs with rank>=2 must have the same batch size.\n");
-    }
-  }
+    const auto &expected = order.at(0)->input_dims[i];
+    const auto &actual = arr[i]->get_dims();
 
-  if (batch_size == -1) {
-    batch_size = 1;
+    if (actual.size() != expected.size() + 1) {
+      log_fatal("Input[{}]: Rank mismatch: model expects rank {} ({}), but input has rank {}.\n"
+                "Inputs must have exactly one extra dimension for batching.",
+                i, expected.size(), expected, actual.size());
+    }
+
+    for (size_t k = 0; k < expected.size(); ++k) {
+      if (actual[k + 1] != expected[k]) {
+        log_fatal(
+            "Input[{}]: Dimension mismatch at axis {}: expected {}, got {}.", i,
+            k + 1, expected[k], actual[k + 1]);
+      }
+    }
+
+    int this_batch = actual[0];
+    if (batch_size == -1) {
+      batch_size = this_batch;
+    } else if (batch_size != this_batch) {
+      log_fatal("All inputs must have the same batch size.Input[{}] has batch {}, expected {}.",
+                i, this_batch, batch_size);
+    }
   }
 
   log_info("Preprocess finish\n");
   TensorPool ret;
   Timer<std::chrono::milliseconds> tt;
   tt.start();
-
   for (int i = 0; i < batch_size; ++i) {
     tensor_pool.free();
     for (size_t j = 0; j < arr.size(); ++j) {
       Timer<std::chrono::microseconds> slice_tt;
       slice_tt.start();
-      Tensor<inputT> *slice;
-      if (arr[j]->dims_size() <= 1) {
-        log_info("Found a scalar input, not using it\n");
-        continue;
-      }
-      slice = get_slice(arr[j], {i});
+      auto slice = get_slice(arr[j], {i});
+      print_vec("Slice shape", slice->get_dims());
       slice_tt.stop();
-      log_info("Slice input[{}] time {} us\n", j,
-       slice_tt.difference().count());
-      
-      if (order.at(0)->input_dims[j] != slice->get_dims()) {
-        log_fatal("Expected dims {}, got {}\n", order.at(0)->input_dims[j],
-                  slice->get_dims());
-      }
+      log_info("Slice input[{}] time {} us\n", j, slice_tt.difference().count());
       tensor_pool.set<Tensor<inputT> *>(j, slice);
     }
 

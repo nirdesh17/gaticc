@@ -48,20 +48,25 @@ public:
 template <typename inputT>
 TensorPool Executor::run_aux(const Op::Parser& parser, const std::vector<Tensor<inputT>*>& arr) {
   auto order = parser.get_execution_order();
+  const auto &expected_input_dims = order.at(0)->input_dims;
+
   int batch_size = -1;
   for (size_t i = 0; i < arr.size(); ++i) {
-    if (arr[i]->dims_size() <= 1) {
-      log_info("Input[{}] has dims_size <=1, treating as param input.\n", i);
-      continue;
+    const auto &actual_dims = arr[i]->get_dims();
+    const auto &expected_dims = expected_input_dims[i];
+
+    if (actual_dims.size() <= expected_dims.size()) {
+      log_fatal("Input[{}]: Model expects rank {} input but input has rank {}. "
+                "Inputs must have an extra batch dimension.\n",
+                i, expected_dims.size(), actual_dims.size());
     }
     if (batch_size == -1) {
-      batch_size = arr[i]->dims_at(0);
-    } else if (arr[i]->dims_at(0) != batch_size) {
-      log_fatal("All inputs with rank>=2 must have the same batch size.\n");
+      batch_size = actual_dims.at(0);
+    } else if (actual_dims.at(0) != batch_size) {
+      log_fatal("Input[{}]: Inconsistent batch size. Found batch size {} but "
+                "previous batch size {}.\n",
+                i, actual_dims.at(0), batch_size);
     }
-  }
-  if (batch_size == -1) {
-    batch_size = 1; 
   }
 
   TensorPool ret;
@@ -72,16 +77,13 @@ TensorPool Executor::run_aux(const Op::Parser& parser, const std::vector<Tensor<
     tensor_pool.free();
 
     for (size_t j = 0; j < arr.size(); ++j) {
-      if (arr[j]->dims_size() <= 1) {
-        tensor_pool.set<Tensor<inputT>*>(j, arr[j]);
-        continue;
-      }
+      Tensor<inputT> *slice = get_slice(arr[j], {i});
 
-      Tensor<inputT>* slice = get_slice(arr[j], {i});
-      if (order.at(0)->input_dims[j] != slice->get_dims()) {
-        log_fatal("Expected input dims {}, got dims {}\n",
-                  order.at(0)->input_dims[j],
-                  slice->get_dims());
+      const auto &expected_dims = expected_input_dims[j];
+      if (slice->get_dims() != expected_dims) {
+        log_fatal(
+            "Input[{}]: After slicing, got dims {}, but expected dims {}.\n", j,
+            slice->get_dims(), expected_dims);
       }
       tensor_pool.set<Tensor<inputT>*>(j, slice);
     }

@@ -185,8 +185,10 @@ void split_large_kernel(Op::Graph &g) {
   dum->device = DEVICE_CPU;
   dum->input_type = g[v]->input_type;
   dum->output_type = g[v]->input_type;
-  dum->input_names.push_back("noop_inputs");
-  dum->output_names.push_back("noop_outputs");
+  for (size_t i = 0; i < g[v]->input_type.size(); ++i) {
+    dum->input_names.push_back("noop_input_" + std::to_string(i));
+    dum->output_names.push_back("noop_output_" + std::to_string(i));
+  }
   g[new_vertex] = dum;
   boost::add_edge(new_vertex, v, g);
 
