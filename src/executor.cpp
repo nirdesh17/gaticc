@@ -209,7 +209,7 @@ static void run_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *input;
   Tensor<T> *output;
   std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
-  Relu<T> relu(cc->m_cp.alpha);
+  Relu<T> relu(cc->alpha);
   relu.exec(input, output);
   check_dispatch(cc, output);
 }
@@ -220,25 +220,24 @@ static void run_qleaky_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *input;
   Tensor<T> *output;
   std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
-  Relu<float> relu(cc->m_cp.alpha);
+  int n=1;
+ int alpha = static_cast<int>(std::ceil(cc->alpha * (1 << n)));
+  LeakyRelu<T> relu(alpha);
+  input->print();
+  for (auto itr = input->begin(); itr != input->end(); ++itr) {
+    *itr=(*itr<<n);
+  }
+  // input->print();
+  relu.exec(input, output);
+  // output->print();  
+  for (auto itr = input->begin(); itr != input->end(); ++itr) {
+    *itr=(*itr>>n);
+    if(*itr < 0) {
+      *itr=(*itr>>n);
+    } 
+  }
+  output->print();  
 
-  std::unique_ptr<Tensor<float>> dequantized_input{
-      new TensorCreate<float>(cc->input_dims[0])};
-
-  std::unique_ptr<Tensor<float>> dequantized_output{
-      new TensorCreate<float>(cc->output_dims[0])};
-
-  using variantT = std::variant<int8_t, uint8_t>;
-
-  std::vector<int> x_zero_points = variant2vec<variantT, int>(cc->x_zero_point);
-  dequantize<T, float>(input, dequantized_input.get(), cc->x_scale,
-                       x_zero_points);
-
-  relu.exec(dequantized_input.get(), dequantized_output.get());
-
-  std::vector<int> y_zero_points = variant2vec<variantT, int>(cc->y_zero_point);
-  quantize<float, T>(dequantized_output.get(), output, cc->y_scale,
-                     y_zero_points);
 
   check_dispatch(cc, output);
 }

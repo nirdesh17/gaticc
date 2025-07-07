@@ -43,6 +43,26 @@ void Relu<T>::exec(const Tensor<T> *input, Tensor<T> *output) {
   }
 }
 
+template <typename T> class LeakyRelu{
+  int alpha ;
+  int clip_val;
+
+public:
+  LeakyRelu(int alpha);
+  void exec(const Tensor<T> *input, Tensor<T> *output);
+};
+
+template <typename T> LeakyRelu<T>::LeakyRelu(int alpha) :  clip_val{INT_MAX},alpha{alpha} {}
+
+template <typename T>
+void LeakyRelu<T>::exec(const Tensor<T> *input, Tensor<T> *output) {
+  for (int i = 0; i < input->size(); ++i) {
+    T x = input->at(i);
+    T v = (x < 0) ? (x * alpha) : ((x > clip_val) ? clip_val : x);
+    output->set(i, v);
+  }
+}
+
 template <typename T>
 void maxpool(const Tensor<T> *input, Tensor<T> *output,
              const Op::PoolParams &mp) {

@@ -88,9 +88,9 @@ struct GemmParams {
   int transB;
 };
 
-struct ReluParams {
-  float alpha; /* negative slope */
-};
+// struct ReluParams {
+//   float alpha; /* negative slope */
+// };
 
 struct PoolParams {
   int k[2];      /* kernel width/height */
@@ -249,7 +249,8 @@ struct Conv : public LayerBase {
 
 struct Relu : public LayerBase {
   const char *m_optype = "Relu";
-  ReluParams m_cp;
+  // ReluParams m_cp;
+  float alpha;
   std::vector<float> x_scale;
   std::vector<std::variant<int8_t, uint8_t>> x_zero_point;
   std::vector<float> y_scale;

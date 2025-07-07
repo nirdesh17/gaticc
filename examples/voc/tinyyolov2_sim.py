@@ -144,7 +144,7 @@ for idx, fname in enumerate(files_to_process):
 
     img = preprocess(image_path)
     img = np.ascontiguousarray(img)
-    onnx_path = "../../onnx/tinyyolov2_int8.onnx"
+    onnx_path = "/home/nirdesh/hdd/gaticc/onnx/tinyyolov2_quantized_mAP_44_VOC_PASCAL.onnx"
 
     output_tensor = gati.sim(onnx_path, img)
     output_name, raw_output = output_tensor[0]

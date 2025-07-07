@@ -224,7 +224,7 @@ void Op::Layer::Conv::infer_type(const std::vector<TPDT> &input_types) {
 const char *Op::Layer::Relu::op_type() const { return m_optype; }
 
 Op::Layer::Relu::Relu() {
-  m_cp.alpha = 0.0f;
+  alpha = 0.0f;
 }
 
 enum QLLR_INITIALIZERS {
@@ -273,7 +273,7 @@ void Op::Layer::Relu::set_initializer_params(int n,
 void Op::Layer::Relu::set_attributes(const onnx::NodeProto &node) {
   for (const auto &attr : node.attribute()) {
     if (attr.name() == "alpha") {
-      m_cp.alpha = attr.f();  
+      alpha = attr.f();  
       break;
     }
   }
