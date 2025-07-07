@@ -2,7 +2,6 @@ import numpy as np
 import classes
 import os
 import gati
-import onnxruntime as ort
 
 #from PIL import Image
 #def preprocess(image):
@@ -39,7 +38,7 @@ if __name__ == "__main__":
   # gati.set_remote("v11.local")
   gati.flash(bitstream)
 
-  sess = ort.InferenceSession(onnx_path)
+  names = gati.get_model_inputs(onnx_path)
   input_names = [i.name for i in sess.get_inputs()]
   input_dict = {n: np.load("imagenet_2.npy") for n in input_names}
 

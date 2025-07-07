@@ -38,7 +38,8 @@ def run_one(args):
     if gati.compile(onnx,gml)!=0: raise Exception("compile failed")
     data,lbl=(np.load("mnist_10.npy"),"mnist_10_labels.txt") if "mnist" in onnx else (np.load("imagenet_10.npy"),"imagenet_10_labels.txt") if "imagenet" in onnx else (np.load("cifar_10.npy"),"cifar_10_labels.txt") if "cifar" in onnx else (None,None)
     if data is None: raise Exception("unknown dataset")
-    out=np.argmax(np.squeeze(np.stack([i[1] for i in gati.run(onnx,gml,data)]),1),-1)
+    input_names = gati.get_model_inputs(onnx)
+    out=np.argmax(np.squeeze(np.stack([i[1] for i in gati.run(onnx,gml,{input_names[0]: data})]),1),-1)
     res={"status":"ok","match":gati.match(lbl,out)}
   except Exception as e: res["error"]=str(e)
   if args.out: json.dump(res,open(args.out,"w"))

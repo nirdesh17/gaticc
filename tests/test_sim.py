@@ -1,5 +1,5 @@
 # test_sim.py
-import os, sys, json, argparse, numpy as np, gati, onnxruntime as ort
+import os, sys, json, argparse, numpy as np, gati
 
 FILES = [
   'cifar10_vgg11.onnx','cifar10_vgg16.onnx','cifar10_vgg19.onnx',
@@ -33,8 +33,7 @@ def run_test(models_dir):
     try:
       key = next(k for k in LABELS if k in f)
       lbl, data = LABELS[key]
-      sess = ort.InferenceSession(path)
-      names = [i.name for i in sess.get_inputs()]
+      names = gati.get_model_inputs(path)
       input_data = {n:np.load(data) for n in names}
       acc = gati.match(lbl, post(gati.sim(path, input_data)))
     except Exception as e:
