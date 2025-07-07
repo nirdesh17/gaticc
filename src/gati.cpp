@@ -9,6 +9,7 @@
 #include "optimization.h"
 #include "executor.h"
 #include "rt.h"
+#include "onnx_parser.h"
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -54,3 +55,12 @@ __attribute__((visibility("default"))) py::list run(const std::string& onnx_path
   TensorPool ret = runner.infer(onnx_path, gml_path, dict);
   return extract_pool(ret);
 }
+
+__attribute__((visibility("default"))) std::vector<std::string> get_model_inputs(const std::string& onnx_path){
+  Op::Parser parser(onnx_path);
+  return parser.get_model_input_names();
+} 
+__attribute__((visibility("default"))) std::vector<std::string> get_model_outputs(const std::string& onnx_path){
+  Op::Parser parser(onnx_path);
+  return parser.get_model_output_names();
+} 

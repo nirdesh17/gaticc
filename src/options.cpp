@@ -15,6 +15,17 @@ void dispatch_info_ops() {
   std::string s = gbl_args["info"].as<std::string>();
   Op::Parser parser(s);
   if (gbl_args.has_option("summary")) {
+    std::cout << "Input names: [";
+    for (const auto &name : parser.get_model_input_names()) {
+      std::cout << name << ", ";
+    }
+    std::cout << "]" << std::endl;
+
+    std::cout << "Output names: [";
+    for (const auto &name : parser.get_model_output_names()) {
+      std::cout << name << ", ";
+    }
+    std::cout << "]" << std::endl;
     parser.bare_summary();
   }
 

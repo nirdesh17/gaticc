@@ -895,6 +895,8 @@ public:
   std::vector<Op::LayerBase *> get_execution_order(void) const;
   TPDT get_model_input_type(void) const;
   TPDT get_model_output_type(void) const;
+  std::vector<std::string> get_model_input_names(void) const;
+  std::vector<std::string> get_model_output_names(void) const;
   int get_total_registers(void) const;
   std::vector<std::string> get_model_input_names() const;
   /* true if 'l' has an output that is also a graph_output */
