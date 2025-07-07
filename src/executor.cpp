@@ -220,23 +220,25 @@ static void run_qleaky_relu(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<T> *input;
   Tensor<T> *output;
   std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
-  int n=1;
+  int n=4;
  int alpha = static_cast<int>(std::ceil(cc->alpha * (1 << n)));
+ std::cout << "alpha: " << alpha << '\n';
   LeakyRelu<T> relu(alpha);
-  input->print();
+  // input->print();
   for (auto itr = input->begin(); itr != input->end(); ++itr) {
     *itr=(*itr<<n);
   }
   // input->print();
   relu.exec(input, output);
   // output->print();  
-  for (auto itr = input->begin(); itr != input->end(); ++itr) {
-    *itr=(*itr>>n);
+  for (auto itr = output->begin(); itr != output->end(); ++itr) {
+      *itr=(*itr/(1<<n));
     if(*itr < 0) {
-      *itr=(*itr>>n);
+      // std::cout << "Negative value after shifting: " << (int)*itr << '\n';
+      *itr=(*itr/(1<<n));
     } 
   }
-  output->print();  
+  // output->print();  
 
 
   check_dispatch(cc, output);
