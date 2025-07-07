@@ -105,6 +105,12 @@ TensorPool Executor::run(const std::string &onnx_path, py::dict arr) {
 
   auto input_names = parser.get_model_input_names();
 
+  for (const auto &name : input_names) {
+    if (!arr.contains(name.c_str())) {
+      log_fatal("Input missing: model expects input named '{}'\n", name);
+    }
+  }
+
   if (input_type == onnx::TensorProto_DataType_FLOAT) {
     return run_aux<float>(parser, dict2arr<float>(arr, input_names));
   } else if (input_type == onnx::TensorProto_DataType_INT8) {
@@ -144,7 +150,8 @@ static void check_dispatch(const Op::LayerBase *l, const Tensor<T> *output) {
 template <typename T>
 static void run_noop(Op::LayerBase *l, TensorPool &tensor_pool) {
   assert(l->inputs.size() == l->outputs.size());
-  for (size_t i = 0; i < l->inputs.size(); ++i) {
+  size_t num_data_inputs = l->input_type.size();
+  for (size_t i = 0; i < num_data_inputs; ++i) {
     Tensor<T>* input = tensor_pool.get<Tensor<T>*>(l->inputs[i]);
     Tensor<T>* output = new TensorCreate<T>(input, l->output_names[i]);
     tensor_pool.set<Tensor<T>*>(l->outputs[i], output);
