@@ -725,6 +725,7 @@ struct NMS : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   uint32_t get_weight_size() override;
   void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
 } // namespace Layer

@@ -349,6 +349,13 @@ void Pass::extract_conv_true_odims(Op::Graph gcopy) {
   }
 }
 
+static bool has_flat_out_shape(const Op::LayerBase *l) {
+  if (l->output_dims.at(0).size() == 2 && l->output_dims.at(0).at(0) == 1) {
+    return true;
+  }
+  return false;
+}
+
 /* Find the pattern of layers conv -> flatten -> gemm and marks gemm with
  * details of conv
  */
@@ -356,7 +363,7 @@ void Pass::mark_cfg(const std::vector<Op::LayerBase *> &order) {
   bool flatten_pass = false;
   std::vector<int> former_layer_dims;
   for (Op::LayerBase *l : order) {
-    if (is_op_type(l, "Flatten")) {
+    if (has_flat_out_shape(l) && !is_op_type(l, "QGemm") && !is_op_type(l, "QuantizeLinear") && !is_op_type(l, "DequantizeLinear")) {
       if (l->input_dims[0].size() == 4) {
         flatten_pass = true;
         former_layer_dims = l->input_dims[0];
