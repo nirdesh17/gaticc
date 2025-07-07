@@ -627,3 +627,94 @@ void pickle_tensor(const Tensor<T> *t, std::string filename) {
   const char *data = reinterpret_cast<const char *>(t->get().data());
   out.write(data, total_elems * sizeof(T));
 }
+
+inline std::vector<int>
+compute_broadcast_shape(const std::vector<int> &shape1_ref,
+                        const std::vector<int> &shape2_ref) {
+  int max_size = std::max(shape1_ref.size(), shape2_ref.size());
+  std::vector<int> ret(max_size, 1);
+
+  if (is_broadcastable(shape1_ref, shape2_ref)) {
+    std::vector<int> shape1 = shape1_ref;
+    std::vector<int> shape2 = shape2_ref;
+
+    while (shape1.size() < shape2.size()) {
+      shape1.insert(shape1.begin(), 1);
+    }
+
+    while (shape2.size() < shape1.size()) {
+      shape2.insert(shape2.begin(), 1);
+    }
+
+    for (int i = 0; i < max_size; i++) {
+      ret[i] = std::max(shape1[i], shape2[i]);
+    }
+  } else {
+    log_fatal("Shapes {} and {} are not broadcastable", shape1_ref, shape2_ref);
+  }
+
+  return ret;
+}
+
+template <typename T> void broadcast_tensor(Tensor<T> *src, Tensor<T> *dst) {
+  const auto &src_dims = src->get_dims();
+  const auto &dst_dims = dst->get_dims();
+
+  int total_element = 1;
+  for (const auto &dim : dst_dims) {
+    total_element *= dim;
+  }
+
+  for (int i = 0; i < total_element; i++) {
+    std::vector<int> dst_index(dst_dims.size());
+    int rem = i;
+    for (int j = dst_dims.size() - 1; j >= 0; j--) {
+      dst_index[j] = rem % dst_dims[j];
+      rem /= dst_dims[j];
+    }
+
+    std::vector<int> src_index;
+    int offset = dst_dims.size() - src_dims.size();
+    for (int j = 0; j < src_dims.size(); j++) {
+      if (src_dims[j] == 1) {
+        src_index.push_back(0);
+      } else {
+        src_index.push_back(dst_index[j + offset]);
+      }
+    }
+
+    T value = src->at(src_index);
+    dst->set(i, value);
+  }
+}
+
+template <typename T>
+std::pair<Tensor<T> *, Tensor<T> *>
+prepare_broadcasted_tensors(Tensor<T> *tensor1, Tensor<T> *tensor2) {
+  std::vector<int> shape1 = tensor1->get_dims();
+  std::vector<int> shape2 = tensor2->get_dims();
+
+  std::vector<int> broadcast_shape = compute_broadcast_shape(shape1, shape2);
+
+  if (shape1 == broadcast_shape && shape2 == broadcast_shape) {
+    return {tensor1, tensor2};
+  }
+
+  Tensor<T> *new_tensor1 = nullptr;
+  Tensor<T> *new_tensor2 = nullptr;
+
+  if (shape1 != broadcast_shape) {
+    new_tensor1 = new TensorCreate<T>(broadcast_shape);
+    broadcast_tensor(tensor1, new_tensor1);
+  } else {
+    new_tensor1 = tensor1;
+  }
+  if (shape2 != broadcast_shape) {
+    new_tensor2 = new TensorCreate<T>(broadcast_shape);
+    broadcast_tensor(tensor2, new_tensor2);
+  } else {
+    new_tensor2 = tensor2;
+  }
+
+  return {new_tensor1, new_tensor2};
+}

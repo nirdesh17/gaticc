@@ -492,7 +492,13 @@ static void run_eltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
   } else {
     // one of the inputs is an initializer (available statically)
     input2 = new TensorExtant<inputT>(cc->constant_data);
-    tensor_eltwise(output, input1, input2, cc->operator_type);
+    auto [broadcast1, broadcast2] =
+        prepare_broadcasted_tensors<inputT>(input1, input2);
+    tensor_eltwise(output, broadcast1, broadcast2, cc->operator_type);
+    if (broadcast1 != input1)
+      delete broadcast1;
+    if (broadcast2 != input2)
+      delete broadcast2;
     delete input2;
   }
   check_dispatch(l, output);
@@ -706,17 +712,20 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
-  std::unique_ptr<Tensor<intrT>> intr_output{new TensorCreate<intrT>(cc->output_dims.at(0))};
+  std::unique_ptr<Tensor<intrT>> intr_output{
+      new TensorCreate<intrT>(cc->output_dims[0])};
   Tensor<inputT> *input2;
-
-  if constexpr (std::is_same<inputT, int32_t>()) {
+  if (l->input_type[0] == onnx::TensorProto_DataType_INT32) {
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
     tensor_qeltwise(intr_output.get(), input1, input2, 1, 1, 0, 0,
                     cc->operator_type);
-    if constexpr (std::is_same<outputT, int8_t>()) {
-      std::vector<float> x_scale {cc->a_scale};
-      std::vector<float> w_scale {cc->b_scale};
-      std::vector<float> scales = compute_output_scale(x_scale, w_scale, cc->o_scale);
+    if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
+      std::vector<float> x_scale;
+      std::vector<float> w_scale;
+      x_scale.push_back(cc->a_scale);
+      w_scale.push_back(cc->b_scale);
+      std::vector<float> scales =
+          compute_output_scale(x_scale, w_scale, cc->o_scale);
       using variantT = std::variant<int8_t, uint8_t>;
       std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
       quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
@@ -742,8 +751,15 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
     } else {
       // one of the inputs is an initializer (available statically)
       input2 = new TensorExtant<inputT>(cc->constant_data);
-      tensor_qeltwise(intr_output.get(), input1, input2, cc->a_scale,
+      auto [broadcast1, broadcast2] =
+          prepare_broadcasted_tensors<inputT>(input1, input2);
+
+      tensor_qeltwise(intr_output.get(), broadcast1, broadcast2, cc->a_scale,
                       cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
+      if (broadcast1 != input1)
+        delete broadcast1;
+      if (broadcast2 != input2)
+        delete broadcast2;
       delete input2;
     }
     using variantT = std::variant<int8_t, uint8_t>;
