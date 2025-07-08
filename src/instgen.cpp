@@ -803,7 +803,7 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
     acc_addr = gen.io_addr_from_register(cc->m_cp.ki);
   }
 
-  auto odims = cc->pipelined_output_dims.at(0);
+  auto odims = cc->output_dims.at(0);
   int citr = 0;
   int kitr = 0;
   if (is_regular_conv(cc->weights->dims(), cc->input_dims.at(0)) &&
