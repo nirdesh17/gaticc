@@ -15,7 +15,8 @@ class DispatchTable {
 public:
   DispatchTable();
   /* all nodes with no out-edges directly quality for dispatch */
-  DispatchTable(Op::Graph graph);
+  DispatchTable(Op::Graph graph,
+                const std::map<std::string, Op::Vertex> &name_vertex_map);
   /* True if l's outputs need to be dumped */
   bool should_dispatch(const Op::LayerBase *l);
   void print();

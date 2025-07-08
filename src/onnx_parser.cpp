@@ -2986,6 +2986,10 @@ Op::Graph Op::Model::get_graph() const { return g; }
 
 Op::Graph &Op::Model::get_graph() { return g; }
 
+std::map<std::string, Op::Vertex> Op::Model::get_name_vertex_map() const {
+  return name_vertex_map;
+}
+
 Op::Neighbours Op::Model::get_neighbouring_vertices(Op::Vertex v) const {
   return boost::adjacent_vertices(v, g);
 }
@@ -3136,6 +3140,10 @@ std::vector<Op::LayerBase *> Op::Parser::get_execution_order(void) const{
 Op::Graph Op::Parser::get_graph() const { return m_model.get_graph(); }
 
 Op::Graph &Op::Parser::get_graph() { return m_model.get_graph(); }
+
+std::map<std::string, Op::Vertex> Op::Parser::get_name_vertex_map() const {
+  return m_model.get_name_vertex_map();
+}
 
 TPDT Op::Parser::get_model_input_type(void) const {
   std::vector<Op::LayerBase *> order = get_execution_order();

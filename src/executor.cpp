@@ -38,7 +38,8 @@ static void check_dispatch_table_validity(const std::vector<std::string> &tbl,
   }
 }
 
-DispatchTable::DispatchTable(Op::Graph graph) {
+DispatchTable::DispatchTable(
+    Op::Graph graph, const std::map<std::string, Op::Vertex> &name_vertex_map) {
   dump_all = false;
   dump_none = false;
   if (gbl_args.has_option("dispatch")) {
@@ -54,7 +55,8 @@ DispatchTable::DispatchTable(Op::Graph graph) {
   } else {
     auto vitr = boost::vertices(graph);
     for (auto itr = vitr.first; itr != vitr.second; ++itr) {
-      if (boost::out_degree(*itr, graph) == 0) {
+      if (boost::out_degree(*itr, graph) == 0 &&
+          name_vertex_map.find(graph[*itr]->name) != name_vertex_map.end()) {
         tbl.push_back(graph[*itr]->name);
       }
     }

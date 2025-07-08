@@ -534,7 +534,7 @@ InstGen::InstGen(const Op::Parser &parser) {
   total_dwp_packets = 1;
 
   Op::Graph megablock_graph = Pass::create_megablock_graph(graph);
-  DispatchTable dispatch_table(megablock_graph);
+  DispatchTable dispatch_table(megablock_graph, parser.get_name_vertex_map());
   Op::RegisterAllocator allocatr(megablock_graph);
 
   if (gbl_args.has_option("print-megablock-graph")) {

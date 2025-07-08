@@ -873,6 +873,7 @@ public:
 
   Op::Graph get_graph() const;
   Op::Graph &get_graph();
+  std::map<std::string, Op::Vertex> get_name_vertex_map() const;
 };
 
 class Parser {
@@ -903,6 +904,7 @@ public:
   bool has_graph_output(Op::LayerBase *l) const;
   Op::Graph get_graph() const;
   Op::Graph &get_graph();
+  std::map<std::string, Op::Vertex> get_name_vertex_map() const;
   ~Parser();
 };
 
