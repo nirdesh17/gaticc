@@ -1492,7 +1492,7 @@ uint32_t Op::Layer::Transpose::get_weight_size() {
 int Op::Layer::Transpose::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> tinst;
   inst_set(tinst, OP_TRANSPOSE, TRANSPOSE_Opcode);
-  auto dims = aligned_channels(this->input_dims.at(0));
+  auto dims = this->input_dims.at(0);
   inst_set(tinst, dims.at(TENSOR_4D_CHANNELS), TRANSPOSE_IC);
   inst_set(tinst, dims.at(TENSOR_4D_HEIGHT), TRANSPOSE_IH);
   inst_set(tinst, dims.at(TENSOR_4D_WIDTH), TRANSPOSE_IW);
