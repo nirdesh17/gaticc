@@ -780,7 +780,9 @@ void Op::Layer::NMS::send_input(TensorPool &tensor_pool, AddressGen &generator,
 
 template <typename T>
 static void unalign_eltwise_output(Tensor<T> *tensor, const T *data) {
-  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
+  if (tensor->dims_size() != 4) {
+    log_fatal("unalign_eltwise_output expected 4 dimension array (NCHW), got {}\n", tensor->dims_size());
+  }
   IVec2D og_dims_v {tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
   auto aligned_dims = aligned_qle({og_dims});
@@ -798,7 +800,7 @@ static void eltwise_receive(Rah &rah, TensorPool &tensor_pool, const Op::LayerBa
 
 void Op::Layer::QLinearEltwise::receive_output(TensorPool &tensor_pool, Rah &rah) const {
   uint32_t expected_hash = string_hash(this->name);
-  uint32_t expected_data_size = prod(aligned_qle(this->pipelined_output_dims)) * Op::tpdt_sizeof(this->output_type.at(0));
+  uint32_t expected_data_size = aligned_qle(this->pipelined_output_dims).at(0) * Op::tpdt_sizeof(this->output_type.at(0));
   if (this->output_type[0] == onnx::TensorProto_DataType_INT8) {
     eltwise_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
