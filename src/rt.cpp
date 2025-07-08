@@ -771,7 +771,7 @@ void Op::Layer::NMS::send_input(TensorPool &tensor_pool, AddressGen &generator,
     return static_cast<uint8_t>(std::round(x * 100));
   });
   blob.append_dwp_header(0, 0);
-  blob.write("nms_input_data.bin");
+  blob.write("input_data.bin");
 
   log_info("Start writing NMS input to FPGA\n");
   rah.write(blob.get_data(), blob.size());
