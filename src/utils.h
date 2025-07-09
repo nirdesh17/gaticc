@@ -80,18 +80,6 @@ class Argparse {
            "[ : "
            "separated path list]",
            1},
-          {"loadpy",
-           {"--loadpy"},
-           "Load the python script mentioned in arg. Usually the script "
-           "that'll "
-           "contain pre/post process functions for --sim"
-           "\n\tArgs: [script_name.py]",
-           1},
-          {"input_path",
-           {"--inputpath"},
-           "specify input to model as a resident file path (one file at a "
-           "time)",
-           1},
           {"sa-arch",
            {"--sa-arch"},
            "systolic array architecture. Args: [comma sep values]. accepts "
@@ -203,25 +191,6 @@ class Argparse {
   using SSVector = std::vector<std::pair<std::string, std::string>>;
 
   SSVector _usage_examples = {
-      {"Run simulation given an onnx model and inputs. The simulation is run "
-       "on the CPU. "
-       "Useful to extract intermidiate outputs of layers",
-       "gaticc -s path/to/model.onnx --loadpy <py_file> "
-       "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
-       "--venv-path ~/path/to/lib/python{version}/site-packages"},
-      {"Run simulation but dispatch an intermidiate layer. Find layer "
-       "names through model summary",
-       "gaticc -s path/to/model.onnx --loadpy <py_file> "
-       "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
-       "--venv-path ~/path/to/lib/python{version}/site-packages "
-       "--dispatch <layer1>,<layer2>,<layer3>"},
-      {"Run simulation but dispatch all layers. Dispatch also stores "
-       "an numpy pickled tensor for intermidiate outputs can be found "
-       "in <layer_name>.tensor.npy",
-       "gaticc -s path/to/model.onnx --loadpy <py_file> "
-       "--preprocfn <preprocess_fn> --postprocfn <postprocess_fn> "
-       "--venv-path ~/path/to/lib/python{version}/site-packages "
-       "--dispatch all"},
       {"Get a summary of a onnx model",
        "gaticc -i path/to/model.onnx --summary"},
       {"Get a theoretical time estimate for a model",
@@ -236,37 +205,9 @@ class Argparse {
       {"Print the complete blob in hex",
        "gaticc -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
        "--accbuf-size 4096 --fcbuf-size 32768 --pretty-print-blob"},
-      {"Run an inference",
-       "gaticc -r model.gml --run-onnx model.onnx --loadpy "
-       "<py_file> --preprocfn <preprocess_fn> "
-       "--postprocfn <postprocess_fn> --venv-path "
-       "~/path/to/lib/python{version}/site-packages "
-       "--sa-arch <sa-arch> --ramsize <ramsize> --vasize "
-       "<vasize> --accbuf-size <accbuf-size> --fcbuf-size {fcbuf-size}"},
-      {"Run an inference but provide immediate image as input",
-       "gaticc -r model.gml --run-onnx model.onnx --inputpath img.jpg --loadpy "
-       "<py_file> --preprocfn <preprocess_fn>(img) "
-       "--postprocfn <postprocess_fn> --venv-path "
-       "~/path/to/lib/python{version}/site-packages "
-       "--sa-arch <sa-arch> --ramsize <ramsize> --vasize "
-       "<vasize> --accbuf-size <accbuf-size> --fcbuf-size <fcbuf-size>"},
-      {"Run an inference but receive outputs over UART",
-       "gaticc -r model.gml --run-onnx model.onnx --loadpy <py_file> "
-       "--preprocfn <preprocess_fn> "
-       "--postprocfn <postprocess_fn> --venv-path "
-       "~/path/to/lib/python{version}/site-packages "
-       "--sa-arch <sa-arch> --ramsize <ramsize> --vasize <vasize> "
-       "--accbuf-size <accbuf-size> --fcbuf-size <fcbuf-size> "
-       "--receive-over-uart"},
-      {"Run an inference but dispatch intermidiate layers and receive over "
-       "UART",
-       "gaticc -r model.gml --run-onnx model.onnx --loadpy <py_file> "
-       "--preprocfn <preprocess_fn> "
-       "--postprocfn <postprocess_fn> --venv-path "
-       "~/path/to/lib/python{version}/site-packages "
-       "--sa-arch <sa-arch> --ramsize <ramsize> --vasize <vasize> "
-       "--accbuf-size <accbuf-size> --fcbuf-size <fcbuf-size> "
-       "--dispatch <layer1>,<layer2>,<layer3> --receive-over-uart"},
+      {"Print the exec graph",
+       "gaticc -c path/to/model.onnx --ramsize 512 --sa-arch 9,4,4 --vasize 32 "
+       "--accbuf-size 4096 --fcbuf-size 32768 --print-exec-graph"},
   };
 
   SSVector _concepts = {
@@ -280,18 +221,6 @@ class Argparse {
        "sends it to the FPGA along with the model (gml), then receives the "
        "outputs. "
        "Run can be executed by following the 'Run an Inference' example above"},
-      {"What are the --loadpy, --preprocfn, --postprocfn options",
-       "Gaticc has an integrated python interpreter which allows calling into "
-       "python functions "
-       "as most people use python for ML work, they already have scripts to "
-       "pre/post process their "
-       "inputs/outputs, gaticc allows users to use the same scripts without "
-       "re-writing them. "
-       "--loadpy is used to provide the script and --pre/postproc are used to "
-       "provide the "
-       "functions to be called for pre/post processing. An example python file "
-       "is provided in "
-       "src/ml_inference.py and can be used"},
       {"What are the primary options",
        "Gaticc has primary options (-s, -i, -c, -r). Almost all other options "
        "are suboptions "
