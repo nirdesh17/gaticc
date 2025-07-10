@@ -266,17 +266,30 @@ void tensor_eltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
                     const Tensor<inputT> *input2, int op) {
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
 
+  std::vector<int> required_shape =
+      TensorBroadcast<inputT>::compute_broadcast_shape(input1->get_dims(),
+                                                       input2->get_dims());
+
   if (op == ELTWISE_ADD) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      output->set(i, input1->at(i) + input2->at(i));
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+
+      output->set(i, v1 + v2);
     }
   } else if (op == ELTWISE_MULT) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      output->set(i, input1->at(i) * input2->at(i));
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+
+      output->set(i, v1 * v2);
     }
   } else if (op == ELTWISE_SUB) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      output->set(i, input1->at(i) - input2->at(i));
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+
+      output->set(i, v1 - v2);
     }
   } else {
     log_fatal("Unsupported eltwise operation %d\n", op);
@@ -370,23 +383,31 @@ void tensor_qeltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
                      const Tensor<inputT> *input2, float i1_scale,
                      float i2_scale, int i1_zp, int i2_zp, int op) {
   assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
+
+  std::vector<int> required_shape =
+    TensorBroadcast<inputT>::compute_broadcast_shape(input1->get_dims(), input2->get_dims());
+
   if (op == ELTWISE_ADD) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) + (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp))));
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+      outputT v = ((fp_t(i1_scale) * fp_t(v1- i1_zp)) + (fp_t(i2_scale) * fp_t((v2 - i2_zp))));
       output->set(i, v);
     }
   } else if (op == ELTWISE_MULT) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) * (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp))));
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+      outputT v = ((fp_t(i1_scale) * fp_t(v1 - i1_zp)) * (fp_t(i2_scale) * fp_t((v2 - i2_zp))));
       output->set(i, v);
     }
   } else if (op == ELTWISE_SUB) {
     for (int i = 0; i < input1->dims_iterator(-1); ++i) {
-      outputT v = ((fp_t(i1_scale) * fp_t(input1->at(i) - i1_zp)) - (fp_t(i2_scale) * fp_t((input2->at(i) - i2_zp))));
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+      outputT v = ((fp_t(i1_scale) * fp_t(v1 - i1_zp)) - (fp_t(i2_scale) * fp_t((v2 - i2_zp))));
       output->set(i, v);
     }
-  } else {
-    log_fatal("Unsupported eltwise operation %d\n", op);
   }
 }
 
