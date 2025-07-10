@@ -215,6 +215,7 @@ void Pass::absorb(Op::Graph &graph) {
           last_parent = boost::source(*in_begin, graph);
         }
 
+        graph[last_parent]->output_type[0] = onnx::TensorProto_DataType_INT8;
         Op::Vertex child =
             boost::target(*boost::out_edges(v, graph).first, graph);
 
@@ -771,7 +772,8 @@ static std::bitset<INST_SIZE_BITS> gen_conv_bias(const Op::Layer::QLinearConv* c
 static std::bitset<INST_SIZE_BITS>
 gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
            int imgdimout, int imgdimacc, int accen, int dispatchen,
-           int dispatchid, int onchip, int oh, int ow, int accreadfirst = 0, int flat_ctrl = 0) {
+           int dispatchid, int onchip, int oh, int ow, int op_width = 1,
+           int accreadfirst = 0, int flat_ctrl = 0) {
   std::bitset<INST_SIZE_BITS> output_inst;
   inst_set(output_inst, OP_OutputBlock, OutputBlock_Opcode);
   inst_set(output_inst, out_addr, OutputBlock_OutputAddr);
@@ -790,6 +792,7 @@ gen_output(uint32_t acc_addr, uint32_t out_addr, int citr, int kitr,
   inst_set(output_inst, oh, OutputBlock_OH);
   inst_set(output_inst, ow, OutputBlock_OW);
   inst_set(output_inst, flat_ctrl, OutputBlock_FlatController);
+  inst_set(output_inst, op_width, OutputBlock_OpWidth);
   return output_inst;
 }
 
@@ -848,8 +851,10 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   }
   int oh = odims.at(TENSOR_4D_HEIGHT);
   int ow = odims.at(TENSOR_4D_WIDTH);
+  int op_width = Op::tpdt_sizeof(cc->output_type.at(0));
+  
   auto oi = gen_output(acc_addr, out_addr, citr, kitr, ido, ida, accen,
-                       cc->dispatch, string_hash(cc->name), on_chip, oh, ow, accreadfirst);
+                       cc->dispatch, string_hash(cc->name), on_chip, oh, ow, op_width, accreadfirst);
 
   return oi;
 }
@@ -1341,6 +1346,9 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise_output(const Op::LayerBase *l,
   std::bitset<OutputBlock_OW_COUNT> ow_bs {l->output_dims.at(0).at(TENSOR_4D_WIDTH)};
   bitset_range_set(output_inst, ow_bs, OutputBlock_OW_LOW, OutputBlock_OW_HIGH);
 
+  int op_width = Op::tpdt_sizeof(l->output_type.at(0));
+  inst_set(output_inst, op_width, OutputBlock_OpWidth);
+
   return output_inst;
 }
 
@@ -1503,7 +1511,7 @@ int Op::Layer::Transpose::get_inst(InstBlob &blob, AddressGen &gen, InitializerT
   uint32_t out_addr = gen.io_addr_from_register(this->outputs.at(0));
   int ido = ceil_mod(prod(dims), WORD_SIZE);
   auto odims = this->output_dims.at(0);
-  std::bitset<INST_SIZE_BITS> oinst = gen_output(0, out_addr, 1, 1, ido, 0, 0, this->dispatch, string_hash(this->name), 0, odims.at(TENSOR_4D_HEIGHT), odims.at(TENSOR_4D_WIDTH), 0, 1);
+  std::bitset<INST_SIZE_BITS> oinst = gen_output(0, out_addr, 1, 1, ido, 0, 0, this->dispatch, string_hash(this->name), 0, odims.at(TENSOR_4D_HEIGHT), odims.at(TENSOR_4D_WIDTH), 1, 0, 1);
   blob.push_back(oinst);
   return 0;
 }
@@ -2675,7 +2683,7 @@ int Op::Layer::NMS::get_inst(InstBlob &insts, AddressGen &gen,
   uint32_t output_addr_start = gen.io_addr_from_register(layer->outputs.at(0));
   auto out_inst =
       gen_output(0, output_addr_start, 1, 1, imgDimOut, 0, 0, this->dispatch,
-                 string_hash(this->name), 0, 0, 0, 0, 1);
+                 string_hash(this->name), 0, 0, 0, 1, 0, 1);
   insts.push_back(out_inst);
   return 0;
 }

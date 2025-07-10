@@ -230,6 +230,9 @@
 #define OutputBlock_FlatController_LOW 180
 #define OutputBlock_FlatController_HIGH 180
 #define OutputBlock_FlatController_COUNT 1
+#define OutputBlock_OpWidth_LOW 181
+#define OutputBlock_OpWidth_HIGH 183
+#define OutputBlock_OpWidth_COUNT 3
 
 #define OP_FC 0x03
 #define FC_Opcode_LOW 0
@@ -633,6 +636,8 @@ inline Table get_outputblock_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("OW");
 	tbl.tbl.insert({"FlatController", bitset_range_get<OutputBlock_FlatController_COUNT, INST_SIZE_BITS>(inst, OutputBlock_FlatController_LOW, OutputBlock_FlatController_HIGH)});
 	tbl.order.push_back("FlatController");
+	tbl.tbl.insert({"OpWidth", bitset_range_get<OutputBlock_OpWidth_COUNT, INST_SIZE_BITS>(inst, OutputBlock_OpWidth_LOW, OutputBlock_OpWidth_HIGH)});
+	tbl.order.push_back("OpWidth");
 	return tbl;
 }
 inline void pretty_print_outputblock(const std::bitset<INST_SIZE_BITS>& inst) {
