@@ -74,12 +74,6 @@ class Argparse {
            "Query information from model. Args: <onnx_model>",
            1},
           {"sim", {"-s", "--sim"}, "Simulate inference on an input.", 1},
-          {"venv-path",
-           {"--venv-path"},
-           "Append venv-path to sys.path while loading the interpreter. Args: "
-           "[ : "
-           "separated path list]",
-           1},
           {"sa-arch",
            {"--sa-arch"},
            "systolic array architecture. Args: [comma sep values]. accepts "
