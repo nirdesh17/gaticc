@@ -734,10 +734,12 @@ template <typename T> uint32_t bytes2int(const T *data) {
 }
 
 inline int string_hash(const std::string &s) {
-  if (s.size() == 0) {
-    log_fatal("string_hash: input string with size 0 can't be hashed");
+  int hash_value = 0;
+  const int prime = 31;
+  for (char c : s) {
+    hash_value = hash_value * prime + static_cast<int>(c);
   }
-  return std::accumulate(s.begin(), s.end(), 0);
+  return hash_value;
 }
 
 template <size_t sz, typename T>
