@@ -65,6 +65,7 @@ class InitializerTable;
 class BinBlob;
 class TensorPool;
 class Rah;
+class ArchParams;
 
 /* Onnx Parser external interface */
 namespace Op {
@@ -190,6 +191,11 @@ struct LayerBase {
    */
   virtual void receive_output(TensorPool &tensor_pool, Rah &rah) const;
 
+  /* Returns an object of ArchParams by filling in values related
+   * to the layer that is overriding
+   */
+  virtual ArchParams archgen(const ArchParams &ap) const;
+
   std::vector<VirtualAddress> inputs;
   std::vector<VirtualAddress> outputs;
 
@@ -220,6 +226,7 @@ struct LayerBase {
    * dumped by the simulator
    */
   bool dispatch;
+
 };
 
 namespace Layer {
@@ -582,6 +589,7 @@ struct QLinearConv : public LayerBase {
   std::pair<int,int> get_iterations() const override;
   void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct LogSoftmax : public LayerBase {

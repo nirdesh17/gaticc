@@ -177,6 +177,8 @@ class Argparse {
            "size of input buffer of the im2col. "
            "Args: size in bytes (int)",
            1},
+          {"archgen", {"-g", "--archgen"}, "Generate architecture file for a model. Args: <onnx>", 1},
+          {"fpga", {"--fpga"}, "Specify FPGA Type. Eg: \"T120\" or \"TI180\"", 1},
           {"version", {"--version"}, "print version info and exit", 0},
           {"summary", {"--summary"}, "print a summary of the model", 0},
       }};
@@ -720,6 +722,7 @@ void print_table(const std::map<std::string, int> &tbl);
 
 std::vector<int> get_sa_arch();
 int get_va_size();
+std::string get_fpga();
 
 template <typename T> uint32_t bytes2int(const T *data) {
   uint32_t value = 0;

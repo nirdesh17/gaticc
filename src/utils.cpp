@@ -260,6 +260,18 @@ std::vector<int> get_sa_arch() {
   return mnk;
 }
 
+std::string get_fpga() {
+  if (!gbl_args.has_option("fpga")) {
+    log_fatal("Please specify --fpga. See -h for more details\n");
+    return std::string();
+  }
+  auto s = gbl_args["fpga"].as<std::string>();
+  for (auto itr = s.begin(); itr != s.end(); ++itr) {
+    *itr = toupper(*itr);
+  }
+  return s;
+}
+
 int get_verbose() {
   return gbl_args.has_option("verbose") || gbl_args.has_option("verbose2");
 }

@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "optimization.h"
 #include "instgen.h"
+#include "archgen.h"
 
 void dispatch_timeest(const Op::Parser &parser) {
   Op::Graph graph = parser.get_graph();
@@ -54,12 +55,18 @@ void dispatch_compile_ops() {
 
 void dispatch_sim_ops() {
   log_fatal("command line driver disabled, use the python interface\n");
-  //Executor executor;
-  //TensorPool ret = executor.run(onnx_path, arr);
 }
 
 void dispatch_run_ops() {
   log_fatal("command line driver disabled, use the python interface\n");
+}
+
+void dispatch_archgen_ops() {
+  std::string onnx_path = gbl_args["archgen"].as<std::string>();
+  std::string fpga = get_fpga();
+  Op::Parser parser(onnx_path);
+  auto graph = parser.get_graph();
+  auto arch = archgen(graph, fpga);
 }
 
 int dispatch() {
@@ -77,6 +84,8 @@ int dispatch() {
     dispatch_sim_ops();
   } else if (gbl_args.has_option("run")) {
     dispatch_run_ops();
+  } else if (gbl_args.has_option("archgen")) {
+    dispatch_archgen_ops();
   } else {
     log_fatal("Don't know what to do. See gaticc -h\n");
   }
