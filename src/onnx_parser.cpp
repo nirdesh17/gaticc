@@ -1326,8 +1326,6 @@ void Op::Layer::QLinearEltwise::infer_shape(const IVec2D &input_dims) {
   }
   if (this->constant_data != nullptr) {
     std::vector<int> weight_dims = get_tensorproto_shape(*this->constant_data);
-    print_vec("input_dims ", input_dims[0]);
-    print_vec("weight_dims ", weight_dims);
     if (!is_broadcastable(input_dims[0], weight_dims)) {
       log_fatal(
           "input_dims and weight_dims can't be broadcasted for layer {}\n",
@@ -2173,9 +2171,6 @@ size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
 bool Op::Model::has_graph_output(Op::LayerBase *l) const {
-  if (graph_output_map.size() != 1) {
-    log_fatal("Graphs with only one outputs are currently supported\n");
-  }
   auto graph_out = graph_output_map.begin();
   auto output_name = (graph_out->second).name();
   auto itr = output_map.find(output_name);

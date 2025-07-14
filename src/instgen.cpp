@@ -1254,35 +1254,45 @@ void Op::Layer::QLinearEltwise::get_opcodes(std::vector<int> &op_codes) {
 }
 
 uint32_t Op::Layer::QLinearEltwise::get_weight_size() {
-  log_warn("Treating QLinearEltwise as a weight-less operator consisting of "
-           " only inputs and outputs\n");
+  if (this->inputs.size() == 1) {
+    return aligned_qle(this->input_dims).at(0) * Op::tpdt_sizeof(this->input_type.at(0));
+  }
   return 0;
 }
 
 static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
                                                AddressGen &gen,
-                                               InitializerTable &,
+                                               InitializerTable &tbl,
                                                int elt_type) {
   std::bitset<INST_SIZE_BITS> add_inst;
   inst_set(add_inst, OP_EltWise, EltWise_Opcode);
   inst_set(add_inst, elt_type, EltWise_EltType);
-  if (l->inputs.size() < 2) {
-    log_fatal("Need eltwise operator {} ({}) to have more than two inputs, "
-              "found {} inputs\n",
-              l->name, l->op_type(), l->inputs.size());
-  }
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_WIDTH), EltWise_IW);
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_HEIGHT), EltWise_IH);
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_CHANNELS), EltWise_IC);
   std::vector<int> ad = aligned_qle(l->input_dims);
+
   uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
   uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
   uint32_t left_end = left_start + left_size;
-  uint32_t right_start = gen.io_addr_from_register(l->inputs.at(1));
-  uint32_t right_size = ad.at(1) * Op::tpdt_sizeof(l->input_type.at(1));
-  uint32_t right_end = right_start + right_size;
   inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
   inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
+
+  uint32_t right_start = 0;
+  uint32_t right_end = 0;
+  if (l->inputs.size() == 2) {
+    right_start = gen.io_addr_from_register(l->inputs.at(1));
+    uint32_t right_size = ad.at(1) * Op::tpdt_sizeof(l->input_type.at(1));
+    right_end = right_start + right_size;
+  } else if (l->inputs.size() == 1) {
+    uint32_t right_size = left_size;
+    right_start = gen.alloc(right_size);
+    const Op::Layer::QLinearEltwise *cc = dynamic_cast<const Op::Layer::QLinearEltwise*>(l);
+    tbl.push_back(cc->constant_data->name(), right_start);
+    right_end = right_start + right_size;
+  } else {
+    log_fatal("Cant handle eltwise layer {} with {} inputs\n", l->name, l->inputs.size());
+  }
   inst_set(add_inst, right_start, EltWise_RightOperandStartAddress);
   inst_set(add_inst, right_end, EltWise_RightOperandEndAddress);
   return add_inst;
