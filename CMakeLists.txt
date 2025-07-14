@@ -7,13 +7,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(EXE_NAME gaticc)
 set(LIB_NAME gati)
-set(LIB_NAME_FULL libgati.so)
 set(PYLIB_NAME _gati)
 set(PCH_LIBS ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 set(BOOST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost/)
 set(PROTO_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party/protobuf/)
 set(PYBIND_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party/pybind11/)
-set(GATI_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR}/${LIB_NAME_FULL})
 set(PROTO_BIN_PATH ${CMAKE_CURRENT_BINARY_DIR}/protobuf)
 set(PROTOC_EXE ${CMAKE_CURRENT_BINARY_DIR}/protobuf/protoc)
 set(PARENT_BUILD_PATH ${CMAKE_CURRENT_BINARY_DIR})
@@ -60,7 +58,7 @@ set(ALL_DIR
 
 set(ALL_LIBS
   ${Python3_LIBRARIES} 
-  ${PROTO_BIN_PATH}/${PROTO_LIB_NAME}.so
+  libprotobuf-lite
   dl
 )
 
@@ -96,7 +94,7 @@ add_dependencies(${EXE_NAME} ${LIB_NAME} libprotobuf-lite pbgen)
 
 pybind11_add_module(${PYLIB_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/bindings.cpp)
 set_target_properties(${PYLIB_NAME} PROPERTIES INSTALL_RPATH "/usr/local/lib")
-target_link_libraries(${PYLIB_NAME} PRIVATE ${GATI_LIB_PATH} ${ALL_LIBS})
+target_link_libraries(${PYLIB_NAME} PRIVATE ${LIB_NAME} ${ALL_LIBS})
 target_include_directories(${PYLIB_NAME} PRIVATE ${ALL_DIR})
 add_dependencies(${PYLIB_NAME} ${LIB_NAME} libprotobuf-lite pbgen)
 
