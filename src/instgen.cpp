@@ -541,7 +541,9 @@ InstGen::InstGen(const Op::Parser &parser) {
   if (gbl_args.has_option("print-megablock-graph")) {
     std::cout << "== Megablock Graph ==\n";
     auto megablock_order = crt_exec_order(megablock_graph);
+    int cnt = 0;
     for (const auto l : megablock_order) {
+      std::cout << "#" << cnt++ << '\n';
       print_node(l);
       std::cout << '\n';
     }
