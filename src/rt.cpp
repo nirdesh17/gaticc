@@ -331,7 +331,7 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
     rah = std::make_unique<RealRah>();
   }
   load_model(*rah.get(), fp);
-  HashedDispatchTable hdt(fp);
+  DispatchTable hdt(m_parser->get_graph(), m_parser->get_name_vertex_map());
   TPDT input_type = parser.get_model_input_type();
   TPDT output_type = parser.get_model_output_type();
   auto input_names = parser.get_model_input_names();
@@ -407,46 +407,6 @@ void Runner::fake_exec(Op::LayerBase *l) {
   if (tensor_pool.has_value(l->outputs.at(0))) {
     tensor_pool.free(l->outputs.at(0));
   }
-}
-
-HashedDispatchTable::HashedDispatchTable(const Fstream &fp) {
-  const unsigned char *data = (const unsigned char *)fp.get_data();
-  size_t size = fp.get_size();
-  assert(size > DWP_HEADER_BYTES);
-  uint32_t dwp_header = bytes2int(data);
-  uint32_t ds = bytes2int(data + 4);
-  ignore_unused(
-      dwp_header); // in Release, when the following assert is unavailable
-  assert(dwp_header == DWP_SOP);
-  int total_instructions = (ds / (INST_SIZE_BITS / 8));
-  /* i starts at 1 to skip the zeroth instruction */
-  int inst_bytes = (INST_SIZE_BITS / 8);
-  assert(size >= (DWP_HEADER_BYTES + (total_instructions * inst_bytes)));
-  int ptr = DWP_HEADER_BYTES + inst_bytes;
-  for (int i = 1; i < total_instructions; ++i) {
-    std::bitset<INST_SIZE_BITS> inst =
-        extract_bitset<INST_SIZE_BITS>(data, size, ptr, ptr + inst_bytes);
-    int opcode = extract_opcode(inst);
-    if (opcode == OP_OutputBlock) {
-      int dispatch_en = bitset_range_get<OutputBlock_DispatchEn_COUNT>(
-          inst, OutputBlock_DispatchEn_LOW, OutputBlock_DispatchEn_HIGH);
-      if (dispatch_en) {
-        int dispatch_id = bitset_range_get<OutputBlock_DispatchID_COUNT>(
-            inst, OutputBlock_DispatchID_LOW, OutputBlock_DispatchID_HIGH);
-        tbl.push_back(dispatch_id);
-      }
-    }
-    ptr = ptr + inst_bytes;
-  }
-}
-
-bool HashedDispatchTable::should_dispatch(const Op::LayerBase *l) const {
-  int hashed = string_hash(l->name);
-  auto itr = std::find(tbl.begin(), tbl.end(), hashed);
-  if (itr != tbl.end()) {
-    return true;
-  }
-  return false;
 }
 
 void Op::LayerBase::send_input(TensorPool &, AddressGen &, Rah &, IOAddrTbl &) const {

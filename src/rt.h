@@ -85,18 +85,6 @@ public:
                  const std::vector<char> &data) override;
 };
 
-/* Like dispatch table, but reads binarized instructions and creates a table
- * of hashed values. Used by Runner that has access to the graph, to match
- * hashed values with names from which the hash was generated.
- */
-class HashedDispatchTable {
-  std::vector<int> tbl;
-
-public:
-  HashedDispatchTable(const Fstream &fp);
-  bool should_dispatch(const Op::LayerBase *l) const;
-};
-
 class Runner {
   TensorPool tensor_pool;
   Op::Parser *m_parser;
@@ -107,7 +95,7 @@ class Runner {
   void tensor_pool_init();
   std::string get_run_arg();
   template <typename inputT>
-  TensorPool infer_aux(Rah &rah, HashedDispatchTable &hdt, std::vector<Tensor<inputT> *> arr);
+  TensorPool infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<inputT> *> arr);
 
   void fake_exec(Op::LayerBase *l);
 public:
@@ -138,7 +126,7 @@ public:
  *    to the pre-processing pipeline.
  */
 template <typename inputT>
-TensorPool Runner::infer_aux(Rah &rah, HashedDispatchTable &hdt, std::vector<Tensor<inputT> *> arr) {
+TensorPool Runner::infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<inputT> *> arr) {
 
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
