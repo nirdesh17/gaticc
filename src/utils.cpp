@@ -172,23 +172,26 @@ std::filesystem::path extract_dirname(const std::string &path) {
 /* true if two shapes are broadcastable
  * see https://numpy.org/doc/stable/user/basics.broadcasting.html
  */
-bool is_broadcastable(const std::vector<int> &shape1,
-                      const std::vector<int> &shape2) {
-  if (shape1.size() == 1 || shape2.size() == 1) {
-    return true;
+bool is_broadcastable(const std::vector<int> &shape1_ref,
+                      const std::vector<int> &shape2_ref) {
+  // Make local copies
+  auto shape1 = shape1_ref;
+  auto shape2 = shape2_ref;
+
+  while (shape1.size() < shape2.size()) {
+    shape1.insert(shape1.begin(), 1);
   }
 
-  if (shape1.size() == shape2.size()) {
-    /* iterate from rhs */
-    for (int i = shape1.size() - 1; i > 0; --i) {
-      if (shape1[i] != shape2[i]) {
-        return false;
-      }
+  while (shape2.size() < shape1.size()) {
+    shape2.insert(shape2.begin(), 1);
+  }
+
+  for (int i = 0; i < shape1.size(); ++i) {
+    if (shape1[i] != shape2[i] && shape1[i] != 1 && shape2[i] != 1) {
+      return false;
     }
-    return true;
   }
-
-  return false;
+  return true;
 }
 
 std::vector<float> compute_output_scale(const std::vector<float> &x_scale,

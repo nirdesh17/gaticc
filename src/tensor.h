@@ -527,6 +527,121 @@ template <typename T> void TensorSlice<T>::set(int index, T data) {
   return src->set(offset + index, data);
 }
 
+template <typename T> class TensorBroadcast : public Tensor<T> {
+
+public:
+  static std::vector<int>
+  compute_broadcast_shape(const std::vector<int> &shape1_ref,
+                          const std::vector<int> &shape2_ref);
+  static void broadcast_tensor(Tensor<T> *src, Tensor<T> *dst);
+  static std::pair<Tensor<T> *, Tensor<T> *>
+  prepare_broadcasted_tensors(Tensor<T> *tensor1, Tensor<T> *tensor2);
+  static T broadcast_view(const Tensor<T> *input2,
+                          const std::vector<int> &real_shape, int i);
+};
+
+template <typename T>
+std::vector<int> TensorBroadcast<T>::compute_broadcast_shape(
+    const std::vector<int> &shape1_ref, const std::vector<int> &shape2_ref) {
+  int max_size = std::max(shape1_ref.size(), shape2_ref.size());
+  std::vector<int> ret(max_size, 1);
+
+  if (is_broadcastable(shape1_ref, shape2_ref)) {
+    std::vector<int> shape1 = shape1_ref;
+    std::vector<int> shape2 = shape2_ref;
+
+    while (shape1.size() < shape2.size()) {
+      shape1.insert(shape1.begin(), 1);
+    }
+
+    while (shape2.size() < shape1.size()) {
+      shape2.insert(shape2.begin(), 1);
+    }
+
+    for (int i = 0; i < max_size; i++) {
+      ret[i] = std::max(shape1[i], shape2[i]);
+    }
+  } else {
+    log_fatal("Shapes {} and {} are not broadcastable", shape1_ref, shape2_ref);
+  }
+
+  return ret;
+}
+
+template <typename T>
+void TensorBroadcast<T>::broadcast_tensor(Tensor<T> *src, Tensor<T> *dst) {
+  const auto &src_dims = src->get_dims();
+  const auto &dst_dims = dst->get_dims();
+
+  int total_element = 1;
+  for (const auto &dim : dst_dims) {
+    total_element *= dim;
+  }
+
+  for (int i = 0; i < total_element; i++) {
+    T value = broadcast_view(src, dst_dims, i);
+    dst->set(i, value);
+  }
+}
+
+template <typename T>
+std::pair<Tensor<T> *, Tensor<T> *>
+TensorBroadcast<T>::prepare_broadcasted_tensors(Tensor<T> *tensor1,
+                                                Tensor<T> *tensor2) {
+  std::vector<int> shape1 = tensor1->get_dims();
+  std::vector<int> shape2 = tensor2->get_dims();
+
+  std::vector<int> broadcast_shape = compute_broadcast_shape(shape1, shape2);
+
+  if (shape1 == broadcast_shape && shape2 == broadcast_shape) {
+    return {tensor1, tensor2};
+  }
+
+  Tensor<T> *new_tensor1 = nullptr;
+  Tensor<T> *new_tensor2 = nullptr;
+
+  if (shape1 != broadcast_shape) {
+    new_tensor1 = new TensorCreate<T>(broadcast_shape);
+    broadcast_tensor(tensor1, new_tensor1);
+  } else {
+    new_tensor1 = tensor1;
+  }
+  if (shape2 != broadcast_shape) {
+    new_tensor2 = new TensorCreate<T>(broadcast_shape);
+    broadcast_tensor(tensor2, new_tensor2);
+  } else {
+    new_tensor2 = tensor2;
+  }
+
+  return {new_tensor1, new_tensor2};
+}
+
+template <typename T>
+T TensorBroadcast<T>::broadcast_view(const Tensor<T> *src,
+                                     const std::vector<int> &real_shape,
+                                     int i) {
+  const auto &src_dims = src->get_dims();
+
+  std::vector<int> dst_index(real_shape.size());
+  int rem = i;
+  for (int j = real_shape.size() - 1; j >= 0; j--) {
+    dst_index[j] = rem % real_shape[j];
+    rem /= real_shape[j];
+  }
+
+  std::vector<int> src_index;
+  int offset = real_shape.size() - src_dims.size();
+  for (int j = 0; j < src_dims.size(); j++) {
+    if (src_dims[j] == 1) {
+      src_index.push_back(0);
+    } else {
+      src_index.push_back(dst_index[j + offset]);
+    }
+  }
+
+  return src->at(src_index);
+}
+
 template <typename T>
 Tensor<T> *tensor_sub_zp(const Tensor<T> *input, const std::vector<int> &zp) {
   assert(input->dims_size() == 4 && "tensor_pad assumes 4d inputs");
@@ -641,3 +756,4 @@ static std::vector<Tensor<T>*> dict2arr(py::dict arr, const std::vector<std::str
   }
   return inputs_vec;
 }
+
