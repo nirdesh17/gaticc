@@ -1,8 +1,10 @@
 #!/usr/bin/bash
 
+set -eu
+
 script_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd $script_dir/..
-git submodule update --init --recursive --depth 1 -j "$(nproc --all)"
+git submodule update --init --recursive --depth 1
 
 cd third_party
 # install boost
@@ -12,5 +14,5 @@ tar_file="boost_$boost_ver2.tar.gz"
 curl "https://archives.boost.io/release/$boost_ver1/source/$tar_file" > boost.tar.gz
 tar -xzf boost.tar.gz
 mkdir -p boost/boost
-mv boost_"$boost_ver2"/* boost/boost/
+mv -f boost_"$boost_ver2"/* boost/boost/
 rm -rf boost_"$boost_ver2" *.tar.gz
