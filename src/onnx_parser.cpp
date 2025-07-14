@@ -234,6 +234,62 @@ void Op::Layer::Conv::infer_type(const std::vector<TPDT> &input_types) {
 
 const char *Op::Layer::Relu::op_type() const { return m_optype; }
 
+Op::Layer::Relu::Relu() {
+  alpha = 0.0f;
+}
+
+enum QLLR_INITIALIZERS {
+  QLLR_X_SCALE = 1,
+  QLLR_X_ZERO_POINT = 2,
+  QLLR_Y_SCALE = 3,
+  QLLR_Y_ZERO_POINT = 4,
+
+};
+
+void Op::Layer::Relu::set_initializer_params(int n,
+                                               const onnx::TensorProto &t) {
+  switch (n) {
+  case QLLR_X_SCALE:
+    assert(t.data_type() == onnx::TensorProto::FLOAT);
+    for (auto f : t.float_data()) {
+      x_scale.push_back(f);
+    }
+    break;
+  case QLLR_X_ZERO_POINT:
+    if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+      x_zero_point.push_back((uint8_t)t.int32_data(0));
+    } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+      x_zero_point.push_back((int8_t)t.int32_data(0));
+    }
+    break;
+  case QLLR_Y_SCALE:
+    assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+    for (auto i : t.float_data()) {
+      y_scale.push_back(i);
+    }
+    break;
+  case QLLR_Y_ZERO_POINT:
+    if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+      y_zero_point.push_back((uint8_t)t.int32_data(0));
+    } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+      y_zero_point.push_back((int8_t)t.int32_data(0));
+    }
+    break;
+  default:
+    log_fatal("unknown initializer for layer {}\n", this->name);
+    break;
+  }
+}
+
+void Op::Layer::Relu::set_attributes(const onnx::NodeProto &node) {
+  for (const auto &attr : node.attribute()) {
+    if (attr.name() == "alpha") {
+      alpha = attr.f();  
+      break;
+    }
+  }
+}
+
 void Op::Layer::Relu::infer_shape(const IVec2D &input_dims) {
   this->input_dims = input_dims;
   this->output_dims = input_dims;
@@ -3010,6 +3066,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Conv(), node);
   } else if (opt == "Relu") {
     m_model.add(new Op::Layer::Relu(), node);
+  } else if (opt == "LeakyRelu") {
+    m_model.add(new Op::Layer::Relu(), node);
   } else if (opt == "Gemm") {
     m_model.add(new Op::Layer::Gemm(), node);
   } else if (opt == "MaxPool") {
@@ -3050,6 +3108,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QLinearEltwise(ELTWISE_MULT), node);
   } else if (opt == "QLinearMul") {
     m_model.add(new Op::Layer::QLinearEltwise(ELTWISE_SUB), node);
+  } else if (opt == "QLinearLeakyRelu") {
+    m_model.add(new Op::Layer::Relu(), node);
   } else if (opt == "Transpose") {
     m_model.add(new Op::Layer::Transpose(), node);
   } else if (opt == "MatMul") {
