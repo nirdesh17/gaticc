@@ -331,7 +331,8 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
     rah = std::make_unique<RealRah>();
   }
   load_model(*rah.get(), fp);
-  DispatchTable hdt(m_parser->get_graph(), m_parser->get_name_vertex_map());
+  Op::Graph megablock_graph = Pass::create_megablock_graph(m_parser->get_graph());
+  DispatchTable hdt(megablock_graph, m_parser->get_name_vertex_map());
   TPDT input_type = parser.get_model_input_type();
   TPDT output_type = parser.get_model_output_type();
   auto input_names = parser.get_model_input_names();
@@ -552,7 +553,7 @@ static Tensor<T>* rah_read(BinBlob &blob, Rah &rah, const Op::LayerBase *l, uint
   rah.read(blob.get_data(), expected_packet_size);
   tt.stop();
   log_info("Data read time: {}\n", tt.difference().count());
-  T *data = (T*) (blob.get_data());
+  uint8_t *data = reinterpret_cast<uint8_t*>(blob.get_data());
   if (!gbl_args.has_option("dry-run")) {
     /* dry-run is a false traversal of the run loop used for debugging,
      * correctness is not really needed all that much
@@ -576,8 +577,9 @@ static void post_read(const Op::LayerBase *l, TensorPool &tensor_pool, Tensor<T>
   }
 }
 
+/* Unalign for 8 bit data */
 template <typename T>
-static void unalign_sa_aux(Tensor<T> *tensor, const T *data, std::vector<int>& og_dims, std::vector<int>& aligned_dims) {
+static void unalign_sa_aux(Tensor<T> *tensor, const uint8_t *data, std::vector<int>& og_dims, std::vector<int>& aligned_dims) {
   auto sa_arch = get_sa_arch();
   int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
   int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
@@ -594,7 +596,7 @@ static void unalign_sa_aux(Tensor<T> *tensor, const T *data, std::vector<int>& o
             int elem_n = (e * dk) + ei;
             int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
             if (chan_n < og_dims[TENSOR_4D_CHANNELS] && elem_n < og_frame_sz) {
-              tensor->set(index, data[data_index]);
+              tensor->set(index, read_typed_data<T>(data + data_index));
             } 
             data_index++;
           }
@@ -604,21 +606,52 @@ static void unalign_sa_aux(Tensor<T> *tensor, const T *data, std::vector<int>& o
   }
 }
 
+/* Unalign for 32 bit data */
 template <typename T>
-static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const T *data) {
+static void unalign_sa_aux32(Tensor<T> *tensor, const uint8_t *data, std::vector<int>& og_dims, std::vector<int>& aligned_dims) {
+  auto sa_arch = get_sa_arch();
+  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
+  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
+  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
+  int data_index = 0;
+  int chan_itr = ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+
+  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
+    for (int i = 0; i < chan_itr; ++i) {
+      for (int j = 0; j < frame_sz; ++j) {
+        for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
+          int chan_n = i * sa_arch[SA_ARCH_N] + k;
+          int elem_n = j;
+          int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
+          if (chan_n < og_dims[TENSOR_4D_CHANNELS] && elem_n < og_frame_sz) {
+            tensor->set(index, read_typed_data<T>(data + data_index));
+          } 
+          data_index += sizeof(T);
+        } 
+      }
+    }
+  }
+}
+
+template <typename T>
+static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const uint8_t *data) {
   const Op::Layer::QLinearConv *l = dynamic_cast<const Op::Layer::QLinearConv *>(lb);
   assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
   IVec2D og_dims_v {tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
   auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
-  unalign_sa_aux(tensor, data, og_dims, aligned_dims); 
+  if constexpr (std::is_same<T, int>() || std::is_same<T, uint32_t>()) {
+    unalign_sa_aux32(tensor, data, og_dims, aligned_dims); 
+  } else {
+    unalign_sa_aux(tensor, data, og_dims, aligned_dims); 
+  }
 }
 
 template <typename T>
 static void sa_receive(Rah &rah, TensorPool &tensor_pool, const Op::LayerBase *l, uint32_t expected_data_size, uint32_t expected_hash) {
   Tensor<T> *tensor; BinBlob blob(io_tensor_packet_size(expected_data_size));
   tensor = rah_read<T>(blob, rah, l, expected_data_size, expected_hash);
-  unalign_sa_output(l, tensor, (T*)blob.get_data() + DWP_HEADER_BYTES);
+  unalign_sa_output(l, tensor, reinterpret_cast<uint8_t*>(blob.get_data() + DWP_HEADER_BYTES));
   post_read(l, tensor_pool, tensor);
 }
 
@@ -630,13 +663,15 @@ void Op::Layer::QLinearConv::receive_output(TensorPool &tensor_pool, Rah &rah) c
     sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
     sa_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_INT32) {
+    sa_receive<int>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else {
     log_fatal("can't receive data of type {} from FPGA\n",
               Op::get_tensorproto_dtype_name(this->output_type[0]));
   }
 }
 
-template <typename T> static void unalign_va_output(Tensor<T> *tensor, const T *data) {
+template <typename T> static void unalign_va_output(Tensor<T> *tensor, const uint8_t *data) {
   auto dims = tensor->get_dims();
   size_t size = prod(dims.begin(), dims.end(), 1);
   for (size_t i = 0; i < size; ++i) {
@@ -649,7 +684,7 @@ template <typename T>
 static void va_receive(Rah &rah, TensorPool &tensor_pool, const Op::LayerBase *l, uint32_t expected_data_size, uint32_t expected_hash) {
   Tensor<T> *tensor; BinBlob blob(io_tensor_packet_size(expected_data_size));
   tensor = rah_read<T>(blob, rah, l, expected_data_size, expected_hash);
-  unalign_va_output(tensor, (T*)blob.get_data() + DWP_HEADER_BYTES);
+  unalign_va_output(tensor, reinterpret_cast<uint8_t*>(blob.get_data() + DWP_HEADER_BYTES));
   post_read(l, tensor_pool, tensor);
 }
 
@@ -739,21 +774,25 @@ void Op::Layer::NMS::send_input(TensorPool &tensor_pool, AddressGen &generator,
 }
 
 template <typename T>
-static void unalign_eltwise_output(Tensor<T> *tensor, const T *data) {
+static void unalign_eltwise_output(Tensor<T> *tensor, const uint8_t *data) {
   if (tensor->dims_size() != 4) {
     log_fatal("unalign_eltwise_output expected 4 dimension array (NCHW), got {}\n", tensor->dims_size());
   }
   IVec2D og_dims_v {tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
   auto aligned_dims = aligned_qle({og_dims});
-  unalign_sa_aux(tensor, data, og_dims, aligned_dims);
+  if constexpr (std::is_same<T, int>() || std::is_same<T, uint32_t>()) {
+    unalign_sa_aux32(tensor, data, og_dims, aligned_dims); 
+  } else {
+    unalign_sa_aux(tensor, data, og_dims, aligned_dims); 
+  }
 }
 
 template <typename T>
 static void eltwise_receive(Rah &rah, TensorPool &tensor_pool, const Op::LayerBase *l, uint32_t expected_data_size, uint32_t expected_hash) {
   Tensor<T> *tensor; BinBlob blob(io_tensor_packet_size(expected_data_size));
   tensor = rah_read<T>(blob, rah, l, expected_data_size, expected_hash);
-  unalign_eltwise_output(tensor, (T*)blob.get_data() + DWP_HEADER_BYTES);
+  unalign_eltwise_output(tensor, reinterpret_cast<uint8_t*>(blob.get_data() + DWP_HEADER_BYTES));
   post_read(l, tensor_pool, tensor);
 }
 
@@ -765,6 +804,8 @@ void Op::Layer::QLinearEltwise::receive_output(TensorPool &tensor_pool, Rah &rah
     eltwise_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
     eltwise_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_INT32) {
+    eltwise_receive<int>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else {
     log_fatal("can't receive data of type {} from FPGA\n",
               Op::get_tensorproto_dtype_name(this->output_type[0]));
