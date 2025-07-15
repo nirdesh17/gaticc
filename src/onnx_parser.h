@@ -260,7 +260,15 @@ struct Conv : public LayerBase {
 
 struct Relu : public LayerBase {
   const char *m_optype = "Relu";
+  float alpha;
+  std::vector<float> x_scale;
+  std::vector<std::variant<int8_t, uint8_t>> x_zero_point;
+  std::vector<float> y_scale;
+  std::vector<std::variant<int8_t, uint8_t>> y_zero_point;
+  Relu();
   const char *op_type() const override;
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
   void run(TensorPool &tensor_pool) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
