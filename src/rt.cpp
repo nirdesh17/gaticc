@@ -577,6 +577,7 @@ static void post_read(const Op::LayerBase *l, TensorPool &tensor_pool, Tensor<T>
   }
 }
 
+/* Unalign for 8 bit data */
 template <typename T>
 static void unalign_sa_aux(Tensor<T> *tensor, const uint8_t *data, std::vector<int>& og_dims, std::vector<int>& aligned_dims) {
   auto sa_arch = get_sa_arch();
@@ -605,6 +606,33 @@ static void unalign_sa_aux(Tensor<T> *tensor, const uint8_t *data, std::vector<i
   }
 }
 
+/* Unalign for 32 bit data */
+template <typename T>
+static void unalign_sa_aux32(Tensor<T> *tensor, const uint8_t *data, std::vector<int>& og_dims, std::vector<int>& aligned_dims) {
+  auto sa_arch = get_sa_arch();
+  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
+  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
+  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
+  int data_index = 0;
+  int chan_itr = ceil_div(aligned_dims[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+
+  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
+    for (int i = 0; i < chan_itr; ++i) {
+      for (int j = 0; j < frame_sz; ++j) {
+        for (int k = 0; k < sa_arch[SA_ARCH_N]; ++k) {
+          int chan_n = i * sa_arch[SA_ARCH_N] + k;
+          int elem_n = j;
+          int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
+          if (chan_n < og_dims[TENSOR_4D_CHANNELS] && elem_n < og_frame_sz) {
+            tensor->set(index, read_typed_data<T>(data + data_index));
+          } 
+          data_index++;
+        } 
+      }
+    }
+  }
+}
+
 template <typename T>
 static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const uint8_t *data) {
   const Op::Layer::QLinearConv *l = dynamic_cast<const Op::Layer::QLinearConv *>(lb);
@@ -612,7 +640,11 @@ static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const 
   IVec2D og_dims_v {tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
   auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
-  unalign_sa_aux(tensor, data, og_dims, aligned_dims); 
+  if constexpr (std::is_same<T, int>() || std::is_same<T, uint32_t>()) {
+    unalign_sa_aux32(tensor, data, og_dims, aligned_dims); 
+  } else {
+    unalign_sa_aux(tensor, data, og_dims, aligned_dims); 
+  }
 }
 
 template <typename T>
@@ -749,7 +781,11 @@ static void unalign_eltwise_output(Tensor<T> *tensor, const uint8_t *data) {
   IVec2D og_dims_v {tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
   auto aligned_dims = aligned_qle({og_dims});
-  unalign_sa_aux(tensor, data, og_dims, aligned_dims);
+  if constexpr (std::is_same<T, int>() || std::is_same<T, uint32_t>()) {
+    unalign_sa_aux32(tensor, data, og_dims, aligned_dims); 
+  } else {
+    unalign_sa_aux(tensor, data, og_dims, aligned_dims); 
+  }
 }
 
 template <typename T>
@@ -768,6 +804,8 @@ void Op::Layer::QLinearEltwise::receive_output(TensorPool &tensor_pool, Rah &rah
     eltwise_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
     eltwise_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_INT32) {
+    eltwise_receive<int>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else {
     log_fatal("can't receive data of type {} from FPGA\n",
               Op::get_tensorproto_dtype_name(this->output_type[0]));

@@ -180,7 +180,6 @@ TensorPool Runner::infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<in
       Timer<std::chrono::microseconds> slice_tt;
       slice_tt.start();
       auto slice = get_slice(arr[j], {i});
-      print_vec("Slice shape", slice->get_dims());
       slice_tt.stop();
       log_info("Slice input[{}] time {} us\n", j, slice_tt.difference().count());
       tensor_pool.set<Tensor<inputT> *>(j, slice);
