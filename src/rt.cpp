@@ -631,6 +631,8 @@ void Op::Layer::QLinearConv::receive_output(TensorPool &tensor_pool, Rah &rah) c
     sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
     sa_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_INT32) {
+    sa_receive<int>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else {
     log_fatal("can't receive data of type {} from FPGA\n",
               Op::get_tensorproto_dtype_name(this->output_type[0]));
