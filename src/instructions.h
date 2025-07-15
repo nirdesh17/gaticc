@@ -163,6 +163,12 @@
 #define TailBlock_BiasEndAddress_LOW 200
 #define TailBlock_BiasEndAddress_HIGH 231
 #define TailBlock_BiasEndAddress_COUNT 32
+#define TailBlock_NegAlpha_LOW 232
+#define TailBlock_NegAlpha_HIGH 241
+#define TailBlock_NegAlpha_COUNT 10
+#define TailBlock_PosAlpha_LOW 242
+#define TailBlock_PosAlpha_HIGH 251
+#define TailBlock_PosAlpha_COUNT 10
 
 #define OP_OutputBlock 0x02
 #define OutputBlock_Opcode_LOW 0
@@ -417,9 +423,10 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 8
+#define ISA_VERSION 9
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
+#define ACT_LEAKYRELU 0x02
 #define POOL_MAX 0x00
 #define POOL_AVERAGE 0x01
 #define POOL_GLOBAL_AVG 0x02
@@ -598,6 +605,10 @@ inline Table get_tailblock_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("BiasStartAddress");
 	tbl.tbl.insert({"BiasEndAddress", bitset_range_get<TailBlock_BiasEndAddress_COUNT, INST_SIZE_BITS>(inst, TailBlock_BiasEndAddress_LOW, TailBlock_BiasEndAddress_HIGH)});
 	tbl.order.push_back("BiasEndAddress");
+	tbl.tbl.insert({"NegAlpha", bitset_range_get<TailBlock_NegAlpha_COUNT, INST_SIZE_BITS>(inst, TailBlock_NegAlpha_LOW, TailBlock_NegAlpha_HIGH)});
+	tbl.order.push_back("NegAlpha");
+	tbl.tbl.insert({"PosAlpha", bitset_range_get<TailBlock_PosAlpha_COUNT, INST_SIZE_BITS>(inst, TailBlock_PosAlpha_LOW, TailBlock_PosAlpha_HIGH)});
+	tbl.order.push_back("PosAlpha");
 	return tbl;
 }
 inline void pretty_print_tailblock(const std::bitset<INST_SIZE_BITS>& inst) {

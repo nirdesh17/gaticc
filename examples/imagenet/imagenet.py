@@ -38,5 +38,5 @@ if __name__ == "__main__":
   # gati.set_remote("v11.local")
   gati.flash(bitstream)
 
-  ret = post(gati.run(onnx_path, gml_path, {gati.get_model_inputs(onnx_path)[0] : np.load("imagenet_2.npy")})
+  ret = post(gati.run(onnx_path, gml_path, {gati.get_model_inputs(onnx_path)[0] : np.load("imagenet_2.npy")}))
   print(f"Match: {gati.match('imagenet_2_labels.txt', ret)}%")
