@@ -331,7 +331,8 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
     rah = std::make_unique<RealRah>();
   }
   load_model(*rah.get(), fp);
-  DispatchTable hdt(m_parser->get_graph(), m_parser->get_name_vertex_map());
+  Op::Graph megablock_graph = Pass::create_megablock_graph(m_parser->get_graph());
+  DispatchTable hdt(megablock_graph, m_parser->get_name_vertex_map());
   TPDT input_type = parser.get_model_input_type();
   TPDT output_type = parser.get_model_output_type();
   auto input_names = parser.get_model_input_names();
