@@ -626,7 +626,7 @@ static void unalign_sa_aux32(Tensor<T> *tensor, const uint8_t *data, std::vector
           if (chan_n < og_dims[TENSOR_4D_CHANNELS] && elem_n < og_frame_sz) {
             tensor->set(index, read_typed_data<T>(data + data_index));
           } 
-          data_index++;
+          data_index += sizeof(T);
         } 
       }
     }
