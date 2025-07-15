@@ -13,6 +13,6 @@ boost_ver2="$(echo $boost_ver1 | sed 's/\./_/g')"
 tar_file="boost_$boost_ver2.tar.gz"
 curl "https://archives.boost.io/release/$boost_ver1/source/$tar_file" > boost.tar.gz
 tar -xzf boost.tar.gz
-mkdir -p boost/boost
-mv -f boost_"$boost_ver2"/* boost/boost/
+mkdir -p boost
+mv -f boost_"$boost_ver2"/* boost/
 rm -rf boost_"$boost_ver2" *.tar.gz
