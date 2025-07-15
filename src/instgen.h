@@ -511,24 +511,7 @@ inline size_t io_tensor_packet_size(size_t tensor_size) {
   return tensor_size + (DWP_HEADER_BYTES * 2);
 }
 
-template <typename T>
-void check_dwp_header(const T *data, size_t size, uint32_t expected_ds,
-                      uint32_t expected_addr) {
-  ignore_unused(size);
-  assert(size >= DWP_HEADER_BYTES);
-  uint32_t sop = bytes2int(data);
-  uint32_t ds = bytes2int(data + 4);
-  uint32_t hash = bytes2int(data + 8);
+void check_dwp_header(const uint8_t *data, size_t size, uint32_t expected_ds, uint32_t expected_addr);
 
-  if (sop != DWP_SOP) {
-    log_fatal("expected DWP_SOP {}, got 0x{} from FPGA\n", DWP_SOP, sop);
-  }
-  if (ds != expected_ds) {
-    log_fatal("expected_ds {}, got {}\n", expected_ds, ds);
-  }
-  if (hash != expected_addr) {
-    log_fatal("expected_addr {}, got {}\n", expected_addr, hash);
-  }
-}
 
 bool is_op_type(const Op::LayerBase *l, const char *op_type);

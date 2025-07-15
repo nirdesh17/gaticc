@@ -759,6 +759,11 @@ std::bitset<sz> extract_bitset(const T *data, size_t size, int n, int m) {
   return ret;
 }
 
+/* Read sizeof bytes from data and return them as T */
+template <typename T> T read_typed_data(const uint8_t *data) {
+  return static_cast<T>(extract_bitset<sizeof(T)*8>(data, sizeof(T)+1, 0, sizeof(T)).to_ulong());
+}
+
 std::pair<int, char **> argv_create(const std::vector<std::string> &opts);
 void argv_delete(int argc, char **argv);
 
