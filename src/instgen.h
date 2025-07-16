@@ -150,8 +150,8 @@ class AddressGen {
   std::vector<Op::LayerBase *> m_exec_order;
 
   uint32_t ram_size_max;
+  uint32_t addr_incr(uint32_t size);
 
-  void addr_incr(uint32_t size);
 
   int get_total_instructions(const std::vector<Op::LayerBase *> &order);
   int get_io_region_register_size(const std::vector<Op::LayerBase *> &order);
@@ -160,12 +160,13 @@ class AddressGen {
 
 public:
   AddressGen(Op::Graph graph);
+  uint32_t get_current_addr();
   /* get a address in weights/bias region */
   uint32_t alloc(uint32_t size);
   /* get a address in io region */
   uint32_t io_addr_from_register(Op::VirtualAddress reg);
   /* get a address in accumulant region */
-  uint32_t ps_addr_from_register(Op::VirtualAddress reg);
+  uint32_t ps_addr_from_register(Op::VirtualAddress reg, int kern_itr);
   int io_reg_size() const;
   int get_model_size_cpu() const;
   int get_model_size_fpga() const;

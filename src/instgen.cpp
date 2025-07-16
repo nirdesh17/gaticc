@@ -565,6 +565,7 @@ InstGen::InstGen(const Op::Parser &parser) {
   auto collapsed_insts =
       collapse_identical_adjacent(instructions, cmp, cmp_apply);
   ret_inst = Pass::insert_start_inst(collapsed_insts);
+  log_info2("Total Occupied DRAM Memory: {}\n", generator.get_current_addr());
 }
 
 void InstGen::insert_io_addr_tbl(Op::LayerBase *l) {
@@ -802,11 +803,6 @@ static std::bitset<INST_SIZE_BITS>
 gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
   auto sa_arch = get_sa_arch();
   assert(cc->outputs.size() == 1);
-  uint32_t acc_addr = gen.ps_addr_from_register(cc->inputs.at(0));
-  uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
-  if (cc->m_cp.ki > 1) {
-    acc_addr = gen.io_addr_from_register(cc->m_cp.ki);
-  }
 
   auto odims = cc->output_dims.at(0);
   int citr = 0;
@@ -818,6 +814,12 @@ gen_conv_output(const Op::Layer::QLinearConv *cc, AddressGen &gen) {
     citr = cc->weights->dims(TENSOR_4D_CHANNELS);
   } else {
     std::tie(kitr, citr) = cc->get_iterations();
+  }
+
+  uint32_t acc_addr = gen.ps_addr_from_register(cc->inputs.at(0), kitr);
+  uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
+  if (cc->m_cp.ki > 1) {
+    acc_addr = gen.io_addr_from_register(cc->m_cp.ki);
   }
 
   auto pod = cc->pipelined_output_dims.at(0);
@@ -1630,13 +1632,18 @@ int AddressGen::get_weight_size(const std::vector<Op::LayerBase *> &order) {
   return sum;
 }
 
-void AddressGen::addr_incr(uint32_t size) {
+uint32_t AddressGen::addr_incr(uint32_t size) {
   uint32_t i = ceil_mod(size, WORD_SIZE);
   if (current_address + i > ram_size_max) {
     log_fatal("OOM: cannot allocate memory of size {}, already occupied {}\n",
               size, current_address);
   }
   current_address += i;
+  return current_address;
+}
+
+uint32_t AddressGen::get_current_addr() {
+  return addr_incr(0);
 }
 
 uint32_t AddressGen::alloc(uint32_t size) {
@@ -1697,11 +1704,19 @@ int AddressGen::get_max_io_reg(const std::vector<Op::LayerBase *> &order) {
   return max_reg;
 }
 
-uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg) {
+/* Kern iterations is required here for these reasons:
+ * Normally, acc_addr is just the size of intermidiate output tensor of 32bits. But,
+ * for decompose conv, the Vector Add Engine (responsible for accumulant addition on the
+ * FPGA) uses the same address and accumulates in place for all kernel iterations. In order
+ * to achieve decompose conv, we need each intermidiate output of kernel iteration to be
+ * written into its own sections. Hence, this requires kern_itr to be factored in to the
+ * total size too.
+ */
+uint32_t AddressGen::ps_addr_from_register(Op::VirtualAddress reg, int kern_itr) {
   uint32_t ps_base_addr = inst_region_size + weight_region_size +
                           ((max_io_reg + 1) * io_region_register_size);
   ps_base_addr = ceil_mod(ps_base_addr, WORD_SIZE);
-  uint32_t ps_reg_offset = reg * (ACC_SIZE / 8) * io_region_register_size;
+  uint32_t ps_reg_offset = reg * (ACC_SIZE / 8) * io_region_register_size * kern_itr;
   uint32_t ps_reg_addr = ps_base_addr + ps_reg_offset;
   return ps_reg_addr;
 }
