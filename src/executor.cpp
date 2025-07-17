@@ -53,12 +53,9 @@ DispatchTable::DispatchTable(
       check_dispatch_table_validity(tbl, graph);
     }
   } else {
-    auto vitr = boost::vertices(graph);
-    for (auto itr = vitr.first; itr != vitr.second; ++itr) {
-      if (boost::out_degree(*itr, graph) == 0 &&
-          name_vertex_map.find(graph[*itr]->name) != name_vertex_map.end()) {
-        tbl.push_back(graph[*itr]->name);
-      }
+    auto leaf_nodes = get_leaf_nodes(graph, name_vertex_map);
+    for (Op::Vertex v : leaf_nodes) {
+      tbl.push_back(graph[v]->name);
     }
   }
 }
