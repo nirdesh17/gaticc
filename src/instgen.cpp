@@ -385,27 +385,55 @@ void Pass::mark_cfg(const std::vector<Op::LayerBase *> &order) {
   }
 }
 
-void Op::Parser::pass_set_device(Op::Graph gcopy) {
-  auto order = crt_exec_order(gcopy);
-  /* prologue */
-  int itr_frm_start = 0;
-  for (; itr_frm_start < static_cast<int>(order.size()); ++itr_frm_start) {
-    if (is_miniblock(order.at(itr_frm_start)) || is_nms(order.at(itr_frm_start))) {
-      break;
+void Op::Parser::pass_set_device() {
+  Op::Graph graph = get_graph();
+  auto order = crt_exec_order(graph);
+  /* Set all miniblocks to DEVICE_CPU until a megablock is found 
+   * i.e. set all first layers to DEVICE_CPU
+   * FIXME: this portion of the code should also be done by iterating the graph in case
+   * there are multiple inputs to the graph.
+   */
+  for (Op::LayerBase *l : order) {
+    if (!is_megablock(l)) {
+      l->device = DEVICE_CPU;
     } else {
-      order.at(itr_frm_start)->device = DEVICE_CPU;
+      break;
     }
   }
-  int itr_from_end = order.size() - 1;
-  for (; itr_from_end > 0; --itr_from_end) {
-    if (is_miniblock(order.at(itr_from_end)) || is_nms(order.at(itr_frm_start))) {
-      break;
-    } else {
-      order.at(itr_from_end)->device = DEVICE_CPU;
+  /* Set all miniblocks from the back to DEVICE_CPU. Iterate starting from all
+   * leaf nodes
+   */
+  auto name_vertex_map = get_name_vertex_map();
+  std::vector<Op::Vertex> leaf_nodes = get_leaf_nodes(graph, name_vertex_map);
+  for (Op::Vertex v : leaf_nodes) {
+    std::queue<Op::Vertex> S;
+    S.push(v);
+    while (!S.empty()) {
+      Op::Vertex n = S.front();
+      if (is_megablock(graph[n])) {
+        break;
+      } else {
+        graph[n]->device = DEVICE_CPU;
+      }
+      S.pop();
+
+      auto in_edges = boost::in_edges(n, graph);
+      std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
+      for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
+        edges_to_remove.push_back({boost::source(*itr, graph), n});
+      }
+      for (auto [src, dest] : edges_to_remove) {
+        boost::remove_edge(src, dest, graph);
+        if (boost::out_degree(src, graph) == 0) {
+          S.push(src);
+        }
+      }
     }
   }
-  for (auto itr = itr_frm_start; itr <= itr_from_end; ++itr) {
-    order.at(itr)->device = DEVICE_FPGA;
+  for (Op::LayerBase *l : order) {
+    if (l->device != DEVICE_CPU) {
+      l->device = DEVICE_FPGA;
+    }
   }
 }
 

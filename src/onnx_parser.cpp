@@ -2227,11 +2227,12 @@ size_t Op::Model::size(void) { return boost::num_vertices(g); }
 size_t Op::Model::size(void) const { return boost::num_vertices(g); }
 
 bool Op::Model::has_graph_output(Op::LayerBase *l) const {
-  auto graph_out = graph_output_map.begin();
-  auto output_name = (graph_out->second).name();
-  auto itr = output_map.find(output_name);
-  if (itr != output_map.end() && g[itr->second]->name == l->name) {
-    return true;
+  for (auto graph_out : graph_output_map) {
+    auto output_name = (graph_out.second).name();
+    auto itr = output_map.find(output_name);
+    if (itr != output_map.end() && g[itr->second]->name == l->name) {
+      return true;
+    }
   }
   return false;
 }
@@ -2989,6 +2990,21 @@ std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
   return traverse(gcopy, root);
 }
 
+std::vector<Op::Vertex> get_leaf_nodes(const Op::Graph& g, const std::map<std::string, Op::Vertex>& name_vertex_map) {
+  std::vector<Op::Vertex> ret;
+  auto vitr = boost::vertices(g);
+  for (auto itr = vitr.first; itr != vitr.second; ++itr) {
+    /* If it has no children and it is a part of the original graph (unlike
+     * newly introduced nodes by optimization functions such as decompose)
+     */
+    if (boost::out_degree(*itr, g) == 0 &&
+        name_vertex_map.find(g[*itr]->name) != name_vertex_map.end()) {
+      ret.push_back(*itr);
+    }
+  }
+  return ret;
+}
+
 void Op::print_opgraph(Op::Graph gcopy) {
   std::queue<Op::Vertex> S;
   auto vitr = boost::vertices(gcopy);
@@ -3178,7 +3194,7 @@ Op::Parser::Parser(std::string const &filename) {
   log_info2("Starting Shape Inference\n");
   m_model.deduce_shapes(m_graph);
   log_info2("Setting devices\n");
-  pass_set_device(get_graph());
+  pass_set_device();
   log_info2("Updating Registers through register allocator\n");
   m_model.update_registers();
   log_info2("Parsing Finished\n");
