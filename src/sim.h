@@ -405,8 +405,6 @@ template <typename inputT, typename outputT>
 void tensor_qeltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
                      const Tensor<inputT> *input2, float i1_scale,
                      float i2_scale, int i1_zp, int i2_zp, int op) {
-  assert(input1->dims_iterator(-1) == input2->dims_iterator(-1));
-
   std::vector<int> required_shape =
     TensorBroadcast<inputT>::compute_broadcast_shape(input1->get_dims(), input2->get_dims());
 
