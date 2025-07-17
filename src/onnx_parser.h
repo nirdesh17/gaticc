@@ -904,7 +904,7 @@ class Parser {
   void pass_save_value_infos(const onnx::GraphProto &graph);
   void pass_save_initializers(const onnx::GraphProto &graph);
   void pass_save_nodes(const onnx::GraphProto &graph);
-  void pass_set_device(Op::Graph gcopy);
+  void pass_set_device();
 
 public:
   Parser(std::string const &filename);
@@ -982,3 +982,4 @@ std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy);
 std::vector<Op::LayerBase*> traverse(Op::Graph &g, Op::Vertex v);
 std::vector<int> deduce_new_shape(std::vector<int> old_shape, int input_total_size);
 void autopad_to_pads(int* pad, const int* k, const int* s, bool ceil_h, bool ceil_w, const std::string& auto_pad);
+std::vector<Op::Vertex> get_leaf_nodes(const Op::Graph& g, const std::map<std::string, Op::Vertex>& name_vertex_map);
