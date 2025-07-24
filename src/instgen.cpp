@@ -914,7 +914,18 @@ int Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &,
   std::bitset<INST_SIZE_BITS> relu_inst;
   inst_set(relu_inst, OP_TailBlock, TailBlock_Opcode);
   inst_set(relu_inst, 1, TailBlock_ActEn);
-  inst_set(relu_inst, ACT_RELU, TailBlock_ActType);
+
+  if (this->alpha == 0.0f) {
+    inst_set(relu_inst, ACT_RELU, TailBlock_ActType);
+  } else {
+    inst_set(relu_inst, ACT_LEAKYRELU, TailBlock_ActType);
+    float scale = (this->x_scale[0] / this->y_scale[0]);
+    int neg = static_cast<int>(std::round(scale * this->alpha * (1 << 8)));
+    int pos = static_cast<int>(std::round(scale * (1 << 8)));
+
+    inst_set(relu_inst, neg, TailBlock_NegAlpha);
+    inst_set(relu_inst, pos, TailBlock_PosAlpha);
+  }
   insts.push_back(relu_inst);
   return 0;
 }
