@@ -588,6 +588,7 @@ int Op::Layer::QuantizeLinear::get_inst(InstBlob &, AddressGen &,
   return 0;
 }
 
+
 /* Generic gen_quant, used by conv and fc as their quantization routines
  * are same
  */
@@ -614,10 +615,9 @@ gen_quant(const std::vector<float> &x_scale, const std::vector<float> &w_scale,
   bitset_range_set(quant_inst, opcode, TailBlock_Opcode_LOW,
                    TailBlock_Opcode_HIGH);
 
-  /* TODO: deduce logically */
   float inverted_scale = 1 / scales[0];
   int shift_val = calc_shift_val(inverted_scale);
-  int calib_scale = std::round((1 / scales[0]) * std::pow(2, shift_val));
+  int calib_scale = get_calib_scale(inverted_scale);
 
   check_overflow(calib_scale, TailBlock_QuantScale_COUNT);
   std::bitset<TailBlock_QuantScale_COUNT> qscale{calib_scale};
@@ -1387,8 +1387,7 @@ gen_eltwise_quant(const Op::Layer::QLinearEltwise *cc) {
 
   float inverted_scale = 1 / scales[0];
   int shift_val = calc_shift_val(inverted_scale);
-  int calib_scale = std::round((1 / scales[0]) * std::pow(2, shift_val));
-
+  int calib_scale = get_calib_scale(inverted_scale);
   check_overflow(calib_scale, TailBlock_QuantScale_COUNT);
   inst_set(quant_inst, calib_scale, TailBlock_QuantScale);
   /* For Element wise operations, the intermidiate results are

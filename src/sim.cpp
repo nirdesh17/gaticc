@@ -55,3 +55,8 @@ int calc_shift_val(float inverted) {
   return shift_val;
 }
 
+int get_calib_scale(float scale) {
+  int shift_val = calc_shift_val(scale);
+  int calib_scale = scale * (1 << shift_val);
+  return calib_scale;
+}

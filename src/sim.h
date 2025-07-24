@@ -477,6 +477,8 @@ inline outputT clip(inputT v, int min_lim, int max_lim) {
   }
 }
 
+int get_calib_scale(float scale);
+
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val) {
@@ -486,14 +488,14 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
   if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) && (std::is_same<inputT, int32_t>())) {
     /* fpga style quantization */
     float inverted = 1 / scale;
-    int int_scale = (int)((float)inverted * (float)(1 << shift_val));
+    int int_scale = get_calib_scale(inverted);
     int ret = (int)((((int)v * int_scale) + (1 << (shift_val - 1))) >> shift_val);
     ret += zero_point;
     outputT r = (outputT)std::clamp<inputT>(ret, min_lim, max_lim);
     return r;
   } else if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) && std::is_same<inputT, fp_t>()) {
     float inverted = 1 / scale;
-    int int_scale = (int)((float)inverted * (float)(1 << shift_val));
+    int int_scale = get_calib_scale(inverted);
     int64_t r1 = (int64_t) v.raw() * int_scale;
     int64_t r2 = r1 + (1 << (shift_val - 1));
     int64_t r3 = r2 >> shift_val;
@@ -1006,3 +1008,4 @@ void reduce_mean(const Tensor<T> *input, Tensor<T> *output, int axis,
   log_warn("Ignoring keepdims {} parameter to reduce_mean\n", keepdims);
   *output = *input;
 }
+
