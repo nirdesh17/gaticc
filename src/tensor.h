@@ -737,9 +737,9 @@ void pickle_tensor(const Tensor<T> *t, std::string filename) {
   out.put(static_cast<char>(header_size & 0xFF));
   out.put(static_cast<char>((header_size >> 8) & 0xFF));
   out.write(header.c_str(), header.size());
-  /* FIXME: this copies the tensor twice, avoid this */
-  const char *data = reinterpret_cast<const char *>(t->get().data());
-  out.write(data, total_elems * sizeof(T));
+  for (int i = 0; i < t->size(); ++i) {
+    out << t->at(i);
+  }
 }
 
 /* 'names' are from the parser, creates a std::vector with tensors that carry their
