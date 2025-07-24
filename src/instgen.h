@@ -217,7 +217,7 @@ template <typename T> int aligned_conv_bias(const T &dims) {
 }
 
 
-static IVec2D aligned_qle_dims(const IVec2D &d);
+IVec2D aligned_qle_dims(const IVec2D &d);
 std::vector<int> aligned_qle(const IVec2D& d);
 
 /* out_mod here is the factor by which to pad the outputs of the

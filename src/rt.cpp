@@ -586,7 +586,6 @@ static void unalign_sa_aux(Tensor<T> *tensor, const uint8_t *data, std::vector<i
   int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
   int dk = WORD_SIZE / sa_arch[SA_ARCH_N];
   int data_index = 0;
-
   for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
     for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / sa_arch[SA_ARCH_N]; ++c) {
       for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
@@ -780,7 +779,7 @@ static void unalign_eltwise_output(Tensor<T> *tensor, const uint8_t *data) {
   }
   IVec2D og_dims_v {tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
-  auto aligned_dims = aligned_qle({og_dims});
+  auto aligned_dims = aligned_qle_dims(og_dims_v).at(0);
   if constexpr (std::is_same<T, int>() || std::is_same<T, uint32_t>()) {
     unalign_sa_aux32(tensor, data, og_dims, aligned_dims); 
   } else {

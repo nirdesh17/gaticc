@@ -1798,8 +1798,9 @@ BinBlob::BinBlob(size_t size) {
 BinBlob::~BinBlob() { delete[] m_data; }
 
 void BinBlob::print() const {
+  const uint8_t *d = reinterpret_cast<const uint8_t *>(m_data);
   for (size_t i = 0; i < m_ptr; ++i) {
-    std::cout << std::hex << m_data[i] << ' ';
+    std::cout << std::hex << d[i] << ' ';
   }
   std::cout << '\n';
 }
