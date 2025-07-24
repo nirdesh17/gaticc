@@ -172,7 +172,7 @@ def run(
         arr: dict,
         *args,
         **kwargs,
-        ):
+        ) -> list[tuple[str,str]]:
     """
     Run a compiled model on the target hardware.
 
@@ -233,7 +233,7 @@ def sim(
     arr: dict,
     *args,
     **kwargs,
-    ) -> np.ndarray:
+    ) -> list[tuple[str,str]]:
   """
   Run the ONNX file entirely on the CPU (simulation)
 
