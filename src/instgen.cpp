@@ -2225,38 +2225,51 @@ static void fc_weight_align(BinBlob &blob, const onnx::TensorProto *tensor, bool
 }
 
 void Op::Layer::QLinearConv::align_weights(BinBlob &blob, InitializerTable &tbl) {
-    uint32_t aligned_sz = aligned_conv_weight(this);
-    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
-    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-    log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
-    blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
-    sa_align(this, blob, weights);
+  uint32_t aligned_sz = aligned_conv_weight(this);
+  aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
+  aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+  log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
+  blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
+  sa_align(this, blob, weights);
 
-    if (this->bias != nullptr) {
-      aligned_sz = aligned_conv_bias(bias->dims());
-      aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
-      aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-      log_info2("Appending initializer {} for size: {}, addr: {}\n",
-                bias->name(), aligned_sz, tbl.get(bias->name()));
-      blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
-      conv_bias_align(blob, bias);
-    }
+  if (this->bias != nullptr) {
+    aligned_sz = aligned_conv_bias(bias->dims());
+    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
+    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+    log_info2("Appending initializer {} for size: {}, addr: {}\n",
+              bias->name(), aligned_sz, tbl.get(bias->name()));
+    blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
+    conv_bias_align(blob, bias);
+  }
 }
 
 void Op::Layer::QGemm::align_weights(BinBlob &blob, InitializerTable &tbl) {
-    uint32_t aligned_sz = aligned_fc_weight(weights->dims());
-    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
-    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-    log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
-    blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
-    fc_weight_align(blob, weights, m_cp.transB);
+  uint32_t aligned_sz = aligned_fc_weight(weights->dims());
+  aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(weights->data_type()));
+  aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+  log_info2("Appending initializer {} for size: {}, addr: {}\n", weights->name(), aligned_sz, tbl.get(weights->name()));
+  blob.append_dwp_header(aligned_sz, tbl.get(weights->name()));
+  fc_weight_align(blob, weights, m_cp.transB);
 
-    aligned_sz = aligned_fc_bias(bias->dims());
-    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
-    aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
-    log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
-    blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
-    fc_bias_align(blob, bias);
+  aligned_sz = aligned_fc_bias(bias->dims());
+  aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
+  aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
+  log_info2("Appending initializer {} for size: {}, addr: {}\n", bias->name(), aligned_sz, tbl.get(bias->name()));
+  blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
+  fc_bias_align(blob, bias);
+}
+
+void Op::Layer::QLinearEltwise::align_weights(BinBlob &blob, InitializerTable &tbl) {
+  if (constant_data == nullptr) {
+    return;
+  }
+  uint32_t aligned_sz = ceil_mod(get_weight_size(), 32);
+  log_info2("Appending initializer {} for size: {}, addr: {}\n", constant_data->name(), aligned_sz, tbl.get(constant_data->name()));
+  uint32_t addr = tbl.get(constant_data->name());
+  auto aligned_dims = aligned_qle_dims(this->input_dims).at(0);
+  std::unique_ptr<Tensor<int8_t>> tensor {new TensorExtant<int8_t>(constant_data)};
+  auto sa_arch = get_sa_arch();
+  sa_align_input_aux(blob, aligned_sz, addr, tensor.get(), aligned_dims, sa_arch[SA_ARCH_N]);
 }
 
 char *BinBlob::get_data() { return m_data; }

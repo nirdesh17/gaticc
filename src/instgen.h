@@ -517,3 +517,34 @@ void check_dwp_header(const uint8_t *data, size_t size, uint32_t expected_ds, ui
 
 bool is_op_type(const Op::LayerBase *l, const char *op_type);
 
+/* This function is left here in a header because instgen.cpp and rt.cpp both share it */
+template <typename T>
+void sa_align_input_aux(BinBlob &blob, uint32_t data_size, uint32_t addr, const Tensor<T> *tensor, const std::vector<int>& aligned_dims, int chan_dim) {
+  blob.append_dwp_header(data_size, addr);
+  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
+  IVec2D og_dims_v {tensor->get_dims()};
+  auto og_dims = og_dims_v.at(0);
+  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
+  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
+  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
+  int dk = WORD_SIZE / chan_dim;
+  T zero = 0;
+  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
+    for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / chan_dim; ++c) {
+      for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
+        for (int ci = 0; ci < chan_dim; ++ci) {
+          for (int ei = 0; ei < dk; ++ei) {
+            int chan_n = (c * chan_dim) + ci;
+            int elem_n = (e * dk) + ei;
+            int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
+            if (chan_n >= og_dims[TENSOR_4D_CHANNELS] || elem_n >= og_frame_sz) {
+              blob.append(zero);
+            } else {
+              blob.append(tensor->at(index));
+            }
+          }
+        }
+      }
+    }
+  }
+}
