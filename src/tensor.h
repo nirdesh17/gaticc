@@ -72,6 +72,7 @@ public:
 };
 
 template <typename T> std::string Tensor<T>::name() const {
+  log_warn("A certain tensor has name (null) i.e. no override");
   return "(null)";
 }
 
@@ -137,6 +138,7 @@ template <typename T> Tensor<T>::~Tensor() {}
  */
 template <typename T> class TensorExtant : public Tensor<T> {
 private:
+  std::string m_name;
   std::vector<int> dims;
   std::vector<int> stride;
   const onnx::TensorProto *ptr;
@@ -152,6 +154,7 @@ public:
    * all are specialized. See tensor.cpp.
    */
   TensorExtant(const onnx::TensorProto *ptr);
+  std::string name() const override;
   T at(std::vector<int> &at) const override;
   T at(std::vector<int> &&at) const override;
   T at(int index) const override;
@@ -170,12 +173,17 @@ public:
   ~TensorExtant();
 };
 
+template <typename T> std::string TensorExtant<T>::name() const {
+  return m_name;
+}
+
 template <typename T>
 void TensorExtant<T>::init_dims(const onnx::TensorProto *ptr) {
   dims.resize(ptr->dims_size());
   std::copy(ptr->dims().begin(), ptr->dims().end(), dims.begin());
   this->ptr = ptr;
   this->stride = get_stride_from_shape(dims);
+  this->m_name = ptr->name();
 }
 
 template <typename T> T TensorExtant<T>::at(int index) const {
