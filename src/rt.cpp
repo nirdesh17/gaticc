@@ -417,48 +417,22 @@ void Op::LayerBase::receive_output(TensorPool &tensor_pool, Rah &rah) const {
   log_fatal("Cannot receive outputs for layer {}: receive_output() override not implemented\n", this->name);
 }
 
+
 template <typename T>
 static void sa_align_input(BinBlob &blob, const Op::Layer::QLinearConv *l, uint32_t data_size, uint32_t addr,
                               const Tensor<T> *tensor) {
   Timer<std::chrono::microseconds> tt;
   tt.start();
-  blob.append_dwp_header(data_size, addr);
-  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
   IVec2D og_dims_v {tensor->get_dims()};
-  auto og_dims = og_dims_v.at(0);
   auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
   auto sa_arch = get_sa_arch();
-  int og_frame_sz = og_dims[TENSOR_4D_HEIGHT] * og_dims[TENSOR_4D_WIDTH];
-  int frame_sz = aligned_dims[TENSOR_4D_HEIGHT] * aligned_dims[TENSOR_4D_WIDTH];
-  int batch_size = aligned_dims[TENSOR_4D_CHANNELS] * frame_sz;
   int chan_dim = 0;
   if (is_pointwise_conv(l->weights->dims())) {
     chan_dim = sa_arch[SA_ARCH_ROW];
   } else {
     chan_dim = sa_arch[SA_ARCH_N];
   }
-
-  int dk = WORD_SIZE / chan_dim;
-  T zero = 0;
-
-  for (int b = 0; b < aligned_dims[TENSOR_4D_BATCH]; ++b) {
-    for (int c = 0; c < aligned_dims[TENSOR_4D_CHANNELS] / chan_dim; ++c) {
-      for (int e = 0; e < ceil_mod(frame_sz, dk) / dk; ++e) {
-        for (int ci = 0; ci < chan_dim; ++ci) {
-          for (int ei = 0; ei < dk; ++ei) {
-            int chan_n = (c * chan_dim) + ci;
-            int elem_n = (e * dk) + ei;
-            int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
-            if (chan_n >= og_dims[TENSOR_4D_CHANNELS] || elem_n >= og_frame_sz) {
-              blob.append(zero);
-            } else {
-              blob.append(tensor->at(index));
-            }
-          }
-        }
-      }
-    }
-  }
+  sa_align_input_aux(blob, data_size, addr, tensor, aligned_dims, chan_dim);
   tt.stop();
   log_info("SA Align time: {} us\n", tt.difference().count());
 }
