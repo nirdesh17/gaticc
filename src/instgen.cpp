@@ -1401,14 +1401,8 @@ gen_eltwise_quant(const Op::Layer::QLinearEltwise *cc) {
   int calib_scale = get_calib_scale(inverted_scale);
   check_overflow(calib_scale, TailBlock_QuantScale_COUNT);
   inst_set(quant_inst, calib_scale, TailBlock_QuantScale);
-  /* For Element wise operations, the intermidiate results are
-   * FixedPoint on the FPGA. The addition of FIXED_POINT_SPLIT
-   * to shift_val is essentially casting the result back to
-   * int from FixedPoint 
-   */
-  int adjusted_shift_val = shift_val + FIXED_POINT_SPLIT;
-  check_overflow(adjusted_shift_val, TailBlock_QuantShift_COUNT);
-  inst_set(quant_inst, adjusted_shift_val, TailBlock_QuantShift);
+  check_overflow(shift_val, TailBlock_QuantShift_COUNT);
+  inst_set(quant_inst, shift_val, TailBlock_QuantShift);
 
   /* enable quant, ofcourse */
   inst_set(quant_inst, 1, TailBlock_QuantEn);
