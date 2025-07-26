@@ -496,6 +496,7 @@ struct QLinearEltwise : public LayerBase {
   IVec2D aligned_output() const override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
   void align_weights(BinBlob &blob, InitializerTable &tbl);
+  void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
 };
 
 struct Transpose : public LayerBase {

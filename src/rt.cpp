@@ -799,3 +799,63 @@ void Op::Layer::NMS::receive_output(TensorPool &tensor_pool, Rah &rah) const {
               Op::get_tensorproto_dtype_name(this->output_type[0]));
   }
 }
+
+
+
+template <typename T>
+static void sa_align_input1(BinBlob &blob, const Op::Layer::QLinearEltwise *l, uint32_t data_size, uint32_t addr,
+                              const Tensor<T> *tensor) {
+  Timer<std::chrono::microseconds> tt;
+  tt.start();
+  IVec2D og_dims_v {tensor->get_dims()};
+  auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->constant_data->dims())[0];
+  std::vector<int> aligned_dims_vec(aligned_dims.begin(), aligned_dims.end());
+  std::cout << "aligned dims: ";
+  for (const auto &dim : aligned_dims_vec) {
+    std::cout << dim << " ";
+  }
+  std::cout << std::endl;
+  auto sa_arch = get_sa_arch();
+  int chan_dim = 0;
+  
+    chan_dim = sa_arch[SA_ARCH_N];
+  
+  sa_align_input_aux(blob, data_size, addr, tensor, aligned_dims, chan_dim);
+  tt.stop();
+  log_info("SA Align time: {} us\n", tt.difference().count());
+}
+
+template <typename T>
+static void sa_send_input1(const Op::LayerBase *l, TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &tbl) {
+  Tensor<T> *input_tensor = tensor_pool.get<Tensor<T> *>(l->inputs.at(0));
+  auto ireg = tbl.at(l->name).first.at(0);
+  uint32_t addr = generator.io_addr_from_register(ireg);
+  log_info("sending input for register {}, addr is {}\n", ireg, addr);
+  const Op::Layer::QLinearEltwise *cc = dynamic_cast<const Op::Layer::QLinearEltwise*>(l);
+  auto dims = input_tensor->get_dims();
+  IVec2D dims_wrapper = {dims};
+  uint32_t og_aligned_size = aligned_conv_input(dims_wrapper, cc->constant_data->dims()) * sizeof(T);
+  uint32_t total_size_with_packets = io_tensor_packet_size(og_aligned_size);
+  BinBlob blob(total_size_with_packets);
+  sa_align_input1<T>(blob, cc, og_aligned_size, addr, input_tensor);
+  blob.append_dwp_header(0, 0);
+  if (get_verbose()) {
+    blob.write("input_data.bin");
+  }
+  GmlCheck gmlcheck;
+  gmlcheck.check_dwp(blob);
+  log_info("Start writing images to FPGA\n");
+  rah.write(blob.get_data(), blob.size());
+  log_info("finish writing images to FPGA\n");
+}
+
+
+void Op::Layer::QLinearEltwise::send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &tbl) const {
+  if (input_type.at(0) == onnx::TensorProto_DataType_INT8) {
+    sa_send_input1<int8_t>(this, tensor_pool, generator, rah, tbl);
+  } else if (input_type.at(0) == onnx::TensorProto_DataType_UINT8) {
+    sa_send_input1<uint8_t>(this, tensor_pool, generator, rah, tbl);
+  } else {
+    log_fatal("QLinearConv::send_input() can't handle {} type", get_tensorproto_dtype_name(input_type.at(0)));
+  }
+}
