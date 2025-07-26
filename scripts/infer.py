@@ -47,8 +47,8 @@ def run_inference(onnx_path, npy_path, labels_file, output_file="results.txt"):
     input_name = session.get_inputs()[0].name
     with open(output_file, "w"): pass  # Clear file
     for i in range(input_data.shape[0]):
-        idata = np.expand_dims(input_data[i], axis=0)
-        outputs = session.run(None, {input_name: idata})
+        #idata = np.expand_dims(input_data[i], axis=0)
+        outputs = session.run(None, {input_name: input_data[i]})
         pred = np.argmax(outputs)
         print(pred)
         with open(output_file, "a") as f:
