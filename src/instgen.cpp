@@ -1227,6 +1227,20 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob &insts, AddressGen &,
                      TailBlock_PoolType_HIGH);
   }
 
+  float scale_inv = 1.0f / (m_cp.k[TENSOR_2D_WIDTH] *
+                            m_cp.k[TENSOR_2D_HEIGHT]);
+
+  int shift_val = calc_shift_val(scale_inv);
+  int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
+
+  std::bitset<TailBlock_PoolScale_COUNT> pool_scale{scale_val};
+  bitset_range_set(average_pool_inst, pool_scale, TailBlock_PoolScale_LOW,
+                   TailBlock_PoolScale_HIGH);
+
+  std::bitset<TailBlock_PoolShift_COUNT> pool_shift{shift_val};
+  bitset_range_set(average_pool_inst, pool_shift, TailBlock_PoolShift_LOW,
+                   TailBlock_PoolShift_HIGH);
+
   std::bitset<TailBlock_PoolWidth_COUNT> pool_width{m_cp.k[TENSOR_2D_WIDTH]};
   bitset_range_set(average_pool_inst, pool_width, TailBlock_PoolWidth_LOW,
                    TailBlock_PoolWidth_HIGH);

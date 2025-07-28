@@ -83,91 +83,84 @@
 #define TailBlock_Opcode_LOW 0
 #define TailBlock_Opcode_HIGH 3
 #define TailBlock_Opcode_COUNT 4
-// Batch Norm Yes/No
-#define TailBlock_BNEn_LOW 4
-#define TailBlock_BNEn_HIGH 4
-#define TailBlock_BNEn_COUNT 1
-#define TailBlock_BNChannels_LOW 5
-#define TailBlock_BNChannels_HIGH 14
-#define TailBlock_BNChannels_COUNT 10
-#define TailBlock_BNStartAddress_LOW 15
-#define TailBlock_BNStartAddress_HIGH 46
-#define TailBlock_BNStartAddress_COUNT 32
-#define TailBlock_BNEndAddress_LOW 47
-#define TailBlock_BNEndAddress_HIGH 78
-#define TailBlock_BNEndAddress_COUNT 32
-#define TailBlock_ActEn_LOW 79
-#define TailBlock_ActEn_HIGH 79
+#define TailBlock_ActEn_LOW 4
+#define TailBlock_ActEn_HIGH 4
 #define TailBlock_ActEn_COUNT 1
-#define TailBlock_ActType_LOW 80
-#define TailBlock_ActType_HIGH 83
+#define TailBlock_ActType_LOW 5
+#define TailBlock_ActType_HIGH 8
 #define TailBlock_ActType_COUNT 4
-#define TailBlock_ActParam_LOW 84
-#define TailBlock_ActParam_HIGH 91
+#define TailBlock_ActParam_LOW 9
+#define TailBlock_ActParam_HIGH 16
 #define TailBlock_ActParam_COUNT 8
-#define TailBlock_QuantEn_LOW 92
-#define TailBlock_QuantEn_HIGH 92
+#define TailBlock_QuantEn_LOW 17
+#define TailBlock_QuantEn_HIGH 17
 #define TailBlock_QuantEn_COUNT 1
-#define TailBlock_QuantScale_LOW 93
-#define TailBlock_QuantScale_HIGH 108
+#define TailBlock_QuantScale_LOW 18
+#define TailBlock_QuantScale_HIGH 33
 #define TailBlock_QuantScale_COUNT 16
-#define TailBlock_QuantShift_LOW 109
-#define TailBlock_QuantShift_HIGH 113
+#define TailBlock_QuantShift_LOW 34
+#define TailBlock_QuantShift_HIGH 38
 #define TailBlock_QuantShift_COUNT 5
-#define TailBlock_PoolEn_LOW 114
-#define TailBlock_PoolEn_HIGH 114
+#define TailBlock_PoolEn_LOW 39
+#define TailBlock_PoolEn_HIGH 39
 #define TailBlock_PoolEn_COUNT 1
-#define TailBlock_PoolType_LOW 115
-#define TailBlock_PoolType_HIGH 117
+#define TailBlock_PoolType_LOW 40
+#define TailBlock_PoolType_HIGH 42
 #define TailBlock_PoolType_COUNT 3
-#define TailBlock_PoolWidth_LOW 118
-#define TailBlock_PoolWidth_HIGH 127
+#define TailBlock_PoolScale_LOW 43
+#define TailBlock_PoolScale_HIGH 58
+#define TailBlock_PoolScale_COUNT 16
+#define TailBlock_PoolShift_LOW 59
+#define TailBlock_PoolShift_HIGH 63
+#define TailBlock_PoolShift_COUNT 5
+#define TailBlock_PoolWidth_LOW 64
+#define TailBlock_PoolWidth_HIGH 73
 #define TailBlock_PoolWidth_COUNT 10
-#define TailBlock_PoolHeight_LOW 128
-#define TailBlock_PoolHeight_HIGH 137
+#define TailBlock_PoolHeight_LOW 74
+#define TailBlock_PoolHeight_HIGH 83
 #define TailBlock_PoolHeight_COUNT 10
-#define TailBlock_PoolStride_LOW 138
-#define TailBlock_PoolStride_HIGH 141
+#define TailBlock_PoolStride_LOW 84
+#define TailBlock_PoolStride_HIGH 87
 #define TailBlock_PoolStride_COUNT 4
-#define TailBlock_PoolPadding_LOW 142
-#define TailBlock_PoolPadding_HIGH 145
+#define TailBlock_PoolPadding_LOW 88
+#define TailBlock_PoolPadding_HIGH 91
 #define TailBlock_PoolPadding_COUNT 4
-#define TailBlock_PoolCeil_LOW 146
-#define TailBlock_PoolCeil_HIGH 146
+#define TailBlock_PoolCeil_LOW 92
+#define TailBlock_PoolCeil_HIGH 92
 #define TailBlock_PoolCeil_COUNT 1
 // For pools with input size that is not evenly divisible by ke
 // rnel size, mod count is the ceil(input % kernel). For exampl
 // e, 21x21 for kernel 2x2, mod count is 1 i.e. 1 extra column 
 // to be considered.
-#define TailBlock_PoolModCount_LOW 147
-#define TailBlock_PoolModCount_HIGH 150
+#define TailBlock_PoolModCount_LOW 93
+#define TailBlock_PoolModCount_HIGH 96
 #define TailBlock_PoolModCount_COUNT 4
 // Same as above but for cols
-#define TailBlock_PoolModCountCols_LOW 151
-#define TailBlock_PoolModCountCols_HIGH 154
+#define TailBlock_PoolModCountCols_LOW 97
+#define TailBlock_PoolModCountCols_HIGH 100
 #define TailBlock_PoolModCountCols_COUNT 4
 // Same as PadSides for convolution
-#define TailBlock_PoolPadSides_LOW 155
-#define TailBlock_PoolPadSides_HIGH 158
+#define TailBlock_PoolPadSides_LOW 101
+#define TailBlock_PoolPadSides_HIGH 104
 #define TailBlock_PoolPadSides_COUNT 4
-#define TailBlock_BiasEn_LOW 159
-#define TailBlock_BiasEn_HIGH 159
+#define TailBlock_BiasEn_LOW 105
+#define TailBlock_BiasEn_HIGH 105
 #define TailBlock_BiasEn_COUNT 1
 // There are two known bias widths 8/32. This is that field.
-#define TailBlock_BiasWidth_LOW 160
-#define TailBlock_BiasWidth_HIGH 167
+#define TailBlock_BiasWidth_LOW 106
+#define TailBlock_BiasWidth_HIGH 113
 #define TailBlock_BiasWidth_COUNT 8
-#define TailBlock_BiasStartAddress_LOW 168
-#define TailBlock_BiasStartAddress_HIGH 199
+#define TailBlock_BiasStartAddress_LOW 114
+#define TailBlock_BiasStartAddress_HIGH 145
 #define TailBlock_BiasStartAddress_COUNT 32
-#define TailBlock_BiasEndAddress_LOW 200
-#define TailBlock_BiasEndAddress_HIGH 231
+#define TailBlock_BiasEndAddress_LOW 146
+#define TailBlock_BiasEndAddress_HIGH 177
 #define TailBlock_BiasEndAddress_COUNT 32
-#define TailBlock_NegAlpha_LOW 232
-#define TailBlock_NegAlpha_HIGH 241
+#define TailBlock_NegAlpha_LOW 178
+#define TailBlock_NegAlpha_HIGH 187
 #define TailBlock_NegAlpha_COUNT 10
-#define TailBlock_PosAlpha_LOW 242
-#define TailBlock_PosAlpha_HIGH 251
+#define TailBlock_PosAlpha_LOW 188
+#define TailBlock_PosAlpha_HIGH 197
 #define TailBlock_PosAlpha_COUNT 10
 
 #define OP_OutputBlock 0x02
@@ -423,7 +416,7 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 9
+#define ISA_VERSION 10
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define ACT_LEAKYRELU 0x02
@@ -557,14 +550,6 @@ inline Table get_tailblock_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	Table tbl;
 	tbl.tbl.insert({"Opcode", bitset_range_get<TailBlock_Opcode_COUNT, INST_SIZE_BITS>(inst, TailBlock_Opcode_LOW, TailBlock_Opcode_HIGH)});
 	tbl.order.push_back("Opcode");
-	tbl.tbl.insert({"BNEn", bitset_range_get<TailBlock_BNEn_COUNT, INST_SIZE_BITS>(inst, TailBlock_BNEn_LOW, TailBlock_BNEn_HIGH)});
-	tbl.order.push_back("BNEn");
-	tbl.tbl.insert({"BNChannels", bitset_range_get<TailBlock_BNChannels_COUNT, INST_SIZE_BITS>(inst, TailBlock_BNChannels_LOW, TailBlock_BNChannels_HIGH)});
-	tbl.order.push_back("BNChannels");
-	tbl.tbl.insert({"BNStartAddress", bitset_range_get<TailBlock_BNStartAddress_COUNT, INST_SIZE_BITS>(inst, TailBlock_BNStartAddress_LOW, TailBlock_BNStartAddress_HIGH)});
-	tbl.order.push_back("BNStartAddress");
-	tbl.tbl.insert({"BNEndAddress", bitset_range_get<TailBlock_BNEndAddress_COUNT, INST_SIZE_BITS>(inst, TailBlock_BNEndAddress_LOW, TailBlock_BNEndAddress_HIGH)});
-	tbl.order.push_back("BNEndAddress");
 	tbl.tbl.insert({"ActEn", bitset_range_get<TailBlock_ActEn_COUNT, INST_SIZE_BITS>(inst, TailBlock_ActEn_LOW, TailBlock_ActEn_HIGH)});
 	tbl.order.push_back("ActEn");
 	tbl.tbl.insert({"ActType", bitset_range_get<TailBlock_ActType_COUNT, INST_SIZE_BITS>(inst, TailBlock_ActType_LOW, TailBlock_ActType_HIGH)});
@@ -581,6 +566,10 @@ inline Table get_tailblock_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("PoolEn");
 	tbl.tbl.insert({"PoolType", bitset_range_get<TailBlock_PoolType_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolType_LOW, TailBlock_PoolType_HIGH)});
 	tbl.order.push_back("PoolType");
+	tbl.tbl.insert({"PoolScale", bitset_range_get<TailBlock_PoolScale_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolScale_LOW, TailBlock_PoolScale_HIGH)});
+	tbl.order.push_back("PoolScale");
+	tbl.tbl.insert({"PoolShift", bitset_range_get<TailBlock_PoolShift_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolShift_LOW, TailBlock_PoolShift_HIGH)});
+	tbl.order.push_back("PoolShift");
 	tbl.tbl.insert({"PoolWidth", bitset_range_get<TailBlock_PoolWidth_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolWidth_LOW, TailBlock_PoolWidth_HIGH)});
 	tbl.order.push_back("PoolWidth");
 	tbl.tbl.insert({"PoolHeight", bitset_range_get<TailBlock_PoolHeight_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolHeight_LOW, TailBlock_PoolHeight_HIGH)});
