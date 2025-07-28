@@ -151,12 +151,13 @@ for idx, fname in enumerate(files_to_process):
     bitstream = "/home/nirdesh/vicharak/sysim/examples/voc/rah.hex"
     gml_path = "model.gml"
     gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
-    gati.compile(onnx_path, gml_path,"pretty-print-inst","verbose","verbose2")
-    gati.set_remote("hardboiled.local")
+    gati.compile(onnx_path, gml_path,"pretty-print-inst-html")
+    gati.set_remote("mantra.local")
     gati.flash(bitstream)
     name = gati.get_model_inputs(onnx_path)[0]
     # output_tensor = gati.sim(onnx_path, {name:img})
     output_tensor = gati.run(onnx_path, gml_path, {name: img})
+    print(f"Output tensor: {output_tensor}")
     output_name, raw_output = output_tensor[0]
     output_tensor = np.array(raw_output, dtype=np.float32)
     output_tensor = output_tensor[0]

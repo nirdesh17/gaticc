@@ -6,6 +6,7 @@
 #include "optimization.h"
 #include "sim.h"
 #include "utils.h"
+#include "tensor.h"
 #include <queue>
 #include <stack>
 
@@ -2257,11 +2258,17 @@ void Op::Layer::QLinearEltwise::align_weights(BinBlob &blob, InitializerTable &t
   }
   uint32_t aligned_sz = ceil_mod(get_weight_size(), 32);
   log_info2("Appending initializer {} for size: {}, addr: {}\n", constant_data->name(), aligned_sz, tbl.get(constant_data->name()));
+
   uint32_t addr = tbl.get(constant_data->name());
   auto aligned_dims = aligned_qle_dims(this->input_dims).at(0);
   std::unique_ptr<Tensor<int8_t>> tensor {new TensorExtant<int8_t>(constant_data)};
   auto sa_arch = get_sa_arch();
-  sa_align_input_aux(blob, aligned_sz, addr, tensor.get(), aligned_dims, sa_arch[SA_ARCH_N]);
+  auto input2 = new TensorExtant<int8_t>(constant_data);
+  auto new_tensor1 = new TensorCreate<int8_t>(input_dims[0]);
+  TensorBroadcast<int8_t>::broadcast_tensor(input2, new_tensor1);
+
+  std::cout<<"eltwise weight broadcasting\n";
+  sa_align_input_aux(blob, aligned_sz, addr, new_tensor1, aligned_dims, sa_arch[SA_ARCH_N]);
 }
 
 char *BinBlob::get_data() { return m_data; }

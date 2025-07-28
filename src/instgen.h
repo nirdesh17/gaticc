@@ -539,10 +539,13 @@ void sa_align_input_aux(BinBlob &blob, uint32_t data_size, uint32_t addr, const 
             int index = (b * batch_size) + (chan_n * og_frame_sz) + elem_n;
             if (chan_n >= og_dims[TENSOR_4D_CHANNELS] || elem_n >= og_frame_sz) {
               blob.append(zero);
+              // std::cout<<(int)zero<<" ";
             } else {
               blob.append(tensor->at(index));
+              // std::cout<<(int)tensor->at(index)<<" ";
             }
           }
+          // std::cout<<"\n";
         }
       }
     }
