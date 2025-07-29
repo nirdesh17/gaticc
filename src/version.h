@@ -1,5 +1,5 @@
 #pragma once
 
-#define GATICC_VERSION "0.9.0"
+#define GATICC_VERSION "0.9.1"
 #define GATICC_BOOST_VERSION "1.86.0"
 #define GATICC_PROTOBUF_VERSION "21.12"
