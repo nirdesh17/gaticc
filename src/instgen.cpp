@@ -542,11 +542,13 @@ InstGen::InstGen(const Op::Parser &parser) {
    * which is the modification of LayerBase->{inputs,outputs} registers.
    */
   Pass::reassign_registers(graph);
+  log_info2("Pass: reassign register shift done\n");
   /* This function is called by its side-effect that adjusts
    * a megablocks' y_scale to account of shift introduced
    * by dequantize-quantize layers following a QLinearConv.
    */
   Pass::adjust_scale_shift(graph);
+  log_info2("Pass: adjust scale shift done\n");
 
   AddressGen generator(graph);
   auto exec_order = generator.get_exec_order();
@@ -577,17 +579,21 @@ InstGen::InstGen(const Op::Parser &parser) {
     }
   }
 
+  log_info2("Starting to run get_inst\n");
+
   InstBlob instructions;
   for (Op::LayerBase *l : exec_order) {
     /* push generated instructions and initializers to
      * 'instructions' and 'tbl' respectively
      */
+    log_info2("get_inst called for {}\n", l->name);
     l->dispatch = dispatch_table.should_dispatch(l);
     int rr = l->get_inst(instructions, generator, init_tbl);
     total_dwp_packets += rr;
     insert_io_addr_tbl(l);
   }
 
+  log_info2("Combining instructions\n");
   CmpFunc<std::bitset<INST_SIZE_BITS>> cmp = cmp_opcodes;
   CmpApplyFunc<std::bitset<INST_SIZE_BITS>> cmp_apply = or_inst;
   auto collapsed_insts =

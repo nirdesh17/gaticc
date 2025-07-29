@@ -17,8 +17,8 @@
 #include <utility>
 #include <vector>
 
-constexpr int FIXED_POINT_BASE_TYPE = 18;
-constexpr int FIXED_POINT_SPLIT = 10;
+constexpr int FIXED_POINT_BASE_TYPE = 32;
+constexpr int FIXED_POINT_SPLIT = 16;
 
 template <typename T> class Relu {
   int clip_val;
@@ -395,6 +395,7 @@ public:
     return os << fp.toFloat();
   }
 };
+
 using fp_t = FixedPoint<FIXED_POINT_SPLIT, FIXED_POINT_BASE_TYPE>;
 
 /* Element wise tensor addition with scales and zp
@@ -479,7 +480,7 @@ int get_calib_scale(float scale);
 
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
-                           int max_lim, int shift_val) {
+                           int max_lim, int shift_val, int index) {
 #if 1 /* switch this off for debugging with regular float quantization */
   constexpr int fpwidth = 16;
   /* FPGA style quantization (this is how it's implemented on the FPGA) */
@@ -507,7 +508,7 @@ inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
     return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
   }
 #else
-  inputT rounded = std::round(((float)v / scale + zero_point));
+  inputT rounded = std::nearbyintf((((float)v / scale)));
   return (outputT)std::clamp<inputT>(rounded, min_lim, max_lim);
 #endif
 }
@@ -550,7 +551,7 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output,
           int in_index = bc + k * out_strides[2] + l * out_strides[3];
           inputT val = input->at(in_index);
           outputT new_val = quantize_fn<inputT, outputT>(
-              val, bscales[channel], bzero_points[channel], min_lim, max_lim, shift_val);
+              val, bscales[channel], bzero_points[channel], min_lim, max_lim, shift_val, in_index);
           output->set(in_index, new_val);
         }
       }
@@ -574,7 +575,7 @@ void quantize(const Tensor<inputT> *input, Tensor<outputT> *output,
     for (int i = 0; i < input->dims_iterator(-1); ++i) {
       inputT val = input->at(i);
       outputT new_val = quantize_fn<inputT, outputT>(
-          val, scales[0], zero_point[0], min_lim, max_lim, shift_val);
+          val, scales[0], zero_point[0], min_lim, max_lim, shift_val, i);
       output->set(i, new_val);
     }
   }

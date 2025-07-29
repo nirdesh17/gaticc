@@ -3199,6 +3199,7 @@ Op::Parser::Parser(std::string const &filename) {
   m_model.update_registers();
   log_info2("Parsing Finished\n");
   m_model.save_input_output_names();
+  log_info2("Save input output names done\n");
 }
 
 void Op::Parser::summary() const { m_model.bare_summary(); }

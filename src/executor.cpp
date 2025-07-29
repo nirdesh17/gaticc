@@ -741,8 +741,14 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
     } else {
       // one of the inputs is an initializer (available statically)
       input2 = new TensorExtant<inputT>(cc->constant_data);
-      tensor_qeltwise(intr_output.get(), input1, input2, cc->a_scale,
-                      cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
+      if (input1->name() == cc->input_names.at(0 /* QLE_A */) &&
+          input2->name() == cc->input_names.at(3 /* QLE_B */)) {
+        tensor_qeltwise(intr_output.get(), input1, input2, cc->a_scale,
+                        cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
+      } else {
+        tensor_qeltwise(intr_output.get(), input2, input1, cc->a_scale,
+                        cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
+      }
       delete input2;
     }
     using variantT = std::variant<int8_t, uint8_t>;

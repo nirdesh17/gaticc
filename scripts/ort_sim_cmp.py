@@ -44,8 +44,6 @@ def load_samples(npy, shape, sample_idx):
     if data.ndim == len(shape) - 1:
         if sample_idx not in [None, 0]: sys.exit(f"sample_index {sample_idx} out of bounds.")
         return [data]
-    if data.ndim != len(shape) or data.shape[0] == 0:
-        sys.exit(f"Invalid NPY shape {data.shape} vs input shape {shape}")
     if sample_idx is not None:
         if not (0 <= sample_idx < data.shape[0]): sys.exit(f"sample_index {sample_idx} out of range.")
         return [data[sample_idx]]
@@ -81,10 +79,11 @@ def compare_layers(ort_ret, sim_ret, dump=[]):
     for l in dump:
       sim_arr = sim_dict[l]
       ort_arr = ort_dict[l]
-      for i,j in zip(sim_arr.flatten(), ort_arr.flatten()):
-        print(f"Sim: {i}, Ort: {j}")
+      for index,(i,j) in enumerate(zip(sim_arr.flatten(), ort_arr.flatten())):
+        if i != j:
+          print(f"Index {index}: Sim {i}, Ort: {j}")
     return [
-        (name, 100 * (abs(ort_arr - sim_dict[name]) < 1e-4).sum() / ort_arr.size)
+        (name, 100 * (abs(ort_arr - sim_dict[name]) == 0).sum() / ort_arr.size)
         for name, ort_arr in ort_ret
         if name in sim_dict and ort_arr.shape == sim_dict[name].shape
     ]
@@ -93,7 +92,9 @@ def main():
     # Usage examples:
     # python ort_sim_cmp.py <onnx> <npy> <layer_name>|"all" --sample_index <which image in npy>
     p = argparse.ArgumentParser(description="Expose ONNX node outputs via node names.")
-    p.add_argument("original_onnx_path"), p.add_argument("npy_path"), p.add_argument("intermediate_names", nargs='+')
+    p.add_argument("original_onnx_path")
+    p.add_argument("npy_path")
+    p.add_argument("intermediate_names", nargs='+')
     p.add_argument("--dtype", default="FLOAT", type=str.upper, choices=list(ONNX_DTYPE_MAP))
     p.add_argument("--sample_index", type=int, default=None)
     args = p.parse_args()
@@ -114,9 +115,10 @@ def main():
         samples = load_samples(args.npy_path, input_shape, args.sample_index)
     except Exception as e: sys.exit(f"Inference prep error: {e}")
 
-    run_inf_ret = run_inference(model_bytes, samples, input_name, output_tensor_names, dtype_np)
-    run_sim_ret = run_gati_sim(args.original_onnx_path, np.expand_dims(samples[0], 0), args.intermediate_names)
-    rr = compare_layers(run_inf_ret, run_sim_ret)
+    run_inf_ret = run_inference(model_bytes, samples[0], input_name, output_tensor_names, dtype_np)
+    name = gati.get_model_inputs(args.original_onnx_path)[0]
+    run_sim_ret = run_gati_sim(args.original_onnx_path, {name: np.expand_dims(samples[0],0)}, args.intermediate_names)
+    rr = compare_layers(run_inf_ret, run_sim_ret, dump=[])
     for name, pct in rr:
       print(f"{pct:6.2f}% {name}")
 if __name__ == "__main__":
