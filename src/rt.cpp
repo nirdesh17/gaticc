@@ -382,16 +382,21 @@ void Runner::load_model(Rah &rah, const Fstream &fp) {
 
   constexpr std::bitset<META_WIDTH_BITS> d_uart{META_CONST_DISPATCH_UART};
   constexpr std::bitset<META_WIDTH_BITS> d_rah{META_CONST_DISPATCH_RAH};
+  constexpr std::bitset<META_WIDTH_BITS> d_spi{META_CONST_DISPATCH_SPI};
 
   constexpr auto d_uart_arr{get_byte_vector<META_WIDTH_BITS>(d_uart)};
   constexpr auto d_rah_arr{get_byte_vector<META_WIDTH_BITS>(d_rah)};
+  constexpr auto d_spi_arr{get_byte_vector<META_WIDTH_BITS>(d_spi)};
 
   std::vector<char> d_uart_vec(d_uart_arr.begin(), d_uart_arr.end());
   std::vector<char> d_rah_vec(d_rah_arr.begin(), d_rah_arr.end());
+  std::vector<char> d_spi_vec(d_spi_arr.begin(), d_spi_arr.end());
 
   log_info("setting dispatch type\n");
   if (gbl_args.has_option("receive-over-uart")) {
     rah.write_meta(META_TYPE_DISPATCH, d_uart_vec);
+  } else if (gbl_args.has_option("receive-over-spi")) {
+    rah.write_meta(META_TYPE_DISPATCH, d_spi_vec);
   } else {
     rah.write_meta(META_TYPE_DISPATCH, d_rah_vec);
   }
