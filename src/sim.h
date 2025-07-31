@@ -887,41 +887,6 @@ void logsoftmax(Tensor<T> *output, Tensor<T> *input, int axis) {
   }
 }
 
-/* FPGA style binary average calculation without division
- * operations
- */
-template <typename T> static T avg(const std::vector<T>& vec) {
-  auto v = vec;
-  if (v.size() == 1) {
-    return v.at(0);
-  }
-  int iterations = ceil(log2f(v.size()));
-  for (int j = 0; j < iterations; ++j) {
-    std::vector<T> new_vec;
-    for (size_t i = 0; i < v.size() - (v.size() % 2); i += 2) {
-      int tmp = v.at(i) + v.at(i + 1);
-      tmp >>= 1;
-      new_vec.push_back(tmp);
-    }
-    if (v.size() % 2 != 0) {
-      new_vec.push_back(v.at(v.size() - 1));
-    }
-    v = new_vec;
-  }
-  return v.at(0);
-}
-
-/* floats and doubles dont go well with log-based averages */
-template <> float avg<float>(const std::vector<float>& v) {
-  float sum = std::accumulate(v.cbegin(), v.cend(), (float)0);
-  return static_cast<float>(static_cast<float>(sum) / v.size());
-}
-
-template <> double avg<double>(const std::vector<double>& v) {
-  double sum = std::accumulate(v.cbegin(), v.cend(), (double)0);
-  return static_cast<double>(static_cast<double>(sum) / v.size());
-}
-
 template <typename T>
 void average_pool(const Tensor<T> *input, Tensor<T> *output,
                   const Op::PoolParams &mp) {
@@ -945,19 +910,24 @@ void average_pool(const Tensor<T> *input, Tensor<T> *output,
   int output_height = mp_odims_row(mp, input->get_dims());
   int output_width = mp_odims_cols(mp, input->get_dims());
 
+  float scale_inv = 1.0f / (mp.k[TENSOR_2D_WIDTH] * mp.k[TENSOR_2D_HEIGHT]);
+
+  int shift_val = calc_shift_val(scale_inv);
+  int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
+
   for (int ici = 0; ici < output_depth; ++ici) {
     for (int ihi = 0; ihi < output_height * mp.stride[TENSOR_2D_HEIGHT];
          ihi += mp.stride[TENSOR_2D_HEIGHT]) {
       for (int iwi = 0; iwi < output_width * mp.stride[TENSOR_2D_WIDTH];
            iwi += mp.stride[TENSOR_2D_WIDTH]) {
-        std::vector<T> vals;
+        T val = 0;
         for (int khi = 0; khi < mp.k[TENSOR_2D_HEIGHT]; ++khi) {
           for (int kwi = 0; kwi < mp.k[TENSOR_2D_WIDTH]; ++kwi) {
             std::vector<int> in_index{0, ici, (ihi + khi), (iwi + kwi)};
-            vals.push_back(padded_input->at(in_index));
+            val += padded_input->at(in_index);
           }
         }
-        T avg_val = avg<T>(vals);
+        T avg_val = (val * scale_val) / (1 << shift_val);
         std::vector<int> out_index{0, ici, ihi / mp.stride[TENSOR_2D_HEIGHT],
                                    iwi / mp.stride[TENSOR_2D_WIDTH]};
         output->insert(out_index, avg_val);
