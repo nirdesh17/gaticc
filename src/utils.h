@@ -123,6 +123,13 @@ class Argparse {
            "FPGA "
            "pins 28 (GND), 30 (TX), 32 (RX) (From FPGAs Side)",
            0},
+          {"receive-over-spi",
+           {"--receive-over-spi"},
+           "Instruct FPGA (slave) to send its outputs to CPU (master) "
+           "via scripts/spi_server.py. SPI pin mapping (CPU <-> FPGA): "
+           "SCLK -> Pin 7 <-> 7, MOSI -> Pin 29 <-> 29, "
+           "MISO -> Pin 31 <-> 31, CS_N -> Pin 33 <-> 33.",
+           0},
           {"output",
            {"--output", "-o"},
            "write output to file. Args: filename. For ex, -o model.gml",
