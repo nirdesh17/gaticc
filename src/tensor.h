@@ -746,7 +746,8 @@ void pickle_tensor(const Tensor<T> *t, std::string filename) {
   out.put(static_cast<char>((header_size >> 8) & 0xFF));
   out.write(header.c_str(), header.size());
   for (int i = 0; i < t->size(); ++i) {
-    out << t->at(i);
+    T val = t->at(i);
+    out.write(reinterpret_cast<const char*>(&val), sizeof(T));
   }
 }
 
