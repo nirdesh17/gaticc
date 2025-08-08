@@ -433,6 +433,37 @@ void tensor_qeltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
   }
 }
 
+template <typename inputT, typename outputT>
+void tensor_qeltwise_32bit(Tensor<outputT> *output, const Tensor<inputT> *input1,
+                     const Tensor<inputT> *input2, float i1_scale,
+                     float i2_scale, int i1_zp, int i2_zp, int op) {
+  std::vector<int> required_shape =
+    TensorBroadcast<inputT>::compute_broadcast_shape(input1->get_dims(), input2->get_dims());
+
+  if (op == ELTWISE_ADD) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+      outputT v = ((i1_scale * (v1- i1_zp)) + (i2_scale * (v2 - i2_zp)));
+      output->set(i, v);
+    }
+  } else if (op == ELTWISE_MULT) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+      outputT v = ((i1_scale * (v1 - i1_zp)) * (i2_scale * (v2 - i2_zp)));
+      output->set(i, v);
+    }
+  } else if (op == ELTWISE_SUB) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      inputT v1 = TensorBroadcast<inputT>::broadcast_view(input1, required_shape, i);
+      inputT v2 = TensorBroadcast<inputT>::broadcast_view(input2, required_shape, i);
+      outputT v = ((i1_scale * (v1 - i1_zp)) - (i2_scale * (v2 - i2_zp)));
+      output->set(i, v);
+    }
+  }
+}
+
 /* Add a tensor and a vector. Each element of the
  * vector is added to all elements of each channel
  * of the tensor

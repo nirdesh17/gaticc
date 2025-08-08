@@ -710,7 +710,7 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   if constexpr (std::is_same<inputT, int32_t>()) {
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
-    tensor_qeltwise(intr_output.get(), input1, input2, 1, 1, 0, 0,
+    tensor_qeltwise_32bit(intr_output.get(), input1, input2, 1, 1, 0, 0,
                     cc->operator_type);
     if constexpr (std::is_same<outputT, int8_t>()) {
       std::vector<float> x_scale {cc->a_scale};
