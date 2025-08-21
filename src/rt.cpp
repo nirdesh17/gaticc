@@ -319,7 +319,6 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
   m_parser = &parser;
   split_large_kernel(m_parser->get_graph());
   Pass::absorb(m_parser->get_graph());
-  tensor_pool_init();
   Fstream fp(gml_path);
   std::unique_ptr<Rah> rah;
   if (gbl_args.has_option("dry-run")) {

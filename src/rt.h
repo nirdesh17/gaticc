@@ -141,7 +141,7 @@ TensorPool Runner::infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<in
   IOAddrTbl io_addr_tbl = instgen.get_io_addr_tbl();
 
   Op::RegisterAllocator allcator(m_parser->get_graph());
-
+  tensor_pool_init();
   int batch_size = -1;
   for (size_t i = 0; i < arr.size(); ++i) {
     const auto &expected = order.at(0)->input_dims[i];
