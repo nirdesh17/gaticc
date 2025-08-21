@@ -2275,7 +2275,10 @@ void Op::Layer::QLinearEltwise::align_weights(BinBlob &blob, InitializerTable &t
   auto aligned_dims = aligned_qle_dims(this->input_dims).at(0);
   std::unique_ptr<Tensor<int8_t>> tensor {new TensorExtant<int8_t>(constant_data)};
   auto sa_arch = get_sa_arch();
-  sa_align_input_aux(blob, aligned_sz, addr, tensor.get(), aligned_dims, sa_arch[SA_ARCH_N]);
+  auto constant_tensor = new TensorExtant<int8_t>(constant_data);
+  auto weight_tensor = new TensorCreate<int8_t>(input_dims[0]);
+  TensorBroadcast<int8_t>::broadcast_tensor(constant_tensor, weight_tensor);
+  sa_align_input_aux(blob, aligned_sz, addr, weight_tensor, aligned_dims, sa_arch[SA_ARCH_N]);
 }
 
 char *BinBlob::get_data() { return m_data; }
