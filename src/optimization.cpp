@@ -10,11 +10,11 @@ bool is_large_conv(Op::Layer::QLinearConv *cc) {
 }
 
 Op::Vertex create_qconv(Op::Graph &g, const Op::Layer::QLinearConv *cc,
-                        onnx::TensorProto *tensor, int n, int i) {
+                        onnx::TensorProto *tensor, int n, int i, std::string base_name) {
   Op::Vertex new_vertex = boost::add_vertex(g);
   auto *new_conv = new Op::Layer::QLinearConv(*cc);
 
-  new_conv->name = "decompose_qconv_" + std::to_string(i);
+  new_conv->name = base_name + "decompose_qconv_" + std::to_string(i);
 
   if (i == n - 1) {
     new_conv->bias = cc->bias;
@@ -39,11 +39,11 @@ Op::Vertex create_qconv(Op::Graph &g, const Op::Layer::QLinearConv *cc,
 
 Op::Vertex create_qadd(Op::Graph &g,
                        std::vector<Op::Vertex> &new_decomposed_conv,
-                       const Op::Layer::QLinearConv *cc, int n, int i) {
+                       const Op::Layer::QLinearConv *cc, int n, int i, std::string base_name) {
   Op::Vertex new_vertex = boost::add_vertex(g);
   auto *new_add = new Op::Layer::QLinearEltwise(ELTWISE_ADD); 
 
-  new_add->name = "qadd_" + std::to_string(i);
+  new_add->name = base_name + "qadd_" + std::to_string(i);
 
   new_add->a_scale = cc->x_scale[0];
   new_add->b_scale = cc->w_scale[0];
@@ -139,7 +139,7 @@ void split_large_kernel(Op::Graph &g) {
         std::vector<Op::Vertex> new_decomposed_conv;
         for (size_t i = 0; i < sliced_tensors.size(); i++) {
           Op::Vertex new_vertex =
-              create_qconv(g, cc, sliced_tensors[i], sliced_tensors.size(), i);
+              create_qconv(g, cc, sliced_tensors[i], sliced_tensors.size(), i, cc->name);
           new_decomposed_conv.push_back(new_vertex);
           for (auto pred : predecessors) {
             boost::add_edge(pred, new_vertex, g);
@@ -149,7 +149,7 @@ void split_large_kernel(Op::Graph &g) {
         std::vector<Op::Vertex> qadd;
         for (size_t i = 0; i < sliced_tensors.size() - 1; i++) {
           Op::Vertex new_vertex =
-              create_qadd(g, new_decomposed_conv, cc, sliced_tensors.size(), i);
+              create_qadd(g, new_decomposed_conv, cc, sliced_tensors.size(), i, cc->name);
           qadd.push_back(new_vertex);
         }
 
