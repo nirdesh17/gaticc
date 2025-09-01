@@ -508,7 +508,9 @@ bool is_megablock_op_code(int i);
  * have a DWP_HEADER as a start and a DWP_HEADER as end packet
  */
 inline size_t io_tensor_packet_size(size_t tensor_size) {
-  return tensor_size + (DWP_HEADER_BYTES * 2);
+  size_t a= tensor_size + (DWP_HEADER_BYTES * 2);
+  size_t b = ceil_mod(a, 6);
+  return b;
 }
 
 void check_dwp_header(const uint8_t *data, size_t size, uint32_t expected_ds, uint32_t expected_addr);
