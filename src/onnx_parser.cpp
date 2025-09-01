@@ -137,7 +137,7 @@ void autopad_to_pads(int *pad, const int *k, const int *s, bool ceil_h,
 }
 
 const char *Op::Layer::NoOp::op_type() const { return m_optype; }
-Op::Layer::NoOp::NoOp() {}
+Op::Layer::NoOp::NoOp() { device = DEVICE_UNKNOWN; }
 
 Op::Layer::Conv::Conv() {
   /* zero initialize */
@@ -150,6 +150,7 @@ Op::Layer::Conv::Conv() {
   m_cp.auto_pad = "";
   weights = nullptr;
   bias = nullptr;
+  device = DEVICE_UNKNOWN;
 }
 
 const char *Op::Layer::Conv::op_type() const { return m_optype; }
@@ -236,6 +237,7 @@ const char *Op::Layer::Relu::op_type() const { return m_optype; }
 
 Op::Layer::Relu::Relu() {
   alpha = 0.0f;
+  device = DEVICE_UNKNOWN;
 }
 
 enum QLLR_INITIALIZERS {
@@ -306,6 +308,7 @@ Op::Layer::Clip::Clip() {
   /* defaults */
   m_min = INT_MIN;
   m_max = INT_MAX;
+  device = DEVICE_UNKNOWN;
 }
 const char *Op::Layer::Clip::op_type() const { return m_optype; }
 std::string Op::Layer::Clip::params() const {
@@ -384,6 +387,7 @@ Op::Layer::Gemm::Gemm() {
   m_cp.beta = 1.0;
   m_cp.transA = 0;
   m_cp.transB = 0;
+  device = DEVICE_UNKNOWN;
 }
 const char *Op::Layer::Gemm::op_type() const { return m_optype; }
 std::string Op::Layer::Gemm::params() const {
@@ -484,6 +488,7 @@ Op::Layer::Maxpool::Maxpool() {
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
   m_cp.auto_pad = "";
+  device = DEVICE_UNKNOWN;
 }
 
 const char *Op::Layer::Maxpool::op_type() const { return m_optype; }
@@ -575,7 +580,10 @@ void Op::Layer::Flatten::infer_type(const std::vector<TPDT> &input_types) {
   this->output_type = input_types;
 }
 
-Op::Layer::Dropout::Dropout() { drop = 0.f; }
+Op::Layer::Dropout::Dropout() {
+  drop = 0.f;
+  device = DEVICE_UNKNOWN;
+}
 const char *Op::Layer::Dropout::op_type() const { return m_optype; }
 std::string Op::Layer::Dropout::params() const {
   std::string ret;
@@ -607,6 +615,7 @@ void Op::Layer::Dropout::infer_type(const std::vector<TPDT> &input_types) {
 
 Op::Layer::Eltwise::Eltwise(int op) : operator_type(op) {
   constant_data = nullptr;
+  device = DEVICE_UNKNOWN;
 }
 
 const char *Op::Layer::Eltwise::op_type() const { return m_optype; }
@@ -797,7 +806,9 @@ void Op::Layer::Reshape::infer_type(const std::vector<TPDT> &input_types) {
 }
 
 Op::Layer::DequantizeLinear::DequantizeLinear()
-    : scale{0.0}, zero_point{0}, axis{0}, block_size{0} {}
+    : scale{0.0}, zero_point{0}, axis{0}, block_size{0} {
+  device = DEVICE_UNKNOWN;
+}
 
 const char *Op::Layer::DequantizeLinear::op_type() const { return m_optype; }
 
@@ -945,7 +956,9 @@ void Op::Layer::QuantizeLinear::set_initializer_params(
 }
 
 Op::Layer::QuantizeLinear::QuantizeLinear()
-    : scale{1.0}, axis{0}, block_size{0}, output_dtype{0}, saturate{1} {}
+    : scale{1.0}, axis{0}, block_size{0}, output_dtype{0}, saturate{1} {
+  device = DEVICE_UNKNOWN;
+}
 
 void Op::Layer::QuantizeLinear::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
@@ -1023,6 +1036,7 @@ Op::Layer::QLinearConv::QLinearConv() {
   m_cp.auto_pad = "";
   weights = nullptr;
   bias = nullptr;
+  device = DEVICE_UNKNOWN;
 }
 
 const char *Op::Layer::QLinearConv::op_type() const { return m_optype; }
@@ -1201,7 +1215,10 @@ void Op::Layer::QLinearConv::infer_type(const std::vector<TPDT> &input_types) {
   this->weight_type = Op::get_type_from_tensor_proto(*this->weights);
 }
 
-Op::Layer::QLinearMatMul::QLinearMatMul() { m_cp = {}; }
+Op::Layer::QLinearMatMul::QLinearMatMul() {
+  m_cp = {};
+  device = DEVICE_UNKNOWN;
+}
 const char *Op::Layer::QLinearMatMul::op_type() const { return m_optype; }
 std::string Op::Layer::QLinearMatMul::params() const {
   std::string ret;
@@ -1306,6 +1323,7 @@ void Op::Layer::QLinearMatMul::infer_type(
 
 Op::Layer::QLinearEltwise::QLinearEltwise(int op) : operator_type(op) {
   constant_data = nullptr;
+  device = DEVICE_UNKNOWN;
 }
 
 const char *Op::Layer::QLinearEltwise::op_type() const { return m_optype; }
@@ -1450,7 +1468,10 @@ void Op::Layer::Transpose::infer_type(const std::vector<TPDT> &input_types) {
   this->output_type = input_types;
 }
 
-Op::Layer::MatMul::MatMul() { m_cp = {}; }
+Op::Layer::MatMul::MatMul() {
+  m_cp = {};
+  device = DEVICE_UNKNOWN;
+}
 
 const char *Op::Layer::MatMul::op_type() const { return m_optype; }
 
@@ -1479,6 +1500,7 @@ Op::Layer::QGemm::QGemm() {
   m_cp.beta = 1.0;
   m_cp.transA = 0;
   m_cp.transB = 0;
+  device = DEVICE_UNKNOWN;
 }
 const char *Op::Layer::QGemm::op_type() const { return m_optype; }
 std::string Op::Layer::QGemm::params() const {
@@ -1630,7 +1652,10 @@ void Op::Layer::QGemm::infer_type(const std::vector<TPDT> &input_types) {
   this->bias_type = Op::get_type_from_tensor_proto(*this->bias);
 }
 
-Op::Layer::LogSoftmax::LogSoftmax() { axis = -1; }
+Op::Layer::LogSoftmax::LogSoftmax() {
+  axis = -1;
+  device = DEVICE_UNKNOWN;
+}
 
 const char *Op::Layer::LogSoftmax::op_type() const { return m_optype; }
 
@@ -1683,6 +1708,7 @@ Op::Layer::QLinearAveragePool::QLinearAveragePool(bool gbl) {
   m_cp.gbl = gbl;
   x_scale = 0;
   y_scale = 0;
+  device = DEVICE_UNKNOWN;
 }
 
 const char *Op::Layer::QLinearAveragePool::op_type() const { return m_optype; }
@@ -1782,7 +1808,9 @@ void Op::Layer::Abs::infer_type(const std::vector<TPDT> &input_types) {
   this->output_type = input_types;
 }
 
-Op::Layer::ReduceMean::ReduceMean() : m_axis{-1}, m_keepdims{1} {}
+Op::Layer::ReduceMean::ReduceMean() : m_axis{-1}, m_keepdims{1} {
+  device = DEVICE_UNKNOWN;
+}
 
 const char *Op::Layer::ReduceMean::op_type() const { return m_optype; }
 
@@ -1831,6 +1859,7 @@ Op::Layer::AveragePool::AveragePool(bool gbl) {
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
   m_cp.gbl = gbl;
+  device = DEVICE_UNKNOWN;
 }
 
 const char *Op::Layer::AveragePool::op_type() const { return m_optype; }
@@ -1920,7 +1949,9 @@ void Op::Layer::Shape::infer_shape(const IVec2D &input_dims) {
   this->pipelined_output_dims = this->output_dims;
 }
 
-Op::Layer::Gather::Gather() : m_axis{0}, m_indices{nullptr} {}
+Op::Layer::Gather::Gather() : m_axis{0}, m_indices{nullptr} {
+  device = DEVICE_UNKNOWN;
+}
 
 const char *Op::Layer::Gather::op_type() const { return m_optype; }
 
@@ -2005,7 +2036,7 @@ void Op::Layer::Concat::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
-Op::Layer::NMS::NMS() {}
+Op::Layer::NMS::NMS() { device = DEVICE_UNKNOWN; }
 
 const char *Op::Layer::NMS::op_type() const { return m_optype; }
 
