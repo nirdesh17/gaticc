@@ -13,6 +13,7 @@ class DispatchTable {
   std::vector<std::string> tbl;
 
 public:
+  int num_dispatch_layers;
   DispatchTable();
   /* all nodes with no out-edges directly quality for dispatch */
   DispatchTable(Op::Graph graph,

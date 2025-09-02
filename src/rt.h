@@ -76,7 +76,7 @@ class AirRah : public Rah {
   int m_sock;
   void serv_send(int app_id, const char *data, int size);
 public:
-  AirRah(const std::string& server_ip);
+  AirRah(const std::string& server_ip, const int num_of_layers_to_dispatch);
   ~AirRah();
   int write(const char *data, size_t size) override;
   int read(char *data, size_t size) override;
@@ -223,7 +223,7 @@ TensorPool Runner::infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<in
           log_info("Receive output time: {} us\n", run_tt.difference().count());
           log_info("receiving output finish\n");
           if (!last_layer->dispatch) {
-            dump_and_exit = true;
+            dump_and_exit = false; //TODO: this was true check why by making it false it works
             goto _dump;
           }
         } else {

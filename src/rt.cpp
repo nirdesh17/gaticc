@@ -179,7 +179,7 @@ int FakeRah::read(char *data, size_t size) {
 
 void FakeRah::check_version() {}
 
-AirRah::AirRah(const std::string &server_ip) {
+AirRah::AirRah(const std::string &server_ip, const int num_of_layers_to_dispatch) {
   log_info("Resetting AirRah servers...\n");
   int reset_sock = socket(AF_INET, SOCK_STREAM, 0);
   if (reset_sock == -1) {
@@ -234,6 +234,18 @@ AirRah::AirRah(const std::string &server_ip) {
     std::this_thread::sleep_for(std::chrono::milliseconds(retry_delay_ms));
   }
   log_info("Connected to server at ip {}, port {}\n", server_ip, port_no);
+
+  if (gbl_args.has_option("receive-over-spi")) {
+    bool multi_dispatch = false;
+    multi_dispatch = num_of_layers_to_dispatch > 1 ? true : false;
+    log_info("Is multilayer dispatch ?? {}\n", multi_dispatch);
+    log_info("Number of layers to dispatch {}\n", num_of_layers_to_dispatch);
+
+    uint8_t flag = multi_dispatch ? 1 : 0;
+    send(m_sock, (const char *)&flag, sizeof(flag), 0);
+    uint32_t num_layers = htonl(num_of_layers_to_dispatch);
+    send(m_sock, &num_layers, sizeof(num_layers), 0);
+  }
 }
 
 void AirRah::serv_send(int app_id, const char *data, int size) {
@@ -314,9 +326,13 @@ std::string Runner::get_run_arg() {
 
 Runner::Runner() {}
 
-TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_path, py::dict arr) {
+TensorPool Runner::infer(const std::string &onnx_path,
+                         const std::string &gml_path, py::dict arr) {
   Op::Parser parser(onnx_path);
   m_parser = &parser;
+  Op::Graph megablock_graph =
+  Pass::create_megablock_graph(m_parser->get_graph());
+  DispatchTable hdt(megablock_graph, m_parser->get_name_vertex_map());
   split_large_kernel(m_parser->get_graph());
   Pass::absorb(m_parser->get_graph());
   Fstream fp(gml_path);
@@ -325,17 +341,16 @@ TensorPool Runner::infer(const std::string& onnx_path, const std::string& gml_pa
     rah = std::make_unique<FakeRah>();
   } else if (gbl_args.has_option("remote")) {
     std::string ip_addr = gbl_args["remote"].as<std::string>();
-    rah = std::make_unique<AirRah>(ip_addr);
+    rah = std::make_unique<AirRah>(ip_addr, hdt.num_dispatch_layers);
   } else {
     rah = std::make_unique<RealRah>();
   }
   load_model(*rah.get(), fp);
-  Op::Graph megablock_graph = Pass::create_megablock_graph(m_parser->get_graph());
-  DispatchTable hdt(megablock_graph, m_parser->get_name_vertex_map());
+
   TPDT input_type = parser.get_model_input_type();
   TPDT output_type = parser.get_model_output_type();
   auto input_names = parser.get_model_input_names();
-  for (const auto& name : input_names) {
+  for (const auto &name : input_names) {
     if (!arr.contains(name.c_str())) {
       log_fatal("Input missing: model expects input named '{}'\n", name);
     }
@@ -418,7 +433,8 @@ void Op::LayerBase::send_input(TensorPool &, AddressGen &, Rah &, IOAddrTbl &) c
   log_fatal("Cannot send inputs for layer {}: send_input() override not implemented\n", this->name);
 }
 void Op::LayerBase::receive_output(TensorPool &tensor_pool, Rah &rah) const {
-  log_fatal("Cannot receive outputs for layer {}: receive_output() override not implemented\n", this->name);
+  //TODO: when setting dispatch --all or a layer that is not megablock the flow stops, fix this.
+  // log_fatal("Cannot receive outputs for layer {}: receive_output() override not implemented\n", this->name);
 }
 
 

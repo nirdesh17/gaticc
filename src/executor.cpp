@@ -58,6 +58,7 @@ DispatchTable::DispatchTable(
       tbl.push_back(graph[v]->name);
     }
   }
+  num_dispatch_layers = tbl.size();
 }
 
 bool DispatchTable::should_dispatch(const Op::LayerBase *l) {
