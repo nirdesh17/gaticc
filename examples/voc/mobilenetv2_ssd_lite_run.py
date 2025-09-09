@@ -138,7 +138,7 @@ def postprocess(boxes, scores, width, height, class_names,
     return picked_box_probs[:, :4], np.array(picked_labels), picked_box_probs[:, 4]  
 
 
-def run_inference(onnx_path, img):
+def run_inference(onnx_path, img, frame):
     output_tensor = gati.run(onnx_path, gml_path, {name: img})
     outputs = [out[1] for out in reversed(output_tensor)]
     scores = outputs[0:12:2]
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--video", help="Path to a video file.")
     parser.add_argument("-c", "--camera", action="store_true", help="Use camera for detection.")
     args = parser.parse_args()
-    onnx_path = "mobilenetv2_ssd_lite_int8.onnx"
+    onnx_path = "mobilenetv2_ssd_lite_tailfree_VOC_mAP_57.onnx"
     bitstream = "rah.hex"
     gml_path = "model.gml"
     gati.set_arch(ramsize=512, sa_arch="16,1,16", vasize=32, accbuf_size=4096, fcbuf_size=16384,im2colbuf_size=512)
@@ -230,7 +230,7 @@ if __name__ == "__main__":
             if not ret:
                 break
             img = preprocess(frame)
-            frame = run_inference(onnx_path, img)
+            frame = run_inference(onnx_path, img, frame)
             cv2.imshow("Gati Real-Time Detection", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -255,7 +255,7 @@ if __name__ == "__main__":
         image_path = os.path.join(dir_image, fname)
         print(f"Processing {idx + 1}/{len(files_to_process)}: {image_path}")
         img = preprocess(image_path)
-        orig_image = run_inference(onnx_path, img)
+        orig_image = run_inference(onnx_path, img, cv2.imread(image_path))
         cv2.imwrite(f"output_{fname}" ,orig_image)
         
 
