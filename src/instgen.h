@@ -181,7 +181,7 @@ std::vector<int> aligned_conv_weight_dims(const T1 &wdims, const T2 &idims) {
   assert(wdims.size() == 4);
   auto w = wdims;
   auto sa_arch = get_sa_arch();
-  if (is_pointwise_conv(w)) {
+  if (is_pointwise_conv(w) && !is_sa_regular_optimal(sa_arch)) {
     w[TENSOR_4D_BATCH] = ceil_mod(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     w[TENSOR_4D_CHANNELS] = ceil_mod(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
   } else if (is_depthwise_conv(w, idims)) {
@@ -256,7 +256,7 @@ template <typename T1, typename T2> IVec2D aligned_conv_input_dims(const T1 &dim
   assert(!dims.empty() && dims[0].size() == 4);
   auto sa_arch = get_sa_arch();
   std::vector<int> i = dims[0];
-  if (is_pointwise_conv(wdims)) {
+  if (is_pointwise_conv(wdims) && !is_sa_regular_optimal(sa_arch)) {
     i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
   } else {
     i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);

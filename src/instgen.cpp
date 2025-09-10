@@ -757,7 +757,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
     inst_set(conv_inst, 1, CONV_Im2colPrefetch);
   }
 
-  if (is_pointwise_conv(cc->weights->dims())) {
+  if (is_pointwise_conv(cc->weights->dims()) && !is_sa_regular_optimal(sa_arch)) {
     inst_set(conv_inst, CONV_TYPE_PW, CONV_ConvType);
   } else if (is_depthwise_conv(cc->weights->dims(), cc->input_dims.at(0))) {
     inst_set(conv_inst, CONV_TYPE_DW, CONV_ConvType);
@@ -1525,7 +1525,7 @@ std::pair<int,int> Op::Layer::QLinearConv::get_iterations() const {
   int kern_itr = 0; int chan_itr = 0;
   auto idims = this->input_dims.at(0);
   auto w = aligned_conv_weight_dims(this->weights->dims(), idims);
-  if (is_pointwise_conv(w)) {
+  if (is_pointwise_conv(w) && !is_sa_regular_optimal(sa_arch)) {
     kern_itr = ceil_div(w[TENSOR_4D_BATCH], sa_arch[SA_ARCH_N]);
     chan_itr = ceil_div(w[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_ROW]);
   } else if (is_depthwise_conv(this->weights->dims(), idims)) {
@@ -2381,7 +2381,7 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
         int kw = inst_get(*previous_inst, CONV_KW);
         int chan = inst_get(*previous_inst, CONV_KC);
         int kern = inst_get(*previous_inst, CONV_KN);
-        if (kh == 1 && kw == 1) {
+        if (kh == 1 && kw == 1 && !is_sa_regular_optimal(sa_arch)) {
           expected_chan_itr = ceil_div(chan, sa_arch[SA_ARCH_ROW]);
           expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
         } else if (chan == 1 && ic > 1) {

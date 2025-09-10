@@ -447,7 +447,7 @@ static void sa_align_input(BinBlob &blob, const Op::Layer::QLinearConv *l, uint3
   auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
   auto sa_arch = get_sa_arch();
   int chan_dim = 0;
-  if (is_pointwise_conv(l->weights->dims())) {
+  if (is_pointwise_conv(l->weights->dims()) && !is_sa_regular_optimal(sa_arch)) {
     chan_dim = sa_arch[SA_ARCH_ROW];
   } else {
     chan_dim = sa_arch[SA_ARCH_N];
