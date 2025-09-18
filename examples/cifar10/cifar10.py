@@ -41,5 +41,6 @@ if __name__ == "__main__":
   #gati.set_remote("v11.local")
   gati.flash(bitstream)
   name = gati.get_model_inputs(onnx_path)[0]
-  ret = post(gati.run(onnx_path, gml_path, {name: np.load("cifar_2.npy")}))
+  gati.load(onnx_path, gml_path)
+  ret = post(gati.run({name: np.load("cifar_1.npy")}))
   print(f"Match: {gati.match('cifar_2_labels.txt', ret)}%")

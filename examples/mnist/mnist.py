@@ -16,5 +16,6 @@ if __name__ == "__main__":
   gati.set_remote("hardboiled.local")
   gati.flash(bitstream)
   name = gati.get_model_inputs(onnx_path)[0]
-  ret = post(gati.run(onnx_path, gml_path, {name: np.load(f"{path}/mnist_2.npy")}))
+  gati.load(onnx_path, gml_path)
+  ret = post(gati.run({name: np.load(f"{path}/mnist_2.npy")}))
   print(f"Match: {gati.match(f'{path}/mnist_2_labels.txt', ret)}%")

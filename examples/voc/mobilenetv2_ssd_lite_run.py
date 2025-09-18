@@ -139,7 +139,7 @@ def postprocess(boxes, scores, width, height, class_names,
 
 
 def run_inference(onnx_path, img, frame):
-    output_tensor = gati.run(onnx_path, gml_path, {name: img})
+    output_tensor = gati.run({name: img})
     outputs = [out[1] for out in reversed(output_tensor)]
     scores = outputs[0:12:2]
     boxes  = outputs[1:12:2]
@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
     priors = np.load("priors.npy")
     name = gati.get_model_inputs(onnx_path)[0]
-
+    gati.load(onnx_path, gml_path)
 
     if args.image:
         if os.path.isdir(args.image):  
@@ -221,11 +221,12 @@ if __name__ == "__main__":
             idx += 1
         cap.release()
     elif args.camera:
-        cap = cv2.VideoCapture(0)  
-        if not cap.isOpened():
-            print("Could not open camera")
-            exit(1)
+        
         while True:
+            cap = cv2.VideoCapture(0) # if using IP Webcam enter the URL instead of 0 inside the quotes
+            if not cap.isOpened():
+                print("Could not open camera")
+                exit(1)
             ret, frame = cap.read()
             if not ret:
                 break

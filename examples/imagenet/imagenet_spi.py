@@ -13,5 +13,7 @@ if __name__ == "__main__":
   gati.compile(onnx_path, gml_path)
   gati.set_remote("cloudy.local")
   gati.flash(bitstream)
-  ret = post(gati.run(onnx_path, gml_path, {gati.get_model_inputs(onnx_path)[0] : np.load("imagenet_10.npy")},"receive-over-spi"))
+  name = gati.get_model_inputs(onnx_path)[0]
+  gati.load(onnx_path, gml_path, "send-over-spi")
+  ret = post(gati.run({name : np.load("imagenet_10.npy")}))
   print(f"Match: {gati.match('imagenet_10_labels.txt', ret)}%")
