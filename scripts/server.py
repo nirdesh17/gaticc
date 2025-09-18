@@ -7,19 +7,35 @@ PORT_MAIN, PORT_BITSTREAM, CONTROL_PORT = 8080, 8081, 9090
 # States for Main Server
 CONNECTING, READ_CLIENT, WRITE_FPGA, READ_FPGA, WRITE_CLIENT = range(5)
 
+# Dispatch
+multi_dispatch = False
+total_number_of_layers = 0
+
 def print_hex_bytes(data, label=""):
     print(f"{label}{' ' if label else ''}{' '.join(f'{b:02x}' for b in data[:min(50, len(data))])} (len={len(data)})")
+
+def recv_exact(sock, n):
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = sock.recv(n - len(buf))
+        if not chunk:
+            return None
+        buf.extend(chunk)
+    return bytes(buf)
 
 def main_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(('', PORT_MAIN))
+    global multi_dispatch
+    global total_number_of_layers
     try:
         state = CONNECTING
         app_id = 1
         read_client_data = b""
         while True:
             if state == CONNECTING:
+                pyrah.rah_clear_buffer(1)
                 print(f"State: CONNECTING {state}")
                 server_socket.listen(1)
                 print(f"Server listening on port {PORT_MAIN}...")
@@ -27,6 +43,24 @@ def main_server():
                 client_socket, client_address = server_socket.accept()
                 print(f"Client connected from {client_address}")
                 state = READ_CLIENT
+                # flag_data = client_socket.recv(1)
+                # if not flag_data:
+                #     print("Client disconnected before sending multi_dispatch flag")
+                #     state = CONNECTING
+                #     continue
+
+                num_layers_bytes = recv_exact(client_socket, 4)
+                if not num_layers_bytes:
+                    print("Client disconnected before sending number of layers")
+                    state = CONNECTING
+                    continue
+
+                total_number_of_layers = struct.unpack('>I', num_layers_bytes)[0]
+                layers_remaining = total_number_of_layers
+                multi_dispatch = True if total_number_of_layers>1 else False
+                print(f"multi_dispatch set to {multi_dispatch}")
+                print(f"num_layers_to_dispatch = {layers_remaining}")
+
             if state == READ_CLIENT:
                 print(f"State: READ_CLIENT {state}")
                 app_id_data = client_socket.recv(4)
@@ -73,7 +107,6 @@ def main_server():
                 #print(f"Read FPGA length {length}")
                 #length = 56
                 #print(length)
-                pyrah.rah_clear_buffer(1)
                 rah_read_data = pyrah.rah_read(1, length)
                 if len(rah_read_data) == length:
                     state = WRITE_CLIENT
@@ -86,7 +119,16 @@ def main_server():
                 #print_hex_bytes(rah_read_data)
                 client_socket.send(struct.pack('>I', len(rah_read_data)))
                 client_socket.send(rah_read_data)
-                state = READ_CLIENT
+                if multi_dispatch:
+                    layers_remaining -= 1
+                    if layers_remaining > 0:
+                        # print(f"layers remaining = {layers_remaining}")
+                        state = READ_FPGA
+                    else:
+                        pyrah.rah_clear_buffer(1)
+                        layers_remaining = total_number_of_layers
+                        state = READ_CLIENT
+                else: state = READ_CLIENT
     except Exception as e:
         print(f"An error occurred: {e}")
     finally:

@@ -235,17 +235,12 @@ AirRah::AirRah(const std::string &server_ip, const int num_of_layers_to_dispatch
   }
   log_info("Connected to server at ip {}, port {}\n", server_ip, port_no);
 
-  if (gbl_args.has_option("receive-over-spi")) {
-    bool multi_dispatch = false;
-    multi_dispatch = num_of_layers_to_dispatch > 1 ? true : false;
-    log_info("Is multilayer dispatch ?? {}\n", multi_dispatch);
-    log_info("Number of layers to dispatch {}\n", num_of_layers_to_dispatch);
+  log_info("Is multilayer dispatch ?? {}\n",
+           num_of_layers_to_dispatch > 1 ? true : false);
+  log_info("Number of layers to dispatch {}\n", num_of_layers_to_dispatch);
 
-    uint8_t flag = multi_dispatch ? 1 : 0;
-    send(m_sock, (const char *)&flag, sizeof(flag), 0);
-    uint32_t num_layers = htonl(num_of_layers_to_dispatch);
-    send(m_sock, &num_layers, sizeof(num_layers), 0);
-  }
+  uint32_t num_layers = htonl(num_of_layers_to_dispatch);
+  send(m_sock, &num_layers, sizeof(num_layers), 0);
 }
 
 void AirRah::serv_send(int app_id, const char *data, int size) {
