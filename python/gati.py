@@ -166,10 +166,9 @@ def flash(
         else:
             OSError("Could not find any program to flash bitstream")
 
-def run(
+def load(
         onnx_path: str,
         gml_path: str,
-        arr: dict,
         *args,
         **kwargs,
         ) -> list[tuple[str,str]]:
@@ -189,7 +188,19 @@ def run(
                         get_arch_list(get_arch()) + dispatch_arg + remote_arg)
     if not keep_quiet:
         print(f"GATICC RUN: Using arch: {rest}")
-    return _gati.run(onnx_path, gml_path, arr, rest)
+    _gati.load(onnx_path, gml_path, rest)
+
+
+def run(
+        arr: dict,
+        *args,
+        **kwargs,
+        ) -> list[tuple[str,str]]:
+
+    rest = remove_dupes(kwargs2list(**kwargs) + args2list(*args) +
+                        get_arch_list(get_arch()) + dispatch_arg + remote_arg)
+    
+    return _gati.run(arr, rest)
 
 def summary(onnx_path: str):
   return _gati.info(onnx_path, [("summary", "")])

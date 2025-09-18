@@ -87,20 +87,29 @@ public:
 
 class Runner {
   TensorPool tensor_pool;
-  Op::Parser *m_parser;
+  std::unique_ptr<Op::Parser> m_parser;
+  std::unique_ptr<Rah> rah;
+  std::unique_ptr<DispatchTable> hdt;
 
   void scan(Rah &rah);
   void device_init();
   void load_model(Rah &rah, const Fstream &fp);
   void tensor_pool_init();
   std::string get_run_arg();
-  template <typename inputT>
-  TensorPool infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<inputT> *> arr);
 
   void fake_exec(Op::LayerBase *l);
 public:
   Runner();
-  TensorPool infer(const std::string& onnx_path, const std::string& gml_path, py::dict arr);
+  void infer(const std::string &onnx_path, const std::string &gml_path);
+  template <typename inputT>
+  TensorPool infer_aux(std::vector<Tensor<inputT> *> arr);
+  TPDT get_model_input_type() const { return m_parser->get_model_input_type(); }
+  TPDT get_model_output_type() const {
+    return m_parser->get_model_output_type();
+  }
+  std::vector<std::string> get_model_input_names() const {
+    return m_parser->get_model_input_names();
+  }
 };
 
 /* infer_aux is a state-machine that passes through these states of execution:
@@ -126,13 +135,13 @@ public:
  *    to the pre-processing pipeline.
  */
 template <typename inputT>
-TensorPool Runner::infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<inputT> *> arr) {
+TensorPool Runner::infer_aux(std::vector<Tensor<inputT> *> arr) {
 
   auto graph = m_parser->get_graph();
   auto order = Pass::remove_dqxq(graph);
 
   Op::LayerBase *last_layer = Op::get_last_layer(*m_parser);
-  last_layer->dispatch = hdt.should_dispatch(last_layer);
+  last_layer->dispatch = hdt->should_dispatch(last_layer);
   bool is_last_layer = true;
   Pass::extract_conv_true_odims(graph);
   AddressGen generator(graph);
@@ -190,7 +199,7 @@ TensorPool Runner::infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<in
     for (Op::LayerBase *l : order) {
       assert(l->device != DEVICE_UNKNOWN);
 
-      l->dispatch = hdt.should_dispatch(l);
+      l->dispatch = hdt->should_dispatch(l);
       log_info("Running layer {} on {}\n", l->name,
                Op::get_device_name(l->device));
       if (l->device == DEVICE_CPU && sent == false) {
@@ -203,7 +212,7 @@ TensorPool Runner::infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<in
       if (l->device == DEVICE_FPGA && sent == false) {
         Timer<std::chrono::microseconds> run_tt;
         run_tt.start();
-        l->send_input(tensor_pool, generator, rah, io_addr_tbl);
+        l->send_input(tensor_pool, generator, *rah, io_addr_tbl);
         sent = true;
         run_tt.stop();
         log_info("Send Input time: {} us\n", run_tt.difference().count());
@@ -218,7 +227,7 @@ TensorPool Runner::infer_aux(Rah &rah, DispatchTable &hdt, std::vector<Tensor<in
           log_info("receiving output\n");
           Timer<std::chrono::microseconds> run_tt;
           run_tt.start();
-          l->receive_output(tensor_pool, rah);
+          l->receive_output(tensor_pool, *rah);
           run_tt.stop();
           log_info("Receive output time: {} us\n", run_tt.difference().count());
           log_info("receiving output finish\n");

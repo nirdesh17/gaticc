@@ -55,7 +55,7 @@ ArchParams Op::Layer::QLinearConv::archgen(const ArchParams &ap) const {
   };
   /* sa_r, sa_c, sa_n, accbuf, im2colbuf */
   ArchParams ret = ap;
-  if (is_pointwise_conv(this->weights->dims()),!is_sa_regular_optimal({ap.sa_r.v, ap.sa_c.v, ap.sa_n.v})) {
+  if (is_pointwise_conv(this->weights->dims())) {
     ret.sa_r.v = ceil_div(ap.sa_r.v, 2);
     ret.sa_n.v = ceil_div(ap.sa_n.v, 2);
     ret.sa_c.v = 1;

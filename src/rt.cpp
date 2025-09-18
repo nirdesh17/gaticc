@@ -326,44 +326,27 @@ std::string Runner::get_run_arg() {
 
 Runner::Runner() {}
 
-TensorPool Runner::infer(const std::string &onnx_path,
-                         const std::string &gml_path, py::dict arr) {
-  Op::Parser parser(onnx_path);
-  m_parser = &parser;
+void Runner::infer(const std::string &onnx_path, const std::string &gml_path) {
+
+  m_parser = std::make_unique<Op::Parser>(onnx_path);
+
   Op::Graph megablock_graph =
-  Pass::create_megablock_graph(m_parser->get_graph());
-  DispatchTable hdt(megablock_graph, m_parser->get_name_vertex_map());
+      Pass::create_megablock_graph(m_parser->get_graph());
+  hdt = std::make_unique<DispatchTable>(megablock_graph,
+                                        m_parser->get_name_vertex_map());
+
   split_large_kernel(m_parser->get_graph());
   Pass::absorb(m_parser->get_graph());
   Fstream fp(gml_path);
-  std::unique_ptr<Rah> rah;
   if (gbl_args.has_option("dry-run")) {
     rah = std::make_unique<FakeRah>();
   } else if (gbl_args.has_option("remote")) {
     std::string ip_addr = gbl_args["remote"].as<std::string>();
-    rah = std::make_unique<AirRah>(ip_addr, hdt.num_dispatch_layers);
+    rah = std::make_unique<AirRah>(ip_addr, hdt->num_dispatch_layers);
   } else {
     rah = std::make_unique<RealRah>();
   }
   load_model(*rah.get(), fp);
-
-  TPDT input_type = parser.get_model_input_type();
-  TPDT output_type = parser.get_model_output_type();
-  auto input_names = parser.get_model_input_names();
-  for (const auto &name : input_names) {
-    if (!arr.contains(name.c_str())) {
-      log_fatal("Input missing: model expects input named '{}'\n", name);
-    }
-  }
-
-  if (input_type == onnx::TensorProto_DataType_FLOAT) {
-    return infer_aux<float>(*rah.get(), hdt, dict2arr<float>(arr, input_names));
-  } else if (input_type == onnx::TensorProto_DataType_INT8) {
-    return infer_aux<int8_t>(*rah.get(), hdt, dict2arr<int8_t>(arr, input_names));
-  } else {
-    log_fatal("Runner unsupported type: {}\n", Op::get_tensorproto_dtype_name(input_type));
-    return TensorPool();
-  }
 }
 
 /* make sure correct bitstream is loaded & rah.service
