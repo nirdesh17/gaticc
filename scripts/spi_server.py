@@ -113,17 +113,6 @@ def main_server():
                         pass
                     state = READ_CLIENT
 
-                    # handshake: multi_dispatch flag
-                    flag_data = client_socket.recv(1)
-                    if not flag_data:
-                        print("Client disconnected before sending multi_dispatch flag")
-                        state = CONNECTING
-                        continue
-
-                    multi_dispatch = bool(flag_data[0])
-                    log(f"multi_dispatch set to {multi_dispatch}")
-
-                    # handshake: num_layers
                     num_layers_bytes = recv_exact(client_socket, 4)
                     if not num_layers_bytes:
                         print("Client disconnected before sending number of layers")
@@ -131,6 +120,9 @@ def main_server():
                         continue
                     layers_remaining = struct.unpack('>I', num_layers_bytes)[0]
                     log(f"num_layers_to_dispatch = {layers_remaining}")
+                    
+                    multi_dispatch = True if layers_remaining>1 else False
+                    log(f"multi_dispatch set to {multi_dispatch}")
 
                 if state == READ_CLIENT:
                     print(f"State: READ_CLIENT {state}")
