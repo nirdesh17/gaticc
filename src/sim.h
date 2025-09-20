@@ -283,7 +283,38 @@ void reshape(const Tensor<T> *input, Tensor<T> *output,
   output->set_dims(dims);
 }
 
-/* Element wise tensor addition */
+template <typename inputT, typename outputT>
+void sigmoid(const Tensor<inputT> *input, Tensor<outputT> *output) {
+  for (int i = 0; i < input->size(); ++i) {
+    inputT x = input->at(i);
+    outputT v = static_cast<outputT>(1.0 / (1.0 + std::exp(-x)));
+    output->set(i, v);
+  }
+}
+
+template <typename inputT, typename outputT>
+void tanh(const Tensor<inputT> *input, Tensor<outputT> *output) {
+  for (int i = 0; i < input->size(); ++i) {
+    inputT x = input->at(i);
+    outputT v = static_cast<outputT>(std::tanh(x));
+    output->set(i, v);
+  }
+}
+
+/* Element wise for 1 input*/
+template <typename inputT, typename outputT>
+void tensor_eltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
+                    int op) {
+  if (op == ELTWISE_SIG) {
+    sigmoid<inputT, outputT>(input1, output);
+  } else if (op == ELTWISE_TANH) {
+    tanh<inputT, outputT>(input1, output);
+  } else {
+    log_fatal("Unsupported eltwise operation %d\n", op);
+  }
+}
+
+/* Element wise for 2 inputs*/
 template <typename inputT, typename outputT>
 void tensor_eltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
                     const Tensor<inputT> *input2, int op) {

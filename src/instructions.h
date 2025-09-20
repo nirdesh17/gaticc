@@ -443,6 +443,8 @@
 #define ELTWISE_ADD 0
 #define ELTWISE_SUB 1
 #define ELTWISE_MULT 2
+#define ELTWISE_SIG 3
+#define ELTWISE_TANH 4
 #define INST_SIZE_BITS 256
 #define META_WIDTH_BITS 48
 #define RAH_APP_ID 1

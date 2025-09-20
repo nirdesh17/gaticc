@@ -500,8 +500,7 @@ static void run_eltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  std::vector<int> ofmap_dims{1, input1->dims_iterator(-1)};
-  Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
   Tensor<inputT> *input2;
   if (cc->inputs.size() > 1) {
@@ -510,9 +509,13 @@ static void run_eltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_eltwise(output, input1, input2, cc->operator_type);
   } else {
     // one of the inputs is an initializer (available statically)
-    input2 = new TensorExtant<inputT>(cc->constant_data);
-    tensor_eltwise(output, input1, input2, cc->operator_type);
-    delete input2;
+    if (cc->constant_data == nullptr) {
+      tensor_eltwise(output, input1, cc->operator_type);
+    } else {
+      input2 = new TensorExtant<inputT>(cc->constant_data);
+      tensor_eltwise(output, input1, input2, cc->operator_type);
+      delete input2;
+    }
   }
   check_dispatch(l, output);
 }
