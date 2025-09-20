@@ -416,7 +416,7 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 12
+#define ISA_VERSION 13
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define ACT_LEAKYRELU 0x02
@@ -443,6 +443,8 @@
 #define ELTWISE_ADD 0
 #define ELTWISE_SUB 1
 #define ELTWISE_MULT 2
+#define ELTWISE_SIG 3
+#define ELTWISE_TANH 4
 #define INST_SIZE_BITS 256
 #define META_WIDTH_BITS 48
 #define RAH_APP_ID 1

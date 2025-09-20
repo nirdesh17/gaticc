@@ -3180,6 +3180,10 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Concat(), node);
   } else if (opt == "NonMaxSuppression") {
     m_model.add(new Op::Layer::NMS(), node);
+  } else if (opt == "Sigmoid") {
+    m_model.add(new Op::Layer::Eltwise(ELTWISE_SIG), node);
+  } else if (opt == "Tanh") {
+    m_model.add(new Op::Layer::Eltwise(ELTWISE_TANH), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }
