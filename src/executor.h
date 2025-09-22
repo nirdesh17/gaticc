@@ -7,8 +7,12 @@
 namespace py = pybind11;
 #include <vector>
 
+bool is_megablock(const Op::LayerBase *l);
+bool is_miniblock(const Op::LayerBase *l);
+
 class DispatchTable {
   bool dump_all;
+  bool dump_fpga;
   bool dump_none;
   std::vector<std::string> tbl;
 

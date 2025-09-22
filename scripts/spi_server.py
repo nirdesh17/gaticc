@@ -11,6 +11,7 @@ CONNECTING, READ_CLIENT, WRITE_FPGA, READ_FPGA, WRITE_CLIENT = range(5)
 
 # Dispatch
 multi_dispatch, verbose, verbose2 = False, False, False
+total_num_layers = 0
 
 # sleep time in seconds
 _sleep_time = 0
@@ -22,7 +23,7 @@ class SPIListener:
     def __init__(self):
         self.spi = spidev.SpiDev(); self.spi.open(SPI_BUS, SPI_DEV)
         self.spi.mode = 0; self.spi.max_speed_hz = SPI_SPEED_HZ
-        self.spi.bits_per_word = 8; self.spi_buffer_size = 32
+        self.spi.bits_per_word = 8; self.spi_buffer_size = 16 
         self.rolling = bytearray()
 
     def extract_dwp_packet(self, data: bytearray):
@@ -93,6 +94,7 @@ def main_server():
 
     async def run():
         global multi_dispatch
+        global total_num_layers
         state, app_id, read_client_data = CONNECTING, 1, b""
         spi_listener = SPIListener()
         layers_remaining = 0  # NEW: track per-connection layers
@@ -118,10 +120,11 @@ def main_server():
                         print("Client disconnected before sending number of layers")
                         state = CONNECTING
                         continue
-                    layers_remaining = struct.unpack('>I', num_layers_bytes)[0]
+                    total_num_layers = struct.unpack('>I', num_layers_bytes)[0]
+                    layers_remaining = total_num_layers
                     log(f"num_layers_to_dispatch = {layers_remaining}")
                     
-                    multi_dispatch = True if layers_remaining>1 else False
+                    multi_dispatch = True if total_num_layers>1 else False
                     log(f"multi_dispatch set to {multi_dispatch}")
 
                 if state == READ_CLIENT:
@@ -186,10 +189,11 @@ def main_server():
 
                     if multi_dispatch:
                         layers_remaining -= 1
-                        log(f"layers_remaining = {layers_remaining}")
                         if layers_remaining > 0:
+                            log(f"layers_remaining = {layers_remaining}")
                             state = READ_FPGA
                         else:
+                            layers_remaining = total_num_layers
                             state = READ_CLIENT
                     else:
                         state = READ_CLIENT
