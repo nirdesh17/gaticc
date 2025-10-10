@@ -411,8 +411,7 @@ void Op::LayerBase::send_input(TensorPool &, AddressGen &, Rah &, IOAddrTbl &) c
   log_fatal("Cannot send inputs for layer {}: send_input() override not implemented\n", this->name);
 }
 void Op::LayerBase::receive_output(TensorPool &tensor_pool, Rah &rah) const {
-  //TODO: when setting dispatch --all or a layer that is not megablock the flow stops, fix this.
-  // log_fatal("Cannot receive outputs for layer {}: receive_output() override not implemented\n", this->name);
+  log_fatal("Cannot receive outputs for layer {}: use `all-fpga` in dispatch.\n", this->name);
 }
 
 

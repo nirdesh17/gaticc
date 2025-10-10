@@ -38,27 +38,39 @@ static void check_dispatch_table_validity(const std::vector<std::string> &tbl,
   }
 }
 
+namespace Pass {
+Op::Graph create_megablock_graph(Op::Graph graph);
+}
+
 DispatchTable::DispatchTable(
     Op::Graph graph, const std::map<std::string, Op::Vertex> &name_vertex_map) {
   dump_all = false;
+  dump_fpga = false;
   dump_none = false;
   if (gbl_args.has_option("dispatch")) {
     std::string arg = gbl_args["dispatch"].as<std::string>();
     if (strcmp(arg.c_str(), "all") == 0) {
       dump_all = true;
+      num_dispatch_layers =
+          boost::num_vertices(Pass::create_megablock_graph(graph));
     } else if (strcmp(arg.c_str(), "none") == 0) {
       dump_none = true;
+    } else if (strcmp(arg.c_str(), "all-fpga") == 0) {
+      dump_fpga = true;
+      num_dispatch_layers =
+          boost::num_vertices(Pass::create_megablock_graph(graph));
     } else {
       tbl = parse_csv_string<std::string>(arg);
       check_dispatch_table_validity(tbl, graph);
+      num_dispatch_layers = tbl.size();
     }
   } else {
     auto leaf_nodes = get_leaf_nodes(graph, name_vertex_map);
     for (Op::Vertex v : leaf_nodes) {
       tbl.push_back(graph[v]->name);
     }
+    num_dispatch_layers = tbl.size();
   }
-  num_dispatch_layers = tbl.size();
 }
 
 bool DispatchTable::should_dispatch(const Op::LayerBase *l) {
@@ -66,6 +78,8 @@ bool DispatchTable::should_dispatch(const Op::LayerBase *l) {
     return true;
   } else if (dump_none) {
     return false;
+  } else if (dump_fpga) {
+    return is_megablock(l);
   } else {
     auto start = tbl.begin();
     auto stop = tbl.end();

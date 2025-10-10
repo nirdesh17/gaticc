@@ -26,7 +26,6 @@ using IOAddrPair =
     std::pair<std::vector<Op::VirtualAddress>, std::vector<Op::VirtualAddress>>;
 using IOAddrTbl = std::map<std::string, IOAddrPair>;
 
-
 /* Megablock and Miniblock
  *
  * All operators, implemented or not, can be divided into two sects: Megablock
@@ -48,9 +47,6 @@ using IOAddrTbl = std::map<std::string, IOAddrPair>;
  * Some miniblocks can be skipped, for example, maxpool is skipped if a maxpool
  * op does not follow convolution.
  */
-
-bool is_megablock(const Op::LayerBase *l);
-bool is_miniblock(const Op::LayerBase *l);
 
 /* This layer modifies the dimensions of its input */
 bool changes_dimension_count(const Op::LayerBase *l);

@@ -151,7 +151,7 @@ class Argparse {
            {"--dispatch"},
            "comma separated list of layers for which outputs are required. "
            "Args: "
-           "[all | none | comma separated layer names]",
+           "[all | all-fpga | none | comma separated layer names]",
            1},
           {"dispatch_fn",
            {"--dispatch-fn"},
