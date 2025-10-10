@@ -194,7 +194,6 @@ TensorPool Runner::infer_aux(std::vector<Tensor<inputT> *> arr) {
       tensor_pool.set<Tensor<inputT> *>(j, slice);
     }
 
-    bool dump_and_exit = false;
     bool sent = false;
     for (Op::LayerBase *l : order) {
       assert(l->device != DEVICE_UNKNOWN);
@@ -232,7 +231,6 @@ TensorPool Runner::infer_aux(std::vector<Tensor<inputT> *> arr) {
           log_info("Receive output time: {} us\n", run_tt.difference().count());
           log_info("receiving output finish\n");
           if (!last_layer->dispatch) {
-            dump_and_exit = false; //TODO: this was true check why by making it false it works
             goto _dump;
           }
         } else {
@@ -245,7 +243,8 @@ TensorPool Runner::infer_aux(std::vector<Tensor<inputT> *> arr) {
         } 
       }
 _dump:
-      if (m_parser->has_graph_output(l) || (l->dispatch && !(last_layer->dispatch && l->device == DEVICE_FPGA))) {
+      if (l->dispatch &&  l->device == DEVICE_FPGA) {
+
         for (auto type : l->output_type) {
           /* TODO: use unique_ptr */
           if (type == onnx::TensorProto_DataType_INT8) {
@@ -273,9 +272,6 @@ _dump:
                       Op::get_tensorproto_dtype_name(type));
           }
         }
-      }
-      if (dump_and_exit) {
-        break;
       }
     }
   }
