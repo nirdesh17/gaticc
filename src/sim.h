@@ -429,6 +429,81 @@ public:
 
 using fp_t = FixedPoint<FIXED_POINT_SPLIT, FIXED_POINT_BASE_TYPE>;
 
+static int find_closest_index(const std::vector<int> &xi_scaled, int value) {
+  int closest_idx = 0;
+  int min_diff = std::abs(xi_scaled[0] - value);
+
+  for (size_t j = 1; j < xi_scaled.size() - 1; ++j) {
+    int diff = std::abs(xi_scaled[j] - value);
+    if (diff < min_diff) {
+      min_diff = diff;
+      closest_idx = j;
+    }
+  }
+  return closest_idx;
+}
+
+template <typename inputT, typename outputT>
+void qsigmoid(const Tensor<inputT> *input, Tensor<outputT> *output,
+              float i_scale, int i_zp) {
+
+  float min_point = 0.3;
+  float max_point = 3.5;
+  int scale = (1 << 16);
+  int seg_size = 128;
+  std::vector<int> x_vec(seg_size + 1);
+  std::vector<int> y_vec(seg_size + 1);
+  std::vector<int> s_vec(seg_size);
+
+  for (int i = 0; i <= seg_size; i++) {
+    float x = min_point + (static_cast<float>(i) * (max_point - min_point) /
+                           static_cast<float>(seg_size));
+    float y = std::tanh(x);
+    y_vec[i] = static_cast<int>(std::round(y * scale));
+    x_vec[i] = static_cast<int>(std::round(x * scale));
+  }
+  for (int i = 0; i < seg_size; i++) {
+    s_vec[i] = (y_vec[i + 1] - y_vec[i]) / (x_vec[i + 1] - x_vec[i]) * scale;
+  }
+
+  int new_x_scale = static_cast<int>(std::round(i_scale * scale));
+  int y_scale = 127;
+
+  for (int i = 0; i < input->size(); ++i) {
+    float x = input->at(i) / 2.0f;
+    bool neg = false;
+    if (x < 0) {
+      neg = true;
+      x = -x;
+    }
+
+    if (x < min_point) {
+      int y = x;
+      if (neg)
+        y = -y;
+      y = int((scale + y) / 2);
+      output->set(i, static_cast<outputT>(y));
+      continue;
+    }
+
+    int x_val = static_cast<int>(std::round(x * new_x_scale));
+    int closest_ind = find_closest_index(x_vec, x_val);
+
+    int xi = x_vec[closest_ind];
+    int yi = y_vec[closest_ind];
+    int si = s_vec[closest_ind];
+
+    int delta_slope = static_cast<int>(std::round((si * (x_val - xi)) >> 16));
+
+    int y = yi + delta_slope;
+    if (neg)
+      y = -y;
+    y = int((scale + y) / 2);
+    y = (y * y_scale) >> 16;
+    output->set(i, static_cast<outputT>(y));
+  }
+}
+
 /* Element wise tensor addition with scales and zp
  *
  * returns: (i1_scale * (i1[i] - i1_zp) + i2_scale * (i2[i] - i2_zp))
