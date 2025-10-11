@@ -765,6 +765,25 @@ struct Resize : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
 
+struct QLinearSigmoid : public LayerBase {
+  const char *m_optype = "QLinearSigmoid";
+  const char *op_type() const override;
+  std::string params() const override;
+  float x_scale;
+  float y_scale;
+  int x_zero_point;
+  int y_zero_point;
+
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
+  void infer_shape(const IVec2D &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void run(TensorPool &tensor_pool) override;
+  uint32_t get_weight_size() override;
+  void get_opcodes(std::vector<int> &op_codes) override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+};
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS,

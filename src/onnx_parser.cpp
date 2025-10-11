@@ -2182,6 +2182,87 @@ void Op::Layer::Resize::set_initializer_params(int n,
     break;
   }
 }
+const char *Op::Layer::QLinearSigmoid::op_type() const { return m_optype; }
+std::string Op::Layer::QLinearSigmoid::params() const {
+  std::string ret;
+  std::stringstream ss;
+  ss << "(IC,IH,IW: " << this->input_dims[0][TENSOR_4D_CHANNELS] << ","
+     << this->input_dims[0][TENSOR_4D_HEIGHT] << ","
+     << this->input_dims[0][TENSOR_2D_WIDTH] << ") ";
+
+  /* store scales */
+  ss << "x_scale: ";
+  ss << x_scale << ' ';
+  ss << "x_zero_point: ";
+  ss << x_zero_point << ' ';
+  ss << '\n';
+  ss << "y_scale: ";
+  ss << y_scale << ' ';
+  ss << "y_zero_point: ";
+  ss << y_zero_point << ' ';
+
+  ss << '\n';
+  ss << "Pipeline Odims: ";
+  for (const auto &i : pipelined_output_dims) {
+    std::cout << "[ ";
+    for (int j : i) {
+      ss << j << ' ';
+    }
+    std::cout << "], ";
+  }
+  ret = ss.str();
+  return ret;
+}
+
+enum QLS_INITIALIZERS {
+  QLS_X_SCALE = 1,
+  QLS_X_ZERO_POINT = 2,
+  QLS_Y_SCALE = 3,
+  QLS_Y_ZERO_POINT = 4
+};
+
+void Op::Layer::QLinearSigmoid::set_initializer_params(
+    int n, const onnx::TensorProto &t) {
+  switch (n) {
+  case QLS_X_SCALE:
+    assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+    for (auto i : t.float_data()) {
+      x_scale = i;
+    }
+    break;
+  case QLS_X_ZERO_POINT:
+    assert(t.int32_data_size() > 0);
+    x_zero_point = (int)t.int32_data(0);
+    break;
+  case QLS_Y_SCALE:
+    assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+    for (auto i : t.float_data()) {
+      y_scale = i;
+    }
+    break;
+  case QLS_Y_ZERO_POINT:
+    assert(t.int32_data_size() > 0);
+    y_zero_point = (int)t.int32_data(0);
+    break;
+  default:
+    log_fatal("unknown inputs number {} for tensor {}\n", n, t.name());
+    break;
+  }
+}
+
+void Op::Layer::QLinearSigmoid::infer_shape(const IVec2D &input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
+  this->pipelined_output_dims = this->output_dims;
+}
+
+void Op::Layer::QLinearSigmoid::infer_type(
+    const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type = input_types;
+}
 
 /* Auxillary Graph Functions */
 
@@ -3232,6 +3313,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QLinearEltwise(ELTWISE_MULT), node);
   } else if (opt == "QLinearMul") {
     m_model.add(new Op::Layer::QLinearEltwise(ELTWISE_SUB), node);
+  } else if (opt == "QLinearSigmoid") {
+    m_model.add(new Op::Layer::QLinearSigmoid(), node);
   } else if (opt == "QLinearLeakyRelu") {
     m_model.add(new Op::Layer::Relu(), node);
   } else if (opt == "Transpose") {

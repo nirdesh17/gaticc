@@ -806,6 +806,47 @@ void Op::Layer::QLinearEltwise::run(TensorPool &tensor_pool) {
   }
 }
 
+template <typename inputT, typename intrT, typename outputT>
+static void run_qsigmoid(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::QLinearSigmoid *cc = dynamic_cast<Op::Layer::QLinearSigmoid *>(l);
+  Tensor<inputT> *input;
+  Tensor<outputT> *output;
+  std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
+
+  std::unique_ptr<Tensor<intrT>> intr_output{
+      new TensorCreate<intrT>(cc->output_dims.at(0))};
+  qsigmoid<inputT, intrT>(input, intr_output.get(), cc->x_scale,
+                          cc->x_zero_point);
+  auto it_out = output->begin();
+  for (auto it_in = intr_output->begin(); it_in != intr_output->end();
+       ++it_in, ++it_out) {
+    *it_out = static_cast<outputT>(*it_in);
+  }
+  /* Note: Not using quantize function here because the quant scale and quant
+    shift is fixed value for sigmoid implementation logic and its not caluated
+    using calc_shift_val func or get_calib_scale func */
+
+  check_dispatch(l, output);
+}
+
+void Op::Layer::QLinearSigmoid::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+
+  if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+      output_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_qsigmoid<int8_t, int32_t, int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
+             output_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_qsigmoid<uint8_t, int32_t, uint8_t>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 static void run_qgemm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QGemm *cc = dynamic_cast<Op::Layer::QGemm *>(l);
