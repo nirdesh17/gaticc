@@ -15,7 +15,7 @@ static std::set<std::string> miniblock_tbl{
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv",
-    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose"};
+    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose", "QLinearSigmoid"};
 
 static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE};
 
@@ -1311,8 +1311,20 @@ void Op::Layer::QLinearEltwise::get_opcodes(std::vector<int> &op_codes) {
   /* for quantization */
   op_codes.push_back(OP_TailBlock);
 }
+void Op::Layer::QLinearSigmoid::get_opcodes(std::vector<int> &op_codes) {
+  op_codes.push_back(OP_EltWise);
+  op_codes.push_back(OP_OutputBlock);
+  /* for quantization */
+  op_codes.push_back(OP_TailBlock);
+}
 
 uint32_t Op::Layer::QLinearEltwise::get_weight_size() {
+  if (this->inputs.size() == 1) {
+    return aligned_qle(this->input_dims).at(0) * Op::tpdt_sizeof(this->input_type.at(0));
+  }
+  return 0;
+}
+uint32_t Op::Layer::QLinearSigmoid::get_weight_size() {
   if (this->inputs.size() == 1) {
     return aligned_qle(this->input_dims).at(0) * Op::tpdt_sizeof(this->input_type.at(0));
   }
@@ -1472,6 +1484,124 @@ int Op::Layer::QLinearEltwise::get_inst(InstBlob &blob, AddressGen &gen,
   blob.push_back(out_inst);
   blob.push_back(quant_inst);
   /* as qlinearadd does not insert any dwp packets in the blob */
+  return 0;
+}
+
+static std::bitset<INST_SIZE_BITS> gen_sigmoid_output(const Op::LayerBase *l,
+                                                      AddressGen &gen,
+                                                      InitializerTable &) {
+  std::bitset<INST_SIZE_BITS> output_inst;
+
+  std::bitset<OutputBlock_Opcode_COUNT> ob_opcode{OP_OutputBlock};
+  bitset_range_set(output_inst, ob_opcode, OutputBlock_Opcode_LOW,
+                   OutputBlock_Opcode_HIGH);
+
+  uint32_t output_addr_start = gen.io_addr_from_register(l->outputs.at(0));
+
+  std::bitset<OutputBlock_OutputAddr_COUNT> ostart{output_addr_start};
+  bitset_range_set(output_inst, ostart, OutputBlock_OutputAddr_LOW,
+                   OutputBlock_OutputAddr_HIGH);
+
+  std::bitset<OutputBlock_ChannelItr_COUNT> citr{1};
+  bitset_range_set(output_inst, citr, OutputBlock_ChannelItr_LOW,
+                   OutputBlock_ChannelItr_HIGH);
+
+  auto sa_arch = get_sa_arch();
+  int kernel_iterations =
+      ceil_div(l->input_dims.at(0).at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
+  std::bitset<OutputBlock_KernelItr_COUNT> kitr{kernel_iterations};
+  bitset_range_set(output_inst, kitr, OutputBlock_KernelItr_LOW,
+                   OutputBlock_KernelItr_HIGH);
+
+  auto pod = l->pipelined_output_dims.at(0);
+  int image_dim_output = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
+                                  get_conv_out_mod());
+
+  std::bitset<OutputBlock_ImageDimOutput_COUNT> ido{image_dim_output};
+  bitset_range_set(output_inst, ido, OutputBlock_ImageDimOutput_LOW,
+                   OutputBlock_ImageDimOutput_HIGH);
+
+  if (l->dispatch) {
+    std::bitset<OutputBlock_DispatchEn_COUNT> dispatch_en{1};
+    bitset_range_set(output_inst, dispatch_en, OutputBlock_DispatchEn_LOW,
+                     OutputBlock_DispatchEn_HIGH);
+
+    std::bitset<OutputBlock_DispatchID_COUNT> dispatch_id{string_hash(l->name)};
+    bitset_range_set(output_inst, dispatch_id, OutputBlock_DispatchID_LOW,
+                     OutputBlock_DispatchID_HIGH);
+  }
+
+  std::bitset<OutputBlock_OH_COUNT> oh_bs{
+      l->output_dims.at(0).at(TENSOR_4D_HEIGHT)};
+  bitset_range_set(output_inst, oh_bs, OutputBlock_OH_LOW, OutputBlock_OH_HIGH);
+
+  std::bitset<OutputBlock_OW_COUNT> ow_bs{
+      l->output_dims.at(0).at(TENSOR_4D_WIDTH)};
+  bitset_range_set(output_inst, ow_bs, OutputBlock_OW_LOW, OutputBlock_OW_HIGH);
+
+  int op_width = Op::tpdt_sizeof(l->output_type.at(0));
+  inst_set(output_inst, op_width, OutputBlock_OpWidth);
+
+  return output_inst;
+}
+
+static std::bitset<INST_SIZE_BITS> gen_sigmoid(const Op::LayerBase *l,
+                                               AddressGen &gen,
+                                               InitializerTable &tbl,
+                                               int elt_type) {
+  std::bitset<INST_SIZE_BITS> add_inst;
+  inst_set(add_inst, OP_EltWise, EltWise_Opcode);
+  inst_set(add_inst, elt_type, EltWise_EltType);
+  inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_WIDTH), EltWise_IW);
+  inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_HEIGHT), EltWise_IH);
+  inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_CHANNELS), EltWise_IC);
+  std::vector<int> ad = aligned_qle(l->input_dims);
+
+  uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
+  uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
+  uint32_t left_end = left_start + left_size;
+  inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
+  inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
+
+  return add_inst;
+}
+
+static void gen_sigmoid_input_quant(std::bitset<INST_SIZE_BITS> &add_inst,
+                                    float a_scale, int a_zp) {
+  int fp_ascale = FixedPoint<16, 32>(a_scale).raw();
+  check_overflow(fp_ascale, EltWise_AScale_COUNT);
+  inst_set(add_inst, fp_ascale, EltWise_AScale);
+}
+
+static std::bitset<INST_SIZE_BITS>
+gen_sigmoid_quant(const Op::Layer::QLinearSigmoid *cc) {
+  std::bitset<INST_SIZE_BITS> quant_inst;
+
+  inst_set(quant_inst, OP_TailBlock, TailBlock_Opcode);
+  /* as per sigmoid implementation logic shift and scale is fixed have value*/
+  int shift_val = 0;
+  int calib_scale = 127;
+  check_overflow(calib_scale, TailBlock_QuantScale_COUNT);
+  inst_set(quant_inst, calib_scale, TailBlock_QuantScale);
+  check_overflow(shift_val, TailBlock_QuantShift_COUNT);
+  inst_set(quant_inst, shift_val, TailBlock_QuantShift);
+
+  /* enable quant, ofcourse */
+  inst_set(quant_inst, 1, TailBlock_QuantEn);
+  return quant_inst;
+}
+
+int Op::Layer::QLinearSigmoid::get_inst(InstBlob &blob, AddressGen &gen,
+                                        InitializerTable &tbl) {
+  assert(this->device == DEVICE_FPGA);
+  auto add_inst = gen_sigmoid(this, gen, tbl, ELTWISE_SIG);
+  gen_sigmoid_input_quant(add_inst, this->x_scale, this->x_zero_point);
+  auto out_inst = gen_sigmoid_output(this, gen, tbl);
+  auto quant_inst = gen_sigmoid_quant(this);
+  blob.push_back(add_inst);
+  blob.push_back(out_inst);
+  blob.push_back(quant_inst);
+  /* as qlinearsigmoid does not insert any dwp packets in the blob */
   return 0;
 }
 
