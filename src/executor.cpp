@@ -7,6 +7,7 @@
 DispatchTable::DispatchTable() {
   dump_all = false;
   dump_none = false;
+  dump_fpga = false;
   if (gbl_args.has_option("dispatch")) {
     std::string arg = gbl_args["dispatch"].as<std::string>();
     if (strcmp(arg.c_str(), "all") == 0) {
