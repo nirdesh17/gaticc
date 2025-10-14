@@ -230,9 +230,6 @@ TensorPool Runner::infer_aux(std::vector<Tensor<inputT> *> arr) {
           run_tt.stop();
           log_info("Receive output time: {} us\n", run_tt.difference().count());
           log_info("receiving output finish\n");
-          if (!last_layer->dispatch) {
-            goto _dump;
-          }
         } else {
           fake_exec(l);
         }
@@ -243,7 +240,7 @@ TensorPool Runner::infer_aux(std::vector<Tensor<inputT> *> arr) {
         } 
       }
 _dump:
-      if (l->dispatch &&  l->device == DEVICE_FPGA) {
+      if (m_parser->has_graph_output(l) || (l->dispatch && !(last_layer->dispatch && l->device == DEVICE_FPGA)))  {
 
         for (auto type : l->output_type) {
           /* TODO: use unique_ptr */

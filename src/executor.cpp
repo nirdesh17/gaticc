@@ -63,6 +63,10 @@ DispatchTable::DispatchTable(
     } else {
       tbl = parse_csv_string<std::string>(arg);
       check_dispatch_table_validity(tbl, graph);
+      auto leaf_nodes = get_leaf_nodes(graph, name_vertex_map);
+      for (Op::Vertex v : leaf_nodes) {
+        tbl.push_back(graph[v]->name);
+      }
       num_dispatch_layers = tbl.size();
     }
   } else {
