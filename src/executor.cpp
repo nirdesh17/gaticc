@@ -500,8 +500,7 @@ static void run_eltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  std::vector<int> ofmap_dims{1, input1->dims_iterator(-1)};
-  Tensor<outputT> *output = new TensorCreate<outputT>(ofmap_dims);
+  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
   Tensor<inputT> *input2;
   if (cc->inputs.size() > 1) {
@@ -588,19 +587,11 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   ConvEngine<inputT, weightT, intrT> cc_engine(cc);
   cc_engine.run(input, intr_output.get());
 
-  if (l->output_type[0] == onnx::TensorProto_DataType_INT32) {
-    auto it_out = output->begin();
-    for (auto it_in = intr_output->begin(); it_in != intr_output->end();
-         ++it_in, ++it_out) {
-      *it_out = static_cast<outputT>(*it_in);
-    }
-  } else {
-    std::vector<float> scales =
-        compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
-    using variantT = std::variant<int8_t, uint8_t>;
-    std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
-    quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
-  }
+  std::vector<float> scales =
+      compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
+  using variantT = std::variant<int8_t, uint8_t>;
+  std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
+  quantize<intrT, outputT>(intr_output.get(), output, scales, zero_points);
   tt.stop();
   check_dispatch(l, output);
   if (l->dispatch) {

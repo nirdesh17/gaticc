@@ -78,6 +78,15 @@
 #define CONV_ChannelDuplicate_LOW 223
 #define CONV_ChannelDuplicate_HIGH 223
 #define CONV_ChannelDuplicate_COUNT 1
+#define CONV_PreQuantEn_LOW 224
+#define CONV_PreQuantEn_HIGH 224
+#define CONV_PreQuantEn_COUNT 1
+#define CONV_PreQuantScale_LOW 225
+#define CONV_PreQuantScale_HIGH 240
+#define CONV_PreQuantScale_COUNT 16
+#define CONV_PreQuantShift_LOW 241
+#define CONV_PreQuantShift_HIGH 245
+#define CONV_PreQuantShift_COUNT 5
 
 #define OP_TailBlock 0x01
 #define TailBlock_Opcode_LOW 0
@@ -416,7 +425,7 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 12
+#define ISA_VERSION 13
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define ACT_LEAKYRELU 0x02
@@ -541,6 +550,12 @@ inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("ConvType");
 	tbl.tbl.insert({"ChannelDuplicate", bitset_range_get<CONV_ChannelDuplicate_COUNT, INST_SIZE_BITS>(inst, CONV_ChannelDuplicate_LOW, CONV_ChannelDuplicate_HIGH)});
 	tbl.order.push_back("ChannelDuplicate");
+	tbl.tbl.insert({"PreQuantEn", bitset_range_get<CONV_PreQuantEn_COUNT, INST_SIZE_BITS>(inst, CONV_PreQuantEn_LOW, CONV_PreQuantEn_HIGH)});
+	tbl.order.push_back("PreQuantEn");
+	tbl.tbl.insert({"PreQuantScale", bitset_range_get<CONV_PreQuantScale_COUNT, INST_SIZE_BITS>(inst, CONV_PreQuantScale_LOW, CONV_PreQuantScale_HIGH)});
+	tbl.order.push_back("PreQuantScale");
+	tbl.tbl.insert({"PreQuantShift", bitset_range_get<CONV_PreQuantShift_COUNT, INST_SIZE_BITS>(inst, CONV_PreQuantShift_LOW, CONV_PreQuantShift_HIGH)});
+	tbl.order.push_back("PreQuantShift");
 	return tbl;
 }
 inline void pretty_print_conv(const std::bitset<INST_SIZE_BITS>& inst) {

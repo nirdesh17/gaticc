@@ -17,8 +17,8 @@
 #include <utility>
 #include <vector>
 
-constexpr int FIXED_POINT_BASE_TYPE = 18;
-constexpr int FIXED_POINT_SPLIT = 10;
+constexpr int FIXED_POINT_BASE_TYPE = 32;
+constexpr int FIXED_POINT_SPLIT = 16;
 
 template <typename T> class Relu {
   int clip_val;

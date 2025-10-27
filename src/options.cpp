@@ -39,7 +39,15 @@ void dispatch_compile_ops() {
   std::string s = gbl_args["compile"].as<std::string>();
   Op::Parser parser(s);
   split_large_kernel(parser.get_graph());
+
+  
   Pass::absorb(parser.get_graph());
+  auto graph = parser.get_execution_order();
+  for(auto &layer : graph) {
+    std::cout << layer->name << " : " << layer->op_type() << "\n";
+    std::cout << layer->params() << "\n";
+    std::cout << "----------------------------------------\n";
+  }
   GmlGen gmlgen(GATI_INST_ORG);
   BinBlob binblob{gmlgen.generate_gml(parser)};
 

@@ -30,14 +30,18 @@ def post(arr):
   return m
 
 if __name__ == "__main__":
-  onnx_path = "../../tests/models/imagenet_vgg_16_224_int8.onnx"
-  bitstream = "../../hex/gati_0.7.0_944_c4.hex"
+  # onnx_path = "/home/nirdesh/vicharak/sysim/onnx/imagenet_vgg_16_224_int8.onnx"
+  # onnx_path ="/home/nirdesh/vicharak/sysim/onnx/imagenet_mobilenetv2-int8-symmetric.onnx"
+  onnx_path = "/home/nirdesh/vicharak/sysim/onnx/imagenet_resnet50-int8-symmetric.onnx"
+  # bitstream = "../../hex/gati_0.7.0_944_c4.hex"
   gml_path = "model.gml"
-  gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
-  gati.compile(onnx_path, gml_path)
+  # gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
+  gati.set_arch(ramsize=512, sa_arch="16,1,16", vasize=32, accbuf_size=4096, fcbuf_size=16384,im2colbuf_size=512)
+
+  gati.compile(onnx_path, gml_path,"pretty-print-inst-html")
   # gati.set_remote("v11.local")
-  gati.flash(bitstream)
-  name = gati.get_model_inputs(onnx_path)[0]
-  gati.load(onnx_path, gml_path)
-  ret = post(gati.run({name : np.load("imagenet_2.npy")}))
-  print(f"Match: {gati.match('imagenet_2_labels.txt', ret)}%")
+  # gati.flash(bitstream)
+  # name = gati.get_model_inputs(onnx_path)[0]
+  # gati.load(onnx_path, gml_path)
+  # ret = post(gati.run({name : np.load("imagenet_2.npy")}))
+  # print(f"Match: {gati.match('imagenet_2_labels.txt', ret)}%")

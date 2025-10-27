@@ -29,7 +29,7 @@ Op::Vertex create_qconv(Op::Graph &g, const Op::Layer::QLinearConv *cc,
   new_conv->m_cp.ki = i+1;
 
   for (auto &output_type : new_conv->output_type) {
-    output_type = onnx::TensorProto_DataType_INT32;
+    output_type = onnx::TensorProto_DataType_INT16;
   }
 
   g[new_vertex] = new_conv;
@@ -41,19 +41,10 @@ Op::Vertex create_qadd(Op::Graph &g,
                        std::vector<Op::Vertex> &new_decomposed_conv,
                        const Op::Layer::QLinearConv *cc, int n, int i, std::string base_name) {
   Op::Vertex new_vertex = boost::add_vertex(g);
-  auto *new_add = new Op::Layer::QLinearEltwise(ELTWISE_ADD); 
+  auto *new_add = new Op::Layer::Eltwise(ELTWISE_ADD); 
 
-  new_add->name = base_name + "qadd_" + std::to_string(i);
+  new_add->name = base_name + "add_" + std::to_string(i);
 
-  new_add->a_scale = cc->x_scale[0];
-  new_add->b_scale = cc->w_scale[0];
-  new_add->o_scale = cc->y_scale;
-
-  new_add->a_zp = std::visit([](auto zp) { return static_cast<int>(zp); },
-                             cc->x_zero_point[0]);
-  new_add->b_zp = std::visit([](auto zp) { return static_cast<int>(zp); },
-                             cc->w_zero_point[0]);
-  new_add->zero_point = cc->y_zero_point;
 
   new_add->input_dims = g[new_decomposed_conv[i]]->output_dims;
   new_add->output_dims = new_add->input_dims;

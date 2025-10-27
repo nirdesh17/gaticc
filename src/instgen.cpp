@@ -204,7 +204,7 @@ void Pass::absorb(Op::Graph &graph) {
     Op::Vertex v = *vi;
     Op::LayerBase *l = graph[v];
 
-    if (l->op_type() == "QLinearEltwise" &&
+    if (l->op_type() == "Eltwise" &&
         l->input_type[0] == onnx::TensorProto_DataType_INT32 ) {
 
       if (l->output_type[0] == onnx::TensorProto_DataType_INT8) {
@@ -670,6 +670,62 @@ gen_quant(const std::vector<float> &x_scale, const std::vector<float> &w_scale,
   return quant_inst;
 }
 
+static std::bitset<INST_SIZE_BITS>
+gen_conv_quant(const std::vector<float> &x_scale, const std::vector<float> &w_scale,
+          const std::vector<float> &y_scale,
+          const std::vector<int> &zero_points) {
+  std::bitset<INST_SIZE_BITS> quant_inst;
+  std::vector<float> scales = compute_output_scale(x_scale, w_scale, y_scale);
+  if (scales.size() != 1) {
+    log_fatal("unsupported: per-channel quantization\n");
+  }
+  if (scales[0] == 0) {
+    log_fatal("scales[0] = 0, need non-zero scales\n");
+  }
+  auto assert_zero = [](int i) {
+    if (i != 0) {
+      log_fatal("unsupported: non-zero zero-points\n");
+    }
+  };
+  std::for_each(zero_points.begin(), zero_points.end(), assert_zero);
+
+  std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
+  bitset_range_set(quant_inst, opcode, TailBlock_Opcode_LOW,
+                   TailBlock_Opcode_HIGH);
+
+  float inverted_scale = 1 / scales[0];
+  int shift_val = calc_shift_val(inverted_scale);
+  int calib_scale = get_calib_scale(inverted_scale);
+
+  if(double(calib_scale)/(1 << (shift_val-8)) >=1){
+    check_overflow(calib_scale, TailBlock_QuantScale_COUNT);
+    std::bitset<TailBlock_QuantScale_COUNT> qscale{calib_scale};
+    bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW,
+                    TailBlock_QuantScale_HIGH);
+
+    std::bitset<TailBlock_QuantShift_COUNT> qshift{shift_val};
+    bitset_range_set(quant_inst, qshift, TailBlock_QuantShift_LOW,
+                    TailBlock_QuantShift_HIGH);
+  } else {
+    check_overflow(1, TailBlock_QuantScale_COUNT);
+    std::bitset<TailBlock_QuantScale_COUNT> qscale{1};
+    bitset_range_set(quant_inst, qscale, TailBlock_QuantScale_LOW,
+                    TailBlock_QuantScale_HIGH);
+
+    std::bitset<TailBlock_QuantShift_COUNT> qshift{8};
+    bitset_range_set(quant_inst, qshift, TailBlock_QuantShift_LOW,
+                    TailBlock_QuantShift_HIGH);
+  }
+
+
+  /* enable quant, ofcourse */
+  std::bitset<TailBlock_QuantEn_COUNT> qen{1};
+  bitset_range_set(quant_inst, qen, TailBlock_QuantEn_LOW,
+                   TailBlock_QuantEn_HIGH);
+
+  return quant_inst;
+}
+
 void decomp_inst(std::bitset<INST_SIZE_BITS> &conv_inst, const Op::Layer::QLinearConv *cc,
                  uint32_t &input_addr_start) {
 
@@ -767,6 +823,28 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
       inst_set(conv_inst, 1, CONV_ChannelDuplicate);
     }
   }
+
+  std::vector<float> scales = compute_output_scale(cc->x_scale, cc->w_scale, cc->y_scale);
+  float inverted_scale = 1 / scales[0];
+  int shift_val = calc_shift_val(inverted_scale);
+  int calib_scale = get_calib_scale(inverted_scale);
+
+  if(double(calib_scale)/(1 << (shift_val-8)) >=1){
+    inst_set(conv_inst,0, CONV_PreQuantEn);
+    std::bitset<TailBlock_QuantScale_COUNT> qscale{1};
+    inst_set(conv_inst,qscale, CONV_PreQuantScale);
+    std::bitset<TailBlock_QuantShift_COUNT> qshift{0};
+    inst_set(conv_inst,qshift, CONV_PreQuantShift);
+  }
+  else{
+    inst_set(conv_inst,1, CONV_PreQuantEn);
+    std::bitset<TailBlock_QuantScale_COUNT> qscale{calib_scale};
+    inst_set(conv_inst,qscale, CONV_PreQuantScale);
+    std::bitset<TailBlock_QuantShift_COUNT> qshift{shift_val-8};
+    inst_set(conv_inst,qshift, CONV_PreQuantShift);
+  }
+
+  
   return conv_inst;
 }
 
@@ -899,7 +977,7 @@ static std::bitset<INST_SIZE_BITS>
 gen_conv_quant(const Op::Layer::QLinearConv *cc, AddressGen &) {
   using variantT = std::variant<int8_t, uint8_t>;
   std::vector<int> zero_points = variant2vec<variantT, int>(cc->y_zero_point);
-  return gen_quant(cc->x_scale, cc->w_scale, cc->y_scale, zero_points);
+  return gen_conv_quant(cc->x_scale, cc->w_scale, cc->y_scale, zero_points);
 }
 
 int Op::Layer::NoOp::get_inst(InstBlob &insts, AddressGen &,
@@ -1874,6 +1952,11 @@ void BinBlob::append(int a) {
   generic_append(a);
 }
 
+void BinBlob::append(int16_t a) {
+  assert(sizeof(a) <= (m_size - m_ptr));
+  generic_append(a);
+}
+
 void BinBlob::append(uint32_t a) {
   assert(sizeof(a) <= (m_size - m_ptr));
   generic_append(a);
@@ -2023,7 +2106,7 @@ template <typename T> static void sa_align_aux(const Op::LayerBase *l, BinBlob &
 }
 
 template <typename T>
-static void conv_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
+static void conv_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor, std::vector<float> x_scale, std::vector<float> y_scale, std::vector<float> w_scale) {
   auto dims = tensor->get_dims();
   assert(dims.size() == 1);
   size_t size = dims[TENSOR_4D_BATCH];
@@ -2031,15 +2114,33 @@ static void conv_bias_align_aux(BinBlob &blob, const Tensor<T> *tensor) {
       ceil_mod(aligned_conv_bias(dims) * sizeof(T), WORD_SIZE);
   size_t bytes = size * sizeof(T);
   size_t deficit_bytes = aligned_size - bytes;
+
+  std::vector<float> scales = compute_output_scale(x_scale, w_scale, y_scale);
+
+  float inverted_scale = 1 / scales[0];
+  int shift_val = calc_shift_val(inverted_scale);
+  int calib_scale = get_calib_scale(inverted_scale);
+
   for (size_t i = 0; i < size; ++i) {
-    blob.append(tensor->at(i));
+    // std::cout<< "non quant bais " << int(tensor->at(i)) << '\n';
+    if(double(calib_scale)/(1 << (shift_val-8)) <1){
+      T v = ((tensor->at(i)*calib_scale) / (1 << (shift_val - 8)));
+      int16_t v16 = static_cast<int16_t>(v);
+      // std::cout<< "quantized bias " << v16 << '\n';
+      blob.append(v16);
+    } else {
+      T v = tensor->at(i);
+      int16_t v16 = static_cast<int16_t>(v);
+      // std::cout<< "quantized bias " << v16 << '\n';
+      blob.append(v16);
+    }
   }
   uint8_t zero = 0;
   for (size_t i = 0; i < deficit_bytes; ++i) {
     blob.append(zero);
   }
   int count = size + deficit_bytes;
-  log_info2("Inserted {} elements\n", count * sizeof(T));
+  log_info2("Inserted {} elements\n", count * sizeof(int16_t));
 }
 
 template <typename T>
@@ -2137,22 +2238,22 @@ static void sa_align(const Op::LayerBase *l, BinBlob &blob, const onnx::TensorPr
   }
 }
 
-static void conv_bias_align(BinBlob &blob, const onnx::TensorProto *tensor) {
+static void conv_bias_align(BinBlob &blob, const onnx::TensorProto *tensor, std::vector<float> x_scale, std::vector<float> y_scale, std::vector<float> w_scale) {
   int32_t type = tensor->data_type();
   switch (type) {
   case onnx::TensorProto_DataType_INT8: {
     std::unique_ptr<Tensor<int8_t>> t1{new TensorExtant<int8_t>(tensor)};
-    conv_bias_align_aux(blob, t1.get());
+    conv_bias_align_aux(blob, t1.get(), x_scale, y_scale, w_scale);
     break;
   }
   case onnx::TensorProto_DataType_UINT8: {
     std::unique_ptr<Tensor<uint8_t>> t1{new TensorExtant<uint8_t>(tensor)};
-    conv_bias_align_aux(blob, t1.get());
+    conv_bias_align_aux(blob, t1.get(), x_scale, y_scale, w_scale);
     break;
   }
   case onnx::TensorProto_DataType_INT32: {
     std::unique_ptr<Tensor<int32_t>> t1{new TensorExtant<int32_t>(tensor)};
-    conv_bias_align_aux(blob, t1.get());
+    conv_bias_align_aux(blob, t1.get(), x_scale, y_scale, w_scale);
     break;
   }
   default:
@@ -2225,12 +2326,13 @@ void Op::Layer::QLinearConv::align_weights(BinBlob &blob, InitializerTable &tbl)
 
   if (this->bias != nullptr) {
     aligned_sz = aligned_conv_bias(bias->dims());
-    aligned_sz *= Op::tpdt_sizeof(static_cast<TPDT>(bias->data_type()));
+    // std::cout<<"bias data type "<<bias->data_type()<<'\n';
+    aligned_sz *= sizeof(int16_t);
     aligned_sz = ceil_mod(aligned_sz, WORD_SIZE);
     log_info2("Appending initializer {} for size: {}, addr: {}\n",
               bias->name(), aligned_sz, tbl.get(bias->name()));
     blob.append_dwp_header(aligned_sz, tbl.get(bias->name()));
-    conv_bias_align(blob, bias);
+    conv_bias_align(blob, bias, this->x_scale, this->y_scale, this->w_scale);
   }
 }
 
@@ -2313,6 +2415,7 @@ BinBlob GmlGen::generate_gml(Op::Parser &parser) {
   Op::Graph graph = parser.get_graph();
   auto m_exec_order = crt_exec_order(graph);
   for (Op::LayerBase *l : m_exec_order) {
+    // std::cout<<l->name<<'\n';
     l->align_weights(blob, tbl);
   }
 
