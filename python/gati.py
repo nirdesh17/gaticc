@@ -268,21 +268,133 @@ def sim_npy_load(layer_names: list[str]) -> list[tuple[str, np.ndarray]]:
   else:
     return [(layer_name, np.load(layer_name.replace('/','_') + ".tensor.npy")) for layer_name in layer_names]
 
-def compare_layer(sim_arr: list[tuple[str, np.ndarray]], run_arr: list[tuple[str, np.ndarray]], layer_names: list[tuple[str, str]]):
-  def matcher(a1, a2):
-    match_p = 0
-    for index, (i, j) in enumerate(zip(a1.flatten(), a2.flatten())):
-      print(f"Index: {index} Sim: {i}, Run: {j}")
-      if i == j:
-        match_p += 1
-    return (match_p / len(a1.flatten())) * 100
-  sim_d = dict(sim_arr)
-  run_d = dict(run_arr)
-  if not isinstance(layer_names, list) or not isinstance(layer_names[0], tuple): raise ValueError("layer_names must be a list of tuples")
-  for sa, ra in layer_names:
-    print(f"Matching {sa} with {ra}")
-    ret = matcher(sim_d[sa], run_d[ra])
-    print(f"Match Percent: {ret}")
+# def compare_layer(sim_arr: list[tuple[str, np.ndarray]], run_arr: list[tuple[str, np.ndarray]], layer_names: list[tuple[str, str]]):
+#   def matcher(a1, a2):
+#     match_p = 0
+#     for index, (i, j) in enumerate(zip(a1.flatten(), a2.flatten())):
+#       print(f"Index: {index} Sim: {i}, Run: {j}")
+#       if i == j:
+#         match_p += 1
+#     return (match_p / len(a1.flatten())) * 100
+#   sim_d = dict(sim_arr)
+#   run_d = dict(run_arr)
+#   if not isinstance(layer_names, list) or not isinstance(layer_names[0], tuple): raise ValueError("layer_names must be a list of tuples")
+#   for sa, ra in layer_names:
+#     print(f"Matching {sa} with {ra}")
+#     ret = matcher(sim_d[sa], run_d[ra])
+#     print(f"Match Percent: {ret}")
+
+import numpy as np
+import os
+
+# def compare_layer(layer_str: str | list[str], base_dir: str = "."):
+#     """
+#     Compare simulation vs FPGA outputs for one or more layers.
+    
+#     Parameters:
+#         layer_str: str or list[str]
+#             A single layer name or comma-separated list or list of layer names.
+#             Example: "/classification_headers.0/classification_headers.0.3/Conv_quant"
+#         base_dir: str
+#             Directory where the .npy files are located.
+#     """
+    
+#     # --- handle input ---
+#     if isinstance(layer_str, str):
+#         # allow comma-separated string
+#         layer_names = [x.strip() for x in layer_str.split(",") if x.strip()]
+#     elif isinstance(layer_str, list):
+#         layer_names = layer_str
+#     else:
+#         raise ValueError("layer_str must be a string or list of strings")
+
+#     # --- helper: comparison ---
+#     def matcher(a1, a2):
+#         match_p = np.sum(a1.flatten() == a2.flatten()) / a1.size * 100
+#         return match_p
+
+#     # --- loop through layers ---
+#     for layer in layer_names:
+#         # clean layer name into filename format
+#         layer_clean = layer.replace("/", "_")
+#         sim_file = os.path.join(base_dir, f"{layer_clean}.tensor.npy")
+#         run_file = os.path.join(base_dir, f"fpga_{layer_clean}.npy")
+
+#         print(f"\n🔹 Comparing layer: {layer}")
+#         print(f"  → Sim file:  {sim_file}")
+#         print(f"  → FPGA file: {run_file}")
+
+#         # check existence
+#         if not os.path.exists(sim_file):
+#             print(f"   Missing simulation file: {sim_file}")
+#             continue
+#         if not os.path.exists(run_file):
+#             print(f"   Missing FPGA file: {run_file}")
+#             continue
+
+#         # load arrays
+#         sim_arr = np.load(sim_file)
+#         run_arr = np.load(run_file)
+
+#         # shape check
+#         if sim_arr.shape != run_arr.shape:
+#             print(f"   Shape mismatch: sim={sim_arr.shape}, fpga={run_arr.shape}")
+#             continue
+
+#         # compare
+#         match_percent = matcher(sim_arr, run_arr)
+#         print(f"  Match Percentage: {match_percent:.2f}%")
+
+
+import numpy as np
+import os
+
+def compare_layer(sim_layer: str, fpga_layer: str, base_dir: str = "."):
+    """
+    Compare simulation vs FPGA output for a single layer.
+
+    Parameters:
+        sim_layer (str): Simulation layer name.
+        fpga_layer (str): FPGA layer name.
+        base_dir (str): Directory where the .npy files are located.
+    """
+
+    def matcher(a1, a2):
+        match_p = np.sum(a1.flatten() == a2.flatten()) / a1.size * 100
+        return match_p
+
+    # Convert layer names to file names
+    sim_file = os.path.join(base_dir, f"{sim_layer.replace('/', '_')}.tensor.npy")
+    fpga_file = os.path.join(base_dir, f"fpga_{fpga_layer.replace('/', '_')}.npy")
+
+    print(f"\n🔹 Comparing layers:")
+    print(f"  → Sim layer:  {sim_layer}")
+    print(f"  → FPGA layer: {fpga_layer}")
+    print(f"  → Sim file:   {sim_file}")
+    print(f"  → FPGA file:  {fpga_file}")
+
+    # File existence check
+    if not os.path.exists(sim_file):
+        print(f"   Missing simulation file: {sim_file}")
+        return
+    if not os.path.exists(fpga_file):
+        print(f"   Missing FPGA file: {fpga_file}")
+        return
+
+    # Load arrays
+    sim_arr = np.load(sim_file)
+    fpga_arr = np.load(fpga_file)
+
+    # Shape check
+    if sim_arr.shape != fpga_arr.shape:
+        print(f"   Shape mismatch: sim={sim_arr.shape}, fpga={fpga_arr.shape}")
+        return
+
+    # Compare
+    match_percent = matcher(sim_arr, fpga_arr)
+    print(f"   Match Percentage: {match_percent:.2f}%")
+
+
 
 def get_model_inputs(onnx_path: str) -> list[str]:
   return _gati.get_model_inputs(onnx_path)

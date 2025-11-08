@@ -868,7 +868,7 @@ void dequantize(const Tensor<inputT> *input, Tensor<outputT> *output,
         }
       }
     }
-  } else if (input->dims_size() == 2) {
+  } else {
     assert(scales.size() == 1);
     assert(zero_point.size() == 1);
     for (int i = 0; i < input->dims_iterator(-1); ++i) {

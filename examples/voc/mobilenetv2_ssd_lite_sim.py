@@ -11,6 +11,7 @@ is_image_dir = False
 is_single_image = False
 temp_in_dir = None
 dir_image = None
+np.set_printoptions(threshold=np.inf)   
 
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -144,11 +145,19 @@ def run_inference(onnx_path, img, frame):
     scores = outputs[0:12:2]
     boxes  = outputs[1:12:2]
 
-    all_scores = [reshape_scores(s) for s in scores]
-    all_boxes = [reshape_boxes(b) for b in boxes]
+    # all_scores = [reshape_scores(s) for s in scores]
+    # all_boxes = [reshape_boxes(b) for b in boxes]
+
+    all_scores = scores
+    all_boxes = boxes
 
     final_scores = np.concatenate(all_scores, axis=1)
     final_boxes  = np.concatenate(all_boxes, axis=1)
+
+    print("Final scores shape:", final_scores.shape)
+    print(final_scores)
+    print("Final boxes shape:", final_boxes.shape)
+    print(final_boxes)
 
     exp_a = np.exp(final_scores - np.max(final_scores, axis=-1, keepdims=True))
     softmax_a = exp_a / np.sum(exp_a, axis=-1, keepdims=True)
@@ -180,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--video", help="Path to a video file.")
     parser.add_argument("-c", "--camera", action="store_true", help="Use camera for detection.")
     args = parser.parse_args()
-    onnx_path = "mobilenetv2_ssd_lite_tailfree_VOC_mAP_57.onnx"
+    onnx_path = "/home/nirdesh/vicharak/sysim/examples/voc/mobilenetv2_ssd_modified_real.onnx"
     class_names = ["bg", "aeroplane", "bicycle", "bird", "boat",
                     "bottle", "bus", "car", "cat", "chair",
                     "cow", "diningtable", "dog", "horse", "motorbike",
@@ -188,8 +197,9 @@ if __name__ == "__main__":
 
     priors = np.load("priors.npy")
     name = gati.get_model_inputs(onnx_path)[0]
-
-
+    # gati.set_dispatch(["807_transpose","806_transpose","793_transpose","787_transpose","769_transpose","763_transpose","745_transpose","739_transpose","721_transpose","715_transpose"])
+    # gati.set_dispatch(["/classification_headers.0/classification_headers.0.3/Conv_quant"])
+    gati.set_dispatch(["/classification_headers.0/classification_headers.0.2/Clip_output_0_QuantizeLinear"])
     if args.image:
         if os.path.isdir(args.image):  
             dir_image = args.image

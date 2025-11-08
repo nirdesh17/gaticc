@@ -11,6 +11,8 @@ is_image_dir = False
 is_single_image = False
 temp_in_dir = None
 dir_image = None
+np.set_printoptions(threshold=np.inf)   
+
 
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -140,15 +142,30 @@ def postprocess(boxes, scores, width, height, class_names,
 
 def run_inference(onnx_path, img, frame):
     output_tensor = gati.run({name: img})
+    for i in output_tensor:
+        print(i[0], i[1].shape, i[1].dtype)
+
+    # exit(0)
+    print("Processing output tensors...")
+    print(len(output_tensor))
     outputs = [out[1] for out in reversed(output_tensor)]
     scores = outputs[0:12:2]
     boxes  = outputs[1:12:2]
 
-    all_scores = [reshape_scores(s) for s in scores]
-    all_boxes = [reshape_boxes(b) for b in boxes]
+    # all_scores = [reshape_scores(s) for s in scores]
+    # all_boxes = [reshape_boxes(b) for b in boxes]
+    gati.compare_layer("/classification_headers.0/classification_headers.0.2/Clip_output_0_QuantizeLinear","/classification_headers.0/classification_headers.0.0/Conv_quant")
+    all_scores = scores
+    all_boxes = boxes
+    
 
     final_scores = np.concatenate(all_scores, axis=1)
     final_boxes  = np.concatenate(all_boxes, axis=1)
+
+    # print("Final scores shape:", final_scores.shape)
+    # print(final_scores)
+    # print("Final boxes shape:", final_boxes.shape)
+    # print(final_boxes)
 
     exp_a = np.exp(final_scores - np.max(final_scores, axis=-1, keepdims=True))
     softmax_a = exp_a / np.sum(exp_a, axis=-1, keepdims=True)
@@ -180,12 +197,16 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--video", help="Path to a video file.")
     parser.add_argument("-c", "--camera", action="store_true", help="Use camera for detection.")
     args = parser.parse_args()
-    onnx_path = "mobilenetv2_ssd_lite_tailfree_VOC_mAP_57.onnx"
-    bitstream = "rah.hex"
+    # onnx_path = "/home/nirdesh/vicharak/sysim/onnx/mobilenetv2_ssd_lite_tailfree_VOC_mAP_57.onnx"
+    onnx_path = "/home/nirdesh/vicharak/sysim/examples/voc/mobilenetv2_ssd_modified_real.onnx"
+    bitstream = "/home/nirdesh/vicharak/sysim/examples/rah1.hex"
+    # bitstream = "/home/nirdesh/vicharak/sysim/examples/gati_0.9.6_16x1x16_c4.hex"
     gml_path = "model.gml"
     gati.set_arch(ramsize=512, sa_arch="16,1,16", vasize=32, accbuf_size=4096, fcbuf_size=16384,im2colbuf_size=512)
-    gati.compile(onnx_path, gml_path)
-    gati.set_remote("praveen.local")
+    gati.set_dispatch(["/classification_headers.0/classification_headers.0.0/Conv_quant"])
+    gati.compile(onnx_path, gml_path,"pretty-print-inst-html")
+    # exit(0)
+    gati.set_remote("cloudy-vaaman.local")
     gati.flash(bitstream)
     class_names = ["bg", "aeroplane", "bicycle", "bird", "boat",
                     "bottle", "bus", "car", "cat", "chair",
