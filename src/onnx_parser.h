@@ -215,6 +215,9 @@ struct LayerBase {
    */
   IVec2D pipelined_output_dims;
 
+  std::vector<int> channel_offsets; //if any layer preceeds Split , it should be set with an 
+                      //offset - mostly concat,eltwise,conv
+
   /* Device on which this node would be executed */
   int device;
 
@@ -365,7 +368,6 @@ struct BatchNorm : public LayerBase {
   const char *m_optype = "BatchNorm";
   const char *op_type() const override;
   /* BatchNorm has static parameters namely epsilon and momentum.
-   * These are not used during inference, hence the omission of
    * params() override.
    */
   float epsilon;
@@ -429,7 +431,20 @@ struct QuantizeLinear : public LayerBase {
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;
 };
-
+struct Split : public LayerBase {
+  const char *m_optype = "Split";
+  const char *op_type() const override;
+  int axis;
+  std::vector<int> splits;
+  int num_outputs;
+  Split();
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void infer_shape(const IVec2D &input_dims) override;
+  //void get_opcodes(std::vector<int> &op_codes) override;
+  void run(TensorPool &tensor_pool) override; //for sim
+  
+};
 struct DequantizeLinear : public LayerBase {
   const char *m_optype = "DequantizeLinear";
   const char *op_type() const override;
@@ -884,6 +899,7 @@ public:
   void save_initializers(const onnx::TensorProto &t);
   void save_attribute(const onnx::NodeProto &node);
   void save_input_output_names();
+  void update_channel_offsets();
 
   void add(LayerBase *layer, const onnx::NodeProto &node);
   void add_to_constant_pool(onnx::NodeProto node);
