@@ -291,13 +291,67 @@ void sigmoid(const Tensor<inputT> *input, Tensor<outputT> *output) {
     output->set(i, v);
   }
 }
+template <typename T>
+static int find_closest_index(const std::vector<T> &xi_scaled, T value) {
+
+  int n = xi_scaled.size();
+  int l = (xi_scaled[n - 1] - xi_scaled[0]) / (n - 1);
+
+  int idx = ((value - xi_scaled[0] + l / 2) / l);
+  if (idx < 0)
+    idx = 0;
+  if (idx >= n)
+    idx = n - 1;
+  return idx;
+}
 
 template <typename inputT, typename outputT>
 void tanh(const Tensor<inputT> *input, Tensor<outputT> *output) {
+  float min_point = 0.0;
+  float max_point = 3.5;
+  int scale = (1 << 16);
+
+  int seg_size = 128;
+  std::vector<int> x_vec(seg_size + 1);
+  std::vector<int> y_vec(seg_size + 1);
+  std::vector<int> s_vec(seg_size);
+
+  for (int i = 0; i <= seg_size; i++) {
+    float x = min_point + (static_cast<float>(i) * (max_point - min_point) /
+                           static_cast<float>(seg_size));
+    float y = std::tanh(x);
+    y_vec[i] = static_cast<int>(std::round(y * scale));
+    x_vec[i] = static_cast<int>(std::round(x * scale));
+  }
+  for (int i = 0; i < seg_size; i++) {
+    s_vec[i] = double(y_vec[i + 1] - y_vec[i]) /
+               double(x_vec[i + 1] - x_vec[i]) * scale;
+  }
+
+  int new_x_scale = static_cast<int>(std::round(scale));
+
   for (int i = 0; i < input->size(); ++i) {
-    inputT x = input->at(i);
-    outputT v = static_cast<outputT>(std::tanh(x));
-    output->set(i, v);
+    float x = input->at(i);
+    bool neg = false;
+    if (x < 0) {
+      neg = true;
+      x = -x;
+    }
+
+    int x_val = static_cast<int>(std::round(x * new_x_scale));
+    int closest_ind = find_closest_index<int>(x_vec, x_val);
+
+    int xi = x_vec[closest_ind];
+    int yi = y_vec[closest_ind];
+    int si = s_vec[closest_ind];
+
+    int delta_slope = static_cast<int>(std::round((si * (x_val - xi)) >> 16));
+
+    int y = yi + delta_slope;
+    if (neg)
+      y = -y;
+    float ans = (double)y / (double)scale;
+    output->set(i, static_cast<outputT>(ans));
   }
 }
 
@@ -429,25 +483,11 @@ public:
 
 using fp_t = FixedPoint<FIXED_POINT_SPLIT, FIXED_POINT_BASE_TYPE>;
 
-static int find_closest_index(const std::vector<int> &xi_scaled, int value) {
-  int closest_idx = 0;
-  int min_diff = std::abs(xi_scaled[0] - value);
-
-  for (size_t j = 1; j < xi_scaled.size() - 1; ++j) {
-    int diff = std::abs(xi_scaled[j] - value);
-    if (diff < min_diff) {
-      min_diff = diff;
-      closest_idx = j;
-    }
-  }
-  return closest_idx;
-}
-
 template <typename inputT, typename outputT>
 void qsigmoid(const Tensor<inputT> *input, Tensor<outputT> *output,
               float i_scale, int i_zp) {
 
-  float min_point = 0.3;
+  float min_point = 0.0;
   float max_point = 3.5;
   int scale = (1 << 16);
   int seg_size = 128;
@@ -463,43 +503,45 @@ void qsigmoid(const Tensor<inputT> *input, Tensor<outputT> *output,
     x_vec[i] = static_cast<int>(std::round(x * scale));
   }
   for (int i = 0; i < seg_size; i++) {
-    s_vec[i] = (y_vec[i + 1] - y_vec[i]) / (x_vec[i + 1] - x_vec[i]) * scale;
+    s_vec[i] = ((y_vec[i + 1] - y_vec[i]) * scale) / (x_vec[i + 1] - x_vec[i]);
   }
 
   int new_x_scale = static_cast<int>(std::round(i_scale * scale));
   int y_scale = 127;
 
   for (int i = 0; i < input->size(); ++i) {
-    float x = input->at(i) / 2.0f;
+
+    int x = input->at(i);
+    int x_val = x * new_x_scale;
+
+    x_val = x_val >> 1;
     bool neg = false;
-    if (x < 0) {
+    if (x_val < 0) {
       neg = true;
-      x = -x;
+      x_val = -x_val;
     }
 
-    if (x < min_point) {
-      int y = x;
-      if (neg)
-        y = -y;
-      y = int((scale + y) / 2);
-      output->set(i, static_cast<outputT>(y));
-      continue;
+    if (x_val > x_vec[seg_size]) {
+      x_val = x_vec[seg_size];
     }
-
-    int x_val = static_cast<int>(std::round(x * new_x_scale));
-    int closest_ind = find_closest_index(x_vec, x_val);
+    int closest_ind = find_closest_index<int>(x_vec, x_val);
 
     int xi = x_vec[closest_ind];
     int yi = y_vec[closest_ind];
     int si = s_vec[closest_ind];
 
-    int delta_slope = static_cast<int>(std::round((si * (x_val - xi)) >> 16));
+    int delta_slope = (((si * (x_val - xi)) >> 16));
 
     int y = yi + delta_slope;
+    if (y > scale) {
+      y = scale;
+    }
     if (neg)
       y = -y;
-    y = int((scale + y) / 2);
-    y = (y * y_scale) >> 16;
+    y = int((65535 + y) >> 1);
+    y = (y * y_scale) + (1 << 15);
+    y = y >> 16;
+
     output->set(i, static_cast<outputT>(y));
   }
 }

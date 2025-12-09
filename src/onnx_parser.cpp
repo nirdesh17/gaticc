@@ -2102,7 +2102,14 @@ void Op::Layer::NMS::set_initializer_params(int n, const onnx::TensorProto &t) {
     break;
   }
 }
-
+Op::Layer::QLinearSigmoid::QLinearSigmoid(int op) {
+  operator_type = op;
+  x_scale = 0;
+  x_zero_point = 0;
+  y_scale = 0;
+  y_zero_point = 0;
+  device = DEVICE_UNKNOWN;
+}
 const char *Op::Layer::QLinearSigmoid::op_type() const { return m_optype; }
 std::string Op::Layer::QLinearSigmoid::params() const {
   std::string ret;
@@ -3232,7 +3239,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "QLinearMul") {
     m_model.add(new Op::Layer::QLinearEltwise(ELTWISE_SUB), node);
   } else if (opt == "QLinearSigmoid") {
-    m_model.add(new Op::Layer::QLinearSigmoid(), node);
+    m_model.add(new Op::Layer::QLinearSigmoid(ELTWISE_SIG), node);
   } else if (opt == "QLinearLeakyRelu") {
     m_model.add(new Op::Layer::Relu(), node);
   } else if (opt == "Transpose") {
@@ -3266,7 +3273,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "Sigmoid") {
     m_model.add(new Op::Layer::Eltwise(ELTWISE_SIG), node);
   } else if (opt == "Tanh") {
-    m_model.add(new Op::Layer::Eltwise(ELTWISE_TANH), node);
+    m_model.add(new Op::Layer::QLinearSigmoid(ELTWISE_TANH), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }
