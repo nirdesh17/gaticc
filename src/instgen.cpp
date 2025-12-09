@@ -1539,7 +1539,7 @@ static std::bitset<INST_SIZE_BITS> gen_sigmoid_output(const Op::LayerBase *l,
       l->output_dims.at(0).at(TENSOR_4D_WIDTH)};
   bitset_range_set(output_inst, ow_bs, OutputBlock_OW_LOW, OutputBlock_OW_HIGH);
 
-  int op_width = Op::tpdt_sizeof(l->output_type.at(0));
+  int op_width = 1;
   inst_set(output_inst, op_width, OutputBlock_OpWidth);
 
   return output_inst;
@@ -1568,6 +1568,7 @@ static std::bitset<INST_SIZE_BITS> gen_sigmoid(const Op::LayerBase *l,
 
 static void gen_sigmoid_input_quant(std::bitset<INST_SIZE_BITS> &add_inst,
                                     float a_scale, int a_zp) {
+  // TODO: Parameterize FixedPoint by passing them as arguments just like fcbuf_size
   int fp_ascale = FixedPoint<16, 32>(a_scale).raw();
   check_overflow(fp_ascale, EltWise_AScale_COUNT);
   inst_set(add_inst, fp_ascale, EltWise_AScale);

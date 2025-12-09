@@ -769,11 +769,12 @@ struct QLinearSigmoid : public LayerBase {
   const char *m_optype = "QLinearSigmoid";
   const char *op_type() const override;
   std::string params() const override;
+  int operator_type;
   float x_scale;
   float y_scale;
   int x_zero_point;
   int y_zero_point;
-
+  QLinearSigmoid(int op);
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;

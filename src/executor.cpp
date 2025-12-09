@@ -806,21 +806,17 @@ void Op::Layer::QLinearEltwise::run(TensorPool &tensor_pool) {
   }
 }
 
-template <typename inputT, typename intrT, typename outputT>
+template <typename inputT, typename outputT>
 static void run_qsigmoid(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearSigmoid *cc = dynamic_cast<Op::Layer::QLinearSigmoid *>(l);
   Tensor<inputT> *input;
   Tensor<outputT> *output;
   std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
 
-  std::unique_ptr<Tensor<intrT>> intr_output{
-      new TensorCreate<intrT>(cc->output_dims.at(0))};
-  qsigmoid<inputT, intrT>(input, intr_output.get(), cc->x_scale,
-                          cc->x_zero_point);
-  auto it_out = output->begin();
-  for (auto it_in = intr_output->begin(); it_in != intr_output->end();
-       ++it_in, ++it_out) {
-    *it_out = static_cast<outputT>(*it_in);
+  if (cc->operator_type == ELTWISE_SIG) {
+    qsigmoid<inputT, outputT>(input, output, cc->x_scale, cc->x_zero_point);
+  } else if (cc->operator_type == ELTWISE_TANH) {
+    tensor_eltwise(output, input, cc->operator_type);
   }
   /* Note: Not using quantize function here because the quant scale and quant
     shift is fixed value for sigmoid implementation logic and its not caluated
@@ -836,10 +832,13 @@ void Op::Layer::QLinearSigmoid::run(TensorPool &tensor_pool) {
 
   if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
       output_type[0] == onnx::TensorProto_DataType_INT8) {
-    run_qsigmoid<int8_t, int32_t, int8_t>(this, tensor_pool);
+    run_qsigmoid<int8_t, int8_t>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_UINT8 &&
              output_type[0] == onnx::TensorProto_DataType_UINT8) {
-    run_qsigmoid<uint8_t, int32_t, uint8_t>(this, tensor_pool);
+    run_qsigmoid<uint8_t, uint8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_FLOAT &&
+             output_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_qsigmoid<float, float>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
