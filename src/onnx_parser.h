@@ -826,6 +826,22 @@ struct QLinearSigmoid : public LayerBase {
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
+struct Resize : public LayerBase {
+  const char *m_optype = "Resize";
+
+  std::vector<float> scales;
+  std::string mode;
+
+  Resize();
+  const char *op_type() const override;
+  std::string params() const override;
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const IVec2D &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void run(TensorPool &tensor_pool) override;
+};
+
 } // namespace Layer
 
 using Graph = boost::adjacency_list<boost::vecS, boost::listS,

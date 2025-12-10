@@ -1247,3 +1247,31 @@ void Op::Layer::QLinearConcat::run(TensorPool &tensor_pool) {
               Op::get_tensorproto_dtype_name(output_type[0]));
   }
 }
+
+template <typename T>
+static void run_resize(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Resize *cc = dynamic_cast<Op::Layer::Resize *>(l);
+  Tensor<T> *input;
+  Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
+  resize<T>(input, output, cc->scales);
+  check_dispatch(l, output);
+}
+
+void Op::Layer::Resize::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_resize<float>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_resize<int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_resize<uint8_t>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
