@@ -2402,6 +2402,85 @@ void Op::Layer::QLinearSigmoid::infer_type(
   this->input_type = input_types;
   this->output_type = input_types;
 }
+Op::Layer::Resize::Resize() { device = DEVICE_UNKNOWN; }
+
+char const *Op::Layer::Resize::op_type() const { return m_optype; }
+
+std::string Op::Layer::Resize::params() const {
+  std::string ret;
+  std::stringstream ss;
+  ss << "(mode: " << mode << ")";
+  ret = ss.str();
+  return ret;
+}
+
+void Op::Layer::Resize::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "mode") {
+      if (itr->has_s()) {
+        mode = itr->s();
+      }
+    }
+  }
+}
+
+void Op::Layer::Resize::infer_shape(const IVec2D &input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims;
+
+  // Currently only support scales input for Resize
+  assert(scales.size() >= 1);
+  this->output_dims.resize(1);
+  this->output_dims = this->input_dims;
+  for (size_t i = 0; i < input_dims[0].size(); ++i) {
+    this->output_dims[0][i] = static_cast<int>(input_dims[0][i] * scales[i]);
+  }
+
+  this->pipelined_output_dims = this->output_dims;
+}
+
+void Op::Layer::Resize::infer_type(const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type = input_types;
+}
+
+enum RESIZE_INITIALIZERS { RESIZE_ROIS = 1, RESIZE_SCALES = 2 };
+
+void Op::Layer::Resize::set_initializer_params(int n,
+                                               const onnx::TensorProto &t) {
+  switch (n) {
+  case RESIZE_SCALES:
+    if (t.float_data_size() > 0) {
+      // Case 1: Stored in float_data()
+      for (int i = 0; i < t.float_data_size(); i++) {
+        float v = t.float_data(i);
+        scales.push_back(v);
+      }
+    } else if (t.has_raw_data()) {
+      // Case 2: Stored in raw_data()
+      std::string raw = t.raw_data();
+      int count = t.dims(0); // shape[0] = 4
+
+      const float *data = reinterpret_cast<const float *>(raw.data());
+      for (int i = 0; i < count; i++) {
+        float v = data[i];
+        scales.push_back(v);
+      }
+    } else {
+      std::cerr << "ERROR: No scale data found for Resize node\n";
+    }
+
+    break;
+  case RESIZE_ROIS:
+
+    break;
+  default:
+    log_fatal("unknown inputs number {} for tensor {}\n", n, t.name());
+    break;
+  }
+}
 
 /* Auxillary Graph Functions */
 
@@ -3524,6 +3603,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QLinearSigmoid(ELTWISE_TANH), node);
   } else if (opt == "QLinearConcat") {
     m_model.add(new Op::Layer::QLinearConcat(), node);
+  } else if (opt == "Resize") {
+    m_model.add(new Op::Layer::Resize(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }

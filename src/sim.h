@@ -1157,6 +1157,56 @@ void reduce_mean(const Tensor<T> *input, Tensor<T> *output, int axis,
   *output = *input;
 }
 
+template <typename T>
+void resize(const Tensor<T> *input, Tensor<T> *output,
+            std::vector<float> scales) {
+
+  int out_h = output->dims_at(TENSOR_4D_HEIGHT);
+  int out_w = output->dims_at(TENSOR_4D_WIDTH);
+  int out_c = output->dims_at(TENSOR_4D_CHANNELS);
+  int out_n = output->dims_at(TENSOR_4D_BATCH);
+
+  for (int n = 0; n < out_n; ++n) {
+    for (int c = 0; c < out_c; ++c) {
+      for (int h = 0; h < out_h; ++h) {
+        for (int w = 0; w < out_w; ++w) {
+          int in_h = static_cast<int>(h / scales[TENSOR_4D_HEIGHT]);
+          int in_w = static_cast<int>(w / scales[TENSOR_4D_WIDTH]);
+          std::vector<int> in_index{n, c, in_h, in_w};
+          std::vector<int> out_index{n, c, h, w};
+          output->insert(out_index, input->at(in_index));
+        }
+      }
+    }
+  }
+}
+
+template <typename T>
+void concat(const std::vector<Tensor<T> *> &input, Tensor<T> *output,
+            int axis) {
+  if (input.size() == 0) {
+    log_fatal("concat: no input tensors\n");
+  }
+  int dims_sz = input[0]->dims_size();
+  if (abs(axis) >= dims_sz) {
+    log_fatal("concat: received out of bounds axis value {}. total dims {}\n",
+              axis, dims_sz);
+  }
+  int offset = 0;
+  for (const auto &t : input) {
+    for (int i = 0; i < t->dims_iterator(-1); ++i) {
+      std::vector<int> index(dims_sz, 0);
+      int rem = i;
+      for (int d = dims_sz - 1; d >= 0; --d) {
+        index[d] = rem % t->dims_at(d);
+        rem = rem / t->dims_at(d);
+      }
+      index[axis] += offset;
+      output->insert(index, t->at(i));
+    }
+    offset += t->dims_at(axis);
+  }
+}
 
 template <typename T>
 void concat(const std::vector<Tensor<T> *> &input, Tensor<T> *output,
