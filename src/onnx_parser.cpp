@@ -2557,6 +2557,9 @@ void Op::Model::connect(const onnx::NodeProto &node) {
     /* for inputs that are not initializers or inputs to the
      * graph, connect them to the current node
      */
+    if (i.empty()) {
+      continue;
+    }
     if (!is_initializer(i) && !is_graph_input(i) && !is_constant(i)) {
       auto itr = output_map.find(i);
       if (itr != output_map.end()) {
