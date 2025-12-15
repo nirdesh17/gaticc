@@ -1,6 +1,7 @@
 #include "onnx_parser.h"
 #include "utils.h"
 #include <queue>
+#include <cstdlib>
 
 #define CONV_WEIGHT_TENSOR_DIMS 4
 #define GEMM_WEIGHT_TENSOR_DIMS 2
@@ -626,6 +627,9 @@ void Op::Layer::Eltwise::set_initializer_params(int, const onnx::TensorProto &t)
 
 void Op::Layer::Eltwise::infer_shape(const IVec2D &input_dims) {
   /* TODO: allow support for broadcasts */
+  if (this->output_dims.size() != 0) {
+      return;
+  }
   assert(input_dims.size() >= 1);
   auto og = input_dims[0];
   /* all inputs should be equal to the first input in size */
@@ -633,7 +637,8 @@ void Op::Layer::Eltwise::infer_shape(const IVec2D &input_dims) {
   //   assert(v == og); };
   // std::for_each(input_dims.begin(), input_dims.end(), compare_fn);
   this->input_dims = input_dims;
-  this->output_dims = input_dims;
+  this->output_dims.push_back(input_dims[0]);
+  //this->output_dims = input_dims;
   this->pipelined_output_dims = this->output_dims;
 }
 
@@ -1411,7 +1416,8 @@ void Op::Layer::QLinearEltwise::infer_shape(const IVec2D &input_dims) {
               this->name, input_dims.size());
   }
   this->input_dims = input_dims;
-  this->output_dims = input_dims;
+  this->output_dims.push_back(input_dims[0]);
+  //this->output_dims = input_dims;
   this->pipelined_output_dims = this->output_dims;
 }
 
@@ -1733,7 +1739,10 @@ void Op::Layer::Split::infer_type(const std::vector<TPDT> &input_types){
     
 }
 void Op::Layer::Split::infer_shape(const IVec2D &input_dims){
-  assert(input_dims.size() == 1);
+  if (this->output_dims.size() !=0) {
+      return;
+  }
+  assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
   this->num_outputs = this->splits.size();
@@ -2077,7 +2086,7 @@ void Op::Layer::Concat::infer_shape(const IVec2D &input_dims) {
   this->input_dims = input_dims;
   this->output_dims[0] = concat_shape(input_dims, m_axis);
   this->pipelined_output_dims = this->output_dims;
-}
+} 
 
 void Op::Layer::Concat::set_attributes(const onnx::NodeProto &node) {
   const auto &attribute = node.attribute();
@@ -2676,7 +2685,35 @@ void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
  * - The input shape for node 3 will be Y1
  * - The input shape for node 4 will be Y2
  */
+
+void print_input_dims(const IVec2D& input_dims, const std::string& layer_name) {
+    //prints only the input dims provided , not the layer ones.
+    std::cout << "Dest Layer: " << layer_name << std::endl;
+    std::cout << "Number of input tensors: " << input_dims.size() << std::endl;
+
+    for (size_t i = 0; i < input_dims.size(); ++i) {
+        std::cout << "  Input[" << i << "]: [";
+        for (size_t j = 0; j < input_dims[i].size(); ++j) {
+            std::cout << input_dims[i][j];
+            if (j < input_dims[i].size() - 1) std::cout << ", ";
+        }
+        std::cout << "]" << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+// Usage:
+// print_input_dims(input_dims, g[vertex]->name);
+
+
+//IVec2D Op::get_dims_of_in_edge(Op::Vertex src,Op::Vertex dest, const Op::Graph &g) {
+    //We plan to remove onyl the edge form src to dest
+
+
+void add_split_outputs_to_hash(std::vector<std::string> &s_ptr, std::vector<int> &hashes);
+
 void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
+  std::cout<<std::endl<<"----Deducing Shapes-----"<<std::endl;
   IVec2D input_dims;
   for (const auto &i : m_graph.input()) {
     if (initializer_map.find(i.name()) == initializer_map.end()) {
@@ -2684,7 +2721,7 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
     }
   }
 
-  std::queue<Op::Vertex> S;
+  std::queue<Op::Vertex> S;  //we process the children of vertexes
   /* all nodes on which shape inference is done */
   std::unordered_set<Op::Vertex> done_set;
   Op::Graph gcopy = g;
@@ -2709,6 +2746,16 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
 
     for (auto [src, dest] : edges_to_remove) {
       /* make sure all parents of 'dest' have underwent infer_shape */
+      //populating the hashes of split
+      Op::LayerBase *src_node = gcopy[src];
+      Op::LayerBase *dst_node = gcopy[dest];
+      std::cout<<"Processing Edge "<<src_node->name<<" ------ "<<dst_node->name<<std::endl;
+      if ( src_node->op_type() == "Split") {
+        Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
+        //populates only when hash is empty - no reapeats
+        add_split_outputs_to_hash(split_node->output_names, split_node->hashes);
+        
+      }
       auto in_edges = boost::in_edges(dest, gcopy);
       bool dest_parents_done = 1;
       for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
@@ -2719,11 +2766,23 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
         } 
       }
 
+      //when i have multiple in edges -> then this parents done flag is over written si it? - NO, it's okay. any parent is falsee, it should be zero
+
       if (dest_parents_done) {
-        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy);
+        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy); //this woudld process multiple edges. 
+        // we have to remove the same edge we have added.  maybe create another funcation - which does this. 
+        //auto in_dim = Op::get_dim_of_in_edge(src, dest, gcopy);   //take in src, dest
+        //print_input_dims(in_dims,gcopy[dest]->name);
+
+        //what input does infer shape need? -  input dims have to be read and be complte.        
+
+        // this runs only when all parents are done, so should be fine. 
+        // For simple split - this gets called twice. split1--add and then relu--add
         gcopy[dest]->infer_shape(in_dims);
+        print_input_dims(gcopy[dest]->input_dims,gcopy[dest]->name);
+
         done_set.insert(dest);
-        boost::remove_edge(src, dest, gcopy);
+        boost::remove_edge(src, dest, gcopy); //the edge we ar removing is only one
         if (boost::in_degree(dest, gcopy) == 0) {
           S.push(dest);
         }
@@ -2732,6 +2791,9 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
       }
     }
   }
+  
+  std::cout<<std::endl<<"----Deducing Shapes Completed-----"<<std::endl<<std::endl;
+  exit(1);
 }
 
 /* Operates almost exactly like deduce_shape but calls infer_type instead of 
@@ -2799,25 +2861,40 @@ void Op::Model::deduce_types(const onnx::GraphProto &m_graph) {
   }
 }
 
-void add_split_outputs_to_hash(std::vector<std::string> *s_ptr, std::vector<int> &hashes) {
+void add_split_outputs_to_hash(std::vector<std::string> &s_ptr, std::vector<int> &hashes) {
   //pointer to vector of input strings 
   //poninter to avector of ints also 
   
   if(hashes.empty()){
-    for (auto itr = (*s_ptr).begin(); itr != (*s_ptr).end(); ++itr){
+    for (auto itr = s_ptr.begin(); itr != s_ptr.end(); ++itr){
       int value = string_hash(*itr);
       hashes.push_back(value);
-      std::cout<<"Adding hash "<<value<<" for "<<(*itr)<<std::endl;
+      //std::cout<<"Adding hash "<<value<<" for "<<(*itr)<<std::endl;
     }
   std::cout<<"Split Outputs Hash vector populated"<<std::endl; 
   }
 }
 
+std::vector<int> find_edge_indexes(Op::LayerBase *node, std::vector<int> &hashes) {
+  std::vector<int> indexes;
+  int index;
+  std::cout<<"Called indexes"<<std::endl;
+  for (auto itr = node->input_names.begin(); itr != node->input_names.end(); ++itr) {
+    int hash_value = string_hash(*itr);
+    std::cout<<"Finding hash value "<<hash_value<<" for"<<(*itr)<<std::endl;
+    auto it = std::find(hashes.begin(), hashes.end(), hash_value);
+    if (it != hashes.end()) {
+      index = std::distance(hashes.begin(), it);
+      int input_index = std::distance(node->input_names.begin(), itr); 
+      indexes.push_back(index);   
+    }
+  }
+ return indexes;
+}
+
 int find_edge_index(Op::LayerBase *node, std::vector<int> &hashes) {
-  //Basically find if any inputs of the node, have the hash in the vector ( the hashes beign split outputs) 
-  //the egde is an input to the netx layer, find at what index the edge is. 
-  // ? how i know whihc edge I'mon .  i know src and dest. 
-  // i just find whatevr dst input - matches - src output
+  //The node is destination node of the edge. Have to find, whcih index of source split
+  //do i need for this destination
   int index = 0;
   for ( auto itr = node->input_names.begin(); itr != node->input_names.end(); ++itr) {
     int hash_value = string_hash(*itr);
@@ -2826,34 +2903,36 @@ int find_edge_index(Op::LayerBase *node, std::vector<int> &hashes) {
     if (it != hashes.end()) {
       index = std::distance(hashes.begin(), it);
       int input_index = std::distance(node->input_names.begin(), itr); 
-      std::cout<<"Removing index "<<input_index<<" containing string "<<(*itr)<<" from node "<<node->name<<" 's input names"<<std::endl;
-      node->input_names.erase(itr);
+      //node->input_names.erase(itr);
       break;
+    
     }
+  //std::cout<<"Returning index "<<index<<std::endl;
   }
-  std::cout<<"Returning index "<<index<<std::endl;
-  return index;
+ return index;
 }
 
-int calculate_cumulative_sum(std::vector<int> *arr, int index){
+int calculate_cumulative_sum(std::vector<int> &arr, int index){
   int sum =0;
   for (int i = 0; i < index; ++i) {
-    sum += (*arr)[i];
+    sum += (arr)[i];
   }
   return sum;
 }
 
-void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target, std::vector<int> &hashes) {
+void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target) {
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
   std::cout<<"Assinging offset "<<src_node->name<<"-----"<<dst_node->name<<std::endl;
   if ( src_node->op_type() == "Split" ) {
+    std::cout<<"Src node is split"<<std::endl;
     Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
-    if ( hashes.empty()){
-      add_split_outputs_to_hash(&split_node->output_names, hashes);  
+    if (split_node->hashes.empty()){
+      std::cout<<"Calling add split outputs to hash"<<std::endl;
+      add_split_outputs_to_hash(split_node->output_names, split_node->hashes);  
     }
-    int index = find_edge_index(dst_node, hashes) ;
-    int offset = calculate_cumulative_sum(&split_node->splits,index) + split_node->channel_offsets.at(0) ;
+    int index = find_edge_index(dst_node, split_node->hashes) ;
+    int offset = calculate_cumulative_sum(split_node->splits,index) + split_node->channel_offsets.at(0) ;
     dst_node->channel_offsets.push_back(offset);
   }
   
@@ -2890,7 +2969,7 @@ void Op::Model::update_channel_offsets(){
   if (Op::is_root_node(n, &gcopy)) {
     for( int i=0; i < node->inputs.size(); i++) {
       node->channel_offsets.push_back(0);
-    std::cout<<"For root node: "<<node->name<<", set the channel offset"<<std::endl;
+    std::cout<<"For root node: "<<node->name<<", set the channel offset"<<std::endl<<std::endl;
     }
   }
 
@@ -2905,19 +2984,16 @@ void Op::Model::update_channel_offsets(){
       edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
     }
 
-    std::vector<int> hashes;
-
 
     for (auto [src, dest] : edges_to_remove) { 
      if (!Op::are_equal_nodes(src, dest, &gcopy)) {
-      update_edge_channel(&gcopy, src, dest, hashes);
-      boost::remove_edge(src, dest, g);
+      update_edge_channel(&gcopy, src, dest);
+      boost::remove_edge(src, dest, gcopy);
       if (boost::in_degree(dest, g) == 0) {
         S.push(dest);
       }
      }
     }
-    hashes.resize(0);
   }
 
   std::cout<<" -- Channel Offset done -- "<<std::endl;
@@ -3054,12 +3130,31 @@ std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g) {
 }
 
 IVec2D Op::get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g) {
+  //so v is the vertex who in_dims we need to calculate 
   IVec2D ret;
+  std::vector<int> indexes; 
   auto in_edges = boost::in_edges(v, g);
   for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
+    //here common rcv node have 2 in nodes but from same src
     Op::Vertex src_vertex = boost::source(*itr, g);
-    for (const auto &out_dim : g[src_vertex]->output_dims) {
-      ret.push_back(out_dim);
+    Op::LayerBase *src_node = g[src_vertex];
+    if (src_node->op_type() == "Split") {
+      Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
+      Op::LayerBase *dst_node = g[v];
+      //std::vector<int> indexes = find_edge_indexes(dst_node, split_node->hashes);
+      int index = find_edge_index(dst_node, split_node->hashes);
+      indexes =  find_edge_indexes(dst_node, split_node->hashes);
+      //here the index returned is the same both times if we have a common rcv dst_node
+      ret.push_back(g[src_vertex]->output_dims[index]);
+      std::cout<<"Taking "<<src_node->name<<" output index: "<<index<<" adding to input of "<<dst_node->name<<std::endl;
+    }
+    else {
+      for (const auto &out_dim : g[src_vertex]->output_dims) {
+        ret.push_back(out_dim);
+        Op::LayerBase *dst_node = g[v];
+        std::cout<<"Adding input to Node: "<<dst_node->name<<std::endl;
+        
+      }
     }
   }
   return ret;
@@ -3500,18 +3595,22 @@ Op::Parser::Parser(std::string const &filename) {
   m_model.save_first_layer_input_dims(m_graph.input().at(0));
 
 
+
+  log_info2("Saving input output names done\n");
+  m_model.save_input_output_names();
+
   m_model.deduce_types(m_graph);
   log_info2("Starting Shape Inference\n");
   m_model.deduce_shapes(m_graph);
   log_info2("Setting devices\n");
   pass_set_device();
+
   log_info2("Updating Registers through register allocator\n");
   m_model.update_registers();
-  log_info2("Parsing Finished\n");
-  m_model.save_input_output_names();
-  log_info2("Save input output names done\n");
-  m_model.update_channel_offsets();
   log_info2("Setting channel offsets\n", filename);
+  m_model.update_channel_offsets();
+
+  log_info2("Parsing Finished\n");
 }
 
 void Op::Parser::summary() const { m_model.bare_summary(); }
@@ -3682,6 +3781,7 @@ Op::RegisterAllocator::acquire(const std::string &node_name) {
   if (itr != register_set.end()) {
     Op::VirtualAddress reg_num = itr - register_set.begin();
     ref(node_name, reg_num);
+    std::cout<<"ACQUIRED And REFERENCE: Dst node "<< node_name<<" which is reg value: "<<reg_num<<std::endl;
     //std::cout<<"Acquire : Ref called,for Node :"<<node_name <<"  register:"<<reg_num<<std::endl;
     return reg_num;
   } else {
@@ -3693,7 +3793,6 @@ Op::RegisterAllocator::acquire(const std::string &node_name) {
 void Op::RegisterAllocator::ref(const std::string &node_name,
                                 Op::VirtualAddress a) {
   register_set.at(a) = string_hash(node_name);
-  //std::cout<<"Ref called,for Node :"<<node_name <<"  register:"<<a<<std::endl;
 }
 
 void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
@@ -3706,6 +3805,7 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
                                      Op::Vertex target) {
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
+  
   for(Op::VirtualAddress out_reg : src_node->outputs){
     dst_node->inputs.push_back(out_reg);
     int size = dst_node->inputs.size();
@@ -3719,11 +3819,14 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
         relinquish(reg_val);
       }
     }
-  }
 
   if (dst_node->outputs.size() == 0) {
-    dst_node->outputs.push_back(acquire(dst_node->name));
-
+    if (dst_node->op_type() == "Split") {
+      dst_node->outputs.push_back(dst_node->inputs.at(0)); 
+    }
+    else {
+      dst_node->outputs.push_back(acquire(dst_node->name));
+    }
   }
  
 }
