@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body { font-family: monospace; }
+.collapsible { cursor: pointer; padding: 10px; background-color: #f1f1f1; border: 1px solid #ddd; margin-top: 5px; }
+.content { display: none; padding: 10px; border-left: 1px solid #ddd; margin-left: 10px; }
+.content ul { list-style-type: none; padding-left: 0; }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const coll = document.querySelectorAll('.collapsible');
+  coll.forEach(function(el) {
+    el.addEventListener('click', function() {
+      this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'block' ? 'none' : 'block';
+    });
+  });
+});
+</script>
+</head>
+<body>
+<div class='collapsible'>v Layer 0</div>
+<div class='content'>
+<div class='collapsible'>v  CONV</div>
+<div class='content'>
+<ul>
+<li>Opcode: 0</li>
+<li>IW: 32</li>
+<li>IH: 32</li>
+<li>IC: 3</li>
+<li>KN: 32</li>
+<li>KW: 3</li>
+<li>KH: 3</li>
+<li>Stride: 1</li>
+<li>PadLeft: 1</li>
+<li>PadBottom: 1</li>
+<li>PadRight: 1</li>
+<li>PadTop: 1</li>
+<li>StartRowSkip: 0</li>
+<li>EndRowSkip: 0</li>
+<li>ImageStartAddress: 4294304</li>
+<li>ImageEndAddress: 4298400</li>
+<li>WeightStartAddress: 800</li>
+<li>WeightEndAddress: 1952</li>
+<li>Im2colPrefetch: 0</li>
+<li>KC: 3</li>
+<li>ConvType: 0</li>
+<li>ChannelDuplicate: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Tail Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 1</li>
+<li>ActEn: 1</li>
+<li>ActType: 0</li>
+<li>ActParam: 0</li>
+<li>QuantEn: 1</li>
+<li>QuantScale: 139</li>
+<li>QuantShift: 16</li>
+<li>PoolEn: 1</li>
+<li>PoolType: 0</li>
+<li>PoolScale: 0</li>
+<li>PoolShift: 0</li>
+<li>PoolWidth: 2</li>
+<li>PoolHeight: 2</li>
+<li>PoolStride: 2</li>
+<li>PoolPadding: 0</li>
+<li>PoolCeil: 0</li>
+<li>PoolModCount: 0</li>
+<li>PoolModCountCols: 0</li>
+<li>PoolPadSides: 0</li>
+<li>BiasEn: 1</li>
+<li>BiasWidth: 32</li>
+<li>BiasStartAddress: 1952</li>
+<li>BiasEndAddress: 2080</li>
+<li>NegAlpha: 0</li>
+<li>PosAlpha: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Output Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 2</li>
+<li>AccumulantAddr: 4458144</li>
+<li>AccumulantReadFirst: 0</li>
+<li>OutputAddr: 4261536</li>
+<li>ChannelItr: 1</li>
+<li>KernelItr: 8</li>
+<li>ImageDimOutput: 256</li>
+<li>ImageDimAcc: 1024</li>
+<li>AccEn: 0</li>
+<li>DispatchEn: 0</li>
+<li>DispatchID: 0</li>
+<li>OnChipAcc: 1</li>
+<li>OH: 32</li>
+<li>OW: 32</li>
+<li>FlatController: 0</li>
+<li>OpWidth: 1</li>
+</ul>
+</div>
+<div class='collapsible'>v  START</div>
+<div class='content'>
+<ul>
+<li>Opcode: 15</li>
+<li>LayerNumber: 1</li>
+<li>TotalLayers: 6</li>
+</ul>
+</div>
+</div>
+<div class='collapsible'>v Layer 1</div>
+<div class='content'>
+<div class='collapsible'>v  CONV</div>
+<div class='content'>
+<ul>
+<li>Opcode: 0</li>
+<li>IW: 16</li>
+<li>IH: 16</li>
+<li>IC: 32</li>
+<li>KN: 64</li>
+<li>KW: 3</li>
+<li>KH: 3</li>
+<li>Stride: 1</li>
+<li>PadLeft: 1</li>
+<li>PadBottom: 1</li>
+<li>PadRight: 1</li>
+<li>PadTop: 1</li>
+<li>StartRowSkip: 0</li>
+<li>EndRowSkip: 0</li>
+<li>ImageStartAddress: 4261536</li>
+<li>ImageEndAddress: 4269728</li>
+<li>WeightStartAddress: 2080</li>
+<li>WeightEndAddress: 20512</li>
+<li>Im2colPrefetch: 1</li>
+<li>KC: 32</li>
+<li>ConvType: 0</li>
+<li>ChannelDuplicate: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Tail Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 1</li>
+<li>ActEn: 1</li>
+<li>ActType: 0</li>
+<li>ActParam: 0</li>
+<li>QuantEn: 1</li>
+<li>QuantScale: 205</li>
+<li>QuantShift: 16</li>
+<li>PoolEn: 1</li>
+<li>PoolType: 0</li>
+<li>PoolScale: 0</li>
+<li>PoolShift: 0</li>
+<li>PoolWidth: 2</li>
+<li>PoolHeight: 2</li>
+<li>PoolStride: 2</li>
+<li>PoolPadding: 0</li>
+<li>PoolCeil: 0</li>
+<li>PoolModCount: 0</li>
+<li>PoolModCountCols: 0</li>
+<li>PoolPadSides: 0</li>
+<li>BiasEn: 1</li>
+<li>BiasWidth: 32</li>
+<li>BiasStartAddress: 20512</li>
+<li>BiasEndAddress: 20768</li>
+<li>NegAlpha: 0</li>
+<li>PosAlpha: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Output Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 2</li>
+<li>AccumulantAddr: 4327072</li>
+<li>AccumulantReadFirst: 0</li>
+<li>OutputAddr: 4294304</li>
+<li>ChannelItr: 8</li>
+<li>KernelItr: 16</li>
+<li>ImageDimOutput: 256</li>
+<li>ImageDimAcc: 256</li>
+<li>AccEn: 1</li>
+<li>DispatchEn: 0</li>
+<li>DispatchID: 0</li>
+<li>OnChipAcc: 1</li>
+<li>OH: 16</li>
+<li>OW: 16</li>
+<li>FlatController: 0</li>
+<li>OpWidth: 1</li>
+</ul>
+</div>
+<div class='collapsible'>v  START</div>
+<div class='content'>
+<ul>
+<li>Opcode: 15</li>
+<li>LayerNumber: 2</li>
+<li>TotalLayers: 6</li>
+</ul>
+</div>
+</div>
+<div class='collapsible'>v Layer 2</div>
+<div class='content'>
+<div class='collapsible'>v  Tail Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 1</li>
+<li>ActEn: 0</li>
+<li>ActType: 0</li>
+<li>ActParam: 0</li>
+<li>QuantEn: 0</li>
+<li>QuantScale: 0</li>
+<li>QuantShift: 0</li>
+<li>PoolEn: 0</li>
+<li>PoolType: 0</li>
+<li>PoolScale: 0</li>
+<li>PoolShift: 0</li>
+<li>PoolWidth: 0</li>
+<li>PoolHeight: 0</li>
+<li>PoolStride: 0</li>
+<li>PoolPadding: 0</li>
+<li>PoolCeil: 0</li>
+<li>PoolModCount: 0</li>
+<li>PoolModCountCols: 0</li>
+<li>PoolPadSides: 0</li>
+<li>BiasEn: 0</li>
+<li>BiasWidth: 0</li>
+<li>BiasStartAddress: 0</li>
+<li>BiasEndAddress: 0</li>
+<li>NegAlpha: 0</li>
+<li>PosAlpha: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Output Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 2</li>
+<li>AccumulantAddr: 0</li>
+<li>AccumulantReadFirst: 0</li>
+<li>OutputAddr: 4261536</li>
+<li>ChannelItr: 1</li>
+<li>KernelItr: 1</li>
+<li>ImageDimOutput: 16384</li>
+<li>ImageDimAcc: 0</li>
+<li>AccEn: 0</li>
+<li>DispatchEn: 0</li>
+<li>DispatchID: 0</li>
+<li>OnChipAcc: 0</li>
+<li>OH: 16</li>
+<li>OW: 16</li>
+<li>FlatController: 0</li>
+<li>OpWidth: 1</li>
+</ul>
+</div>
+<div class='collapsible'>v  START</div>
+<div class='content'>
+<ul>
+<li>Opcode: 15</li>
+<li>LayerNumber: 3</li>
+<li>TotalLayers: 6</li>
+</ul>
+</div>
+<div class='collapsible'>v  RESIZE</div>
+<div class='content'>
+<ul>
+<li>Opcode: 10</li>
+<li>IW: 8</li>
+<li>IH: 8</li>
+<li>IC: 64</li>
+<li>ImageStartAddress: 4294304</li>
+<li>ImageEndAddress: 4298400</li>
+</ul>
+</div>
+</div>
+<div class='collapsible'>v Layer 3</div>
+<div class='content'>
+<div class='collapsible'>v  CONV</div>
+<div class='content'>
+<ul>
+<li>Opcode: 0</li>
+<li>IW: 16</li>
+<li>IH: 16</li>
+<li>IC: 64</li>
+<li>KN: 64</li>
+<li>KW: 3</li>
+<li>KH: 3</li>
+<li>Stride: 1</li>
+<li>PadLeft: 1</li>
+<li>PadBottom: 1</li>
+<li>PadRight: 1</li>
+<li>PadTop: 1</li>
+<li>StartRowSkip: 0</li>
+<li>EndRowSkip: 0</li>
+<li>ImageStartAddress: 4294304</li>
+<li>ImageEndAddress: 4310688</li>
+<li>WeightStartAddress: 20768</li>
+<li>WeightEndAddress: 57632</li>
+<li>Im2colPrefetch: 1</li>
+<li>KC: 64</li>
+<li>ConvType: 0</li>
+<li>ChannelDuplicate: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Tail Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 1</li>
+<li>ActEn: 1</li>
+<li>ActType: 0</li>
+<li>ActParam: 0</li>
+<li>QuantEn: 1</li>
+<li>QuantScale: 457</li>
+<li>QuantShift: 16</li>
+<li>PoolEn: 0</li>
+<li>PoolType: 0</li>
+<li>PoolScale: 0</li>
+<li>PoolShift: 0</li>
+<li>PoolWidth: 0</li>
+<li>PoolHeight: 0</li>
+<li>PoolStride: 0</li>
+<li>PoolPadding: 0</li>
+<li>PoolCeil: 0</li>
+<li>PoolModCount: 0</li>
+<li>PoolModCountCols: 0</li>
+<li>PoolPadSides: 0</li>
+<li>BiasEn: 1</li>
+<li>BiasWidth: 32</li>
+<li>BiasStartAddress: 57632</li>
+<li>BiasEndAddress: 57888</li>
+<li>NegAlpha: 0</li>
+<li>PosAlpha: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Output Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 2</li>
+<li>AccumulantAddr: 4458144</li>
+<li>AccumulantReadFirst: 0</li>
+<li>OutputAddr: 4261536</li>
+<li>ChannelItr: 16</li>
+<li>KernelItr: 16</li>
+<li>ImageDimOutput: 256</li>
+<li>ImageDimAcc: 256</li>
+<li>AccEn: 1</li>
+<li>DispatchEn: 0</li>
+<li>DispatchID: 0</li>
+<li>OnChipAcc: 1</li>
+<li>OH: 16</li>
+<li>OW: 16</li>
+<li>FlatController: 0</li>
+<li>OpWidth: 1</li>
+</ul>
+</div>
+<div class='collapsible'>v  START</div>
+<div class='content'>
+<ul>
+<li>Opcode: 15</li>
+<li>LayerNumber: 4</li>
+<li>TotalLayers: 6</li>
+</ul>
+</div>
+</div>
+<div class='collapsible'>v Layer 4</div>
+<div class='content'>
+<div class='collapsible'>v  Tail Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 1</li>
+<li>ActEn: 1</li>
+<li>ActType: 0</li>
+<li>ActParam: 0</li>
+<li>QuantEn: 1</li>
+<li>QuantScale: 65</li>
+<li>QuantShift: 16</li>
+<li>PoolEn: 0</li>
+<li>PoolType: 0</li>
+<li>PoolScale: 0</li>
+<li>PoolShift: 0</li>
+<li>PoolWidth: 0</li>
+<li>PoolHeight: 0</li>
+<li>PoolStride: 0</li>
+<li>PoolPadding: 0</li>
+<li>PoolCeil: 0</li>
+<li>PoolModCount: 0</li>
+<li>PoolModCountCols: 0</li>
+<li>PoolPadSides: 0</li>
+<li>BiasEn: 1</li>
+<li>BiasWidth: 32</li>
+<li>BiasStartAddress: 4252192</li>
+<li>BiasEndAddress: 4253216</li>
+<li>NegAlpha: 0</li>
+<li>PosAlpha: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Output Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 2</li>
+<li>AccumulantAddr: 0</li>
+<li>AccumulantReadFirst: 0</li>
+<li>OutputAddr: 4294304</li>
+<li>ChannelItr: 1</li>
+<li>KernelItr: 8</li>
+<li>ImageDimOutput: 8</li>
+<li>ImageDimAcc: 0</li>
+<li>AccEn: 0</li>
+<li>DispatchEn: 0</li>
+<li>DispatchID: 0</li>
+<li>OnChipAcc: 0</li>
+<li>OH: 1</li>
+<li>OW: 256</li>
+<li>FlatController: 0</li>
+<li>OpWidth: 1</li>
+</ul>
+</div>
+<div class='collapsible'>v  FC</div>
+<div class='content'>
+<ul>
+<li>Opcode: 3</li>
+<li>WeightRows: 16384</li>
+<li>WeightCols: 256</li>
+<li>InputRows: 16384</li>
+<li>DropoutConstant: 0</li>
+<li>Flatten: 1</li>
+<li>ImageDim: 256</li>
+<li>ImageStartAddress: 4261536</li>
+<li>ImageEndAddr: 4277920</li>
+<li>WeightStartAddress: 57888</li>
+<li>WeightEndAddress: 4252192</li>
+<li>Vec2MatCols: 512</li>
+</ul>
+</div>
+<div class='collapsible'>v  START</div>
+<div class='content'>
+<ul>
+<li>Opcode: 15</li>
+<li>LayerNumber: 5</li>
+<li>TotalLayers: 6</li>
+</ul>
+</div>
+</div>
+<div class='collapsible'>v Layer 5</div>
+<div class='content'>
+<div class='collapsible'>v  Tail Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 1</li>
+<li>ActEn: 0</li>
+<li>ActType: 0</li>
+<li>ActParam: 0</li>
+<li>QuantEn: 1</li>
+<li>QuantScale: 200</li>
+<li>QuantShift: 16</li>
+<li>PoolEn: 0</li>
+<li>PoolType: 0</li>
+<li>PoolScale: 0</li>
+<li>PoolShift: 0</li>
+<li>PoolWidth: 0</li>
+<li>PoolHeight: 0</li>
+<li>PoolStride: 0</li>
+<li>PoolPadding: 0</li>
+<li>PoolCeil: 0</li>
+<li>PoolModCount: 0</li>
+<li>PoolModCountCols: 0</li>
+<li>PoolPadSides: 0</li>
+<li>BiasEn: 1</li>
+<li>BiasWidth: 32</li>
+<li>BiasStartAddress: 4261408</li>
+<li>BiasEndAddress: 4261536</li>
+<li>NegAlpha: 0</li>
+<li>PosAlpha: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Output Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 2</li>
+<li>AccumulantAddr: 0</li>
+<li>AccumulantReadFirst: 0</li>
+<li>OutputAddr: 4261536</li>
+<li>ChannelItr: 1</li>
+<li>KernelItr: 1</li>
+<li>ImageDimOutput: 8</li>
+<li>ImageDimAcc: 0</li>
+<li>AccEn: 0</li>
+<li>DispatchEn: 1</li>
+<li>DispatchID: 970089995</li>
+<li>OnChipAcc: 0</li>
+<li>OH: 1</li>
+<li>OW: 10</li>
+<li>FlatController: 0</li>
+<li>OpWidth: 1</li>
+</ul>
+</div>
+<div class='collapsible'>v  FC</div>
+<div class='content'>
+<ul>
+<li>Opcode: 3</li>
+<li>WeightRows: 256</li>
+<li>WeightCols: 10</li>
+<li>InputRows: 256</li>
+<li>DropoutConstant: 0</li>
+<li>Flatten: 0</li>
+<li>ImageDim: 0</li>
+<li>ImageStartAddress: 4294304</li>
+<li>ImageEndAddr: 4294560</li>
+<li>WeightStartAddress: 4253216</li>
+<li>WeightEndAddress: 4261408</li>
+<li>Vec2MatCols: 8</li>
+</ul>
+</div>
+<div class='collapsible'>v  START</div>
+<div class='content'>
+<ul>
+<li>Opcode: 15</li>
+<li>LayerNumber: 6</li>
+<li>TotalLayers: 6</li>
+</ul>
+</div>
+</div>
+</body>
+</html>
