@@ -35,6 +35,7 @@ if __name__ == "__main__":
 
   bitstream = "../../hex/gati_0.9.11_944.hex"
   #bitstream = "../../hex/gati_0.9.11_16116.hex"
+  
   gml_path = "model.gml"
   gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
   #gati.set_arch(ramsize=512, sa_arch="16,1,16", vasize=32, accbuf_size=4096, fcbuf_size=16384,im2colbuf_size=512)
@@ -43,5 +44,6 @@ if __name__ == "__main__":
   gati.flash(bitstream)
   name = gati.get_model_inputs(onnx_path)[0]
   gati.load(onnx_path, gml_path)
+
   ret = post(gati.run({name : np.load("imagenet_100.npy")}))
   print(f"Match: {gati.match('imagenet_100_labels.txt', ret)}%")

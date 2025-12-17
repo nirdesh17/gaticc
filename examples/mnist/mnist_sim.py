@@ -7,6 +7,7 @@ def post(arr):
   return m
 
 if __name__ == "__main__":
+
   onnx_path = "../../working_models/" + sys.argv[1]
   name = gati.get_model_inputs(onnx_path)[0]
   ret = post(gati.sim(onnx_path, {name: np.load("mnist_100.npy")}))
