@@ -2793,7 +2793,7 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
   }
   
   std::cout<<std::endl<<"----Deducing Shapes Completed-----"<<std::endl<<std::endl;
-  exit(1);
+  //exit(1);
 }
 
 /* Operates almost exactly like deduce_shape but calls infer_type instead of 

@@ -674,6 +674,31 @@ void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
   }
 }
 
+/* helper funcation for Op::Layer::Split() */
+//template <typename T>
+static void run_split(Op::LayerBase *l,TensorPool &tensor_pool) {
+    Op::Layer::Split *sp = dynamic_cast<Op::Layer::Split *>(l);
+}
+
+
+void Op::Layer::Split::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  
+  if(input_type[0] == onnx::TensorProto_DataType_FLOAT && 
+     output_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_split(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+             output_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_split(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
+
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearMatMul *cc = dynamic_cast<Op::Layer::QLinearMatMul *>(l);

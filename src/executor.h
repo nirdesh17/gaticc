@@ -98,7 +98,7 @@ TensorPool Executor::run_aux(const Op::Parser& parser, const std::vector<Tensor<
     for (Op::LayerBase* l : order) {
       print_extra_info(l);
       l->dispatch = dispatch_table.should_dispatch(l);
-      l->run(tensor_pool);
+      l->run(tensor_pool);    
 
       if (parser.has_graph_output(l) || l->dispatch) {
         for (auto type : l->output_type) {

@@ -159,7 +159,7 @@ public:
   /* get a address in weights/bias region */
   uint32_t alloc(uint32_t size);
   /* get a address in io region */
-  uint32_t io_addr_from_register(Op::VirtualAddress reg);
+  uint32_t io_addr_from_register(Op::VirtualAddress reg, int channel_offset = 0, int op_height = 0, int op_width = 0);
   /* get a address in accumulant region */
   uint32_t ps_addr_from_register(Op::VirtualAddress reg);
   int io_reg_size() const;
