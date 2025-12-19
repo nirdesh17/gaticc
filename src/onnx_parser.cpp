@@ -2752,7 +2752,6 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
       std::cout<<"Processing Edge "<<src_node->name<<" ------ "<<dst_node->name<<std::endl;
       if ( src_node->op_type() == "Split") {
         Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
-        //populates only when hash is empty - no reapeats
         add_split_outputs_to_hash(split_node->output_names, split_node->hashes);
         
       }
@@ -2769,15 +2768,8 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
       //when i have multiple in edges -> then this parents done flag is over written si it? - NO, it's okay. any parent is falsee, it should be zero
 
       if (dest_parents_done) {
-        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy); //this woudld process multiple edges. 
-        // we have to remove the same edge we have added.  maybe create another funcation - which does this. 
-        //auto in_dim = Op::get_dim_of_in_edge(src, dest, gcopy);   //take in src, dest
-        //print_input_dims(in_dims,gcopy[dest]->name);
-
-        //what input does infer shape need? -  input dims have to be read and be complte.        
-
-        // this runs only when all parents are done, so should be fine. 
-        // For simple split - this gets called twice. split1--add and then relu--add
+        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy); //this woudld process multiple edges. uses Op::Vertex 
+        
         gcopy[dest]->infer_shape(in_dims);
         print_input_dims(gcopy[dest]->input_dims,gcopy[dest]->name);
 
@@ -2892,9 +2884,12 @@ std::vector<int> find_edge_indexes(Op::LayerBase *node, std::vector<int> &hashes
  return indexes;
 }
 
-int find_edge_index(Op::LayerBase *node, std::vector<int> &hashes) {
-  //The node is destination node of the edge. Have to find, whcih index of source split
-  //do i need for this destination
+// what if there was some other way - 
+
+// find index should technically be about - get the edge, return index
+int find_edge_index(Op::LayerBase *node, std::vector<int> &hashes) { //node is dst_node
+    // src is always split. i'm finding  which edge in the src - dst pair exists
+
   int index = 0;
   for ( auto itr = node->input_names.begin(); itr != node->input_names.end(); ++itr) {
     int hash_value = string_hash(*itr);
@@ -2920,7 +2915,9 @@ int calculate_cumulative_sum(std::vector<int> &arr, int index){
   return sum;
 }
 
-void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target) {
+void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target) { 
+  // here we get an edge - so even if concat has input from different  splits, it should be fine.  
+  //hash of the source is sent
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
   std::cout<<"Assinging offset "<<src_node->name<<"-----"<<dst_node->name<<std::endl;
@@ -3136,12 +3133,15 @@ IVec2D Op::get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g) {
   auto in_edges = boost::in_edges(v, g);
   for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
     //here common rcv node have 2 in nodes but from same src
+    // we keep getting the same edge in find index
+
+    //we are iterating over edges - we don't need to make it abt src dst . can we avoid?
     Op::Vertex src_vertex = boost::source(*itr, g);
     Op::LayerBase *src_node = g[src_vertex];
     if (src_node->op_type() == "Split") {
       Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
       Op::LayerBase *dst_node = g[v];
-      //std::vector<int> indexes = find_edge_indexes(dst_node, split_node->hashes);
+      // i could make a dst node  
       int index = find_edge_index(dst_node, split_node->hashes);
       indexes =  find_edge_indexes(dst_node, split_node->hashes);
       //here the index returned is the same both times if we have a common rcv dst_node
@@ -3159,6 +3159,12 @@ IVec2D Op::get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g) {
   }
   return ret;
 }
+
+//some way to store - this hash - goes to this, this, this node. 
+     //  for this hash  - a LL which keeps node values. 
+// the simple way is still - to just remove input names. 
+
+
 
 std::vector<std::string>
 Op::get_input_nodes(const onnx::NodeProto &np, const Op::Graph &g,
@@ -3598,7 +3604,6 @@ Op::Parser::Parser(std::string const &filename) {
 
   log_info2("Saving input output names done\n");
   m_model.save_input_output_names();
-
   m_model.deduce_types(m_graph);
   log_info2("Starting Shape Inference\n");
   m_model.deduce_shapes(m_graph);
@@ -3828,7 +3833,6 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
       dst_node->outputs.push_back(acquire(dst_node->name));
     }
   }
- 
 }
 
 void Op::RegisterAllocator::clear_regs(Op::Graph g) {
