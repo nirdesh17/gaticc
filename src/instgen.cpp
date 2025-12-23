@@ -56,11 +56,11 @@ bool changes_dimension_count(const Op::LayerBase *l) {
   }
   return false;
 }
-
+/*
 bool is_op_type(const Op::LayerBase *l, const char *op_type) {
   return std::strcmp(l->op_type(), op_type) == 0;
 }
-
+*/
 template <typename T> using CmpFunc = std::function<bool(T, T)>;
 
 template <typename T> using CmpApplyFunc = std::function<T(T, T)>;

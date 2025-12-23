@@ -22,6 +22,11 @@
  * in the onnx file.
  */
 
+
+bool is_op_type(const Op::LayerBase *l, const char *op_type) { 
+  return std::strcmp(l->op_type(), op_type) == 0 ;
+}
+
 const char *Op::LayerBase::op_type() const { return "(null)"; }
 std::string Op::LayerBase::params() const { return "(null)"; }
 void Op::LayerBase::set_initializer_params(int n, const onnx::TensorProto &t) {
@@ -3824,13 +3829,14 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
         relinquish(reg_val);
       }
     }
+  }
 
   if (dst_node->outputs.size() == 0) {
-    if (dst_node->op_type() == "Split") {
-      dst_node->outputs.push_back(dst_node->inputs.at(0)); 
+    if (is_op_type(dst_node, "Split")) { //reg value should stay the same
+      dst_node->outputs.push_back(dst_node->inputs.at(0));
     }
-    else {
-      dst_node->outputs.push_back(acquire(dst_node->name));
+    else { 
+        dst_node->outputs.push_back(acquire(dst_node->name));
     }
   }
 }
