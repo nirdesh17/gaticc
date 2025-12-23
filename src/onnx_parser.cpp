@@ -3148,7 +3148,7 @@ IVec2D Op::get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g) {
       Op::LayerBase *dst_node = g[v];
       // i could make a dst node  
       int index = find_edge_index(dst_node, split_node->hashes);
-      indexes =  find_edge_indexes(dst_node, split_node->hashes);
+      //indexes =  find_edge_indexes(dst_node, split_node->hashes);
       //here the index returned is the same both times if we have a common rcv dst_node
       ret.push_back(g[src_vertex]->output_dims[index]);
       std::cout<<"Taking "<<src_node->name<<" output index: "<<index<<" adding to input of "<<dst_node->name<<std::endl;
