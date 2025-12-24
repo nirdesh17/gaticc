@@ -1,0 +1,4 @@
+GATICC COMPILE: Using arch: {('vasize', '32'), ('ramsize', '512'), ('sa-arch', '16,1,16'), ('fcbuf-size', '16384'), ('pretty-print-inst-html', ''), ('im2colbuf-size', '512'), ('accbuf-size', '4096')}
+HTML file generated: pretty-print.html
+Run python -m http.server 5587 to start the server
+Open http://localhost:5587/pretty-print.html in your browser to view it
