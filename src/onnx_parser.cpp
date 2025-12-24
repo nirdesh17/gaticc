@@ -2755,7 +2755,8 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
       Op::LayerBase *src_node = gcopy[src];
       Op::LayerBase *dst_node = gcopy[dest];
       std::cout<<"Processing Edge "<<src_node->name<<" ------ "<<dst_node->name<<std::endl;
-      if ( src_node->op_type() == "Split") {
+     // if ( src_node->op_type() == "Split") {
+      if (is_op_type(src_node, "Split")) {
         Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
         add_split_outputs_to_hash(split_node->output_names, split_node->hashes);
         
@@ -2926,7 +2927,8 @@ void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target) {
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
   std::cout<<"Assinging offset "<<src_node->name<<"-----"<<dst_node->name<<std::endl;
-  if ( src_node->op_type() == "Split" ) {
+  //if ( src_node->op_type() == "Split" ) {
+   if (is_op_type(src_node, "Split")) {
     std::cout<<"Src node is split"<<std::endl;
     Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
     if (split_node->hashes.empty()){
@@ -3143,7 +3145,8 @@ IVec2D Op::get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g) {
     //we are iterating over edges - we don't need to make it abt src dst . can we avoid?
     Op::Vertex src_vertex = boost::source(*itr, g);
     Op::LayerBase *src_node = g[src_vertex];
-    if (src_node->op_type() == "Split") {
+    //if (src_node->op_type() == "Split") {
+    if(is_op_type(src_node, "Split")) {
       Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
       Op::LayerBase *dst_node = g[v];
       // i could make a dst node  
