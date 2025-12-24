@@ -3620,6 +3620,10 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
                                      Op::Vertex target) {
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
+
+  for (auto output_name : src_node->output_names) {
+    dst_node->input_edge_names.push_back(output_name);
+  }
   
   for(Op::VirtualAddress out_reg : src_node->outputs){
     dst_node->inputs.push_back(out_reg);
