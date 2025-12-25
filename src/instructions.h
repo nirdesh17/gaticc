@@ -101,66 +101,33 @@
 #define TailBlock_QuantShift_LOW 34
 #define TailBlock_QuantShift_HIGH 38
 #define TailBlock_QuantShift_COUNT 5
-#define TailBlock_PoolEn_LOW 39
-#define TailBlock_PoolEn_HIGH 39
-#define TailBlock_PoolEn_COUNT 1
-#define TailBlock_PoolType_LOW 40
-#define TailBlock_PoolType_HIGH 42
-#define TailBlock_PoolType_COUNT 3
-#define TailBlock_PoolScale_LOW 43
-#define TailBlock_PoolScale_HIGH 58
-#define TailBlock_PoolScale_COUNT 16
-#define TailBlock_PoolShift_LOW 59
-#define TailBlock_PoolShift_HIGH 63
-#define TailBlock_PoolShift_COUNT 5
-#define TailBlock_PoolWidth_LOW 64
-#define TailBlock_PoolWidth_HIGH 73
-#define TailBlock_PoolWidth_COUNT 10
-#define TailBlock_PoolHeight_LOW 74
-#define TailBlock_PoolHeight_HIGH 83
-#define TailBlock_PoolHeight_COUNT 10
-#define TailBlock_PoolStride_LOW 84
-#define TailBlock_PoolStride_HIGH 87
-#define TailBlock_PoolStride_COUNT 4
-#define TailBlock_PoolPadding_LOW 88
-#define TailBlock_PoolPadding_HIGH 91
-#define TailBlock_PoolPadding_COUNT 4
-#define TailBlock_PoolCeil_LOW 92
-#define TailBlock_PoolCeil_HIGH 92
-#define TailBlock_PoolCeil_COUNT 1
-// For pools with input size that is not evenly divisible by ke
-// rnel size, mod count is the ceil(input % kernel). For exampl
-// e, 21x21 for kernel 2x2, mod count is 1 i.e. 1 extra column 
-// to be considered.
-#define TailBlock_PoolModCount_LOW 93
-#define TailBlock_PoolModCount_HIGH 96
-#define TailBlock_PoolModCount_COUNT 4
-// Same as above but for cols
-#define TailBlock_PoolModCountCols_LOW 97
-#define TailBlock_PoolModCountCols_HIGH 100
-#define TailBlock_PoolModCountCols_COUNT 4
-// Same as PadSides for convolution
-#define TailBlock_PoolPadSides_LOW 101
-#define TailBlock_PoolPadSides_HIGH 104
-#define TailBlock_PoolPadSides_COUNT 4
-#define TailBlock_BiasEn_LOW 105
-#define TailBlock_BiasEn_HIGH 105
+#define TailBlock_GblPoolScale_LOW 39
+#define TailBlock_GblPoolScale_HIGH 54
+#define TailBlock_GblPoolScale_COUNT 16
+#define TailBlock_GblPoolShift_LOW 55
+#define TailBlock_GblPoolShift_HIGH 59
+#define TailBlock_GblPoolShift_COUNT 5
+#define TailBlock_GblPoolEn_LOW 60
+#define TailBlock_GblPoolEn_HIGH 60
+#define TailBlock_GblPoolEn_COUNT 1
+#define TailBlock_BiasEn_LOW 61
+#define TailBlock_BiasEn_HIGH 61
 #define TailBlock_BiasEn_COUNT 1
 // There are two known bias widths 8/32. This is that field.
-#define TailBlock_BiasWidth_LOW 106
-#define TailBlock_BiasWidth_HIGH 113
+#define TailBlock_BiasWidth_LOW 62
+#define TailBlock_BiasWidth_HIGH 69
 #define TailBlock_BiasWidth_COUNT 8
-#define TailBlock_BiasStartAddress_LOW 114
-#define TailBlock_BiasStartAddress_HIGH 145
+#define TailBlock_BiasStartAddress_LOW 70
+#define TailBlock_BiasStartAddress_HIGH 101
 #define TailBlock_BiasStartAddress_COUNT 32
-#define TailBlock_BiasEndAddress_LOW 146
-#define TailBlock_BiasEndAddress_HIGH 177
+#define TailBlock_BiasEndAddress_LOW 102
+#define TailBlock_BiasEndAddress_HIGH 133
 #define TailBlock_BiasEndAddress_COUNT 32
-#define TailBlock_NegAlpha_LOW 178
-#define TailBlock_NegAlpha_HIGH 187
+#define TailBlock_NegAlpha_LOW 134
+#define TailBlock_NegAlpha_HIGH 143
 #define TailBlock_NegAlpha_COUNT 10
-#define TailBlock_PosAlpha_LOW 188
-#define TailBlock_PosAlpha_HIGH 197
+#define TailBlock_PosAlpha_LOW 144
+#define TailBlock_PosAlpha_HIGH 153
 #define TailBlock_PosAlpha_COUNT 10
 
 #define OP_OutputBlock 0x02
@@ -189,48 +156,48 @@
 // oller flag is set to 1, this field is the product of ceil_mo
 // d(OC*OH*OW, AXI_WIDTH).
 #define OutputBlock_ImageDimOutput_LOW 93
-#define OutputBlock_ImageDimOutput_HIGH 108
-#define OutputBlock_ImageDimOutput_COUNT 16
+#define OutputBlock_ImageDimOutput_HIGH 112
+#define OutputBlock_ImageDimOutput_COUNT 20
 // Output of the conv operation (HxW)
-#define OutputBlock_ImageDimAcc_LOW 109
-#define OutputBlock_ImageDimAcc_HIGH 124
-#define OutputBlock_ImageDimAcc_COUNT 16
+#define OutputBlock_ImageDimAcc_LOW 113
+#define OutputBlock_ImageDimAcc_HIGH 132
+#define OutputBlock_ImageDimAcc_COUNT 20
 // For layer with fewer channels than number of columns in the 
 // systolic array, accumulation of partial sums across iteratio
 // ns is disabled
-#define OutputBlock_AccEn_LOW 125
-#define OutputBlock_AccEn_HIGH 125
+#define OutputBlock_AccEn_LOW 133
+#define OutputBlock_AccEn_HIGH 133
 #define OutputBlock_AccEn_COUNT 1
 // If this layer's output is supposed to be sent back to the CP
 // U, this flag is set
-#define OutputBlock_DispatchEn_LOW 126
-#define OutputBlock_DispatchEn_HIGH 126
+#define OutputBlock_DispatchEn_LOW 134
+#define OutputBlock_DispatchEn_HIGH 134
 #define OutputBlock_DispatchEn_COUNT 1
 // This is a integrity id that the FPGA should attach to the Ad
 // dr part of the receiving DWP packet.
-#define OutputBlock_DispatchID_LOW 127
-#define OutputBlock_DispatchID_HIGH 158
+#define OutputBlock_DispatchID_LOW 135
+#define OutputBlock_DispatchID_HIGH 166
 #define OutputBlock_DispatchID_COUNT 32
 // If output dimensions of a conv operation can fit on the FPGA
 //  output buffers, they should not be sent to the DRAM, all of
 //  the conv can happen on chip saving latency. This flag sets 
 // that bit.
-#define OutputBlock_OnChipAcc_LOW 159
-#define OutputBlock_OnChipAcc_HIGH 159
+#define OutputBlock_OnChipAcc_LOW 167
+#define OutputBlock_OnChipAcc_HIGH 167
 #define OutputBlock_OnChipAcc_COUNT 1
-#define OutputBlock_OH_LOW 160
-#define OutputBlock_OH_HIGH 169
+#define OutputBlock_OH_LOW 168
+#define OutputBlock_OH_HIGH 177
 #define OutputBlock_OH_COUNT 10
-#define OutputBlock_OW_LOW 170
-#define OutputBlock_OW_HIGH 179
+#define OutputBlock_OW_LOW 178
+#define OutputBlock_OW_HIGH 187
 #define OutputBlock_OW_COUNT 10
 // If 1, treat outputs from the megablock as flat bytes, not as
 //  aligned bytes with zeros in it
-#define OutputBlock_FlatController_LOW 180
-#define OutputBlock_FlatController_HIGH 180
+#define OutputBlock_FlatController_LOW 188
+#define OutputBlock_FlatController_HIGH 188
 #define OutputBlock_FlatController_COUNT 1
-#define OutputBlock_OpWidth_LOW 181
-#define OutputBlock_OpWidth_HIGH 183
+#define OutputBlock_OpWidth_LOW 189
+#define OutputBlock_OpWidth_HIGH 191
 #define OutputBlock_OpWidth_COUNT 3
 
 #define OP_FC 0x03
@@ -382,6 +349,71 @@
 #define EltWise_BZeroPoint_HIGH 247
 #define EltWise_BZeroPoint_COUNT 8
 
+#define OP_POOL 0x08
+// Opcode
+#define POOL_Opcode_LOW 0
+#define POOL_Opcode_HIGH 3
+#define POOL_Opcode_COUNT 4
+// Width of the input image
+#define POOL_IW_LOW 4
+#define POOL_IW_HIGH 13
+#define POOL_IW_COUNT 10
+// Height of the input image
+#define POOL_IH_LOW 14
+#define POOL_IH_HIGH 23
+#define POOL_IH_COUNT 10
+// Channel count for the input
+#define POOL_IC_LOW 24
+#define POOL_IC_HIGH 35
+#define POOL_IC_COUNT 12
+#define POOL_ImageStartAddress_LOW 36
+#define POOL_ImageStartAddress_HIGH 67
+#define POOL_ImageStartAddress_COUNT 32
+#define POOL_ImageEndAddress_LOW 68
+#define POOL_ImageEndAddress_HIGH 99
+#define POOL_ImageEndAddress_COUNT 32
+#define POOL_PoolType_LOW 100
+#define POOL_PoolType_HIGH 102
+#define POOL_PoolType_COUNT 3
+#define POOL_PoolScale_LOW 103
+#define POOL_PoolScale_HIGH 118
+#define POOL_PoolScale_COUNT 16
+#define POOL_PoolShift_LOW 119
+#define POOL_PoolShift_HIGH 123
+#define POOL_PoolShift_COUNT 5
+#define POOL_PoolWidth_LOW 124
+#define POOL_PoolWidth_HIGH 127
+#define POOL_PoolWidth_COUNT 4
+#define POOL_PoolHeight_LOW 128
+#define POOL_PoolHeight_HIGH 131
+#define POOL_PoolHeight_COUNT 4
+#define POOL_PoolStrideWidth_LOW 132
+#define POOL_PoolStrideWidth_HIGH 135
+#define POOL_PoolStrideWidth_COUNT 4
+#define POOL_PoolStrideHeight_LOW 136
+#define POOL_PoolStrideHeight_HIGH 139
+#define POOL_PoolStrideHeight_COUNT 4
+#define POOL_PoolCeil_LOW 140
+#define POOL_PoolCeil_HIGH 140
+#define POOL_PoolCeil_COUNT 1
+#define POOL_PadLeft_LOW 141
+#define POOL_PadLeft_HIGH 143
+#define POOL_PadLeft_COUNT 3
+#define POOL_PadBottom_LOW 144
+#define POOL_PadBottom_HIGH 146
+#define POOL_PadBottom_COUNT 3
+#define POOL_PadRight_LOW 147
+#define POOL_PadRight_HIGH 149
+#define POOL_PadRight_COUNT 3
+#define POOL_PadTop_LOW 150
+#define POOL_PadTop_HIGH 152
+#define POOL_PadTop_COUNT 3
+// Set if the entire image can be fetched in im2col blocks at o
+// nce
+#define POOL_Im2colPrefetch_LOW 153
+#define POOL_Im2colPrefetch_HIGH 153
+#define POOL_Im2colPrefetch_COUNT 1
+
 #define OP_TRANSPOSE 0x07
 #define TRANSPOSE_Opcode_LOW 0
 #define TRANSPOSE_Opcode_HIGH 3
@@ -416,7 +448,7 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 13
+#define ISA_VERSION 14
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define ACT_LEAKYRELU 0x02
@@ -506,6 +538,7 @@ struct pretty_data {
   Table start;
   Table nms;
   Table eltwise;
+  Table pool;
   Table transpose;
   Table reshape;
   Table resize;
@@ -518,6 +551,7 @@ struct pretty_data {
     start.clear();
     nms.clear();
     eltwise.clear();
+    pool.clear();
     transpose.clear();
     reshape.clear();
     resize.clear();
@@ -591,30 +625,12 @@ inline Table get_tailblock_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	tbl.order.push_back("QuantScale");
 	tbl.tbl.insert({"QuantShift", bitset_range_get<TailBlock_QuantShift_COUNT, INST_SIZE_BITS>(inst, TailBlock_QuantShift_LOW, TailBlock_QuantShift_HIGH)});
 	tbl.order.push_back("QuantShift");
-	tbl.tbl.insert({"PoolEn", bitset_range_get<TailBlock_PoolEn_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolEn_LOW, TailBlock_PoolEn_HIGH)});
-	tbl.order.push_back("PoolEn");
-	tbl.tbl.insert({"PoolType", bitset_range_get<TailBlock_PoolType_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolType_LOW, TailBlock_PoolType_HIGH)});
-	tbl.order.push_back("PoolType");
-	tbl.tbl.insert({"PoolScale", bitset_range_get<TailBlock_PoolScale_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolScale_LOW, TailBlock_PoolScale_HIGH)});
-	tbl.order.push_back("PoolScale");
-	tbl.tbl.insert({"PoolShift", bitset_range_get<TailBlock_PoolShift_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolShift_LOW, TailBlock_PoolShift_HIGH)});
-	tbl.order.push_back("PoolShift");
-	tbl.tbl.insert({"PoolWidth", bitset_range_get<TailBlock_PoolWidth_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolWidth_LOW, TailBlock_PoolWidth_HIGH)});
-	tbl.order.push_back("PoolWidth");
-	tbl.tbl.insert({"PoolHeight", bitset_range_get<TailBlock_PoolHeight_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolHeight_LOW, TailBlock_PoolHeight_HIGH)});
-	tbl.order.push_back("PoolHeight");
-	tbl.tbl.insert({"PoolStride", bitset_range_get<TailBlock_PoolStride_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolStride_LOW, TailBlock_PoolStride_HIGH)});
-	tbl.order.push_back("PoolStride");
-	tbl.tbl.insert({"PoolPadding", bitset_range_get<TailBlock_PoolPadding_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolPadding_LOW, TailBlock_PoolPadding_HIGH)});
-	tbl.order.push_back("PoolPadding");
-	tbl.tbl.insert({"PoolCeil", bitset_range_get<TailBlock_PoolCeil_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolCeil_LOW, TailBlock_PoolCeil_HIGH)});
-	tbl.order.push_back("PoolCeil");
-	tbl.tbl.insert({"PoolModCount", bitset_range_get<TailBlock_PoolModCount_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolModCount_LOW, TailBlock_PoolModCount_HIGH)});
-	tbl.order.push_back("PoolModCount");
-	tbl.tbl.insert({"PoolModCountCols", bitset_range_get<TailBlock_PoolModCountCols_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolModCountCols_LOW, TailBlock_PoolModCountCols_HIGH)});
-	tbl.order.push_back("PoolModCountCols");
-	tbl.tbl.insert({"PoolPadSides", bitset_range_get<TailBlock_PoolPadSides_COUNT, INST_SIZE_BITS>(inst, TailBlock_PoolPadSides_LOW, TailBlock_PoolPadSides_HIGH)});
-	tbl.order.push_back("PoolPadSides");
+	tbl.tbl.insert({"GblPoolScale", bitset_range_get<TailBlock_GblPoolScale_COUNT, INST_SIZE_BITS>(inst, TailBlock_GblPoolScale_LOW, TailBlock_GblPoolScale_HIGH)});
+	tbl.order.push_back("GblPoolScale");
+	tbl.tbl.insert({"GblPoolShift", bitset_range_get<TailBlock_GblPoolShift_COUNT, INST_SIZE_BITS>(inst, TailBlock_GblPoolShift_LOW, TailBlock_GblPoolShift_HIGH)});
+	tbl.order.push_back("GblPoolShift");
+	tbl.tbl.insert({"GblPoolEn", bitset_range_get<TailBlock_GblPoolEn_COUNT, INST_SIZE_BITS>(inst, TailBlock_GblPoolEn_LOW, TailBlock_GblPoolEn_HIGH)});
+	tbl.order.push_back("GblPoolEn");
 	tbl.tbl.insert({"BiasEn", bitset_range_get<TailBlock_BiasEn_COUNT, INST_SIZE_BITS>(inst, TailBlock_BiasEn_LOW, TailBlock_BiasEn_HIGH)});
 	tbl.order.push_back("BiasEn");
 	tbl.tbl.insert({"BiasWidth", bitset_range_get<TailBlock_BiasWidth_COUNT, INST_SIZE_BITS>(inst, TailBlock_BiasWidth_LOW, TailBlock_BiasWidth_HIGH)});
@@ -785,6 +801,52 @@ inline void pretty_print_eltwise(const std::bitset<INST_SIZE_BITS>& inst) {
 	auto tbl = get_eltwise_table(inst);
 	print_table(tbl);
 }
+inline Table get_pool_table(const std::bitset<INST_SIZE_BITS>& inst) {
+	Table tbl;
+	tbl.tbl.insert({"Opcode", bitset_range_get<POOL_Opcode_COUNT, INST_SIZE_BITS>(inst, POOL_Opcode_LOW, POOL_Opcode_HIGH)});
+	tbl.order.push_back("Opcode");
+	tbl.tbl.insert({"IW", bitset_range_get<POOL_IW_COUNT, INST_SIZE_BITS>(inst, POOL_IW_LOW, POOL_IW_HIGH)});
+	tbl.order.push_back("IW");
+	tbl.tbl.insert({"IH", bitset_range_get<POOL_IH_COUNT, INST_SIZE_BITS>(inst, POOL_IH_LOW, POOL_IH_HIGH)});
+	tbl.order.push_back("IH");
+	tbl.tbl.insert({"IC", bitset_range_get<POOL_IC_COUNT, INST_SIZE_BITS>(inst, POOL_IC_LOW, POOL_IC_HIGH)});
+	tbl.order.push_back("IC");
+	tbl.tbl.insert({"ImageStartAddress", bitset_range_get<POOL_ImageStartAddress_COUNT, INST_SIZE_BITS>(inst, POOL_ImageStartAddress_LOW, POOL_ImageStartAddress_HIGH)});
+	tbl.order.push_back("ImageStartAddress");
+	tbl.tbl.insert({"ImageEndAddress", bitset_range_get<POOL_ImageEndAddress_COUNT, INST_SIZE_BITS>(inst, POOL_ImageEndAddress_LOW, POOL_ImageEndAddress_HIGH)});
+	tbl.order.push_back("ImageEndAddress");
+	tbl.tbl.insert({"PoolType", bitset_range_get<POOL_PoolType_COUNT, INST_SIZE_BITS>(inst, POOL_PoolType_LOW, POOL_PoolType_HIGH)});
+	tbl.order.push_back("PoolType");
+	tbl.tbl.insert({"PoolScale", bitset_range_get<POOL_PoolScale_COUNT, INST_SIZE_BITS>(inst, POOL_PoolScale_LOW, POOL_PoolScale_HIGH)});
+	tbl.order.push_back("PoolScale");
+	tbl.tbl.insert({"PoolShift", bitset_range_get<POOL_PoolShift_COUNT, INST_SIZE_BITS>(inst, POOL_PoolShift_LOW, POOL_PoolShift_HIGH)});
+	tbl.order.push_back("PoolShift");
+	tbl.tbl.insert({"PoolWidth", bitset_range_get<POOL_PoolWidth_COUNT, INST_SIZE_BITS>(inst, POOL_PoolWidth_LOW, POOL_PoolWidth_HIGH)});
+	tbl.order.push_back("PoolWidth");
+	tbl.tbl.insert({"PoolHeight", bitset_range_get<POOL_PoolHeight_COUNT, INST_SIZE_BITS>(inst, POOL_PoolHeight_LOW, POOL_PoolHeight_HIGH)});
+	tbl.order.push_back("PoolHeight");
+	tbl.tbl.insert({"PoolStrideWidth", bitset_range_get<POOL_PoolStrideWidth_COUNT, INST_SIZE_BITS>(inst, POOL_PoolStrideWidth_LOW, POOL_PoolStrideWidth_HIGH)});
+	tbl.order.push_back("PoolStrideWidth");
+	tbl.tbl.insert({"PoolStrideHeight", bitset_range_get<POOL_PoolStrideHeight_COUNT, INST_SIZE_BITS>(inst, POOL_PoolStrideHeight_LOW, POOL_PoolStrideHeight_HIGH)});
+	tbl.order.push_back("PoolStrideHeight");
+	tbl.tbl.insert({"PoolCeil", bitset_range_get<POOL_PoolCeil_COUNT, INST_SIZE_BITS>(inst, POOL_PoolCeil_LOW, POOL_PoolCeil_HIGH)});
+	tbl.order.push_back("PoolCeil");
+	tbl.tbl.insert({"PadLeft", bitset_range_get<POOL_PadLeft_COUNT, INST_SIZE_BITS>(inst, POOL_PadLeft_LOW, POOL_PadLeft_HIGH)});
+	tbl.order.push_back("PadLeft");
+	tbl.tbl.insert({"PadBottom", bitset_range_get<POOL_PadBottom_COUNT, INST_SIZE_BITS>(inst, POOL_PadBottom_LOW, POOL_PadBottom_HIGH)});
+	tbl.order.push_back("PadBottom");
+	tbl.tbl.insert({"PadRight", bitset_range_get<POOL_PadRight_COUNT, INST_SIZE_BITS>(inst, POOL_PadRight_LOW, POOL_PadRight_HIGH)});
+	tbl.order.push_back("PadRight");
+	tbl.tbl.insert({"PadTop", bitset_range_get<POOL_PadTop_COUNT, INST_SIZE_BITS>(inst, POOL_PadTop_LOW, POOL_PadTop_HIGH)});
+	tbl.order.push_back("PadTop");
+	tbl.tbl.insert({"Im2colPrefetch", bitset_range_get<POOL_Im2colPrefetch_COUNT, INST_SIZE_BITS>(inst, POOL_Im2colPrefetch_LOW, POOL_Im2colPrefetch_HIGH)});
+	tbl.order.push_back("Im2colPrefetch");
+	return tbl;
+}
+inline void pretty_print_pool(const std::bitset<INST_SIZE_BITS>& inst) {
+	auto tbl = get_pool_table(inst);
+	print_table(tbl);
+}
 inline Table get_transpose_table(const std::bitset<INST_SIZE_BITS>& inst) {
 	Table tbl;
 	tbl.tbl.insert({"Opcode", bitset_range_get<TRANSPOSE_Opcode_COUNT, INST_SIZE_BITS>(inst, TRANSPOSE_Opcode_LOW, TRANSPOSE_Opcode_HIGH)});
@@ -866,6 +928,9 @@ inline void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
   case OP_EltWise:
     pretty_print_eltwise(inst);
     break;
+  case OP_POOL:
+    pretty_print_pool(inst);
+    break;
   case OP_TRANSPOSE:
     pretty_print_transpose(inst);
     break;
@@ -909,6 +974,9 @@ inline void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
     break;
   case OP_EltWise:
     inst_data.eltwise = get_eltwise_table(inst);
+    break;
+  case OP_POOL:
+    inst_data.pool = get_pool_table(inst);
     break;
   case OP_TRANSPOSE:
     inst_data.transpose = get_transpose_table(inst);
@@ -956,6 +1024,7 @@ inline std::string generate_pretty(const pretty_data &pd, int index) {
   html << generate_table_html("v  START", pd.start);
   html << generate_table_html("v  NMS", pd.nms);
   html << generate_table_html("v  Elt Wise", pd.eltwise);
+  html << generate_table_html("v  POOL", pd.pool);
   html << generate_table_html("v  TRANSPOSE", pd.transpose);
   html << generate_table_html("v  RESHAPE", pd.reshape);
   html << generate_table_html("v  RESIZE", pd.resize);
