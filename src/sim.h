@@ -60,8 +60,8 @@ void QLeakyRelu<T>::exec(const Tensor<T> *input, Tensor<T> *output) {
     T x = input->at(i);
     int32_t val = static_cast<int32_t>(x);
     int32_t v = (val < 0) ? (val * neg_scale) : (val * pos_scale);
-    float out = static_cast<float>(v) / static_cast<float>(1 << 8);
-    output->set(i, static_cast<T>(std::round(out)));
+    T out = v >> 8;
+    output->set(i, out);
   }
 }
 
