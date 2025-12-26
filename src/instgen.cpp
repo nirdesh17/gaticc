@@ -14,15 +14,15 @@ static std::set<std::string> miniblock_tbl{
   "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "QLinearGlobalAveragePool", "NoOp", "Transpose"};
 
 static std::set<std::string> megablock_tbl{
-    "QLinearConv", "QGemm",      "Conv",
+    "QLinearConv", "QGemm",      "Conv", "Maxpool", "QLinearAveragePool",
     "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose", "QLinearSigmoid"};
 
-static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE};
 
 // Megablocks that operate on quantized data needed Scales 
 static std::set<std::string> QLinear_megablock_tbl{
     "QLinearConv", "QGemm", "QLinearEltwise", "QLinearSigmoid", "Transpose"}; 
 
+static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_POOL};
 
 bool is_nms(const Op::LayerBase *l) {
   return (std::string(l->op_type()) == "NonMaxSuppression");
@@ -895,6 +895,131 @@ gen_conv_quant(const Op::Layer::QLinearConv *cc, AddressGen &) {
   return gen_quant(cc->x_scale, cc->w_scale, cc->y_scale, zero_points);
 }
 
+void pool_inst_params(std::bitset<INST_SIZE_BITS> &pool_inst, int kw, int kh,
+                      int sw, int sh, int pl, int pr, int pt, int pb) {
+  check_overflow(kw, POOL_PoolWidth_COUNT);
+  inst_set(pool_inst, kw, POOL_PoolWidth);
+  check_overflow(kh, POOL_PoolHeight_COUNT);
+  inst_set(pool_inst, kh, POOL_PoolHeight);
+
+  check_overflow(sw, POOL_PoolStrideWidth_COUNT);
+  inst_set(pool_inst, sw, POOL_PoolStrideWidth);
+
+  check_overflow(sh, POOL_PoolStrideHeight_COUNT);
+  inst_set(pool_inst, sh, POOL_PoolStrideHeight);
+
+  check_overflow(pl, POOL_PadLeft_COUNT);
+  inst_set(pool_inst, pl, POOL_PadLeft);
+
+  check_overflow(pr, POOL_PadRight_COUNT);
+  inst_set(pool_inst, pr, POOL_PadRight);
+
+  check_overflow(pt, POOL_PadTop_COUNT);
+  inst_set(pool_inst, pt, POOL_PadTop);
+
+  check_overflow(pb, POOL_PadBottom_COUNT);
+  inst_set(pool_inst, pb, POOL_PadBottom);
+}
+
+static std::bitset<INST_SIZE_BITS>
+gen_pool_inst(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
+
+  std::bitset<INST_SIZE_BITS> pool_inst;
+
+  if (l->op_type() == "Maxpool") {
+    const Op::Layer::Maxpool *cc = dynamic_cast<const Op::Layer::Maxpool *>(l);
+    inst_set(pool_inst, POOL_MAX, POOL_PoolType);
+    pool_inst_params(
+        pool_inst, cc->m_cp.k[TENSOR_2D_WIDTH], cc->m_cp.k[TENSOR_2D_HEIGHT],
+        cc->m_cp.stride[TENSOR_2D_WIDTH], cc->m_cp.stride[TENSOR_2D_HEIGHT],
+        cc->m_cp.pad[I_LEFT], cc->m_cp.pad[I_RIGHT], cc->m_cp.pad[I_UP],
+        cc->m_cp.pad[I_DOWN]);
+  } else if (l->op_type() == "QLinearAveragePool") {
+    const Op::Layer::QLinearAveragePool *cc =
+        dynamic_cast<const Op::Layer::QLinearAveragePool *>(l);
+    inst_set(pool_inst, POOL_AVERAGE, POOL_PoolType);
+    pool_inst_params(
+        pool_inst, cc->m_cp.k[TENSOR_2D_WIDTH], cc->m_cp.k[TENSOR_2D_HEIGHT],
+        cc->m_cp.stride[TENSOR_2D_WIDTH], cc->m_cp.stride[TENSOR_2D_HEIGHT],
+        cc->m_cp.pad[I_LEFT], cc->m_cp.pad[I_RIGHT], cc->m_cp.pad[I_UP],
+        cc->m_cp.pad[I_DOWN]);
+  } else {
+    log_fatal("Unsupported pooling type {}\n", l->op_type());
+  }
+
+  inst_set(pool_inst, OP_POOL, POOL_Opcode);
+  check_overflow(l->input_dims[0][TENSOR_4D_WIDTH], POOL_IW_COUNT);
+  inst_set(pool_inst, l->input_dims[0][TENSOR_4D_WIDTH], POOL_IW);
+  check_overflow(l->input_dims[0][TENSOR_4D_HEIGHT], POOL_IH_COUNT);
+  inst_set(pool_inst, l->input_dims[0][TENSOR_4D_HEIGHT], POOL_IH);
+  check_overflow(l->input_dims[0][TENSOR_4D_CHANNELS], POOL_IC_COUNT);
+  inst_set(pool_inst, l->input_dims[0][TENSOR_4D_CHANNELS], POOL_IC);
+
+  int im2col_buf = gbl_args["im2colbuf-size"].as<int>();
+  auto od = l->output_dims.at(0);
+  if (im2col_buf > od[TENSOR_4D_HEIGHT] * od[TENSOR_4D_WIDTH]) {
+    inst_set(pool_inst, 1, POOL_Im2colPrefetch);
+  }
+
+  auto sa_arch = get_sa_arch();
+  uint32_t input_addr_start = gen.io_addr_from_register(l->inputs.at(0));
+  auto i = l->input_dims.at(0);
+  i[TENSOR_4D_CHANNELS] = ceil_mod(i[TENSOR_4D_CHANNELS], sa_arch[SA_ARCH_N]);
+  uint32_t input_bytes =
+      ceil_mod(i[TENSOR_4D_WIDTH] * i[TENSOR_4D_HEIGHT], get_conv_in_mod()) *
+      i[TENSOR_4D_CHANNELS];
+  uint32_t input_addr_end = input_addr_start + input_bytes;
+
+  inst_set(pool_inst, input_addr_start, POOL_ImageStartAddress);
+  inst_set(pool_inst, input_addr_end, POOL_ImageEndAddress);
+
+  return pool_inst;
+}
+
+static std::bitset<INST_SIZE_BITS> gen_pool_output(const Op::LayerBase *cc,
+                                                   AddressGen &gen) {
+
+  auto sa_arch = get_sa_arch();
+  assert(cc->outputs.size() == 1);
+  uint32_t acc_addr = gen.ps_addr_from_register(cc->inputs.at(0));
+  uint32_t out_addr = gen.io_addr_from_register(cc->outputs.at(0));
+
+  auto odims = cc->output_dims.at(0);
+  int citr = 1;
+  int kitr = ceil_div(cc->input_dims[0][1], sa_arch[SA_ARCH_N]);
+
+  auto pod = cc->pipelined_output_dims.at(0);
+  int ido = ceil_mod(pod[TENSOR_4D_WIDTH] * pod[TENSOR_4D_HEIGHT],
+                     get_conv_out_mod());
+  int ida = ceil_mod(odims.at(TENSOR_4D_WIDTH) * odims.at(TENSOR_4D_HEIGHT),
+                     get_conv_acc_mod());
+  bool accen = false;
+  bool accreadfirst = false;
+
+  int accbuf_size = 0;
+  if (gbl_args.has_option("accbuf-size")) {
+    /* division with ACC_SIZE/8 returns the depth of the acc fifo */
+    accbuf_size = gbl_args["accbuf-size"].as<int>() / (ACC_SIZE / 8);
+  } else {
+    log_fatal("don't know accbuf-size, use option --accbuf-size to provide "
+              "one\n");
+  }
+  int on_chip = 0;
+  int acc_count = odims.at(TENSOR_4D_WIDTH) * odims.at(TENSOR_4D_HEIGHT);
+  if (accbuf_size >= acc_count) {
+    on_chip = 1;
+  }
+  int oh = odims.at(TENSOR_4D_HEIGHT);
+  int ow = odims.at(TENSOR_4D_WIDTH);
+  int op_width = 1;
+
+  auto oi = gen_output(acc_addr, out_addr, citr, kitr, ido, ida, accen,
+                       cc->dispatch, string_hash(cc->name), on_chip, oh, ow,
+                       op_width, accreadfirst);
+
+  return oi;
+}
+
 int Op::Layer::NoOp::get_inst(InstBlob &insts, AddressGen &,
                               InitializerTable &) {
   return 0;
@@ -957,39 +1082,18 @@ int Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &,
   return 0;
 }
 
-int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &,
-                                 InitializerTable &) {
-  std::bitset<INST_SIZE_BITS> maxpool_inst;
-
-  std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
-  inst_set(maxpool_inst, OP_TailBlock, TailBlock_Opcode);
-  inst_set(maxpool_inst, 1, TailBlock_PoolEn);
-  inst_set(maxpool_inst, POOL_MAX, TailBlock_PoolType);
-
-  check_overflow(m_cp.k[TENSOR_2D_WIDTH], TailBlock_PoolWidth_COUNT);
-  inst_set(maxpool_inst, m_cp.k[TENSOR_2D_WIDTH], TailBlock_PoolWidth);
-  check_overflow(m_cp.k[TENSOR_2D_HEIGHT], TailBlock_PoolHeight_COUNT);
-  inst_set(maxpool_inst, m_cp.k[TENSOR_2D_HEIGHT], TailBlock_PoolHeight);
-
-  if (m_cp.stride[TENSOR_2D_HEIGHT] != m_cp.stride[TENSOR_2D_WIDTH]) {
-    log_fatal("Strides need to be symmetric for layer {}\n", this->name);
-  }
-  check_overflow(m_cp.stride[TENSOR_2D_HEIGHT], TailBlock_PoolStride_COUNT);
-  inst_set(maxpool_inst, m_cp.stride[TENSOR_2D_HEIGHT], TailBlock_PoolStride);
-
-  int pad_cnt = m_cp.pad[I_LEFT];
-  for (int i = 0; i < 4; ++i) {
-    if (m_cp.pad[I_LEFT] != pad_cnt) {
-      log_fatal("Pads for layer {} should all be equal\n", this->name);
-    }
-  }
-  check_overflow(m_cp.pad[I_LEFT], TailBlock_PoolPadding_COUNT);
-  inst_set(maxpool_inst, m_cp.pad[I_LEFT], TailBlock_PoolPadding);
-  inst_set(maxpool_inst, input_dims[0][TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT], TailBlock_PoolModCount);
-  inst_set(maxpool_inst, input_dims[0][TENSOR_4D_WIDTH] % m_cp.k[TENSOR_2D_WIDTH], TailBlock_PoolModCountCols);
-
+int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen,
+                                 InitializerTable &tbl) {
+  int dwp_packets = 0;
+  auto maxpool_inst = gen_pool_inst(this, gen, tbl);
+  auto output_inst = gen_pool_output(this, gen);
   insts.push_back(maxpool_inst);
-  return 0;
+  insts.push_back(output_inst);
+  std::bitset<INST_SIZE_BITS> tail_inst;
+  inst_set(tail_inst, OP_TailBlock, TailBlock_Opcode);
+  insts.push_back(tail_inst);
+  
+  return dwp_packets;
 }
 
 static std::bitset<INST_SIZE_BITS> gen_fc_inst(const Op::Layer::QGemm *cc, AddressGen &gen, InitializerTable &tbl) {
@@ -1153,9 +1257,10 @@ void Op::Layer::DequantizeLinear::get_opcodes(std::vector<int> &) {}
 void Op::Layer::Flatten::get_opcodes(std::vector<int> &) {}
 
 void Op::Layer::Maxpool::get_opcodes(std::vector<int> &opcodes) {
+  opcodes.push_back(OP_POOL);
+  opcodes.push_back(OP_OutputBlock);
   opcodes.push_back(OP_TailBlock);
 }
-
 
 void Op::Layer::QGemm::get_opcodes(std::vector<int> &opcodes) {
   opcodes.push_back(OP_FC);
@@ -1238,7 +1343,15 @@ int Op::Layer::Split::get_inst(InstBlob &, AddressGen &,
 }
 
 void Op::Layer::QLinearAveragePool::get_opcodes(std::vector<int> &op_codes) {
-  op_codes.push_back(OP_TailBlock);
+  if (this->output_dims.at(0).at(TENSOR_4D_HEIGHT) == 1 &&
+      this->output_dims.at(0).at(TENSOR_4D_WIDTH) == 1) {
+    op_codes.push_back(OP_TailBlock);
+
+  } else {
+    op_codes.push_back(OP_POOL);
+    op_codes.push_back(OP_OutputBlock);
+    op_codes.push_back(OP_TailBlock);
+  }
 }
 
 uint32_t Op::Layer::QLinearAveragePool::get_weight_size() {
@@ -1246,73 +1359,47 @@ uint32_t Op::Layer::QLinearAveragePool::get_weight_size() {
   return 0;
 }
 
-int Op::Layer::QLinearAveragePool::get_inst(InstBlob &insts, AddressGen &,
-                                            InitializerTable &) {
+int Op::Layer::QLinearAveragePool::get_inst(InstBlob &insts, AddressGen &gen,
+                                            InitializerTable &tbl) {
   assert(this->device == DEVICE_FPGA);
-  std::bitset<INST_SIZE_BITS> average_pool_inst;
-
-  std::bitset<TailBlock_Opcode_COUNT> opcode{OP_TailBlock};
-  bitset_range_set(average_pool_inst, opcode, TailBlock_Opcode_LOW,
-                   TailBlock_Opcode_HIGH);
-
-  /* enable relu */
-  std::bitset<TailBlock_PoolEn_COUNT> poolen{1};
-  bitset_range_set(average_pool_inst, poolen, TailBlock_PoolEn_LOW,
-                   TailBlock_PoolEn_HIGH);
 
   if (this->output_dims.at(0).at(TENSOR_4D_HEIGHT) == 1 &&
       this->output_dims.at(0).at(TENSOR_4D_WIDTH) == 1) {
-    std::bitset<TailBlock_PoolType_COUNT> pool_type{POOL_GLOBAL_AVG};
-    bitset_range_set(average_pool_inst, pool_type, TailBlock_PoolType_LOW,
-                     TailBlock_PoolType_HIGH);
+    std::bitset<INST_SIZE_BITS> gbl_average_pool_inst;
+
+    inst_set(gbl_average_pool_inst, OP_TailBlock, TailBlock_Opcode);
+    /* enable pool */
+    inst_set(gbl_average_pool_inst, 1, TailBlock_GblPoolEn);
+
+    float scale_inv = 1.0f / (m_cp.k[TENSOR_2D_WIDTH] * m_cp.k[TENSOR_2D_HEIGHT]);
+    int shift_val = calc_shift_val(scale_inv);
+    int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
+
+    inst_set(gbl_average_pool_inst, scale_val, TailBlock_GblPoolScale);
+    inst_set(gbl_average_pool_inst, shift_val, TailBlock_GblPoolShift);
+
+    insts.push_back(gbl_average_pool_inst);
+    return 0;
   } else {
-    std::bitset<TailBlock_PoolType_COUNT> pool_type{POOL_AVERAGE};
-    bitset_range_set(average_pool_inst, pool_type, TailBlock_PoolType_LOW,
-                     TailBlock_PoolType_HIGH);
+
+    auto average_pool_inst = gen_pool_inst(this, gen, tbl);
+    auto output_inst = gen_pool_output(this, gen);
+    insts.push_back(average_pool_inst);
+    insts.push_back(output_inst);
+    std::bitset<INST_SIZE_BITS> tail_inst;
+    inst_set(tail_inst, OP_TailBlock, TailBlock_Opcode);
+
+    float scale_inv =
+        1.0f / (m_cp.k[TENSOR_2D_WIDTH] * m_cp.k[TENSOR_2D_HEIGHT]);
+    int shift_val = calc_shift_val(scale_inv);
+    int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
+    inst_set(tail_inst, 1, TailBlock_QuantEn);
+    inst_set(tail_inst, scale_val, TailBlock_QuantScale);
+    inst_set(tail_inst, shift_val, TailBlock_QuantShift);
+
+    insts.push_back(tail_inst);
+    return 0;
   }
-
-  float scale_inv = 1.0f / (m_cp.k[TENSOR_2D_WIDTH] *
-                            m_cp.k[TENSOR_2D_HEIGHT]);
-
-  int shift_val = calc_shift_val(scale_inv);
-  int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
-
-  std::bitset<TailBlock_PoolScale_COUNT> pool_scale{scale_val};
-  bitset_range_set(average_pool_inst, pool_scale, TailBlock_PoolScale_LOW,
-                   TailBlock_PoolScale_HIGH);
-
-  std::bitset<TailBlock_PoolShift_COUNT> pool_shift{shift_val};
-  bitset_range_set(average_pool_inst, pool_shift, TailBlock_PoolShift_LOW,
-                   TailBlock_PoolShift_HIGH);
-
-  std::bitset<TailBlock_PoolWidth_COUNT> pool_width{m_cp.k[TENSOR_2D_WIDTH]};
-  bitset_range_set(average_pool_inst, pool_width, TailBlock_PoolWidth_LOW,
-                   TailBlock_PoolWidth_HIGH);
-
-  std::bitset<TailBlock_PoolHeight_COUNT> pool_height{m_cp.k[TENSOR_2D_HEIGHT]};
-  bitset_range_set(average_pool_inst, pool_height, TailBlock_PoolHeight_LOW,
-                   TailBlock_PoolHeight_HIGH);
-
-  assert_all_equal(m_cp.stride, 2);
-  std::bitset<TailBlock_PoolStride_COUNT> pool_stride{
-      m_cp.stride[TENSOR_2D_HEIGHT]};
-  bitset_range_set(average_pool_inst, pool_stride, TailBlock_PoolStride_LOW,
-                   TailBlock_PoolStride_HIGH);
-
-  assert_all_equal(m_cp.pad, 4);
-  std::bitset<TailBlock_PoolPadding_COUNT> pool_pad{m_cp.pad[I_LEFT]};
-  bitset_range_set(average_pool_inst, pool_pad, TailBlock_PoolPadding_LOW,
-                   TailBlock_PoolPadding_HIGH);
-
-  std::bitset<TailBlock_PoolModCount_COUNT> modcount{
-      input_dims[0][TENSOR_4D_HEIGHT] % m_cp.k[TENSOR_2D_HEIGHT]};
-  bitset_range_set(average_pool_inst, modcount, TailBlock_PoolModCount_LOW,
-                   TailBlock_PoolModCount_HIGH);
-
-  insts.push_back(average_pool_inst);
-
-  /* as average pool does not insert any dwp packets in the blob */
-  return 0;
 }
 
 void Op::Layer::QLinearEltwise::get_opcodes(std::vector<int> &op_codes) {
@@ -2574,6 +2661,10 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
       } else if (p_op == OP_TRANSPOSE) {
         expected_chan_itr = 1;
         expected_kern_itr = 1;
+      } else if (p_op == OP_POOL) {
+        int kern = inst_get(*previous_inst, POOL_IC);
+        expected_chan_itr = 1;
+        expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
       } else {
         log_fatal("GmlCheck: megablock of opcode {} cannot be handled\n", p_op);
       }
@@ -2632,6 +2723,8 @@ void GmlCheck::check_addresses(const InstBlob &instblob) const {
          * its outputs
          */
         continue;
+      } else if (op == OP_POOL) {
+        input_addr = inst_get(inst, POOL_ImageEndAddress);
       } else {
         log_fatal("Unhandled megablock of opcode {} at index {}\n", op, i);
       }
@@ -2664,7 +2757,8 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) const {
     } else if (op == OP_FC) {
       ret = check_fc_weight_continuity(inst);
     } else if (op == OP_OutputBlock || op == OP_START || op == OP_EltWise ||
-               op == OP_NMS || op == OP_TRANSPOSE || op == OP_RESHAPE) {
+               op == OP_NMS || op == OP_TRANSPOSE || op == OP_RESHAPE ||
+               op == OP_POOL) {
       // do nothing
     } else {
       log_fatal("Unhandled instruction in check_weight_address_continuity {}\n",
