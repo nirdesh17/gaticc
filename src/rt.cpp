@@ -605,15 +605,31 @@ static void unalign_sa_aux32(Tensor<T> *tensor, const uint8_t *data, std::vector
 
 template <typename T>
 static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const uint8_t *data) {
-  const Op::Layer::QLinearConv *l = dynamic_cast<const Op::Layer::QLinearConv *>(lb);
-  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
-  IVec2D og_dims_v {tensor->get_dims()};
+
+  std::vector<int> aligned_dims;
+  IVec2D og_dims_v{tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
-  auto aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
-  if constexpr (std::is_same<T, int>() || std::is_same<T, uint32_t>()) {
-    unalign_sa_aux32(tensor, data, og_dims, aligned_dims); 
+
+  if (lb->op_type() == "QLinearConv") {
+    const Op::Layer::QLinearConv *l = dynamic_cast<const Op::Layer::QLinearConv *>(lb);
+    aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
+  } else if (lb->op_type() == "Maxpool") {
+    const Op::Layer::Maxpool *l = dynamic_cast<const Op::Layer::Maxpool *>(lb);
+    aligned_dims = aligned_qle_dims(og_dims_v).at(0);
+  } else if (lb->op_type() == "QLinearAveragePool") {
+    const Op::Layer::QLinearAveragePool *l = dynamic_cast<const Op::Layer::QLinearAveragePool *>(lb);
+    aligned_dims = aligned_qle_dims(og_dims_v).at(0);
   } else {
-    unalign_sa_aux(tensor, data, og_dims, aligned_dims); 
+    log_fatal("unalign_sa_output() received unsupported layer type {}\n",
+              lb->op_type());
+  }
+
+  assert(tensor->dims_size() == 4 && "Expected a 4 dimensional array (NCHW)");
+
+  if constexpr (std::is_same<T, int>() || std::is_same<T, uint32_t>()) {
+    unalign_sa_aux32(tensor, data, og_dims, aligned_dims);
+  } else {
+    unalign_sa_aux(tensor, data, og_dims, aligned_dims);
   }
 }
 
@@ -665,6 +681,32 @@ void Op::Layer::QGemm::receive_output(TensorPool &tensor_pool, Rah &rah) const {
     va_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
     va_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else {
+    log_fatal("can't receive data of type {} from FPGA\n",
+              Op::get_tensorproto_dtype_name(this->output_type[0]));
+  }
+}
+
+void Op::Layer::Maxpool::receive_output(TensorPool &tensor_pool, Rah &rah) const {
+  uint32_t expected_hash = string_hash(this->name);
+  uint32_t expected_data_size = ceil_mod(prod(this->output_dims.at(0)), WORD_SIZE) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8);
+  if (this->output_type[0] == onnx::TensorProto_DataType_INT8) {
+    sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
+    sa_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else {
+    log_fatal("can't receive data of type {} from FPGA\n",
+              Op::get_tensorproto_dtype_name(this->output_type[0]));
+  }
+}
+
+void Op::Layer::QLinearAveragePool::receive_output(TensorPool &tensor_pool, Rah &rah) const {
+  uint32_t expected_hash = string_hash(this->name);
+  uint32_t expected_data_size = ceil_mod(prod(this->output_dims.at(0)), WORD_SIZE) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8);
+  if (this->output_type[0] == onnx::TensorProto_DataType_INT8) {
+    sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
+    sa_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
   } else {
     log_fatal("can't receive data of type {} from FPGA\n",
               Op::get_tensorproto_dtype_name(this->output_type[0]));
