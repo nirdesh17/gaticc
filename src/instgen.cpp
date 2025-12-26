@@ -19,6 +19,11 @@ static std::set<std::string> megablock_tbl{
 
 static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_RESIZE};
 
+// Megablocks that operate on quantized data needed Scales 
+static std::set<std::string> QLinear_megablock_tbl{
+    "QLinearConv", "QGemm", "QLinearEltwise", "QLinearSigmoid", "Transpose"}; 
+
+
 bool is_nms(const Op::LayerBase *l) {
   return (std::string(l->op_type()) == "NonMaxSuppression");
 }
@@ -35,6 +40,14 @@ bool is_miniblock(const Op::LayerBase *l) {
 bool is_megablock(const Op::LayerBase *l) {
   auto itr = megablock_tbl.find(std::string(l->op_type()));
   if (itr != megablock_tbl.end()) {
+    return true;
+  }
+  return false;
+}
+
+bool is_QLinear_megablock(const Op::LayerBase *l) {
+  auto itr = QLinear_megablock_tbl.find(std::string(l->op_type()));
+  if (itr != QLinear_megablock_tbl.end()) {
     return true;
   }
   return false;
@@ -238,70 +251,44 @@ void Pass::absorb(Op::Graph &graph) {
  * layers into QLinearConv's y_scale
  */
 void Pass::adjust_scale_shift(Op::Graph graph) {
-  std::queue<Op::Vertex> S;
-  /* all nodes on which shape inference is done */
-  std::unordered_set<Op::Vertex> done_set;
-  auto vitr = boost::vertices(graph);
-  Op::Vertex v = *(vitr.first);
-  S.push(v);
-  Op::LayerBase *latest_megablock = nullptr;
-  if (is_megablock(graph[v])) {
-    latest_megablock = graph[v];
-  }
-  done_set.insert(v);
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    S.pop();
+  std::vector<Op::LayerBase *> execution_order = crt_exec_order(graph);
 
-    auto out_edges = boost::out_edges(n, graph);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, graph)});
+  Op::LayerBase *latest_megablock = nullptr;
+
+  for (Op::LayerBase *layer : execution_order) {
+
+    if (is_QLinear_megablock(layer)) {
+      latest_megablock = layer;
+      continue;
     }
 
-    for (auto [src, dest] : edges_to_remove) {
-      /* make sure all parents of 'dest' have underwent infer_shape */
-      auto in_edges = boost::in_edges(dest, graph);
-      bool dest_parents_done = 1;
-      for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
-        Op::Vertex dsource = boost::source(*itr, graph);
-        auto present = done_set.find(dsource);
-        if (present == done_set.end()) {
-          dest_parents_done = 0;
-        }
+    if (latest_megablock == nullptr)
+      continue;
+
+    if (is_op_type(layer, "DequantizeLinear") && layer->device != DEVICE_CPU) {
+
+      std::vector<float> mega_scale = latest_megablock->get_output_scale();
+      std::vector<float> dl_scale =
+          broadcast_vec(layer->get_output_scale(), mega_scale.size());
+      std::vector<float> ret(mega_scale.size());
+      for (size_t i = 0; i < mega_scale.size(); ++i) {
+
+        ret[i] = mega_scale[i] / dl_scale[i];
       }
 
-      if (dest_parents_done) {
-        if (is_megablock(graph[dest])) {
-          latest_megablock = graph[dest];
-        } else {
-          Op::LayerBase *l = graph[dest];
-          if (is_op_type(l, "DequantizeLinear") && latest_megablock != nullptr && l->device != DEVICE_CPU) {
-            std::vector<float> mega_scale = latest_megablock->get_output_scale();
-            std::vector<float> dl_scale = broadcast_vec(l->get_output_scale(), mega_scale.size());
-            std::vector<float> ret(mega_scale.size());
-            for (size_t i = 0; i < mega_scale.size(); ++i) {
-              ret.at(i) = mega_scale.at(i) / dl_scale.at(i);
-            }
-            latest_megablock->set_output_scale(ret);
-          } else if (is_op_type(l, "QuantizeLinear") && latest_megablock != nullptr && l->device != DEVICE_CPU) {
-            std::vector<float> mega_scale = latest_megablock->get_output_scale();
-            std::vector<float> dl_scale = broadcast_vec(l->get_output_scale(), mega_scale.size());
-            std::vector<float> ret(mega_scale.size());
-            for (size_t i = 0; i < mega_scale.size(); ++i) {
-              ret.at(i) = mega_scale.at(i) * dl_scale.at(i);
-            }
-            latest_megablock->set_output_scale(ret);
-          }
-        } 
-        done_set.insert(dest);
-        boost::remove_edge(src, dest, graph);
-        if (boost::in_degree(dest, graph) == 0) {
-          S.push(dest);
-        }
-      } else {
-        S.push(n);
+      latest_megablock->set_output_scale(ret);
+    } else if (is_op_type(layer, "QuantizeLinear") &&
+               layer->device != DEVICE_CPU) {
+
+      std::vector<float> mega_scale = latest_megablock->get_output_scale();
+      std::vector<float> dl_scale =
+          broadcast_vec(layer->get_output_scale(), mega_scale.size());
+      std::vector<float> ret(mega_scale.size());
+      for (size_t i = 0; i < mega_scale.size(); ++i) {
+
+        ret[i] = mega_scale[i] * dl_scale[i];
       }
+      latest_megablock->set_output_scale(ret);
     }
   }
 }
