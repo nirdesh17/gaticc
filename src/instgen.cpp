@@ -11,7 +11,7 @@
 
 static std::set<std::string> miniblock_tbl{
   "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",      "Split",
-  "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "QLinearGlobalAveragePool", "NoOp", "Transpose"};
+  "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "GlobalAveragePool", "NoOp", "Transpose"};
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv", "Maxpool", "QLinearAveragePool",
@@ -1343,15 +1343,10 @@ int Op::Layer::Split::get_inst(InstBlob &, AddressGen &,
 }
 
 void Op::Layer::QLinearAveragePool::get_opcodes(std::vector<int> &op_codes) {
-  if (this->output_dims.at(0).at(TENSOR_4D_HEIGHT) == 1 &&
-      this->output_dims.at(0).at(TENSOR_4D_WIDTH) == 1) {
-    op_codes.push_back(OP_TailBlock);
 
-  } else {
-    op_codes.push_back(OP_POOL);
-    op_codes.push_back(OP_OutputBlock);
-    op_codes.push_back(OP_TailBlock);
-  }
+  op_codes.push_back(OP_POOL);
+  op_codes.push_back(OP_OutputBlock);
+  op_codes.push_back(OP_TailBlock);
 }
 
 uint32_t Op::Layer::QLinearAveragePool::get_weight_size() {
@@ -1363,43 +1358,51 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob &insts, AddressGen &gen,
                                             InitializerTable &tbl) {
   assert(this->device == DEVICE_FPGA);
 
-  if (this->output_dims.at(0).at(TENSOR_4D_HEIGHT) == 1 &&
-      this->output_dims.at(0).at(TENSOR_4D_WIDTH) == 1) {
-    std::bitset<INST_SIZE_BITS> gbl_average_pool_inst;
+  auto average_pool_inst = gen_pool_inst(this, gen, tbl);
+  auto output_inst = gen_pool_output(this, gen);
+  insts.push_back(average_pool_inst);
+  insts.push_back(output_inst);
+  std::bitset<INST_SIZE_BITS> tail_inst;
+  inst_set(tail_inst, OP_TailBlock, TailBlock_Opcode);
 
-    inst_set(gbl_average_pool_inst, OP_TailBlock, TailBlock_Opcode);
-    /* enable pool */
-    inst_set(gbl_average_pool_inst, 1, TailBlock_GblPoolEn);
+  float scale_inv = 1.0f / (m_cp.k[TENSOR_2D_WIDTH] * m_cp.k[TENSOR_2D_HEIGHT]);
+  int shift_val = calc_shift_val(scale_inv);
+  int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
+  inst_set(tail_inst, 1, TailBlock_QuantEn);
+  inst_set(tail_inst, scale_val, TailBlock_QuantScale);
+  inst_set(tail_inst, shift_val, TailBlock_QuantShift);
 
-    float scale_inv = 1.0f / (m_cp.k[TENSOR_2D_WIDTH] * m_cp.k[TENSOR_2D_HEIGHT]);
-    int shift_val = calc_shift_val(scale_inv);
-    int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
+  insts.push_back(tail_inst);
+  return 0;
+}
 
-    inst_set(gbl_average_pool_inst, scale_val, TailBlock_GblPoolScale);
-    inst_set(gbl_average_pool_inst, shift_val, TailBlock_GblPoolShift);
+void Op::Layer::GlobalAveragePool::get_opcodes(std::vector<int> &op_codes) {
+  op_codes.push_back(OP_TailBlock);
+}
 
-    insts.push_back(gbl_average_pool_inst);
-    return 0;
-  } else {
+uint32_t Op::Layer::GlobalAveragePool::get_weight_size() {
+  /* as average pool is a weight-less operation */
+  return 0;
+}
 
-    auto average_pool_inst = gen_pool_inst(this, gen, tbl);
-    auto output_inst = gen_pool_output(this, gen);
-    insts.push_back(average_pool_inst);
-    insts.push_back(output_inst);
-    std::bitset<INST_SIZE_BITS> tail_inst;
-    inst_set(tail_inst, OP_TailBlock, TailBlock_Opcode);
+int Op::Layer::GlobalAveragePool::get_inst(InstBlob &insts, AddressGen &gen,
+                                           InitializerTable &tbl) {
 
-    float scale_inv =
-        1.0f / (m_cp.k[TENSOR_2D_WIDTH] * m_cp.k[TENSOR_2D_HEIGHT]);
-    int shift_val = calc_shift_val(scale_inv);
-    int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
-    inst_set(tail_inst, 1, TailBlock_QuantEn);
-    inst_set(tail_inst, scale_val, TailBlock_QuantScale);
-    inst_set(tail_inst, shift_val, TailBlock_QuantShift);
+  std::bitset<INST_SIZE_BITS> gbl_average_pool_inst;
 
-    insts.push_back(tail_inst);
-    return 0;
-  }
+  inst_set(gbl_average_pool_inst, OP_TailBlock, TailBlock_Opcode);
+  /* enable pool */
+  inst_set(gbl_average_pool_inst, 1, TailBlock_GblPoolEn);
+
+  float scale_inv = 1.0f / (m_cp.k[TENSOR_2D_WIDTH] * m_cp.k[TENSOR_2D_HEIGHT]);
+  int shift_val = calc_shift_val(scale_inv);
+  int scale_val = static_cast<int>(std::round(scale_inv * (1 << shift_val)));
+
+  inst_set(gbl_average_pool_inst, scale_val, TailBlock_GblPoolScale);
+  inst_set(gbl_average_pool_inst, shift_val, TailBlock_GblPoolShift);
+
+  insts.push_back(gbl_average_pool_inst);
+  return 0;
 }
 
 void Op::Layer::QLinearEltwise::get_opcodes(std::vector<int> &op_codes) {
