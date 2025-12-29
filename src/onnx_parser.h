@@ -94,7 +94,6 @@ struct PoolParams {
   int pad[4];    /* padding across all four sides */
   int stride[2]; /* stride horizontally/vertically */
   int dilation[2];
-  bool gbl;      /* global pooling */
   std::string auto_pad; /* auto_pad attribute, if any */
 };
 
@@ -622,7 +621,7 @@ struct LogSoftmax : public LayerBase {
 struct QLinearAveragePool : public LayerBase {
   const char *m_optype = "QLinearAveragePool";
   PoolParams m_cp;
-  QLinearAveragePool(bool gbl = 0);
+  QLinearAveragePool();
   float x_scale;
   float y_scale;
   std::variant<uint8_t, int8_t> x_zero_points;
@@ -638,6 +637,21 @@ struct QLinearAveragePool : public LayerBase {
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+};
+
+struct GlobalAveragePool : public LayerBase {
+  const char *m_optype = "GlobalAveragePool";
+  PoolParams m_cp;
+  GlobalAveragePool(bool gbl = 0);
+
+  const char *op_type() const override;
+  std::string params() const override;
+  void run(TensorPool &tensor_pool) override;
+  void infer_shape(const IVec2D &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
+  uint32_t get_weight_size() override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
 };
 
 struct Abs : public LayerBase {
