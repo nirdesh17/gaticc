@@ -17,13 +17,12 @@ static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv", "Maxpool", "QLinearAveragePool",
     "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose", "QLinearSigmoid"};
 
-static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_RESIZE};
+static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_RESIZE, OP_POOL};
 
 // Megablocks that operate on quantized data needed Scales 
 static std::set<std::string> QLinear_megablock_tbl{
     "QLinearConv", "QGemm", "QLinearEltwise", "QLinearSigmoid", "Transpose"}; 
 
-static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_POOL};
 
 bool is_nms(const Op::LayerBase *l) {
   return (std::string(l->op_type()) == "NonMaxSuppression");

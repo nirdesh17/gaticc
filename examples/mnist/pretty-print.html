@@ -38,10 +38,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>PadTop: 1</li>
 <li>StartRowSkip: 0</li>
 <li>EndRowSkip: 0</li>
-<li>ImageStartAddress: 4294304</li>
-<li>ImageEndAddress: 4298400</li>
-<li>WeightStartAddress: 800</li>
-<li>WeightEndAddress: 1952</li>
+<li>ImageStartAddress: 4392864</li>
+<li>ImageEndAddress: 4396960</li>
+<li>WeightStartAddress: 1056</li>
+<li>WeightEndAddress: 2208</li>
 <li>Im2colPrefetch: 0</li>
 <li>KC: 3</li>
 <li>ConvType: 0</li>
@@ -58,22 +58,13 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>QuantEn: 1</li>
 <li>QuantScale: 139</li>
 <li>QuantShift: 16</li>
-<li>PoolEn: 1</li>
-<li>PoolType: 0</li>
-<li>PoolScale: 0</li>
-<li>PoolShift: 0</li>
-<li>PoolWidth: 2</li>
-<li>PoolHeight: 2</li>
-<li>PoolStride: 2</li>
-<li>PoolPadding: 0</li>
-<li>PoolCeil: 0</li>
-<li>PoolModCount: 0</li>
-<li>PoolModCountCols: 0</li>
-<li>PoolPadSides: 0</li>
+<li>GblPoolScale: 0</li>
+<li>GblPoolShift: 0</li>
+<li>GblPoolEn: 0</li>
 <li>BiasEn: 1</li>
 <li>BiasWidth: 32</li>
-<li>BiasStartAddress: 1952</li>
-<li>BiasEndAddress: 2080</li>
+<li>BiasStartAddress: 2208</li>
+<li>BiasEndAddress: 2336</li>
 <li>NegAlpha: 0</li>
 <li>PosAlpha: 0</li>
 </ul>
@@ -82,12 +73,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class='content'>
 <ul>
 <li>Opcode: 2</li>
-<li>AccumulantAddr: 4458144</li>
+<li>AccumulantAddr: 5048224</li>
 <li>AccumulantReadFirst: 0</li>
-<li>OutputAddr: 4261536</li>
+<li>OutputAddr: 4261792</li>
 <li>ChannelItr: 1</li>
 <li>KernelItr: 8</li>
-<li>ImageDimOutput: 256</li>
+<li>ImageDimOutput: 1024</li>
 <li>ImageDimAcc: 1024</li>
 <li>AccEn: 0</li>
 <li>DispatchEn: 0</li>
@@ -104,11 +95,88 @@ document.addEventListener('DOMContentLoaded', function() {
 <ul>
 <li>Opcode: 15</li>
 <li>LayerNumber: 1</li>
-<li>TotalLayers: 6</li>
+<li>TotalLayers: 8</li>
 </ul>
 </div>
 </div>
 <div class='collapsible'>v Layer 1</div>
+<div class='content'>
+<div class='collapsible'>v  Tail Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 1</li>
+<li>ActEn: 0</li>
+<li>ActType: 0</li>
+<li>ActParam: 0</li>
+<li>QuantEn: 0</li>
+<li>QuantScale: 0</li>
+<li>QuantShift: 0</li>
+<li>GblPoolScale: 0</li>
+<li>GblPoolShift: 0</li>
+<li>GblPoolEn: 0</li>
+<li>BiasEn: 0</li>
+<li>BiasWidth: 0</li>
+<li>BiasStartAddress: 0</li>
+<li>BiasEndAddress: 0</li>
+<li>NegAlpha: 0</li>
+<li>PosAlpha: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Output Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 2</li>
+<li>AccumulantAddr: 4523936</li>
+<li>AccumulantReadFirst: 0</li>
+<li>OutputAddr: 4392864</li>
+<li>ChannelItr: 1</li>
+<li>KernelItr: 8</li>
+<li>ImageDimOutput: 256</li>
+<li>ImageDimAcc: 256</li>
+<li>AccEn: 0</li>
+<li>DispatchEn: 0</li>
+<li>DispatchID: 0</li>
+<li>OnChipAcc: 1</li>
+<li>OH: 16</li>
+<li>OW: 16</li>
+<li>FlatController: 0</li>
+<li>OpWidth: 1</li>
+</ul>
+</div>
+<div class='collapsible'>v  START</div>
+<div class='content'>
+<ul>
+<li>Opcode: 15</li>
+<li>LayerNumber: 2</li>
+<li>TotalLayers: 8</li>
+</ul>
+</div>
+<div class='collapsible'>v  POOL</div>
+<div class='content'>
+<ul>
+<li>Opcode: 8</li>
+<li>IW: 32</li>
+<li>IH: 32</li>
+<li>IC: 32</li>
+<li>ImageStartAddress: 4261792</li>
+<li>ImageEndAddress: 4294560</li>
+<li>PoolType: 0</li>
+<li>PoolScale: 0</li>
+<li>PoolShift: 0</li>
+<li>PoolWidth: 2</li>
+<li>PoolHeight: 2</li>
+<li>PoolStrideWidth: 2</li>
+<li>PoolStrideHeight: 2</li>
+<li>PoolCeil: 0</li>
+<li>PadLeft: 0</li>
+<li>PadBottom: 0</li>
+<li>PadRight: 0</li>
+<li>PadTop: 0</li>
+<li>Im2colPrefetch: 1</li>
+</ul>
+</div>
+</div>
+<div class='collapsible'>v Layer 2</div>
 <div class='content'>
 <div class='collapsible'>v  CONV</div>
 <div class='content'>
@@ -127,10 +195,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>PadTop: 1</li>
 <li>StartRowSkip: 0</li>
 <li>EndRowSkip: 0</li>
-<li>ImageStartAddress: 4261536</li>
-<li>ImageEndAddress: 4269728</li>
-<li>WeightStartAddress: 2080</li>
-<li>WeightEndAddress: 20512</li>
+<li>ImageStartAddress: 4392864</li>
+<li>ImageEndAddress: 4401056</li>
+<li>WeightStartAddress: 2336</li>
+<li>WeightEndAddress: 20768</li>
 <li>Im2colPrefetch: 1</li>
 <li>KC: 32</li>
 <li>ConvType: 0</li>
@@ -147,22 +215,13 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>QuantEn: 1</li>
 <li>QuantScale: 205</li>
 <li>QuantShift: 16</li>
-<li>PoolEn: 1</li>
-<li>PoolType: 0</li>
-<li>PoolScale: 0</li>
-<li>PoolShift: 0</li>
-<li>PoolWidth: 2</li>
-<li>PoolHeight: 2</li>
-<li>PoolStride: 2</li>
-<li>PoolPadding: 0</li>
-<li>PoolCeil: 0</li>
-<li>PoolModCount: 0</li>
-<li>PoolModCountCols: 0</li>
-<li>PoolPadSides: 0</li>
+<li>GblPoolScale: 0</li>
+<li>GblPoolShift: 0</li>
+<li>GblPoolEn: 0</li>
 <li>BiasEn: 1</li>
 <li>BiasWidth: 32</li>
-<li>BiasStartAddress: 20512</li>
-<li>BiasEndAddress: 20768</li>
+<li>BiasStartAddress: 20768</li>
+<li>BiasEndAddress: 21024</li>
 <li>NegAlpha: 0</li>
 <li>PosAlpha: 0</li>
 </ul>
@@ -171,9 +230,9 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class='content'>
 <ul>
 <li>Opcode: 2</li>
-<li>AccumulantAddr: 4327072</li>
+<li>AccumulantAddr: 5048224</li>
 <li>AccumulantReadFirst: 0</li>
-<li>OutputAddr: 4294304</li>
+<li>OutputAddr: 4261792</li>
 <li>ChannelItr: 8</li>
 <li>KernelItr: 16</li>
 <li>ImageDimOutput: 256</li>
@@ -192,12 +251,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class='content'>
 <ul>
 <li>Opcode: 15</li>
-<li>LayerNumber: 2</li>
-<li>TotalLayers: 6</li>
+<li>LayerNumber: 3</li>
+<li>TotalLayers: 8</li>
 </ul>
 </div>
 </div>
-<div class='collapsible'>v Layer 2</div>
+<div class='collapsible'>v Layer 3</div>
 <div class='content'>
 <div class='collapsible'>v  Tail Block</div>
 <div class='content'>
@@ -209,18 +268,86 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>QuantEn: 0</li>
 <li>QuantScale: 0</li>
 <li>QuantShift: 0</li>
-<li>PoolEn: 0</li>
+<li>GblPoolScale: 0</li>
+<li>GblPoolShift: 0</li>
+<li>GblPoolEn: 0</li>
+<li>BiasEn: 0</li>
+<li>BiasWidth: 0</li>
+<li>BiasStartAddress: 0</li>
+<li>BiasEndAddress: 0</li>
+<li>NegAlpha: 0</li>
+<li>PosAlpha: 0</li>
+</ul>
+</div>
+<div class='collapsible'>v  Output Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 2</li>
+<li>AccumulantAddr: 4523936</li>
+<li>AccumulantReadFirst: 0</li>
+<li>OutputAddr: 4392864</li>
+<li>ChannelItr: 1</li>
+<li>KernelItr: 16</li>
+<li>ImageDimOutput: 64</li>
+<li>ImageDimAcc: 64</li>
+<li>AccEn: 0</li>
+<li>DispatchEn: 0</li>
+<li>DispatchID: 0</li>
+<li>OnChipAcc: 1</li>
+<li>OH: 8</li>
+<li>OW: 8</li>
+<li>FlatController: 0</li>
+<li>OpWidth: 1</li>
+</ul>
+</div>
+<div class='collapsible'>v  START</div>
+<div class='content'>
+<ul>
+<li>Opcode: 15</li>
+<li>LayerNumber: 4</li>
+<li>TotalLayers: 8</li>
+</ul>
+</div>
+<div class='collapsible'>v  POOL</div>
+<div class='content'>
+<ul>
+<li>Opcode: 8</li>
+<li>IW: 16</li>
+<li>IH: 16</li>
+<li>IC: 64</li>
+<li>ImageStartAddress: 4261792</li>
+<li>ImageEndAddress: 4278176</li>
 <li>PoolType: 0</li>
 <li>PoolScale: 0</li>
 <li>PoolShift: 0</li>
-<li>PoolWidth: 0</li>
-<li>PoolHeight: 0</li>
-<li>PoolStride: 0</li>
-<li>PoolPadding: 0</li>
+<li>PoolWidth: 2</li>
+<li>PoolHeight: 2</li>
+<li>PoolStrideWidth: 2</li>
+<li>PoolStrideHeight: 2</li>
 <li>PoolCeil: 0</li>
-<li>PoolModCount: 0</li>
-<li>PoolModCountCols: 0</li>
-<li>PoolPadSides: 0</li>
+<li>PadLeft: 0</li>
+<li>PadBottom: 0</li>
+<li>PadRight: 0</li>
+<li>PadTop: 0</li>
+<li>Im2colPrefetch: 1</li>
+</ul>
+</div>
+</div>
+<div class='collapsible'>v Layer 4</div>
+<div class='content'>
+<div class='collapsible'>v  Tail Block</div>
+<div class='content'>
+<ul>
+<li>Opcode: 1</li>
+<li>ActEn: 0</li>
+<li>ActType: 0</li>
+<li>ActParam: 0</li>
+<li>QuantEn: 0</li>
+<li>QuantScale: 0</li>
+<li>QuantShift: 0</li>
+<li>GblPoolScale: 0</li>
+<li>GblPoolShift: 0</li>
+<li>GblPoolEn: 0</li>
 <li>BiasEn: 0</li>
 <li>BiasWidth: 0</li>
 <li>BiasStartAddress: 0</li>
@@ -235,7 +362,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>Opcode: 2</li>
 <li>AccumulantAddr: 0</li>
 <li>AccumulantReadFirst: 0</li>
-<li>OutputAddr: 4261536</li>
+<li>OutputAddr: 4261792</li>
 <li>ChannelItr: 1</li>
 <li>KernelItr: 1</li>
 <li>ImageDimOutput: 16384</li>
@@ -254,8 +381,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class='content'>
 <ul>
 <li>Opcode: 15</li>
-<li>LayerNumber: 3</li>
-<li>TotalLayers: 6</li>
+<li>LayerNumber: 5</li>
+<li>TotalLayers: 8</li>
 </ul>
 </div>
 <div class='collapsible'>v  RESIZE</div>
@@ -265,12 +392,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>IW: 8</li>
 <li>IH: 8</li>
 <li>IC: 64</li>
-<li>ImageStartAddress: 4294304</li>
-<li>ImageEndAddress: 4298400</li>
+<li>ImageStartAddress: 4392864</li>
+<li>ImageEndAddress: 4396960</li>
 </ul>
 </div>
 </div>
-<div class='collapsible'>v Layer 3</div>
+<div class='collapsible'>v Layer 5</div>
 <div class='content'>
 <div class='collapsible'>v  CONV</div>
 <div class='content'>
@@ -289,10 +416,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>PadTop: 1</li>
 <li>StartRowSkip: 0</li>
 <li>EndRowSkip: 0</li>
-<li>ImageStartAddress: 4294304</li>
-<li>ImageEndAddress: 4310688</li>
-<li>WeightStartAddress: 20768</li>
-<li>WeightEndAddress: 57632</li>
+<li>ImageStartAddress: 4392864</li>
+<li>ImageEndAddress: 4409248</li>
+<li>WeightStartAddress: 21024</li>
+<li>WeightEndAddress: 57888</li>
 <li>Im2colPrefetch: 1</li>
 <li>KC: 64</li>
 <li>ConvType: 0</li>
@@ -309,22 +436,13 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>QuantEn: 1</li>
 <li>QuantScale: 457</li>
 <li>QuantShift: 16</li>
-<li>PoolEn: 0</li>
-<li>PoolType: 0</li>
-<li>PoolScale: 0</li>
-<li>PoolShift: 0</li>
-<li>PoolWidth: 0</li>
-<li>PoolHeight: 0</li>
-<li>PoolStride: 0</li>
-<li>PoolPadding: 0</li>
-<li>PoolCeil: 0</li>
-<li>PoolModCount: 0</li>
-<li>PoolModCountCols: 0</li>
-<li>PoolPadSides: 0</li>
+<li>GblPoolScale: 0</li>
+<li>GblPoolShift: 0</li>
+<li>GblPoolEn: 0</li>
 <li>BiasEn: 1</li>
 <li>BiasWidth: 32</li>
-<li>BiasStartAddress: 57632</li>
-<li>BiasEndAddress: 57888</li>
+<li>BiasStartAddress: 57888</li>
+<li>BiasEndAddress: 58144</li>
 <li>NegAlpha: 0</li>
 <li>PosAlpha: 0</li>
 </ul>
@@ -333,9 +451,9 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class='content'>
 <ul>
 <li>Opcode: 2</li>
-<li>AccumulantAddr: 4458144</li>
+<li>AccumulantAddr: 5048224</li>
 <li>AccumulantReadFirst: 0</li>
-<li>OutputAddr: 4261536</li>
+<li>OutputAddr: 4261792</li>
 <li>ChannelItr: 16</li>
 <li>KernelItr: 16</li>
 <li>ImageDimOutput: 256</li>
@@ -354,12 +472,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class='content'>
 <ul>
 <li>Opcode: 15</li>
-<li>LayerNumber: 4</li>
-<li>TotalLayers: 6</li>
+<li>LayerNumber: 6</li>
+<li>TotalLayers: 8</li>
 </ul>
 </div>
 </div>
-<div class='collapsible'>v Layer 4</div>
+<div class='collapsible'>v Layer 6</div>
 <div class='content'>
 <div class='collapsible'>v  Tail Block</div>
 <div class='content'>
@@ -371,22 +489,13 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>QuantEn: 1</li>
 <li>QuantScale: 65</li>
 <li>QuantShift: 16</li>
-<li>PoolEn: 0</li>
-<li>PoolType: 0</li>
-<li>PoolScale: 0</li>
-<li>PoolShift: 0</li>
-<li>PoolWidth: 0</li>
-<li>PoolHeight: 0</li>
-<li>PoolStride: 0</li>
-<li>PoolPadding: 0</li>
-<li>PoolCeil: 0</li>
-<li>PoolModCount: 0</li>
-<li>PoolModCountCols: 0</li>
-<li>PoolPadSides: 0</li>
+<li>GblPoolScale: 0</li>
+<li>GblPoolShift: 0</li>
+<li>GblPoolEn: 0</li>
 <li>BiasEn: 1</li>
 <li>BiasWidth: 32</li>
-<li>BiasStartAddress: 4252192</li>
-<li>BiasEndAddress: 4253216</li>
+<li>BiasStartAddress: 4252448</li>
+<li>BiasEndAddress: 4253472</li>
 <li>NegAlpha: 0</li>
 <li>PosAlpha: 0</li>
 </ul>
@@ -397,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>Opcode: 2</li>
 <li>AccumulantAddr: 0</li>
 <li>AccumulantReadFirst: 0</li>
-<li>OutputAddr: 4294304</li>
+<li>OutputAddr: 4392864</li>
 <li>ChannelItr: 1</li>
 <li>KernelItr: 8</li>
 <li>ImageDimOutput: 8</li>
@@ -422,10 +531,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>DropoutConstant: 0</li>
 <li>Flatten: 1</li>
 <li>ImageDim: 256</li>
-<li>ImageStartAddress: 4261536</li>
-<li>ImageEndAddr: 4277920</li>
-<li>WeightStartAddress: 57888</li>
-<li>WeightEndAddress: 4252192</li>
+<li>ImageStartAddress: 4261792</li>
+<li>ImageEndAddr: 4278176</li>
+<li>WeightStartAddress: 58144</li>
+<li>WeightEndAddress: 4252448</li>
 <li>Vec2MatCols: 512</li>
 </ul>
 </div>
@@ -433,12 +542,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class='content'>
 <ul>
 <li>Opcode: 15</li>
-<li>LayerNumber: 5</li>
-<li>TotalLayers: 6</li>
+<li>LayerNumber: 7</li>
+<li>TotalLayers: 8</li>
 </ul>
 </div>
 </div>
-<div class='collapsible'>v Layer 5</div>
+<div class='collapsible'>v Layer 7</div>
 <div class='content'>
 <div class='collapsible'>v  Tail Block</div>
 <div class='content'>
@@ -450,22 +559,13 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>QuantEn: 1</li>
 <li>QuantScale: 200</li>
 <li>QuantShift: 16</li>
-<li>PoolEn: 0</li>
-<li>PoolType: 0</li>
-<li>PoolScale: 0</li>
-<li>PoolShift: 0</li>
-<li>PoolWidth: 0</li>
-<li>PoolHeight: 0</li>
-<li>PoolStride: 0</li>
-<li>PoolPadding: 0</li>
-<li>PoolCeil: 0</li>
-<li>PoolModCount: 0</li>
-<li>PoolModCountCols: 0</li>
-<li>PoolPadSides: 0</li>
+<li>GblPoolScale: 0</li>
+<li>GblPoolShift: 0</li>
+<li>GblPoolEn: 0</li>
 <li>BiasEn: 1</li>
 <li>BiasWidth: 32</li>
-<li>BiasStartAddress: 4261408</li>
-<li>BiasEndAddress: 4261536</li>
+<li>BiasStartAddress: 4261664</li>
+<li>BiasEndAddress: 4261792</li>
 <li>NegAlpha: 0</li>
 <li>PosAlpha: 0</li>
 </ul>
@@ -476,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>Opcode: 2</li>
 <li>AccumulantAddr: 0</li>
 <li>AccumulantReadFirst: 0</li>
-<li>OutputAddr: 4261536</li>
+<li>OutputAddr: 4261792</li>
 <li>ChannelItr: 1</li>
 <li>KernelItr: 1</li>
 <li>ImageDimOutput: 8</li>
@@ -501,10 +601,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <li>DropoutConstant: 0</li>
 <li>Flatten: 0</li>
 <li>ImageDim: 0</li>
-<li>ImageStartAddress: 4294304</li>
-<li>ImageEndAddr: 4294560</li>
-<li>WeightStartAddress: 4253216</li>
-<li>WeightEndAddress: 4261408</li>
+<li>ImageStartAddress: 4392864</li>
+<li>ImageEndAddr: 4393120</li>
+<li>WeightStartAddress: 4253472</li>
+<li>WeightEndAddress: 4261664</li>
 <li>Vec2MatCols: 8</li>
 </ul>
 </div>
@@ -512,8 +612,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class='content'>
 <ul>
 <li>Opcode: 15</li>
-<li>LayerNumber: 6</li>
-<li>TotalLayers: 6</li>
+<li>LayerNumber: 8</li>
+<li>TotalLayers: 8</li>
 </ul>
 </div>
 </div>
