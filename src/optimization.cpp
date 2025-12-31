@@ -55,6 +55,35 @@ Op::Vertex create_qconv(Op::Graph &g, const Op::Layer::QLinearConv *cc,
   return new_vertex;
 }
 
+Op::Vertex create_concat_elt(Op::Graph &g, const Op::Layer::QLinearConcat *cc,
+                             Op::Vertex true_parent, int i) {
+  Op::Vertex new_vertex = boost::add_vertex(g);
+  auto *new_add = new Op::Layer::QLinearEltwise(ELTWISE_ADD);
+  new_add->name = "_concat_eltwise_" + std::to_string(i);
+  new_add->a_scale = cc->x_scale[i];
+  new_add->b_scale = 0;
+  new_add->o_scale = cc->y_scale;
+  new_add->a_zp = std::visit([](auto zp) { return static_cast<int>(zp); },
+                             cc->x_zero_point[i]);
+  new_add->b_zp = 0;
+  new_add->zero_point = cc->y_zero_point;
+
+  new_add->input_dims = g[true_parent]->output_dims;
+  new_add->output_dims = new_add->input_dims;
+  new_add->pipelined_output_dims = new_add->output_dims;
+
+  new_add->input_names.push_back(new_add->name + "_inputs_" + std::to_string(i));
+  new_add->output_names.push_back(new_add->name + "_outputs_" + std::to_string(i));
+
+  new_add->input_type.push_back(onnx::TensorProto_DataType_INT8);
+  new_add->output_type.push_back(onnx::TensorProto_DataType_INT8);
+
+  new_add->device = DEVICE_FPGA;
+  g[new_vertex] = new_add;
+  boost::add_edge(true_parent, new_vertex, g);
+  return new_vertex;
+}
+
 Op::Vertex create_qadd(Op::Graph &g,
                        std::vector<Op::Vertex> &new_decomposed_conv,
                        const Op::Layer::QLinearConv *cc, int n, int i, std::string base_name) {
@@ -267,6 +296,87 @@ void split_large_kernel(Op::Graph &g) {
         for (auto succ : successors) {
           boost::add_edge(new_vertex2, succ, g);
         }
+      }
+    } else if (strcmp(g[v]->op_type(), "QLinearConcat") == 0) {
+      auto node = g[v];
+      if (node->name.find("_concat_") != std::string::npos) {
+        continue;
+      }
+      vertices_to_remove.push_back(v);
+
+      Op::Layer::QLinearConcat *cc = dynamic_cast<Op::Layer::QLinearConcat *>(g[v]);
+      std::vector<std::string> real_inputs;
+      std::vector<Op::Vertex> successors = get_children(v, g);
+
+      for (auto &inp_name : node->input_names) {
+        if (inp_name.find("scale") == std::string::npos &&
+            inp_name.find("zero_point") == std::string::npos) {
+          real_inputs.push_back(inp_name);
+        }
+      }
+
+      std::vector<Op::Vertex> true_parent;
+      for (auto &inp_name : real_inputs) {
+        for (auto vp2 = boost::vertices(g); vp2.first != vp2.second; ++vp2.first) {
+          auto v2 = *vp2.first;
+          if (std::find(g[v2]->output_names.begin(), g[v2]->output_names.end(), inp_name) != g[v2]->output_names.end()) {
+            true_parent.push_back(v2);
+            break;
+          }
+        }
+      }
+      boost::clear_vertex(v, g);
+
+      std::vector<Op::Vertex> eltwise_vertices;
+      for (int i = 0; i < true_parent.size(); i++) {
+        Op::Vertex eltwise_vertex = create_concat_elt(g, cc, true_parent[i], i);
+        eltwise_vertices.push_back(eltwise_vertex);
+      }
+
+      int tot_concat = ((eltwise_vertices.size() - 1) / 3) +
+                       ((eltwise_vertices.size() - 1) % 3);
+
+      std::vector<Op::Vertex> concat_vertices;
+      for (int i = 0; i < tot_concat; i++) {
+        Op::Vertex concat_vertex = boost::add_vertex(g);
+        auto *new_concat = new Op::Layer::QLinearConcat();
+        new_concat->name = node->name + "_concat_" + std::to_string(i);
+        new_concat->m_axis = cc->m_axis;
+        new_concat->output_names.push_back(new_concat->name + "_outputs_" + std::to_string(i));
+        new_concat->input_type.push_back(onnx::TensorProto_DataType_INT8);
+        new_concat->output_type.push_back(onnx::TensorProto_DataType_INT8);
+        new_concat->device = DEVICE_FPGA;
+
+        if (i == 0) {
+          new_concat->input_names.push_back(g[eltwise_vertices[0]]->output_names[0]);
+          boost::add_edge(eltwise_vertices[0], concat_vertex, g);
+          new_concat->input_dims.push_back(g[eltwise_vertices[0]]->output_dims[0]);
+          new_concat->output_dims = g[eltwise_vertices[0]]->output_dims;
+        }
+
+        if (i >= 1) {
+          new_concat->input_names.push_back(g[concat_vertices[i - 1]]->output_names[0]);
+          boost::add_edge(concat_vertices[i - 1], concat_vertex, g);
+          new_concat->input_dims.push_back(g[concat_vertices[i - 1]]->output_dims[0]);
+          new_concat->output_dims = g[concat_vertices[i - 1]]->output_dims;
+        }
+
+        for (int j = 1; j <= 3; j++) {
+          int idx = i * 2 + j;
+          if (idx < eltwise_vertices.size()) {
+            boost::add_edge(eltwise_vertices[idx], concat_vertex, g);
+            new_concat->input_names.push_back(g[eltwise_vertices[idx]]->output_names[0]);
+            new_concat->input_dims.push_back(g[eltwise_vertices[idx]]->output_dims[0]);
+            new_concat->output_dims[0][cc->m_axis] += g[eltwise_vertices[idx]]->output_dims[0][cc->m_axis];
+          }
+        }
+        g[concat_vertex] = new_concat;
+        concat_vertices.push_back(concat_vertex);
+      }
+      g[concat_vertices.back()]->output_names = node->output_names;
+
+      for (auto succ : successors) {
+        boost::add_edge(concat_vertices.back(), succ, g);
       }
     }
   }
