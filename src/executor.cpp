@@ -593,7 +593,7 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
 template <typename inputT>
 Tensor<inputT>* create_split_tensor(
     Tensor<inputT>* source,           // Source tensor to slice
-    const std::vector<int>& dims,     // [N, NC, H, W]
+    const std::vector<int>& dims,     // [N, NC, H, W]  actual dims
     const std::string& name,          
     int offset,                        
     int NC                             
