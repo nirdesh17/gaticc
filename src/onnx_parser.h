@@ -750,12 +750,31 @@ struct Concat : public LayerBase {
   const char *m_optype = "Concat";
 
   int m_axis;
-
+  Concat();
   const char *op_type() const override;
-  // void run(TensorPool &tensor_pool) override;
+  void run(TensorPool &tensor_pool) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const IVec2D &input_dims) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
+};
+
+struct QLinearConcat : public LayerBase {
+  const char *m_optype = "QLinearConcat";
+  int m_axis;
+  QLinearConcat();
+  std::vector<float> x_scale;
+  std::vector<std::variant<int8_t, uint8_t>> x_zero_point;
+  std::vector<float> y_scale;
+  std::vector<std::variant<int8_t, uint8_t>> y_zero_point;
+  const char *op_type() const override;
+  void set_initializer_params(int n, const onnx::TensorProto &t) override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const IVec2D &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
+  uint32_t get_weight_size() override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  void run(TensorPool &tensor_pool) override;
 };
 
 struct NMS : public LayerBase {
