@@ -917,8 +917,13 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
                         cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
       }
     } else {
-      // one of the inputs is an initializer (available statically)
-      input2 = new TensorExtant<inputT>(cc->constant_data);
+      if (cc->constant_data == nullptr) {
+        //dummy assignment to avoid null pointer dereference when only one input is required
+        input2 = input1; 
+      } else {
+        // one of the inputs is an initializer (available statically)
+        input2 = new TensorExtant<inputT>(cc->constant_data);
+      }
       if (input1->name() == cc->input_names.at(0 /* QLE_A */) &&
           input2->name() == cc->input_names.at(3 /* QLE_B */)) {
         tensor_qeltwise(intr_output.get(), input1, input2, cc->a_scale,
@@ -1239,6 +1244,70 @@ void Op::Layer::AveragePool::run(TensorPool &tensor_pool) {
     run_averagepool<float>(this, tensor_pool);
   } else if (input_type[0] == onnx::TensorProto_DataType_DOUBLE) {
     run_averagepool<double>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
+template <typename T>
+static void run_concat(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::Concat *cc = dynamic_cast<Op::Layer::Concat *>(l);
+  std::vector<Tensor<T> *> inputs;
+  for (const auto &in_name : cc->inputs) {
+    inputs.push_back(tensor_pool.get<Tensor<T> *>(in_name));
+  }
+
+  Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0], cc->output_names.at(0));
+  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+
+  concat<T>(inputs, output, cc->m_axis);
+  check_dispatch(l, output);
+}
+void Op::Layer::Concat::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_concat<float>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_concat<int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_concat<uint8_t>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
+template <typename T>
+static void run_qconcat(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::QLinearConcat *cc = dynamic_cast<Op::Layer::QLinearConcat *>(l);
+  std::vector<Tensor<T> *> inputs;
+  for (const auto &in_name : cc->inputs) {
+    inputs.push_back(tensor_pool.get<Tensor<T> *>(in_name));
+  }
+
+  Tensor<T> *output =
+      new TensorCreate<T>(cc->output_dims[0], cc->output_names.at(0));
+  tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
+
+  concat<T>(inputs, output, cc->m_axis);
+  check_dispatch(l, output);
+}
+
+void Op::Layer::QLinearConcat::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+
+  if (input_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_qconcat<int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_qconcat<uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
