@@ -41,11 +41,11 @@ static void check_dispatch_table_validity(const std::vector<std::string> &tbl,
 
 int get_dims_size(const std::vector<int> &dims) {
     int a = 1;
-    for (int i = 0; i < dims.size() + 1; i++) {
+    for (int i = 0; i < dims.size() ; i++) {
         a *= dims[i];
     }      
-    return a;
     std::cout<<"Actual Dims of Layer are"<<a<<std::endl;
+    return a;
 }
 
 
@@ -633,7 +633,7 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
 
   int tensor_size = input->dims_iterator(-1);
   bool needs_split = false;
-  int actual_size = get_dims_size(cc->output_dims[0]);
+  int actual_size = get_dims_size(cc->input_dims[0]);
   if (actual_size < tensor_size) {
     needs_split = true;
   }
@@ -822,7 +822,7 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
   bool need_split_1 = false;
   int tensor_size = input1->dims_iterator(-1);
-  int actual_size = get_dims_size(cc->output_dims[0]);
+  int actual_size = get_dims_size(cc->input_dims[0]);
   if(actual_size < tensor_size) {
     need_split_1 = true;
   }
