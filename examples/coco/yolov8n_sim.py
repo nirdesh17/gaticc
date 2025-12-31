@@ -224,15 +224,4 @@ if __name__ == '__main__':
         for i in range(len(outputs)):
           print(outputs[i].shape)
         coco_results.append(postprocess(image_id, outputs, image, height, width))
-    # with open("results.json", "w") as f:
-    #   ll = []
-    #   for i in coco_results:
-    #     for j in i:
-    #       ll.append(j)
-    #   json.dump(ll, f)
 
-    # coco_dt = coco.loadRes("results.json")
-    # coco_eval = COCOeval(coco, coco_dt, iouType='bbox')
-    # coco_eval.evaluate()
-    # coco_eval.accumulate()
-    # coco_eval.summarize()
