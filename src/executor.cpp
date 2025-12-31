@@ -642,29 +642,8 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
 
     int offset = cc->channel_offsets.at(0);   
     int NC = cc->input_dims[0].at(1);
+    std::cout<<"Creating split tensor for conv"<<std::endl;
     input = create_split_tensor<inputT>(input, cc->input_dims.at(0), l->input_names.at(0),offset, NC);
-    /*
-    Tensor<inputT> *new_input = new TensorCreate<inputT>(cc->input_dims.at(0), l->input_names.at(0));   
-    int offset = cc->channel_offsets.at(0);   
-    int NC = cc->input_dims[0].at(1);
-    int H = cc->input_dims[0].at(2);
-    int W = cc->input_dims[0].at(3);
-    // channels to be selected start from offset to offsset + NC  
-    for (int i = 0; i < cc->input_dims[0].at(0); ++i) { 
-      for (int j = offset; j < NC; ++j) {
-        for (int k = 0; k < H; ++k) {
-          for (int l = 0; l < W; ++l) {
-            std::vector<int> index{i, j, k, l};
-            inputT t1 = input->at(index);
-            input->insert(index, t1);
-          }
-        }
-      }
-    }
-  //populated new input tensor value
-  input = new_input;
-  }
-  */
   }
   std::unique_ptr<Tensor<intrT>> intr_output{
       new TensorCreate<intrT>(cc->output_dims[0])};
@@ -841,6 +820,19 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
+  bool need_split_1 = false;
+  int tensor_size = input1->dims_iterator(-1);
+  int actual_size = get_dims_size(cc->output_dims[0]);
+  if(actual_size < tensor_size) {
+    need_split_1 = true;
+  }
+  if(need_split_1) {
+    int offset = cc->channel_offsets.at(0);
+    int NC = cc->input_dims[0].at(1);
+    std::cout<<"Creating new tensor for input1 eltwise"<<std::endl;
+    input1 = create_split_tensor<inputT>(input1, cc->input_dims.at(0), l->input_names.at(0), offset, NC);
+  }
+ 
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
   std::unique_ptr<Tensor<intrT>> intr_output{new TensorCreate<intrT>(cc->output_dims.at(0))};
   Tensor<inputT> *input2;
@@ -894,6 +886,9 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
                              zero_points);
   }
   check_dispatch(l, output);
+  if(need_split_1){
+    delete input1;
+  }
 }
 
 void Op::Layer::QLinearEltwise::run(TensorPool &tensor_pool) {
