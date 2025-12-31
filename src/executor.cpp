@@ -39,6 +39,16 @@ static void check_dispatch_table_validity(const std::vector<std::string> &tbl,
   }
 }
 
+int get_dims_size(const std::vector<int> &dims) {
+    int a = 1;
+    for (int i = 0; i < dims.size() + 1; i++) {
+        a *= dims[i];
+    }      
+    return a;
+    std::cout<<"Actual Dims of Layer are"<<a<<std::endl;
+}
+
+
 namespace Pass {
 Op::Graph create_megablock_graph(Op::Graph graph);
 }
@@ -149,6 +159,7 @@ static std::pair<Tensor<inputT>*, Tensor<outputT>*> get_tensorpool_io(TensorPool
   if (pool.has_value(l->outputs.at(0))) {
     pool.free(l->outputs.at(0));
   }
+  std::cout<<"For layer "<<l->name<<"getting input reg as:"<<l->inputs.at(0)<<"and output at:"<<l->outputs.at(0)<<std::endl;
   Tensor<inputT> *input = pool.get<Tensor<inputT> *>(l->inputs.at(0));
   Tensor<outputT> *output = new TensorCreate<outputT>(l->output_dims.at(0), l->output_names.at(0));
   pool.set<Tensor<outputT> *>(l->outputs.at(0), output);
@@ -213,6 +224,7 @@ static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   ConvEngine<inputT, weightT, outputT> cc_engine(cc);
   cc_engine.run(input, output);
   tt.stop();
+  //do i need to delete new tensor input 
   check_dispatch(l, output);
   if (get_verbose()) {
     tt.report("Time taken: ");
@@ -578,12 +590,82 @@ void Op::Layer::QuantizeLinear::run(TensorPool &tensor_pool) {
   }
 }
 
+template <typename inputT>
+Tensor<inputT>* create_split_tensor(
+    Tensor<inputT>* source,           // Source tensor to slice
+    const std::vector<int>& dims,     // [N, NC, H, W]
+    const std::string& name,          
+    int offset,                        
+    int NC                             
+) {
+    Tensor<inputT>* new_input_tensor = new TensorCreate<inputT>(dims, name);
+    
+    int N = dims.at(0);   // Batch size
+    int H = dims.at(2);   // Height
+    int W = dims.at(3);   // Width
+    // NC already passed as parameter
+    
+    // Copy channel slice from source to new tensor
+    for (int n = 0; n < N; ++n) {
+        for (int c = 0; c < NC; ++c) {
+            int src_channel = offset + c;  // Map to source channel
+            for (int h = 0; h < H; ++h) {
+                for (int w = 0; w < W; ++w) {
+                    std::vector<int> src_index{n, src_channel, h, w};
+                    std::vector<int> dst_index{n, c, h, w};
+                    inputT value = source->at(src_index);
+                    new_input_tensor->insert(dst_index, value);  
+                }
+            }
+        }
+    }
+    
+    return new_input_tensor;
+}
+
+
+
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
   Tensor<inputT> *input; Tensor<outputT> *output;
   std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
 
+  int tensor_size = input->dims_iterator(-1);
+  bool needs_split = false;
+  int actual_size = get_dims_size(cc->output_dims[0]);
+  if (actual_size < tensor_size) {
+    needs_split = true;
+  }
+  if (needs_split) {
+      //input inherited from split.
+
+    int offset = cc->channel_offsets.at(0);   
+    int NC = cc->input_dims[0].at(1);
+    input = create_split_tensor<inputT>(input, cc->input_dims.at(0), l->input_names.at(0),offset, NC);
+    /*
+    Tensor<inputT> *new_input = new TensorCreate<inputT>(cc->input_dims.at(0), l->input_names.at(0));   
+    int offset = cc->channel_offsets.at(0);   
+    int NC = cc->input_dims[0].at(1);
+    int H = cc->input_dims[0].at(2);
+    int W = cc->input_dims[0].at(3);
+    // channels to be selected start from offset to offsset + NC  
+    for (int i = 0; i < cc->input_dims[0].at(0); ++i) { 
+      for (int j = offset; j < NC; ++j) {
+        for (int k = 0; k < H; ++k) {
+          for (int l = 0; l < W; ++l) {
+            std::vector<int> index{i, j, k, l};
+            inputT t1 = input->at(index);
+            input->insert(index, t1);
+          }
+        }
+      }
+    }
+  //populated new input tensor value
+  input = new_input;
+  }
+  */
+  }
   std::unique_ptr<Tensor<intrT>> intr_output{
       new TensorCreate<intrT>(cc->output_dims[0])};
   Timer<std::chrono::milliseconds> tt;
@@ -612,6 +694,10 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   if (get_verbose()) {
     tt.report("Time taken: ");
   }
+  if (needs_split) {
+    delete input;
+  }
+
 }
 
 void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
@@ -678,6 +764,9 @@ void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
 //template <typename T>
 static void run_split(Op::LayerBase *l,TensorPool &tensor_pool) {
     Op::Layer::Split *sp = dynamic_cast<Op::Layer::Split *>(l);
+    //Tensor<inputT> *input; 
+    //no new output to be created. 
+    //? questino how does one input to to other - register wise . 
 }
 
 
