@@ -1374,7 +1374,7 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
 
   std::cout<<"Eltwise 1st input offset:"<<l->channel_offsets[0]<<std::endl;
   
-  uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0), l->channel_offsets[0], l->output_dims[0].at(2), l->output_dims[0].at(3));
+  uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0), l->channel_offsets[0], l->output_dims[0].at(2), l->output_dims[0].at(3)); //so address is offset by bytes only
 
   
   uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
