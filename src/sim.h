@@ -1157,3 +1157,30 @@ void reduce_mean(const Tensor<T> *input, Tensor<T> *output, int axis,
   *output = *input;
 }
 
+
+template <typename T>
+void concat(const std::vector<Tensor<T> *> &input, Tensor<T> *output,
+            int axis) {
+  if (input.size() == 0) {
+    log_fatal("concat: no input tensors\n");
+  }
+  int dims_sz = input[0]->dims_size();
+  if (abs(axis) >= dims_sz) {
+    log_fatal("concat: received out of bounds axis value {}. total dims {}\n",
+              axis, dims_sz);
+  }
+  int offset = 0;
+  for (const auto &t : input) {
+    for (int i = 0; i < t->dims_iterator(-1); ++i) {
+      std::vector<int> index(dims_sz, 0);
+      int rem = i;
+      for (int d = dims_sz - 1; d >= 0; --d) {
+        index[d] = rem % t->dims_at(d);
+        rem = rem / t->dims_at(d);
+      }
+      index[axis] += offset;
+      output->insert(index, t->at(i));
+    }
+    offset += t->dims_at(axis);
+  }
+}
