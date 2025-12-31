@@ -2775,6 +2775,7 @@ void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
  * Consequently:
  * - The input shape for node 3 will be Y1
  * - The input shape for node 4 will be Y2
+ * 
  */
 
 void print_input_dims(const IVec2D& input_dims, const std::string& layer_name) {
@@ -2812,66 +2813,37 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
     }
   }
 
-  std::queue<Op::Vertex> S;  //we process the children of vertexes
-  /* all nodes on which shape inference is done */
-  std::unordered_set<Op::Vertex> done_set;
   Op::Graph gcopy = g;
+  std::queue<Op::Vertex> Q;
+  std::unordered_map<Op::Vertex, int> indeg;
 
-  auto vitr = boost::vertices(gcopy);
-  Op::Vertex v = *(vitr.first);
-  /* set first layer's input dims */
-  IVec2D tmp = input_dims;
-  gcopy[v]->infer_shape(tmp);
-  done_set.insert(v);
-  S.push(v);
+  for (auto v : boost::make_iterator_range(boost::vertices(gcopy))) {
+    indeg[v] = boost::in_degree(v, gcopy);
+  }
 
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    S.pop();
+  Op::Vertex root = Op::get_root_node(&gcopy);
+  gcopy[root]->infer_shape(input_dims);
+  Q.push(root);
 
-    auto out_edges = boost::out_edges(n, gcopy);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
-    }
+  while (!Q.empty()) {
+    Op::Vertex cur = Q.front();
+    Q.pop();
 
-    for (auto [src, dest] : edges_to_remove) {
-      /* make sure all parents of 'dest' have underwent infer_shape */
-      //populating the hashes of split
-      Op::LayerBase *src_node = gcopy[src];
-      Op::LayerBase *dst_node = gcopy[dest];
-      std::cout<<"Processing Edge "<<src_node->name<<" ------ "<<dst_node->name<<std::endl;
-     // if ( src_node->op_type() == "Split") {
-      if (is_op_type(src_node, "Split")) {
+    LayerBase *src_node = gcopy[cur];
+
+    if (is_op_type(src_node, "Split")) {
         Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
         add_split_outputs_to_hash(split_node->output_names, split_node->hashes);
         
       }
-      auto in_edges = boost::in_edges(dest, gcopy);
-      bool dest_parents_done = 1;
-      for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
-        Op::Vertex dsource = boost::source(*itr, gcopy);
-        auto present = done_set.find(dsource);
-        if (present == done_set.end()) {
-          dest_parents_done = 0;
-        } 
-      }
 
-      //when i have multiple in edges -> then this parents done flag is over written si it? - NO, it's okay. any parent is falsee, it should be zero
-
-      if (dest_parents_done) {
-        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy); //this woudld process multiple edges. uses Op::Vertex 
-        
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, gcopy))) {
+      Op::Vertex dest = boost::target(e, gcopy);
+      indeg[dest]--;
+      if (indeg[dest] == 0) {
+        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy);
         gcopy[dest]->infer_shape(in_dims);
-        print_input_dims(gcopy[dest]->input_dims,gcopy[dest]->name);
-
-        done_set.insert(dest);
-        boost::remove_edge(src, dest, gcopy); //the edge we ar removing is only one
-        if (boost::in_degree(dest, gcopy) == 0) {
-          S.push(dest);
-        }
-      } else {
-        S.push(n);
+        Q.push(dest);
       }
     }
   }
@@ -2890,41 +2862,24 @@ void Op::Model::deduce_types(const onnx::GraphProto &m_graph) {
       input_types.push_back(get_type_from_value_info(i));
     }
   }
-
-  std::queue<Op::Vertex> S;
-  std::unordered_set<Op::Vertex> done_set;
   Op::Graph gcopy = g;
+  std::queue<Op::Vertex> Q;
+  std::unordered_map<Op::Vertex, int> indeg;
 
-  auto vitr = boost::vertices(gcopy);
-  Op::Vertex v = *(vitr.first);
-  /* set first layer's input dims */
-  gcopy[v]->infer_type(input_types);
-  done_set.insert(v);
-  S.push(v);
+  for (auto v : boost::make_iterator_range(boost::vertices(gcopy))) {
+    indeg[v] = boost::in_degree(v, gcopy);
+  }
+  Op::Vertex root = Op::get_root_node(&gcopy);
+  gcopy[root]->infer_type(input_types);
+  Q.push(root);
 
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    S.pop();
-
-    auto out_edges = boost::out_edges(n, gcopy);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
-    }
-
-    for (auto [src, dest] : edges_to_remove) {
-      /* make sure all parents of 'dest' have underwent infer_shape */
-      auto in_edges = boost::in_edges(dest, gcopy);
-      bool dest_parents_done = 1;
-      for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
-        Op::Vertex dsource = boost::source(*itr, gcopy);
-        auto present = done_set.find(dsource);
-        if (present == done_set.end()) {
-          dest_parents_done = 0;
-        } 
-      }
-
-      if (dest_parents_done) {
+  while (!Q.empty()) {
+    Op::Vertex cur = Q.front();
+    Q.pop();
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, gcopy))) {
+      Op::Vertex dest = boost::target(e, gcopy);
+      indeg[dest]--;
+      if (indeg[dest] == 0) {
         auto itr2 = name_node_map.find(gcopy[dest]->name);
         if (itr2 == name_node_map.end()) {
           log_fatal("could not find {} in name_node_map\n", gcopy[dest]->name);
@@ -2932,14 +2887,8 @@ void Op::Model::deduce_types(const onnx::GraphProto &m_graph) {
         onnx::NodeProto &np = itr2->second;
         auto i_nodes = Op::get_input_nodes(np, g, output_map);
         auto in_types = Op::get_types_of_in_edges(dest, gcopy, i_nodes);
-        gcopy[dest]->infer_type(in_types);   //where the type for split would be called. 
-        done_set.insert(dest);
-        boost::remove_edge(src, dest, gcopy);
-        if (boost::in_degree(dest, gcopy) == 0) {
-          S.push(dest);
-        }
-      } else {
-        S.push(n);
+        gcopy[dest]->infer_type(in_types);
+        Q.push(dest);
       }
     }
   }
