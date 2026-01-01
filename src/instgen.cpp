@@ -15,14 +15,14 @@ static std::set<std::string> miniblock_tbl{
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv", "Maxpool", "QLinearAveragePool",
-    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose", "QLinearSigmoid"};
+    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose", "QLinearSigmoid", "QLinearConcat"};
 
 
 // Megablocks that operate on quantized data needed Scales 
 static std::set<std::string> QLinear_megablock_tbl{
     "QLinearConv", "QGemm", "QLinearEltwise", "QLinearSigmoid", "Transpose"}; 
 
-static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_POOL};
+static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_POOL, OP_CONCAT};
 
 bool is_nms(const Op::LayerBase *l) {
   return (std::string(l->op_type()) == "NonMaxSuppression");
@@ -1272,6 +1272,12 @@ void Op::Layer::QGemm::get_opcodes(std::vector<int> &opcodes) {
   opcodes.push_back(OP_TailBlock);
 }
 
+void Op::Layer::QLinearConcat::get_opcodes(std::vector<int> &opcodes) {
+  opcodes.push_back(OP_CONCAT);
+  opcodes.push_back(OP_OutputBlock);
+}
+uint32_t Op::Layer::QLinearConcat::get_weight_size() { return 0; }
+
 void Op::Layer::NoOp::get_opcodes(std::vector<int> &opcodes) {}
 
 uint32_t Op::Layer::NoOp::get_weight_size() { return 0; }
@@ -1461,11 +1467,16 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   std::cout<<"Eltwise input2 is offset by "<<l->channel_offsets[1]* l->output_dims[0].at(2)* l->output_dims[0].at(3)<<std::endl;
     right_end = right_start + right_size;
   } else if (l->inputs.size() == 1) {
-    uint32_t right_size = left_size;
-    right_start = gen.alloc(right_size);
-    const Op::Layer::QLinearEltwise *cc = dynamic_cast<const Op::Layer::QLinearEltwise*>(l);
-    tbl.push_back(cc->constant_data->name(), right_start);
-    right_end = right_start + right_size;
+    const Op::Layer::QLinearEltwise *cc = dynamic_cast<const Op::Layer::QLinearEltwise *>(l);
+    if (cc->constant_data == nullptr) {
+      right_start = -1;
+      right_end = -1;
+    } else {
+      uint32_t right_size = left_size;
+      right_start = gen.alloc(right_size);
+      tbl.push_back(cc->constant_data->name(), right_start);
+      right_end = right_start + right_size;
+    }
   } else {
     log_fatal("Cant handle eltwise layer {} with {} inputs\n", l->name, l->inputs.size());
   }
@@ -1714,6 +1725,78 @@ int Op::Layer::QLinearSigmoid::get_inst(InstBlob &blob, AddressGen &gen,
   blob.push_back(out_inst);
   blob.push_back(quant_inst);
   /* as qlinearsigmoid does not insert any dwp packets in the blob */
+  return 0;
+}
+
+static std::bitset<INST_SIZE_BITS>
+gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
+  auto sa_arch = get_sa_arch();
+  std::bitset<INST_SIZE_BITS> concat_inst;
+  inst_set(concat_inst, OP_CONCAT, CONCAT_Opcode);
+
+  int number_of_concat_inputs = l->inputs.size();
+  inst_set(concat_inst, number_of_concat_inputs, CONCAT_InNum);
+
+  uint32_t input1_start = gen.io_addr_from_register(l->inputs.at(0));
+  inst_set(concat_inst, input1_start, CONCAT_Image1StartAddress);
+
+  int kernel1_number = l->input_dims.at(0).at(TENSOR_4D_CHANNELS);
+  inst_set(concat_inst, kernel1_number, CONCAT_KN1);
+
+  int input_height1 = l->input_dims.at(0).at(TENSOR_4D_HEIGHT);
+  inst_set(concat_inst, input_height1, CONCAT_IH1);
+
+  if (l->inputs.size() == 2) {
+    uint32_t input2_start = gen.io_addr_from_register(l->inputs.at(1));
+    inst_set(concat_inst, input2_start, CONCAT_Image2StartAddress);
+
+    int kernel2_number = l->input_dims.at(1).at(TENSOR_4D_CHANNELS);
+    inst_set(concat_inst, kernel2_number, CONCAT_KN2);
+
+    int input_height2 = l->input_dims.at(1).at(TENSOR_4D_HEIGHT);
+    inst_set(concat_inst, input_height2, CONCAT_IH2);
+  }
+
+  if (l->inputs.size() == 3) {
+    uint32_t input3_start = gen.io_addr_from_register(l->inputs.at(2));
+    inst_set(concat_inst, input3_start, CONCAT_Image3StartAddress);
+
+    int kernel3_number = l->input_dims.at(2).at(TENSOR_4D_CHANNELS);
+    inst_set(concat_inst, kernel3_number, CONCAT_KN3);
+
+    int input_height3 = l->input_dims.at(2).at(TENSOR_4D_HEIGHT);
+    inst_set(concat_inst, input_height3, CONCAT_IH3);
+  }
+
+  if (l->inputs.size() == 4) {
+    uint32_t input4_start = gen.io_addr_from_register(l->inputs.at(3));
+    inst_set(concat_inst, input4_start, CONCAT_Image4StartAddress);
+
+    int kernel4_number = l->input_dims.at(3).at(TENSOR_4D_CHANNELS);
+    inst_set(concat_inst, kernel4_number, CONCAT_KN4);
+
+    int input_height4 = l->input_dims.at(3).at(TENSOR_4D_HEIGHT);
+    inst_set(concat_inst, input_height4, CONCAT_IH4);
+  }
+  return concat_inst;
+}
+
+int Op::Layer::QLinearConcat::get_inst(InstBlob &blob, AddressGen &gen,
+                                       InitializerTable &tbl) {
+
+  assert(this->device == DEVICE_FPGA);
+  auto concat_inst = gen_concat(this, gen, tbl);
+  std::bitset<INST_SIZE_BITS> output_inst = gen_output(
+      0, gen.io_addr_from_register(this->outputs.at(0)), 1, 1,
+      ceil_mod(prod(this->output_dims.at(0)), WORD_SIZE), 0, 0,
+      this->dispatch ? 1 : 0, this->dispatch ? string_hash(this->name) : 0, 0,
+      this->output_dims.at(0).at(TENSOR_4D_HEIGHT),
+      this->output_dims.at(0).at(TENSOR_4D_WIDTH),
+      Op::tpdt_sizeof(this->output_type.at(0)), 0, 1);
+
+  blob.push_back(concat_inst);
+  blob.push_back(output_inst);
+
   return 0;
 }
 
@@ -2668,6 +2751,10 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
         int kern = inst_get(*previous_inst, POOL_IC);
         expected_chan_itr = 1;
         expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
+      } else if(p_op == OP_CONCAT) {
+        expected_chan_itr = 1;
+        expected_kern_itr = 1;
+        continue;
       } else {
         log_fatal("GmlCheck: megablock of opcode {} cannot be handled\n", p_op);
       }
@@ -2721,8 +2808,8 @@ void GmlCheck::check_addresses(const InstBlob &instblob) const {
         input_addr = inst_get(inst, CONV_ImageStartAddress);
       } else if (op == OP_FC) {
         input_addr = inst_get(inst, FC_ImageStartAddress);
-      } else if (op == OP_EltWise) {
-        /* continue as eltwise has two inputs, does not necessarily write to
+      } else if (op == OP_EltWise || op == OP_CONCAT) {
+        /* continue as eltwise or concat has more than one inputs, does not necessarily write to
          * its outputs
          */
         continue;
@@ -2761,7 +2848,7 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) const {
       ret = check_fc_weight_continuity(inst);
     } else if (op == OP_OutputBlock || op == OP_START || op == OP_EltWise ||
                op == OP_NMS || op == OP_TRANSPOSE || op == OP_RESHAPE ||
-               op == OP_POOL) {
+               op == OP_POOL || op == OP_CONCAT) {
       // do nothing
     } else {
       log_fatal("Unhandled instruction in check_weight_address_continuity {}\n",
