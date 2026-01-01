@@ -1944,7 +1944,8 @@ int Op::Layer::Resize::get_inst(InstBlob &blob, AddressGen &gen, InitializerTabl
 
   auto out_dims = this->output_dims.at(0);
   uint32_t out_addr = gen.io_addr_from_register(this->outputs.at(0));
-  int ido = ceil_mod(prod(out_dims), WORD_SIZE);
+    int ido = ceil_mod(out_dims.at(TENSOR_4D_HEIGHT)*out_dims.at(TENSOR_4D_WIDTH), WORD_SIZE);
+
     
    auto kern_itr = ceil_div(out_dims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
   std::bitset<INST_SIZE_BITS> oinst = gen_output(0, out_addr, 1, kern_itr, ido, 0, 0, this->dispatch, string_hash(this->name), 0, out_dims.at(TENSOR_4D_HEIGHT), out_dims.at(TENSOR_4D_WIDTH), 1, 0, 0);
