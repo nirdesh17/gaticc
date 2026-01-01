@@ -1810,8 +1810,11 @@ uint32_t Op::Layer::Resize::get_weight_size() {
   return 0;
 }
 
+
 int Op::Layer::Resize::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> rinst;
+  auto sa_arch = get_sa_arch();
+
   inst_set(rinst, OP_RESIZE, RESIZE_Opcode);
   auto in_dims = this->input_dims.at(0);
   inst_set(rinst, in_dims.at(TENSOR_4D_CHANNELS), RESIZE_IC);
@@ -1826,7 +1829,9 @@ int Op::Layer::Resize::get_inst(InstBlob &blob, AddressGen &gen, InitializerTabl
   auto out_dims = this->output_dims.at(0);
   uint32_t out_addr = gen.io_addr_from_register(this->outputs.at(0));
   int ido = ceil_mod(prod(out_dims), WORD_SIZE);
-  std::bitset<INST_SIZE_BITS> oinst = gen_output(0, out_addr, 1, 1, ido, 0, 0, this->dispatch, string_hash(this->name), 0, out_dims.at(TENSOR_4D_HEIGHT), out_dims.at(TENSOR_4D_WIDTH), 1, 0, 0);
+    
+   auto kern_itr = ceil_div(out_dims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
+  std::bitset<INST_SIZE_BITS> oinst = gen_output(0, out_addr, 1, kern_itr, ido, 0, 0, this->dispatch, string_hash(this->name), 0, out_dims.at(TENSOR_4D_HEIGHT), out_dims.at(TENSOR_4D_WIDTH), 1, 0, 0);
   blob.push_back(oinst);
   std::bitset<INST_SIZE_BITS> tinst;
   inst_set(tinst, OP_TailBlock, TailBlock_Opcode);
@@ -2654,9 +2659,13 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
       } else if (p_op == OP_NMS) {
         expected_chan_itr = 1;
         expected_kern_itr = 1;
-      } else if (p_op == OP_TRANSPOSE || p_op == OP_RESIZE) {
+       } else if (p_op == OP_TRANSPOSE) {
         expected_chan_itr = 1;
         expected_kern_itr = 1;
+      } else if (p_op == OP_RESIZE) {
+        expected_chan_itr = 1;
+        int kern = inst_get(*previous_inst, RESIZE_IC);
+        expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
       } else if (p_op == OP_POOL) {
         int kern = inst_get(*previous_inst, POOL_IC);
         expected_chan_itr = 1;
