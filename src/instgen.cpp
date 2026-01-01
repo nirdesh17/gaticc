@@ -15,14 +15,14 @@ static std::set<std::string> miniblock_tbl{
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv", "Maxpool", "QLinearAveragePool",
-    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose", "QLinearSigmoid", "QLinearConcat"};
+    "Gemm",        "QLinearEltwise", "NonMaxSuppression", "NoOp", "Transpose", "QLinearSigmoid","Resize", "QLinearConcat"};
 
 
 // Megablocks that operate on quantized data needed Scales 
 static std::set<std::string> QLinear_megablock_tbl{
     "QLinearConv", "QGemm", "QLinearEltwise", "QLinearSigmoid", "Transpose"}; 
 
-static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_POOL, OP_CONCAT};
+static std::set<int> megablock_opcode_tbl{OP_CONV, OP_FC, OP_EltWise, OP_NMS, OP_TRANSPOSE, OP_POOL, OP_RESIZE, OP_CONCAT};
 
 bool is_nms(const Op::LayerBase *l) {
   return (std::string(l->op_type()) == "NonMaxSuppression");
@@ -1917,6 +1917,44 @@ int Op::Layer::Reshape::get_inst(InstBlob &blob, AddressGen &gen, InitializerTab
   return 0;
 }
 
+void Op::Layer::Resize::get_opcodes(std::vector<int> &op_codes) {
+  op_codes.push_back(OP_RESIZE);
+  op_codes.push_back(OP_OutputBlock);
+  op_codes.push_back(OP_TailBlock);
+}
+
+uint32_t Op::Layer::Resize::get_weight_size() {
+  return 0;
+}
+
+int Op::Layer::Resize::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+  std::bitset<INST_SIZE_BITS> rinst;
+  auto sa_arch = get_sa_arch();
+
+  inst_set(rinst, OP_RESIZE, RESIZE_Opcode);
+  auto in_dims = this->input_dims.at(0);
+  inst_set(rinst, in_dims.at(TENSOR_4D_CHANNELS), RESIZE_IC);
+  inst_set(rinst, in_dims.at(TENSOR_4D_HEIGHT), RESIZE_IH);
+  inst_set(rinst, in_dims.at(TENSOR_4D_WIDTH), RESIZE_IW);
+  uint32_t addr = gen.io_addr_from_register(this->inputs.at(0));
+  inst_set(rinst, addr, RESIZE_ImageStartAddress);
+  uint32_t addr_end = ceil_mod(addr + prod(in_dims) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8), WORD_SIZE);
+  inst_set(rinst, addr_end, RESIZE_ImageEndAddress);
+  blob.push_back(rinst);
+
+  auto out_dims = this->output_dims.at(0);
+  uint32_t out_addr = gen.io_addr_from_register(this->outputs.at(0));
+  int ido = ceil_mod(prod(out_dims), WORD_SIZE);
+    
+   auto kern_itr = ceil_div(out_dims.at(TENSOR_4D_CHANNELS), sa_arch[SA_ARCH_N]);
+  std::bitset<INST_SIZE_BITS> oinst = gen_output(0, out_addr, 1, kern_itr, ido, 0, 0, this->dispatch, string_hash(this->name), 0, out_dims.at(TENSOR_4D_HEIGHT), out_dims.at(TENSOR_4D_WIDTH), 1, 0, 0);
+  blob.push_back(oinst);
+  std::bitset<INST_SIZE_BITS> tinst;
+  inst_set(tinst, OP_TailBlock, TailBlock_Opcode);
+  blob.push_back(tinst);
+  return 0;
+}
+
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
   m_exec_order = crt_exec_order(graph);
 
@@ -2751,6 +2789,10 @@ void GmlCheck::check_citr_kitr(const InstBlob &instblob) const {
         int kern = inst_get(*previous_inst, POOL_IC);
         expected_chan_itr = 1;
         expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
+      } else if (p_op == OP_RESIZE) {
+        expected_chan_itr = 1;
+        int kern = inst_get(*previous_inst, RESIZE_IC);
+        expected_kern_itr = ceil_div(kern, sa_arch[SA_ARCH_N]);
       } else if(p_op == OP_CONCAT) {
         expected_chan_itr = 1;
         expected_kern_itr = 1;
@@ -2847,7 +2889,7 @@ void GmlCheck::check_weight_address_continuity(const InstBlob &instblob) const {
     } else if (op == OP_FC) {
       ret = check_fc_weight_continuity(inst);
     } else if (op == OP_OutputBlock || op == OP_START || op == OP_EltWise ||
-               op == OP_NMS || op == OP_TRANSPOSE || op == OP_RESHAPE ||
+               op == OP_NMS || op == OP_TRANSPOSE || op == OP_RESHAPE || op == OP_RESIZE ||
                op == OP_POOL || op == OP_CONCAT) {
       // do nothing
     } else {
