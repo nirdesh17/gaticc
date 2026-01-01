@@ -775,6 +775,7 @@ struct QLinearConcat : public LayerBase {
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void run(TensorPool &tensor_pool) override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
 struct NMS : public LayerBase {
