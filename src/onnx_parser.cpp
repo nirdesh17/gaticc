@@ -3513,9 +3513,10 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
                                      Op::Vertex target) {
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
-
   for(Op::VirtualAddress out_reg : src_node->outputs){
     dst_node->inputs.push_back(out_reg);
+    int size = dst_node->inputs.size();
+    ref(dst_node->name, dst_node->inputs.at(size - 1));
   }
   int od = boost::out_degree(source, *g);
   if (od == 1) {
@@ -3525,17 +3526,9 @@ void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
       }
     }
   }
-  int id = src_node->inputs.size();
-  if (id > 1 && od == 1) {
-    /* relinquish all inputs unconditionally */
-    for (Op::VirtualAddress reg_val : src_node->inputs) {
-      relinquish(reg_val);
-    }
-  }
 
   if (dst_node->outputs.size() == 0) {
     dst_node->outputs.push_back(acquire(dst_node->name));
-    ref(dst_node->name, dst_node->inputs.at(0));
   }
 }
 
