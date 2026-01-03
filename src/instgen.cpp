@@ -396,7 +396,6 @@ void Op::Parser::pass_set_device() {
   for (Op::LayerBase *l : order) {
     if (!is_megablock(l)) {
       l->device = DEVICE_CPU;
-      //std::cout<<"Initial Loop "<<l->name<<" Assigning DEVICE CPU with "<<l->device<<" enum"<<std::endl;
     } else {
       break;
     }
@@ -412,11 +411,9 @@ void Op::Parser::pass_set_device() {
     while (!S.empty()) {
       Op::Vertex n = S.front();
       if (is_megablock(graph[n])) {
-        std::cout<<"Node "<<graph[n]->name<<" is a megablock, loop breaks"<<std::endl;
         break;  //the first megablock when found, this exits for loop
       } else {
         graph[n]->device = DEVICE_CPU;
-      //std::cout<<"For layer: "<<graph[n]->name<<" Assigning DEVICE CPU with "<<graph[n]->device<<" enum"<<std::endl;
       }
       S.pop();
 
@@ -436,12 +433,10 @@ void Op::Parser::pass_set_device() {
   for (Op::LayerBase *l : order) {
     if (is_op_type(l, "Split")) {
       l->device = DEVICE_CPU;
-      //std::cout<<"For layer: "<<l->name<<" Assigning DEVICE CPU with"<<l->device<<" enum"<<std::endl;
     }
 
     if (l->device != DEVICE_CPU) {
       l->device = DEVICE_FPGA;
-      //std::cout<<"For layer: "<<l->name<<" Assigning DEVICE FPGA with"<<l->device<<" enum"<<std::endl;
       }
   }
 }
@@ -739,10 +734,9 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
 
   assert(cc->inputs.size() == 1);
   auto sa_arch = get_sa_arch();
-  std::cout<<"CONV offset is "<<cc->channel_offsets.at(0)<<std::endl;
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0), cc->channel_offsets.at(0), cc->output_dims[0].at(2),cc->output_dims[0].at(3));
     
-  std::cout<<"Input is offset by "<< ( cc->channel_offsets.at(0) *  cc->output_dims[0].at(2) * cc->output_dims[0].at(3) )<<std::endl;
+  std::cout<<"CONV Input is offset by "<< ( cc->channel_offsets.at(0) *  cc->output_dims[0].at(2) * cc->output_dims[0].at(3) )<<std::endl;
   uint32_t input_bytes =
       aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
@@ -1373,13 +1367,10 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   std::vector<int> ad = aligned_qle(l->input_dims);
 
   std::cout<<"Eltwise 1st input offset:"<<l->channel_offsets[0]<<std::endl;
-  
   uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0), l->channel_offsets[0], l->output_dims[0].at(2), l->output_dims[0].at(3)); //so address is offset by bytes only
-
-  
   uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
   
-  std::cout<<"left size is "<<left_size<<"is it same as H*W*IC = "<<l->channel_offsets[0]* l->output_dims[0].at(2)* l->output_dims[0].at(3)<<std::endl;
+  std::cout<<"Eltwise input1 is offset by "<<l->channel_offsets[0]* l->output_dims[0].at(2)* l->output_dims[0].at(3)<<std::endl;
   uint32_t left_end = left_start + left_size;
   inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
   inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
@@ -1388,9 +1379,9 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   uint32_t right_end = 0;
   if (l->inputs.size() == 2) {
   
-  std::cout<<"Eltwise 2nd input offset:"<<l->channel_offsets[1]<<std::endl;
-    right_start = gen.io_addr_from_register(l->inputs.at(1), l->channel_offsets[1], l->output_dims[0].at(2), l->output_dims[0].at(3));
+  right_start = gen.io_addr_from_register(l->inputs.at(1), l->channel_offsets[1], l->output_dims[0].at(2), l->output_dims[0].at(3));
     uint32_t right_size = ad.at(1) * Op::tpdt_sizeof(l->input_type.at(1));
+  std::cout<<"Eltwise input2 is offset by "<<l->channel_offsets[1]* l->output_dims[0].at(2)* l->output_dims[0].at(3)<<std::endl;
     right_end = right_start + right_size;
   } else if (l->inputs.size() == 1) {
     uint32_t right_size = left_size;

@@ -3794,8 +3794,6 @@ Op::RegisterAllocator::acquire(const std::string &node_name) {
   if (itr != register_set.end()) {
     Op::VirtualAddress reg_num = itr - register_set.begin();
     ref(node_name, reg_num);
-    std::cout<<"ACQUIRED And REFERENCE: Dst node "<< node_name<<" which is reg value: "<<reg_num<<std::endl;
-    //std::cout<<"Acquire : Ref called,for Node :"<<node_name <<"  register:"<<reg_num<<std::endl;
     return reg_num;
   } else {
     log_fatal("Out of registers!\n");
