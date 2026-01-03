@@ -180,12 +180,12 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--video", help="Path to a video file.")
     parser.add_argument("-c", "--camera", action="store_true", help="Use camera for detection.")
     args = parser.parse_args()
-    onnx_path = "mobilenetv2_ssd_lite_tailfree_VOC_mAP_57.onnx"
-    bitstream = "rah.hex"
+    onnx_path = "../../working_models/mobilenetv2_ssd_lite_tailfree_VOC_mAP_57.onnx"
+    bitstream = "../../hex/gati_0.9.11_16116.hex"
     gml_path = "model.gml"
     gati.set_arch(ramsize=512, sa_arch="16,1,16", vasize=32, accbuf_size=4096, fcbuf_size=16384,im2colbuf_size=512)
     gati.compile(onnx_path, gml_path)
-    gati.set_remote("praveen.local")
+    gati.set_remote("sheldon.local")
     gati.flash(bitstream)
     class_names = ["bg", "aeroplane", "bicycle", "bird", "boat",
                     "bottle", "bus", "car", "cat", "chair",

@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import gati
+import sys
 
 cifar10_labels = {
     0: 'airplane',
@@ -33,14 +34,16 @@ def post(arr):
   return m
 
 if __name__ == "__main__":
-  onnx_path = "../../tests/models/cifar10_vgg16.onnx"
-  bitstream = "../../hex/gati_0.7.0_944_c4.hex"
+  onnx_path = "../../working_models/" + sys.argv[1]
+  bitstream = "../../hex/gati_0.9.11_944.hex"
+  bitstream = "../../hex/gati_0.9.11_16116.hex"  
   gml_path = "model.gml"
-  gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
+  #gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
+  gati.set_arch(ramsize=512, sa_arch="16,1,16", vasize=32, accbuf_size=4096, fcbuf_size=16385, im2colbuf_size=512)
   gati.compile(onnx_path, gml_path)
-  #gati.set_remote("v11.local")
+  gati.set_remote("sheldon.local")
   gati.flash(bitstream)
   name = gati.get_model_inputs(onnx_path)[0]
   gati.load(onnx_path, gml_path)
-  ret = post(gati.run({name: np.load("cifar_1.npy")}))
-  print(f"Match: {gati.match('cifar_2_labels.txt', ret)}%")
+  ret = post(gati.run({name: np.load("cifar_100.npy")}))
+  print(f"Match: {gati.match('cifar_100_labels.txt', ret)}%")
