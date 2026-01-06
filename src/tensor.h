@@ -693,6 +693,45 @@ Tensor<T> *tensor_pad(const Tensor<T> *input, const std::vector<int> &pads,
   return output;
 }
 
+template <typename inputT>
+Tensor<inputT>* create_split_tensor(
+  Tensor<inputT>* source, const std::vector<int>& dims, 
+  const std::string& name, int offset, bool &split) {
+  //check split 
+  int tensor_size = source->dims_iterator(-1);
+  int actual_size = prod<int>(dims);
+  if (actual_size < tensor_size) {
+    split = true;
+  } else {
+    split = false;  
+  }
+  //copy required channels from source to a new tensor  
+  if (split) {
+    Tensor<inputT>* new_input_tensor = new TensorCreate<inputT>(dims, name);
+    int N = dims.at(0);   
+    int NC = dims.at(1);
+    int H = dims.at(2);   
+    int W = dims.at(3);   
+      
+    for (int n = 0; n < N; ++n) {
+      for (int c = 0; c < NC; ++c) {
+        int src_channel = offset + c;  // Map to source channel
+        for (int h = 0; h < H; ++h) {
+          for (int w = 0; w < W; ++w) {
+            std::vector<int> src_index{n, src_channel, h, w};
+            std::vector<int> dst_index{n, c, h, w};
+            inputT value = source->at(src_index);
+            new_input_tensor->insert(dst_index, value);  
+          }
+        }
+      }
+    }
+    return new_input_tensor;
+  } else {
+    return source;
+  }
+}
+
 template <typename T> Tensor<T> *get_slice(Tensor<T> *src, std::vector<int> s) {
   std::vector<int> dd = src->get_dims();
   dd.erase(dd.begin());
