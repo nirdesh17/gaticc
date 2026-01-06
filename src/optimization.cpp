@@ -2,6 +2,36 @@
 
 #include "optimization.h"
 
+int calculate_cumulative_sum(std::vector<int> &arr, int index){
+  int sum =0;
+  for (int i = 0; i < index; ++i) {
+    sum += (arr)[i];
+  }
+  return sum;
+}
+
+void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target) { 
+  Op::LayerBase *src_node = (*g)[source];
+  Op::LayerBase *dst_node = (*g)[target];
+
+ if (is_op_type(src_node, "Split")) {
+    Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
+    split_node->hashes.clear();
+    if (split_node->hashes.empty()){
+      add_split_outputs_to_hash(split_node->output_names, split_node->hashes);  
+    }
+
+    int index = find_edge_index(dst_node, split_node->hashes) ;
+    int offset = calculate_cumulative_sum(split_node->splits, index) +
+                 split_node->channel_offsets.at(0);
+    dst_node->channel_offsets.push_back(offset);
+  }
+  
+  else {
+    dst_node->channel_offsets.push_back(0);
+  }
+}
+
 bool is_large_conv(Op::Layer::QLinearConv *cc) {
   if (cc->m_cp.k[0] > 3 && cc->m_cp.k[1] > 3) {
     return true;
@@ -112,6 +142,45 @@ slice_large_convolution(const onnx::TensorProto &initializer) {
   return kernel_proto;
 }
 
+void update_channel_offsets(Op::Graph g){
+  std::cout<<std::endl;
+  Op::Graph gcopy = g;
+  std::queue<Op::Vertex> S;
+  S.push(get_root_node(&gcopy));
+  Op::Vertex n = S.front();
+  Op::LayerBase *node = gcopy[n];
+
+  if (Op::is_root_node(n, &gcopy)) {
+    for( int i=0; i < node->inputs.size(); i++) {
+      node->channel_offsets.push_back(0);
+    }
+  }
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::LayerBase *node = gcopy[n];
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, gcopy);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    }
+
+
+    for (auto [src, dest] : edges_to_remove) { 
+      if (!Op::are_equal_nodes(src, dest, &gcopy)) {
+        update_edge_channel(&gcopy, src, dest);
+        boost::remove_edge(src, dest, gcopy);
+        if (boost::in_degree(dest, g) == 0) {
+          S.push(dest);
+        }
+      }
+    }
+  }
+}
+
+
 void split_large_kernel(Op::Graph &g) {
   std::vector<Op::Vertex> vertices_to_remove;
 
@@ -193,4 +262,5 @@ void split_large_kernel(Op::Graph &g) {
   boost::add_edge(new_vertex, v, g);
 
   Op::RegisterAllocator allocator(g);
+  update_channel_offsets(g);
 }

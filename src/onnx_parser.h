@@ -215,6 +215,7 @@ struct LayerBase {
    */
   IVec2D pipelined_output_dims;
 
+  std::vector<int> channel_offsets; 
   /* Device on which this node would be executed */
   int device;
 
@@ -361,11 +362,27 @@ struct Eltwise : public LayerBase {
   void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
+struct Split : public LayerBase {
+  const char *m_optype = "Split";
+  int axis;
+  std::vector<int> splits;
+  int num_outputs; 
+  std::vector<int> hashes;
+  Split();
+  const char *op_type() const override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+  void infer_shape(const IVec2D &input_dims) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
+  uint32_t get_weight_size() override;
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  void run(TensorPool &tensor_pool) override; 
+  
+};
 struct BatchNorm : public LayerBase {
   const char *m_optype = "BatchNorm";
   const char *op_type() const override;
   /* BatchNorm has static parameters namely epsilon and momentum.
-   * These are not used during inference, hence the omission of
    * params() override.
    */
   float epsilon;
@@ -429,7 +446,6 @@ struct QuantizeLinear : public LayerBase {
   std::vector<float> get_output_scale(void) override;
   void set_output_scale(const std::vector<float>& v) override;
 };
-
 struct DequantizeLinear : public LayerBase {
   const char *m_optype = "DequantizeLinear";
   const char *op_type() const override;
@@ -967,6 +983,11 @@ template <typename T> bool isa(const Op::LayerBase *l) {
 
 Op::LayerBase *get_last_layer(const Op::Parser &parser);
 } // namespace Op
+
+bool is_op_type(const Op::LayerBase *l, const char *op_type);
+void add_split_outputs_to_hash(std::vector<std::string> &s_ptr,
+                               std::vector<int> &hashes);
+int find_edge_index(Op::LayerBase *node, std::vector<int> &hashes);
 
 std::vector<Op::Vertex> get_parents(Op::Vertex v, Op::Graph &g);
 std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g);

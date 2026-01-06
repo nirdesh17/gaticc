@@ -39,6 +39,41 @@ static void check_dispatch_table_validity(const std::vector<std::string> &tbl,
   }
 }
 
+int get_dims_size(const std::vector<int> &dims) {
+  int a = 1;
+  for (int i = 0; i < dims.size() ; i++) {
+      a *= dims[i];
+  }      
+  return a;
+}
+
+
+template <typename inputT>
+Tensor<inputT>* create_split_tensor(
+  Tensor<inputT>* source, const std::vector<int>& dims, 
+  const std::string& name, int offset, int NC) {
+  //copy required channels from source to a new tensor  
+  Tensor<inputT>* new_input_tensor = new TensorCreate<inputT>(dims, name);
+  int N = dims.at(0);   
+  int H = dims.at(2);   
+  int W = dims.at(3);   
+    
+  for (int n = 0; n < N; ++n) {
+    for (int c = 0; c < NC; ++c) {
+      int src_channel = offset + c;  // Map to source channel
+      for (int h = 0; h < H; ++h) {
+        for (int w = 0; w < W; ++w) {
+          std::vector<int> src_index{n, src_channel, h, w};
+          std::vector<int> dst_index{n, c, h, w};
+          inputT value = source->at(src_index);
+          new_input_tensor->insert(dst_index, value);  
+        }
+      }
+    }
+  }
+  return new_input_tensor;
+}
+
 namespace Pass {
 Op::Graph create_megablock_graph(Op::Graph graph);
 }
@@ -208,6 +243,21 @@ static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::Conv *cc = dynamic_cast<Op::Layer::Conv *>(l);
   Tensor<inputT> *input; Tensor<outputT> *output;
   std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
+  //Split section starts
+  int tensor_size = input->dims_iterator(-1);
+  bool need_split = false;
+  int actual_size = get_dims_size(cc->input_dims[0]);
+  if (actual_size < tensor_size) {
+    need_split = true;
+  }
+  if (need_split) {
+    int offset = cc->channel_offsets.at(0);   
+    int NC = cc->input_dims[0].at(1);
+    std::cout<<"Creating split tensor for conv"<<std::endl;
+    input = create_split_tensor<inputT>(input, cc->input_dims.at(0),
+                                        l->input_names.at(0), offset, NC);
+  }
+  //Split section ends
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   ConvEngine<inputT, weightT, outputT> cc_engine(cc);
@@ -216,6 +266,9 @@ static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   check_dispatch(l, output);
   if (get_verbose()) {
     tt.report("Time taken: ");
+  }
+  if (need_split) {
+      delete input;
   }
 }
 
@@ -500,12 +553,40 @@ static void run_eltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
     tensor_pool.free(cc->outputs.at(0));
   }
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
-  Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
+  Tensor<outputT> *output =
+    new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
+  //Split Section starts
+  bool need_split_1 = false;
+  bool need_split_2 = false;
+  int tensor_size = input1->dims_iterator(-1);
+  int actual_size = get_dims_size(cc->input_dims[0]);
+  if(actual_size < tensor_size) {
+    need_split_1 = true;
+  }
+  if (need_split_1) {
+    int offset = cc->channel_offsets.at(0);
+    int NC = cc->input_dims[0].at(1);
+    input1 = create_split_tensor<inputT>(input1, cc->input_dims.at(0),
+                                         l->input_names.at(0), offset, NC);
+  }
+  //Split Section ends 
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
   Tensor<inputT> *input2;
   if (cc->inputs.size() > 1) {
     // both inputs are non-initializers (i.e. available only at runtime)
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
+    int tensor_size = input2->dims_iterator(-1);
+    int actual_size = get_dims_size(cc->input_dims[0]);
+    if(actual_size < tensor_size) {
+      need_split_2 = true;
+    }
+
+    if (need_split_2) {
+      int offset = cc->channel_offsets.at(1);
+      int NC = cc->input_dims[0].at(1);
+      input2 = create_split_tensor<inputT>(input1, cc->input_dims.at(0), 
+                                           l->input_names.at(0), offset, NC);
+    }
     tensor_eltwise(output, input1, input2, cc->operator_type);
   } else {
     // one of the inputs is an initializer (available statically)
@@ -518,6 +599,12 @@ static void run_eltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
     }
   }
   check_dispatch(l, output);
+  if (need_split_1){
+    delete input1;
+  }
+  if (need_split_2){
+    delete input2;
+  }
 }
 
 void Op::Layer::Eltwise::run(TensorPool &tensor_pool) {
@@ -583,9 +670,23 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearConv *cc = dynamic_cast<Op::Layer::QLinearConv *>(l);
   Tensor<inputT> *input; Tensor<outputT> *output;
   std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
-
+  //Split section
+  int tensor_size = input->dims_iterator(-1);
+  bool need_split = false;
+  int actual_size = get_dims_size(cc->input_dims[0]);
+  if (actual_size < tensor_size) {
+    need_split = true;
+  }
+  if (need_split) {
+    int offset = cc->channel_offsets.at(0);   
+    int NC = cc->input_dims[0].at(1);
+    std::cout<<"Creating split tensor for conv"<<std::endl;
+    input = create_split_tensor<inputT>(input, cc->input_dims.at(0),
+                                        l->input_names.at(0), offset, NC);
+  }
+  //Split section ends
   std::unique_ptr<Tensor<intrT>> intr_output{
-      new TensorCreate<intrT>(cc->output_dims[0])};
+  new TensorCreate<intrT>(cc->output_dims[0])};
   Timer<std::chrono::milliseconds> tt;
   tt.start();
   ConvEngine<inputT, weightT, intrT> cc_engine(cc);
@@ -612,6 +713,10 @@ static void run_qconv(Op::LayerBase *l, TensorPool &tensor_pool) {
   if (get_verbose()) {
     tt.report("Time taken: ");
   }
+  if (need_split) {
+    delete input;
+  }
+
 }
 
 void Op::Layer::QLinearConv::run(TensorPool &tensor_pool) {
@@ -674,6 +779,28 @@ void Op::Layer::DequantizeLinear::run(TensorPool &tensor_pool) {
   }
 }
 
+/* helper function for Op::Layer::Split() */
+static void run_split(Op::LayerBase *l,TensorPool &tensor_pool) {
+  //do nothing.handled by subsequent layer
+}
+
+void Op::Layer::Split::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT && 
+      output_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_split(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8 &&
+             output_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_split(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
 template <typename inputT, typename weightT, typename intrT, typename outputT>
 static void run_qmatmul(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearMatMul *cc = dynamic_cast<Op::Layer::QLinearMatMul *>(l);
@@ -727,6 +854,21 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
   }
   Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
+  //Split Section starts
+  bool need_split_1 = false;
+  bool need_split_2 = false;
+  int tensor_size = input1->dims_iterator(-1);
+  int actual_size = get_dims_size(cc->input_dims[0]);
+  if (actual_size < tensor_size) {
+    need_split_1 = true;
+  }
+  if (need_split_1) {
+    int offset = cc->channel_offsets.at(0);
+    int NC = cc->input_dims[0].at(1);
+    input1 = create_split_tensor<inputT>(input1, cc->input_dims.at(0),
+                                         l->input_names.at(0), offset, NC);
+  }
+  //Split Section ends 
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
   std::unique_ptr<Tensor<intrT>> intr_output{new TensorCreate<intrT>(cc->output_dims.at(0))};
   Tensor<inputT> *input2;
@@ -753,6 +895,19 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
     if (cc->inputs.size() > 1) {
       // both inputs are non-initializers (i.e. available only at runtime)
       input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
+      int tensor_size = input2->dims_iterator(-1);
+      int actual_size = get_dims_size(cc->input_dims[0]);
+      if (actual_size < tensor_size) {
+        need_split_2 = true;
+      }
+
+      if (need_split_2) {
+        int offset = cc->channel_offsets.at(1);
+        int NC = cc->input_dims[0].at(1);
+        input2 = create_split_tensor<inputT>(input1, cc->input_dims.at(0),
+                                            l->input_names.at(0), offset, NC);
+      }
+
       if (input1->name() == cc->input_names.at(0 /* QLE_A */) &&
           input2->name() == cc->input_names.at(3 /* QLE_B */)) {
         tensor_qeltwise(intr_output.get(), input1, input2, cc->a_scale,
@@ -780,6 +935,12 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
                              zero_points);
   }
   check_dispatch(l, output);
+  if (need_split_1){
+    delete input1;
+  }
+  if (need_split_2){
+    delete input2;
+  }
 }
 
 void Op::Layer::QLinearEltwise::run(TensorPool &tensor_pool) {

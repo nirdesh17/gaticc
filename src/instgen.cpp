@@ -10,8 +10,11 @@
 #include <stack>
 
 static std::set<std::string> miniblock_tbl{
-  "QLinearConv",        "Relu", "Maxpool", "QGemm",     "Flatten",
-  "QLinearAveragePool", "Conv", "Gemm",    "QLinearEltwise", "QLinearGlobalAveragePool", "NoOp", "Transpose"};
+    "QLinearConv", "Relu", "Maxpool", "QGemm", "Flatten", "Split",
+    "QLinearAveragePool", "Conv", "Gemm", "QLinearEltwise",
+    "QLinearGlobalAveragePool", "NoOp", "Transpose"
+}
+;
 
 static std::set<std::string> megablock_tbl{
     "QLinearConv", "QGemm",      "Conv",
@@ -55,10 +58,6 @@ bool changes_dimension_count(const Op::LayerBase *l) {
     return true;
   }
   return false;
-}
-
-bool is_op_type(const Op::LayerBase *l, const char *op_type) {
-  return std::strcmp(l->op_type(), op_type) == 0;
 }
 
 template <typename T> using CmpFunc = std::function<bool(T, T)>;
@@ -411,7 +410,7 @@ void Op::Parser::pass_set_device() {
     while (!S.empty()) {
       Op::Vertex n = S.front();
       if (is_megablock(graph[n])) {
-        break;
+        break;  
       } else {
         graph[n]->device = DEVICE_CPU;
       }
@@ -730,7 +729,9 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
 
   assert(cc->inputs.size() == 1);
   auto sa_arch = get_sa_arch();
-  uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0));
+  uint32_t input_addr_start = gen.io_addr_from_register(
+      cc->inputs.at(0), cc->channel_offsets.at(0), cc->output_dims[0].at(2),
+      cc->output_dims[0].at(3));
   uint32_t input_bytes =
       aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
@@ -1226,6 +1227,13 @@ int Op::Layer::LogSoftmax::get_inst(InstBlob &, AddressGen &,
   }
   return 0;
 }
+void Op::Layer::Split::get_opcodes(std::vector<int> &) { }
+
+uint32_t Op::Layer::Split::get_weight_size() { return 0; }
+
+int Op::Layer::Split::get_inst(InstBlob &, AddressGen &, InitializerTable &) {
+    return 0;
+}
 
 void Op::Layer::QLinearAveragePool::get_opcodes(std::vector<int> &op_codes) {
   op_codes.push_back(OP_TailBlock);
@@ -1343,7 +1351,9 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_CHANNELS), EltWise_IC);
   std::vector<int> ad = aligned_qle(l->input_dims);
 
-  uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0));
+  uint32_t left_start = gen.io_addr_from_register(
+      l->inputs.at(0),
+      l->channel_offsets[0], l->output_dims[0].at(2), l->output_dims[0].at(3));
   uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
   uint32_t left_end = left_start + left_size;
   inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
@@ -1352,7 +1362,9 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   uint32_t right_start = 0;
   uint32_t right_end = 0;
   if (l->inputs.size() == 2) {
-    right_start = gen.io_addr_from_register(l->inputs.at(1));
+    right_start =
+      gen.io_addr_from_register(l->inputs.at(1), l->channel_offsets[1],
+                              l->output_dims[0].at(2), l->output_dims[0].at(3));
     uint32_t right_size = ad.at(1) * Op::tpdt_sizeof(l->input_type.at(1));
     right_end = right_start + right_size;
   } else if (l->inputs.size() == 1) {
@@ -1818,9 +1830,12 @@ uint32_t AddressGen::alloc(uint32_t size) {
   return ret;
 }
 
-uint32_t AddressGen::io_addr_from_register(Op::VirtualAddress reg) {
-  uint32_t i =
-      inst_region_size + weight_region_size + (reg * io_region_register_size);
+  uint32_t AddressGen::io_addr_from_register(Op::VirtualAddress reg,
+                                           int channel_offset, int op_height,
+                                           int op_width) {
+  uint32_t i = inst_region_size + weight_region_size +
+               (reg * io_region_register_size) +
+               (channel_offset * op_height * op_width);
   uint32_t ret = std::ceil((float)i / (float)WORD_SIZE) * WORD_SIZE;
   return ret;
 }
