@@ -1158,6 +1158,28 @@ void reduce_mean(const Tensor<T> *input, Tensor<T> *output, int axis,
 }
 
 template <typename T>
+void reduce_sum(const Tensor<T> *input, Tensor<T> *output, int axis,
+                 int keepdims) {
+  int n=input->dims_at(TENSOR_4D_BATCH);
+  int c=input->dims_at(TENSOR_4D_CHANNELS);
+  int h=input->dims_at(TENSOR_4D_HEIGHT);
+  int w=input->dims_at(TENSOR_4D_WIDTH);
+  T sum=0;
+  
+  for (int i = 0; i < n; ++i) {
+      for (int k = 0; k < h; ++k) {
+        for (int l = 0; l < w; ++l) {
+          float sum=0.0;
+          for (int j = 0; j < c; ++j) {
+          sum += input->at({i, j, k, l});
+        } 
+        std::vector<int> out_index{n, 1, h, w};
+        output->insert(out_index, sum);
+      }
+    }
+  }
+}
+template <typename T>
 void resize(const Tensor<T> *input, Tensor<T> *output,
             std::vector<float> scales) {
 

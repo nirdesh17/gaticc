@@ -921,7 +921,7 @@ gen_pool_inst(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
 
   std::bitset<INST_SIZE_BITS> pool_inst;
 
-  if (l->op_type() == "Maxpool") {
+  if (std::string(l->op_type()) == "Maxpool") {
     const Op::Layer::Maxpool *cc = dynamic_cast<const Op::Layer::Maxpool *>(l);
     inst_set(pool_inst, POOL_MAX, POOL_PoolType);
     pool_inst_params(
@@ -1271,6 +1271,9 @@ void Op::Layer::QLinearConcat::get_opcodes(std::vector<int> &opcodes) {
   opcodes.push_back(OP_CONCAT);
   opcodes.push_back(OP_OutputBlock);
 }
+
+void Op::Layer::ReduceSum::get_opcodes(std::vector<int> &) {}
+uint32_t Op::Layer::ReduceSum::get_weight_size() { return 0; }
 uint32_t Op::Layer::QLinearConcat::get_weight_size() { return 0; }
 
 void Op::Layer::NoOp::get_opcodes(std::vector<int> &opcodes) {}
@@ -1697,6 +1700,13 @@ gen_sigmoid_quant(const Op::Layer::QLinearSigmoid *cc) {
   inst_set(quant_inst, 1, TailBlock_QuantEn);
   return quant_inst;
 }
+
+
+int Op::Layer::ReduceSum::get_inst(InstBlob &, AddressGen &,
+                                        InitializerTable &) {
+  return 0;
+}
+
 
 int Op::Layer::QLinearSigmoid::get_inst(InstBlob &blob, AddressGen &gen,
                                         InitializerTable &tbl) {

@@ -373,6 +373,10 @@ void Op::Layer::Maxpool::run(TensorPool &tensor_pool) {
 
   if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
     run_maxpool<float>(this, tensor_pool);
+  } else if(input_type[0]== onnx::TensorProto_DataType_INT8) {
+    run_maxpool<int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_maxpool<uint8_t>(this, tensor_pool);
   } else {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
@@ -846,32 +850,38 @@ void Op::Layer::QLinearMatMul::run(TensorPool &tensor_pool) {
   }
 }
 
+
 template <typename inputT, typename intrT, typename outputT>
 static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::QLinearEltwise *cc = dynamic_cast<Op::Layer::QLinearEltwise *>(l);
   if (tensor_pool.has_value(cc->outputs.at(0))) {
     tensor_pool.free(cc->outputs.at(0));
   }
-  Tensor<inputT> *input1 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
+  Tensor<inputT> *input = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(0));
   Tensor<outputT> *output = new TensorCreate<outputT>(cc->output_dims[0], cc->output_names.at(0));
   //Split Section starts
   bool need_split_1 = false;
   bool need_split_2 = false;
-  int tensor_size = input1->dims_iterator(-1);
+  int tensor_size = input->dims_iterator(-1);
   int actual_size = get_dims_size(cc->input_dims[0]);
-  if (actual_size < tensor_size) {
+  if(actual_size < tensor_size) {
     need_split_1 = true;
   }
-  if (need_split_1) {
+  Tensor<inputT> *input1 = input;
+  if(need_split_1) {
     int offset = cc->channel_offsets.at(0);
     int NC = cc->input_dims[0].at(1);
-    input1 = create_split_tensor<inputT>(input1, cc->input_dims.at(0),
-                                         l->input_names.at(0), offset, NC);
+    // std::cout<<"Creating new tensor for input1 eltwise"<<std::endl;
+    input1 = create_split_tensor<inputT>(input, cc->input_dims.at(0), l->input_names.at(0), offset, NC);
   }
+  // std::cout<<"Eltwsie input 1, tensor_size "<<tensor_size<<" actual_size "<<actual_size<<std::endl;
   //Split Section ends 
   tensor_pool.set<Tensor<outputT> *>(cc->outputs.at(0), output);
   std::unique_ptr<Tensor<intrT>> intr_output{new TensorCreate<intrT>(cc->output_dims.at(0))};
   Tensor<inputT> *input2;
+
+  // std::cout<<"Eltwise need_split_1:"<<need_split_1<<std::endl;
+  // std::cout<<"Eltwise need_split_2:"<<need_split_2<<std::endl;
 
   if constexpr (std::is_same<inputT, int32_t>()) {
     input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
@@ -897,15 +907,17 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
       input2 = tensor_pool.get<Tensor<inputT> *>(cc->inputs.at(1));
       int tensor_size = input2->dims_iterator(-1);
       int actual_size = get_dims_size(cc->input_dims[0]);
-      if (actual_size < tensor_size) {
+      if(actual_size < tensor_size) {
         need_split_2 = true;
       }
+      // std::cout<<"Eltwsie input 2, tensor_size "<<tensor_size<<" actual_size "<<actual_size<<std::endl;
+      // std::cout<<"Eltwise input 2 bool need_split:"<<need_split_2<<std::endl;
 
-      if (need_split_2) {
+      if(need_split_2) {
         int offset = cc->channel_offsets.at(1);
         int NC = cc->input_dims[0].at(1);
-        input2 = create_split_tensor<inputT>(input1, cc->input_dims.at(0),
-                                            l->input_names.at(0), offset, NC);
+        // std::cout<<"Creating new tensor for input2 eltwise"<<std::endl;
+        input2 = create_split_tensor<inputT>(input1, cc->input_dims.at(0), l->input_names.at(0), offset, NC);
       }
 
       if (input1->name() == cc->input_names.at(0 /* QLE_A */) &&
@@ -917,33 +929,46 @@ static void run_qeltwise(Op::LayerBase *l, TensorPool &tensor_pool) {
                         cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
       }
     } else {
+
+      // std::cout<<"Eltwise single input with constant data"<<std::endl;
       if (cc->constant_data == nullptr) {
         //dummy assignment to avoid null pointer dereference when only one input is required
-        input2 = input1; 
+        // std::cout<<"Constant data is null, assigning input2 = input1"<<std::endl;
+        input2 = new TensorCreate<outputT>(input1->get_dims());
       } else {
         // one of the inputs is an initializer (available statically)
         input2 = new TensorExtant<inputT>(cc->constant_data);
       }
-      if (input1->name() == cc->input_names.at(0 /* QLE_A */) &&
-          input2->name() == cc->input_names.at(3 /* QLE_B */)) {
+      // if (input1->name() == cc->input_names.at(0 /* QLE_A */) &&
+      //     input2->name() == cc->input_names.at(3 /* QLE_B */)) {
+            // std::cout<<"Using input1 and constant data as input2 for eltwise"<<std::endl;
         tensor_qeltwise(intr_output.get(), input1, input2, cc->a_scale,
                         cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
-      } else {
-        tensor_qeltwise(intr_output.get(), input2, input1, cc->a_scale,
-                        cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
-      }
+      // } else {
+      //       std::cout<<"Using constant data as input2 and input1 for eltwise"<<std::endl;
+      //   tensor_qeltwise(intr_output.get(), input2, input1, cc->a_scale,
+      //                   cc->b_scale, cc->a_zp, cc->b_zp, cc->operator_type);
+      // }
+    // pickle_tensor(input,"input_2_" + l->name + ".tensor");
+
       delete input2;
     }
+    // std::cout<<"Quantizing eltwise output"<<std::endl;  
     using variantT = std::variant<int8_t, uint8_t>;
     std::vector<int> zero_points = variant2vec<variantT, int>(cc->zero_point);
     quantize<intrT, outputT>(intr_output.get(), output, cc->o_scale,
                              zero_points);
+    // std::cout<<"Quantization done"<<std::endl;
   }
   check_dispatch(l, output);
-  if (need_split_1){
+  // pickle_tensor(input1,"input_1_" + l->name + ".tensor");
+
+  if(need_split_1){
+    // std::cout<<"Deleting input1 after eltwise"<<std::endl;
     delete input1;
   }
-  if (need_split_2){
+  // std::cout<<"After eltwise need_split_2:"<<need_split_2<<std::endl;
+  if(need_split_2){
     delete input2;
   }
 }
@@ -1291,11 +1316,21 @@ static void run_qconcat(Op::LayerBase *l, TensorPool &tensor_pool) {
     inputs.push_back(tensor_pool.get<Tensor<T> *>(in_name));
   }
 
+  std::vector<Tensor<T> *> fetched_inputs;
+  for(auto i:cc->input_names){
+    for(auto j:inputs){
+      if(i == j->name()){
+        fetched_inputs.push_back(j);
+
+      }
+    }
+  }
+
   Tensor<T> *output =
       new TensorCreate<T>(cc->output_dims[0], cc->output_names.at(0));
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
-  concat<T>(inputs, output, cc->m_axis);
+  concat<T>(fetched_inputs, output, cc->m_axis);
   check_dispatch(l, output);
 }
 
@@ -1340,5 +1375,34 @@ void Op::Layer::Resize::run(TensorPool &tensor_pool) {
     log_fatal("Unsupported type combo: {}, {}\n",
               Op::get_tensorproto_dtype_name(input_type[0]),
               Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
+template <typename T>
+static void run_reduce_sum(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::ReduceSum *cc = dynamic_cast<Op::Layer::ReduceSum *>(l);
+  Tensor<T> *input; Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
+
+  reduce_sum<T>(input, output, cc->m_axis, cc->m_keepdims);
+  check_dispatch(l, output);
+}
+
+void Op::Layer::ReduceSum::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+
+  if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_reduce_sum<float>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_DOUBLE) {
+    run_reduce_sum<double>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_reduce_sum<int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_INT32) {
+    run_reduce_sum<int>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type : {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]));
   }
 }

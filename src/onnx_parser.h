@@ -694,6 +694,25 @@ struct ReduceMean : public LayerBase {
   void infer_type(const std::vector<TPDT> &input_types) override;
 };
 
+
+struct ReduceSum : public LayerBase {
+  const char *m_optype = "ReduceSum";
+  const char *op_type() const override;
+  std::string params() const override;
+
+  int m_axis;
+  int m_keepdims;
+
+  ReduceSum();
+  int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  void get_opcodes(std::vector<int> &op_codes) override;
+  uint32_t get_weight_size() override;
+  void run(TensorPool &tensor_pool) override;
+  void set_attributes(const onnx::NodeProto &node) override;
+  void infer_shape(const IVec2D &input_dims) override;
+  void infer_type(const std::vector<TPDT> &input_types) override;
+};
+
 struct AveragePool : public LayerBase {
   const char *m_optype = "AveragePool";
   PoolParams m_cp;
@@ -831,6 +850,7 @@ struct Resize : public LayerBase {
   void set_initializer_params(int n, const onnx::TensorProto &t) override;
   void set_attributes(const onnx::NodeProto &node) override;
   void infer_shape(const IVec2D &input_dims) override;
+  void set_constant_params(int n, const onnx::NodeProto &) override;
   void infer_type(const std::vector<TPDT> &input_types) override;
   void run(TensorPool &tensor_pool) override;
   void get_opcodes(std::vector<int> &op_codes) override;
@@ -1032,7 +1052,7 @@ class RegisterAllocator {
   void clear_regs(Op::Graph g);
 
 public:
-  RegisterAllocator(Op::Graph g);
+  RegisterAllocator(Op::Graph& g);
 };
 
 template <typename T> bool isa(const Op::LayerBase *l) {
@@ -1084,3 +1104,9 @@ std::vector<Op::LayerBase*> traverse(Op::Graph &g, Op::Vertex v);
 std::vector<int> deduce_new_shape(std::vector<int> old_shape, int input_total_size);
 void autopad_to_pads(int* pad, const int* k, const int* s, bool ceil_h, bool ceil_w, const std::string& auto_pad);
 std::vector<Op::Vertex> get_leaf_nodes(const Op::Graph& g, const std::map<std::string, Op::Vertex>& name_vertex_map);
+bool is_op_type(const Op::LayerBase *l, const char *op_type);
+void add_split_outputs_to_hash(std::vector<std::string> &s_ptr, std::vector<int> &hashes) ;
+std::vector<int> find_edge_indexes(Op::LayerBase *node, std::vector<int> &hashes);
+int find_edge_index(Op::LayerBase *node, std::vector<int> &hashes);
+int calculate_cumulative_sum(std::vector<int> &arr, int index);
+void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target);

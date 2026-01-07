@@ -448,7 +448,7 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 14
+#define ISA_VERSION 13
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define ACT_LEAKYRELU 0x02
