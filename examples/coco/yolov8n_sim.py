@@ -7,10 +7,13 @@ import json
 from tqdm import tqdm
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
+import gati
 
-IOU_THRESHOLD = 0.45
-OBJ_THRESH = 0.4
-NMS_THRESH = 0.45
+np.set_printoptions(threshold=np.inf)
+
+IOU_THRESHOLD = 0.0
+OBJ_THRESH = 0.0
+NMS_THRESH = 0
 CLASSES = (
             "person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train",
             "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter",
@@ -34,6 +37,7 @@ def preprocess(frame):
                          interpolation=cv2.INTER_CUBIC)
     img = img.astype(np.float32) / 255.0
     img = np.transpose(img, (2, 0, 1)) 
+    img = np.expand_dims(img, axis=0)
     img = np.expand_dims(img, axis=0)
     return img
 
@@ -122,6 +126,7 @@ def draw(image, boxes, scores, classes, height, width):
         """
         
         for box, score, cl in zip(boxes, scores, classes):
+            print(box, score, cl)   
             top, left, right, bottom = box
             top = int(top*width/640) # x1
             left = int(left*height/640) # y1
@@ -136,8 +141,8 @@ def draw(image, boxes, scores, classes, height, width):
                         0.6, (0, 0, 255), 2)
         
         cv2.imwrite('output.jpg', image)
-        cv2.imshow('frame', image)
-        cv2.waitKey(0)
+        # cv2.imshow('frame', image)
+        # cv2.waitKey(0)
 
 # 2014 to 2017
 class_map = [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90, ]
@@ -163,6 +168,13 @@ def postprocess(img_id, inference_output, frame, height, width):
     classes_conf = np.concatenate([sp_flatten(c) for c in classes_conf])
     scores = np.concatenate([sp_flatten(s) for s in scores])
 
+    print("Boxes shape:", boxes.shape)
+    print("Classes shape:", classes_conf.shape)
+    print("Scores shape:", scores.shape)
+    print(boxes)
+    print(classes_conf)
+    print(scores)
+
     boxes, classes, scores = filter_boxes(boxes, scores, classes_conf)
 
     nboxes, nclasses, nscores = [], [], []
@@ -185,7 +197,7 @@ def postprocess(img_id, inference_output, frame, height, width):
           box = [box[0]*width/640, box[1]*height/640, box[2]*width/640, box[3]*height/640]
           box_ = [box[0], box[1], box[2] - box[0], box[3] - box[1]]
           ss = class_map[int(cls)]
-          #print(box_, ss, scr)
+          print(box_, ss, scr)
           coco_results.append({
             "image_id": img_id,
             "category_id": ss,
@@ -198,15 +210,16 @@ def postprocess(img_id, inference_output, frame, height, width):
 
 
 if __name__ == '__main__':
-    modelPath = sys.argv[1]
-    val_images_dir = "/home/nirdesh/vicharak/sysim/images/coco/val2017"
-    ann_path = "/home/nirdesh/vicharak/sysim/images/instances_val2017.json"
+    modelPath = "/home/nirdesh/hdd/gaticc/onnx/yolov8n_quantized_nonms_mAP_20_3.onnx"
+    # modelPath="/home/nirdesh/vicharak/sysim/onnx/yolov8n.onnx"
+    val_images_dir = "/home/nirdesh/hdd/gaticc/images/coco/val2017"
+    ann_path = "/home/nirdesh/hdd/gaticc/images/instances_val2017.json"
 
     session = ort.InferenceSession(modelPath, providers=["CPUExecutionProvider"])
-    input_name = session.get_inputs()[0].name
-    output_names = [session.get_outputs()[i].name for i in range(9)]
-    for out in session.get_outputs():
-        print("output name:", out.name, "output shape:", out.shape, "output type:", out.type)
+    name = gati.get_model_inputs(modelPath)[0]
+    out = gati.get_model_outputs(modelPath)[0]
+
+    print(out)
 
     coco = COCO(ann_path)
     image_ids = coco.getImgIds()
@@ -219,8 +232,23 @@ if __name__ == '__main__':
         image = cv2.imread(os.path.join(val_images_dir, filename))
         height, width = image.shape[:2]
         input = preprocess(image)
-        outputs = session.run(output_names, {input_name: input})
-        print(len(outputs))
+        np.save("input.npy", input)
+        # print("Input shape:", input.shape)
+        
+        # print("Input shape:", input.shape)  
+        # # exit(0)
+        # gati.set_dispatch(["all"])
+        outputs = gati.sim(modelPath, {name: input})
+        # print(len(outputs))
+        new_outputs = []
+        for i in range(len(outputs)):
+          new_outputs.append(outputs[i][1])
+        outputs = new_outputs
+        for i in range(len(outputs)):
+          np.save(f"gati_output_{i}.npy", outputs[i])
+        # # print(outputs)
+        # # for i in range(len(outputs)):
+        # #   print(outputs[i][1].shape())
         for i in range(len(outputs)):
           print(outputs[i].shape)
         coco_results.append(postprocess(image_id, outputs, image, height, width))

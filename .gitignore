@@ -11,3 +11,6 @@ exe/
 *.a
 third_party
 tags
+*.npy
+*.jpg
+

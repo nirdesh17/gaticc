@@ -613,6 +613,11 @@ int Op::Layer::QuantizeLinear::get_inst(InstBlob &, AddressGen &,
   return 0;
 }
 
+int Op::Layer::ReduceSum::get_inst(InstBlob &, AddressGen &,
+                                        InitializerTable &) {
+  return 0;
+}
+
 
 /* Generic gen_quant, used by conv and fc as their quantization routines
  * are same
@@ -723,7 +728,7 @@ gen_conv_inst(const Op::Layer::QLinearConv *cc, AddressGen &gen,
   auto sa_arch = get_sa_arch();
   uint32_t input_addr_start = gen.io_addr_from_register(cc->inputs.at(0), cc->channel_offsets.at(0), cc->output_dims[0].at(2),cc->output_dims[0].at(3));
     
-  std::cout<<"CONV Input is offset by "<< ( cc->channel_offsets.at(0) *  cc->output_dims[0].at(2) * cc->output_dims[0].at(3) )<<std::endl;
+  // std::cout<<"CONV Input is offset by "<< ( cc->channel_offsets.at(0) *  cc->output_dims[0].at(2) * cc->output_dims[0].at(3) )<<std::endl;
   uint32_t input_bytes =
       aligned_conv_input(cc->input_dims, cc->weights->dims()) * Op::tpdt_sizeof(cc->input_type[0]);
   uint32_t input_addr_end = input_addr_start + input_bytes;
@@ -926,7 +931,7 @@ gen_pool_inst(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
 
   std::bitset<INST_SIZE_BITS> pool_inst;
 
-  if (l->op_type() == "Maxpool") {
+  if (std::string(l->op_type()) == "Maxpool") {
     const Op::Layer::Maxpool *cc = dynamic_cast<const Op::Layer::Maxpool *>(l);
     inst_set(pool_inst, POOL_MAX, POOL_PoolType);
     pool_inst_params(
@@ -1276,6 +1281,9 @@ void Op::Layer::QLinearConcat::get_opcodes(std::vector<int> &opcodes) {
   opcodes.push_back(OP_CONCAT);
   opcodes.push_back(OP_OutputBlock);
 }
+
+
+void Op::Layer::ReduceSum::get_opcodes(std::vector<int> &) {}
 uint32_t Op::Layer::QLinearConcat::get_weight_size() { return 0; }
 
 void Op::Layer::NoOp::get_opcodes(std::vector<int> &opcodes) {}
@@ -1331,7 +1339,7 @@ int Op::Layer::LogSoftmax::get_inst(InstBlob &, AddressGen &,
   return 0;
 }
 void Op::Layer::Split::get_opcodes(std::vector<int> &) {
-    std::cout<<"Layer "<<this->name<<" has device set "<<this->device<<std::endl;
+    // std::cout<<"Layer "<<this->name<<" has device set "<<this->device<<std::endl;
     if (this->device != DEVICE_CPU) {
         //this->device = DEVICE_CPU;
         log_fatal("Operator Split cannot run on the FPGA\n");
@@ -1449,11 +1457,11 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   inst_set(add_inst, l->input_dims.at(0).at(TENSOR_4D_CHANNELS), EltWise_IC);
   std::vector<int> ad = aligned_qle(l->input_dims);
 
-  std::cout<<"Eltwise 1st input offset:"<<l->channel_offsets[0]<<std::endl;
+  // std::cout<<"Eltwise 1st input offset:"<<l->channel_offsets[0]<<std::endl;
   uint32_t left_start = gen.io_addr_from_register(l->inputs.at(0), l->channel_offsets[0], l->output_dims[0].at(2), l->output_dims[0].at(3)); //so address is offset by bytes only
   uint32_t left_size = ad.at(0) * Op::tpdt_sizeof(l->input_type.at(0));
   
-  std::cout<<"Eltwise input1 is offset by "<<l->channel_offsets[0]* l->output_dims[0].at(2)* l->output_dims[0].at(3)<<std::endl;
+  // std::cout<<"Eltwise input1 is offset by "<<l->channel_offsets[0]* l->output_dims[0].at(2)* l->output_dims[0].at(3)<<std::endl;
   uint32_t left_end = left_start + left_size;
   inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
   inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
@@ -1464,7 +1472,7 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   
   right_start = gen.io_addr_from_register(l->inputs.at(1), l->channel_offsets[1], l->output_dims[0].at(2), l->output_dims[0].at(3));
     uint32_t right_size = ad.at(1) * Op::tpdt_sizeof(l->input_type.at(1));
-  std::cout<<"Eltwise input2 is offset by "<<l->channel_offsets[1]* l->output_dims[0].at(2)* l->output_dims[0].at(3)<<std::endl;
+  // std::cout<<"Eltwise input2 is offset by "<<l->channel_offsets[1]* l->output_dims[0].at(2)* l->output_dims[0].at(3)<<std::endl;
     right_end = right_start + right_size;
   } else if (l->inputs.size() == 1) {
     const Op::Layer::QLinearEltwise *cc = dynamic_cast<const Op::Layer::QLinearEltwise *>(l);

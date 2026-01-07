@@ -1765,61 +1765,6 @@ void Op::Layer::Split::infer_shape(const IVec2D &input_dims){
 
 const char *Op::Layer::Split::op_type() const { return m_optype; }
 
-Op::Layer::Split::Split() {
-  //std::cout<<"Split Constructor called"<<std::endl;
-  axis = 1;
-  int num_outputs = 1;
-  device = DEVICE_UNKNOWN;
-}
-
-void Op::Layer::Split::set_attributes(const onnx::NodeProto &node ) {
-  //std::cout<<"Setting split attributes"<<std::endl;
-  const auto &attribute = node.attribute();
-  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
-    if (itr->name() == "axis") {
-      if (itr->has_i()) {
-            axis = itr->i();
-            if(axis != 1){
-              log_fatal("cannot handle split which is not channel wise");
-            }
-       } else { 
-           log_fatal("cannot find attribute 'axis' in layer {}, is it an integer?",
-                     node.name()); 
-       }
-    }
-
-    if (itr->name() == "split") {
-      parse_onnx_ints(*itr, splits); //the layer contains the object splits
-    }
- }
-}
-void Op::Layer::Split::infer_type(const std::vector<TPDT> &input_types){
-  assert(input_types.size() >= 1);
-  this->input_type = input_types;
-  this->output_type = input_types;
-    
-}
-void Op::Layer::Split::infer_shape(const IVec2D &input_dims){
-  if (this->output_dims.size() !=0) {
-      return;
-  }
-  assert(input_dims.size() >= 1);
-  this->input_dims = input_dims;
-  assert(input_dims[0].size() == 4);
-  this->num_outputs = this->splits.size();
-  this->output_dims.resize(num_outputs);
-  for(int i=0; i < num_outputs; i++){
-    this->output_dims[i].resize(4);
-    this->output_dims[i][0] = input_dims[0][0];
-    this->output_dims[i][1] = splits[i];
-    this->output_dims[i][2] = input_dims[0][2];
-    this->output_dims[i][3] = input_dims[0][3];
-  }
-  this->pipelined_output_dims = this->output_dims; 
-
-}
-
-const char *Op::Layer::Split::op_type() const { return m_optype; }
 
 Op::Layer::QLinearAveragePool::QLinearAveragePool() {
   /* zero initialize */
@@ -1995,6 +1940,49 @@ void Op::Layer::ReduceMean::infer_type(const std::vector<TPDT> &input_types) {
 }
 
 void Op::Layer::ReduceMean::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axes") {
+      std::vector<int> axes;
+      parse_onnx_ints(*itr, axes);
+      m_axis = axes.at(0);
+    } else if (itr->name() == "keepdims") {
+      if (itr->has_i()) {
+        m_keepdims = static_cast<int>(itr->i());
+      }
+    }
+  }
+}
+
+Op::Layer::ReduceSum::ReduceSum() : m_axis{-1}, m_keepdims{1} {
+  device = DEVICE_UNKNOWN;
+}
+
+const char *Op::Layer::ReduceSum::op_type() const { return m_optype; }
+
+std::string Op::Layer::ReduceSum::params() const {
+  std::stringstream ss;
+  ss << "axis: " << m_axis << " keepdims: " << m_keepdims;
+  return ss.str();
+}
+
+void Op::Layer::ReduceSum::infer_shape(const IVec2D &input_dims) {
+  this->input_dims = input_dims;
+  // this->output_dims = reduced_shape(this->input_dims, m_axis, m_keepdims);
+  log_warn("Using a hacky (incorrect) implementation of reduce_sum. Inputs "
+           "pass through\n");
+  this->output_dims = input_dims;
+  this->output_dims[0][TENSOR_4D_CHANNELS] = 1;
+  this->pipelined_output_dims = this->output_dims;
+}
+
+void Op::Layer::ReduceSum::infer_type(const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type = input_types;
+}
+
+void Op::Layer::ReduceSum::set_attributes(const onnx::NodeProto &node) {
   const auto &attribute = node.attribute();
   for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
     if (itr->name() == "axes") {
@@ -2496,6 +2484,53 @@ void Op::Layer::Resize::set_initializer_params(int n,
   }
 }
 
+
+void Op::Layer::Resize::set_constant_params(
+    int n,
+    const onnx::NodeProto &t
+) {
+  // std::cout << "Setting constant params for Resize, n = " << n << std::endl;
+
+  for (const auto &a : t.attribute()) {
+    if (a.name() == "value") {
+      const onnx::TensorProto &tensor = a.t();
+
+      // std::cout << "Constant tensor name: " << tensor.name() << std::endl;
+      // std::cout << "Data type: " << tensor.data_type() << std::endl;
+
+      // ---- Shape ----
+      std::vector<int64_t> dims;
+      for (auto d : tensor.dims()) {
+        dims.push_back(d);
+      }
+
+      // ---- Read float32 data ----
+      std::vector<float> values;
+
+      if (tensor.float_data_size() > 0) {
+        // Case 1: stored in float_data (common)
+        for (float v : tensor.float_data()) {
+          values.push_back(v);
+        }
+      } else {
+        // Case 2: stored in raw_data (also common)
+        const std::string &raw = tensor.raw_data();
+        size_t count = raw.size() / sizeof(float);
+        const float *ptr = reinterpret_cast<const float *>(raw.data());
+        values.assign(ptr, ptr + count);
+      }
+
+      // ---- Print ----
+      // std::cout << "Scales values: ";
+      for (float v : values) {
+        // std::cout << v << " ";
+        scales.push_back(v);
+      }
+      std::cout << std::endl;
+    }
+  }
+}
+
 /* Auxillary Graph Functions */
 
 bool Op::is_root_node(Op::Vertex v, const Op::Graph *g) {
@@ -2618,6 +2653,8 @@ void Op::Model::save_initializers(const onnx::TensorProto &t) {
 void Op::Model::save_input_output_names() {
   std::cout<<"Saving Input Output names"<<std::endl;
   auto exec_order = crt_exec_order(g);
+
+  std::cout<<"Execution order size: "<<exec_order.size()<<std::endl;
   for (Op::LayerBase *l : exec_order) {
     auto itr = name_node_map.find(l->name);
     if (itr == name_node_map.end()) {
@@ -2957,7 +2994,7 @@ void print_input_dims(const IVec2D& input_dims, const std::string& layer_name) {
 void add_split_outputs_to_hash(std::vector<std::string> &s_ptr, std::vector<int> &hashes);
 
 void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
-  std::cout<<std::endl<<"----Deducing Shapes-----"<<std::endl;
+  // std::cout<<std::endl<<"----Deducing Shapes-----"<<std::endl;
   IVec2D input_dims;
   for (const auto &i : m_graph.input()) {
     if (initializer_map.find(i.name()) == initializer_map.end()) {
@@ -2981,6 +3018,7 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
     Op::Vertex cur = Q.front();
     Q.pop();
 
+    // std::cout<<"Current Node: "<<gcopy[cur]->name<<std::endl;
     LayerBase *src_node = gcopy[cur];
 
     if (is_op_type(src_node, "Split")) {
@@ -2991,16 +3029,20 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
 
     for (auto e : boost::make_iterator_range(boost::out_edges(cur, gcopy))) {
       Op::Vertex dest = boost::target(e, gcopy);
+      // std::cout<<"Processing Edge from "<<gcopy[cur]->name<<" to "<<gcopy[dest]->name<<std::endl;
       indeg[dest]--;
       if (indeg[dest] == 0) {
         auto in_dims = Op::get_dims_of_in_edges(dest, gcopy);
+        // std::cout<<"input get dims called"<<std::endl;
+        // std::cout<<in_dims.size()<<std::endl;
+
         gcopy[dest]->infer_shape(in_dims);
         Q.push(dest);
       }
     }
   }
   
-  std::cout<<std::endl<<"----Deducing Shapes Completed-----"<<std::endl<<std::endl;
+  // std::cout<<std::endl<<"----Deducing Shapes Completed-----"<<std::endl<<std::endl;
   //exit(1);
 }
 
@@ -3056,26 +3098,26 @@ void add_split_outputs_to_hash(std::vector<std::string> &s_ptr, std::vector<int>
       hashes.push_back(value);
       //std::cout<<"Adding hash "<<value<<" for "<<(*itr)<<std::endl;
     }
-  std::cout<<"Split Outputs Hash vector populated"<<std::endl; 
+  // std::cout<<"Split Outputs Hash vector populated"<<std::endl; 
   }
 }
 
-std::vector<int> find_edge_indexes(Op::LayerBase *node, std::vector<int> &hashes) {
-  std::vector<int> indexes;
-  int index;
-  std::cout<<"Called indexes"<<std::endl;
-  for (auto itr = node->input_names.begin(); itr != node->input_names.end(); ++itr) {
-    int hash_value = string_hash(*itr);
-    std::cout<<"Finding hash value "<<hash_value<<" for"<<(*itr)<<std::endl;
-    auto it = std::find(hashes.begin(), hashes.end(), hash_value);
-    if (it != hashes.end()) {
-      index = std::distance(hashes.begin(), it);
-      int input_index = std::distance(node->input_names.begin(), itr); 
-      indexes.push_back(index);   
-    }
-  }
- return indexes;
-}
+// std::vector<int> find_edge_indexes(Op::LayerBase *node, std::vector<int> &hashes) {
+//   std::vector<int> indexes;
+//   int index;
+//   // std::cout<<"Called indexes"<<std::endl;
+//   for (auto itr = node->input_names.begin(); itr != node->input_names.end(); ++itr) {
+//     int hash_value = string_hash(*itr);
+//     // std::cout<<"Finding hash value "<<hash_value<<" for"<<(*itr)<<std::endl;
+//     auto it = std::find(hashes.begin(), hashes.end(), hash_value);
+//     if (it != hashes.end()) {
+//       index = std::distance(hashes.begin(), it);
+//       int input_index = std::distance(node->input_names.begin(), itr); 
+//       indexes.push_back(index);   
+//     }
+//   }
+//  return indexes;
+// }
 
 // what if there was some other way - 
 
@@ -3086,7 +3128,7 @@ int find_edge_index(Op::LayerBase *node, std::vector<int> &hashes) { //node is d
   int index = 0;
   for ( auto itr = node->input_names.begin(); itr != node->input_names.end(); ++itr) {
     int hash_value = string_hash(*itr);
-    std::cout<<"Finding hash value "<<hash_value<<" for"<<(*itr)<<std::endl;
+    // std::cout<<"Finding hash value "<<hash_value<<" for"<<(*itr)<<std::endl;
     auto it = std::find(hashes.begin(), hashes.end(), hash_value);
     if (it != hashes.end()) {
       index = std::distance(hashes.begin(), it);
@@ -3113,13 +3155,14 @@ void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target) {
   //hash of the source is sent
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
-  std::cout<<"Assinging offset "<<src_node->name<<"-----"<<dst_node->name<<std::endl;
+  // std::cout<<"Assinging offset "<<src_node->name<<"-----"<<dst_node->name<<std::endl;
   //if ( src_node->op_type() == "Split" ) {
    if (is_op_type(src_node, "Split")) {
-    std::cout<<"Src node is split"<<std::endl;
+    // std::cout<<"Src node is split"<<std::endl;
     Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
+    split_node->hashes.clear();
     if (split_node->hashes.empty()){
-      std::cout<<"Calling add split outputs to hash"<<std::endl;
+      // std::cout<<"Calling add split outputs to hash"<<std::endl;
       add_split_outputs_to_hash(split_node->output_names, split_node->hashes);  
     }
     int index = find_edge_index(dst_node, split_node->hashes) ;
@@ -3132,25 +3175,25 @@ void update_edge_channel(Op::Graph *g, Op::Vertex source, Op::Vertex target) {
   }
   int total_offsets = dst_node->channel_offsets.size();
   int total_inputs = dst_node->inputs.size();
-  std::cout<<dst_node->name<<"Inputs : { ";
-  for ( auto itr = dst_node->inputs.begin(); itr != dst_node->inputs.end(); ++itr) {
-    std::cout<<(*itr)<<" ";
-  }
-  std::cout<<" }"<<std::endl;
-  std::cout<<dst_node->name<<"Offsets : { ";
-  for ( auto itr = dst_node->channel_offsets.begin(); itr != dst_node->channel_offsets.end(); ++itr) {
-    std::cout<<(*itr)<<" ";
-  }
-  std::cout<<" }"<<std::endl;
-  std::cout<<std::endl;
+  // std::cout<<dst_node->name<<"Inputs : { ";
+  // for ( auto itr = dst_node->inputs.begin(); itr != dst_node->inputs.end(); ++itr) {
+    // std::cout<<(*itr)<<" ";
+  // }
+  // std::cout<<" }"<<std::endl;
+  // std::cout<<dst_node->name<<"Offsets : { ";
+  // for ( auto itr = dst_node->channel_offsets.begin(); itr != dst_node->channel_offsets.end(); ++itr) {
+    // std::cout<<(*itr)<<" ";
+  // }
+  // std::cout<<" }"<<std::endl;
+  // std::cout<<std::endl;
 }
 
 
 void Op::Model::update_channel_offsets(){
   //std::vector<int> sa_arch(3,0);
   //sa_arch = get_sa_arch();
-  std::cout<<std::endl;
-  std::cout<<"---Updating channel offsets---"<<std::endl;
+  // std::cout<<std::endl;
+  // std::cout<<"---Updating channel offsets---"<<std::endl;
   Op::Graph gcopy = g;
   std::queue<Op::Vertex> S;
   S.push(get_root_node(&gcopy));
@@ -3160,7 +3203,7 @@ void Op::Model::update_channel_offsets(){
   if (Op::is_root_node(n, &gcopy)) {
     for( int i=0; i < node->inputs.size(); i++) {
       node->channel_offsets.push_back(0);
-    std::cout<<"For root node: "<<node->name<<", set the channel offset"<<std::endl<<std::endl;
+    // std::cout<<"For root node: "<<node->name<<", set the channel offset"<<std::endl<<std::endl;
     }
   }
 
@@ -3187,7 +3230,7 @@ void Op::Model::update_channel_offsets(){
     }
   }
 
-  std::cout<<" -- Channel Offset done -- "<<std::endl;
+  // std::cout<<" -- Channel Offset done -- "<<std::endl;
 }
 
 
@@ -3321,33 +3364,27 @@ std::vector<Op::Vertex> get_children(Op::Vertex v, Op::Graph &g) {
 }
 
 IVec2D Op::get_dims_of_in_edges(Op::Vertex v, const Op::Graph &g) {
-  //so v is the vertex who in_dims we need to calculate 
+
   IVec2D ret;
   std::vector<int> indexes; 
   auto in_edges = boost::in_edges(v, g);
   for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
-    //here common rcv node have 2 in nodes but from same src
-    // we keep getting the same edge in find index
 
-    //we are iterating over edges - we don't need to make it abt src dst . can we avoid?
     Op::Vertex src_vertex = boost::source(*itr, g);
     Op::LayerBase *src_node = g[src_vertex];
     //if (src_node->op_type() == "Split") {
     if(is_op_type(src_node, "Split")) {
       Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
       Op::LayerBase *dst_node = g[v];
-      // i could make a dst node  
+
       int index = find_edge_index(dst_node, split_node->hashes);
-      //indexes =  find_edge_indexes(dst_node, split_node->hashes);
-      //here the index returned is the same both times if we have a common rcv dst_node
+
       ret.push_back(g[src_vertex]->output_dims[index]);
-      std::cout<<"Taking "<<src_node->name<<" output index: "<<index<<" adding to input of "<<dst_node->name<<std::endl;
     }
     else {
       for (const auto &out_dim : g[src_vertex]->output_dims) {
         ret.push_back(out_dim);
         Op::LayerBase *dst_node = g[v];
-        std::cout<<"Adding input to Node: "<<dst_node->name<<std::endl;
         
       }
     }
@@ -3539,52 +3576,82 @@ std::vector<int> Op::get_true_rc_inputs(const Op::LayerBase *node) {
 }
 
 std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
-  return crt_exec_order(g);
+  std::vector<Op::LayerBase *> exec_order;
+  exec_order=crt_exec_order(g);
+  // std::cout<<"Execution Order: "<<std::endl;
+  // std::cout<<exec_order.size()<<std::endl;
+  return exec_order;
 }
 
-std::vector<Op::LayerBase *> traverse(Op::Graph &g, Op::Vertex v) {
-  std::vector<Op::LayerBase *> execution_order;
-  std::queue<Op::Vertex> Q;
-  Q.push(v);
+// std::vector<Op::LayerBase *> traverse(Op::Graph &g, Op::Vertex v) {
+//   std::vector<Op::LayerBase *> execution_order;
+//   std::queue<Op::Vertex> Q;
+//   Q.push(v);
 
-  while (!Q.empty()) {
-    Op::Vertex current = Q.front();
-    int out_degree = boost::out_degree(current, g);
-    Q.pop();
-    execution_order.push_back(g[current]);
+//   while (!Q.empty()) {
+//     Op::Vertex current = Q.front();
+//     int out_degree = boost::out_degree(current, g);
+//     Q.pop();
+//     execution_order.push_back(g[current]);
 
-    auto out_edges = boost::out_edges(current, g);
-    std::vector<Op::Vertex> next_nodes;
+//     auto out_edges = boost::out_edges(current, g);
+//     std::vector<Op::Vertex> next_nodes;
 
-    for (auto it = out_edges.first; it != out_edges.second; ++it) {
-      Op::Vertex target = boost::target(*it, g);
-      if (!Op::are_equal_nodes(current, target, &g)) {
-        next_nodes.push_back(target);
-      }
-    }
-    for (auto target : next_nodes) {
-      if (boost::in_degree(target, g) <= 1) {
-        if (out_degree > 1) {
-          auto sub_order = traverse(g, target);
-          execution_order.insert(execution_order.end(), sub_order.begin(),
-                                 sub_order.end());
-          out_degree--;
-        } else {
-          Q.push(target);
-        }
-      }
-    }
-    for (auto target : next_nodes) {
-      boost::remove_edge(current, target, g);
-    }
+//     for (auto it = out_edges.first; it != out_edges.second; ++it) {
+//       Op::Vertex target = boost::target(*it, g);
+//       if (!Op::are_equal_nodes(current, target, &g)) {
+//         next_nodes.push_back(target);
+//       }
+//     }
+//     for (auto target : next_nodes) {
+//       if (boost::in_degree(target, g) <= 1) {
+//         if (out_degree > 1) {
+//           auto sub_order = traverse(g, target);
+//           execution_order.insert(execution_order.end(), sub_order.begin(),
+//                                  sub_order.end());
+//           out_degree--;
+//         } else {
+//           Q.push(target);
+//         }
+//       }
+//     }
+//     for (auto target : next_nodes) {
+//       boost::remove_edge(current, target, g);
+//     }
 
-  }
-  return execution_order;
-}
+//   }
+//   return execution_order;
+// }
 
 std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
+
+  std::queue<Op::Vertex> Q;
+  std::unordered_map<Op::Vertex, int> indeg;
+  std::vector<Op::LayerBase *> execution_order;
+
+  for (auto v : boost::make_iterator_range(boost::vertices(gcopy))) {
+    indeg[v] = boost::in_degree(v, gcopy);
+  }
   Op::Vertex root = Op::get_root_node(&gcopy);
-  return traverse(gcopy, root);
+
+  Q.push(root);
+
+  while (!Q.empty()) {
+    Op::Vertex cur = Q.front();
+    execution_order.push_back(gcopy[cur]);
+    Q.pop();
+
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, gcopy))) {
+      Op::Vertex dest = boost::target(e, gcopy);
+      indeg[dest]--;
+
+      if (indeg[dest] == 0) {
+        Q.push(dest);
+      }
+    }
+  }
+
+  return execution_order;
 }
 
 std::vector<Op::Vertex> get_leaf_nodes(const Op::Graph& g, const std::map<std::string, Op::Vertex>& name_vertex_map) {
@@ -3739,6 +3806,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Abs(), node);
   } else if (opt == "ReduceMean") {
     m_model.add(new Op::Layer::ReduceMean(), node);
+  } else if (opt == "ReduceSum") {
+    m_model.add(new Op::Layer::ReduceSum(), node);
   } else if (opt == "AveragePool") {
     m_model.add(new Op::Layer::AveragePool(), node);
   } else if (opt == "Shape") {
@@ -3756,6 +3825,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "Tanh") {
     m_model.add(new Op::Layer::QLinearSigmoid(ELTWISE_TANH), node);
   } else if (opt == "Resize") {
+    // std::cout<<"Adding Resize Layer"<<std::endl;
     m_model.add(new Op::Layer::Resize(), node);
   } else if (opt == "QLinearConcat") {
     m_model.add(new Op::Layer::QLinearConcat(), node);
@@ -3812,7 +3882,7 @@ Op::Parser::Parser(std::string const &filename) {
   log_info2("Updating Registers through register allocator\n");
   m_model.update_registers();
   log_info2("Setting channel offsets\n", filename);
-  m_model.update_channel_offsets();
+  // m_model.update_channel_offsets();
 
   log_info2("Parsing Finished\n");
 }
@@ -3930,52 +4000,93 @@ void Op::Parser::pass_save_nodes(const onnx::GraphProto &graph) {
 
 Op::Parser::~Parser() { loaded_model.close(); }
 
-Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
-  std::cout<<std::endl;
-  std::cout<<"Register Allocator ( ) invoked"<<std::endl;
+Op::RegisterAllocator::RegisterAllocator(Op::Graph& g) {
+
+
+  std::cout << "Register Allocator invoked" << std::endl;
+
+  // Op::Graph g = gr;
+  // std::cout<<"Register Allocator ( ) invoked"<<std::endl;
+  // std::cout<<std::endl;
   register_set.resize(default_size, 0);
   clear_regs(g);
 
-  std::queue<Op::Vertex> S;
-  S.push(get_root_node(&g));
-  Op::Vertex n = S.front();
-  Op::LayerBase *node = g[n];
 
-  if (Op::is_root_node(n, &g)) {
-    for (int i = 0; i < node->input_dims.size(); i++) {
-      node->inputs.push_back(acquire(node->name));
-    }
-    for (int i = 0; i < node->output_dims.size(); i++) {
-      node->outputs.push_back(acquire(node->name));
-    }
-    if (register_set.at(node->inputs.at(0)) == 1) {
-      relinquish(node->inputs.at(0));
-    }
+  std::queue<Op::Vertex> Q;
+  std::unordered_map<Op::Vertex, int> indeg;
+  std::vector<Op::Vertex > execution_order;
+    std::unordered_map<Op::VirtualAddress, int> reg_uses;
+
+  for (auto v : boost::make_iterator_range(boost::vertices(g))) {
+    indeg[v] = boost::in_degree(v, g);
   }
+  Op::Vertex root = Op::get_root_node(&g);
 
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    Op::LayerBase *node = g[n];
-    S.pop();
+  Q.push(root);
 
-    auto out_edges = boost::out_edges(n, g);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, g)});
-    }
+  while (!Q.empty()) {
+    Op::Vertex cur = Q.front();
+    execution_order.push_back(cur);
+    Q.pop();
 
-    for (auto [src, dest] : edges_to_remove) {
-      if (!Op::are_equal_nodes(src, dest, &g)) {
-        traverse(&g, src, dest);
-        boost::remove_edge(src, dest, g);
-        if (boost::in_degree(dest, g) == 0) {
-          S.push(dest);
-        }
+    int nn=g[cur]->input_names.size();
+    g[cur]->inputs.resize(0);
+    g[cur]->outputs.resize(0);
+
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, g))) {
+      Op::Vertex dest = boost::target(e, g);
+      indeg[dest]--;
+
+      if (indeg[dest] == 0) {
+        Q.push(dest);
       }
     }
-    //print int and out for each node?
   }
-  std::cout<<std::endl<<"---Register Allocator Done---"<<std::endl;
+
+
+  std::unordered_map<Op::Vertex, int> remaining_uses;
+for (auto v : boost::make_iterator_range(boost::vertices(g))) {
+  remaining_uses[v] = boost::out_degree(v, g);
+}
+
+ for (Op::Vertex v : execution_order) {
+  Op::LayerBase* node = g[v];
+
+  // Allocate inputs
+  if (node->inputs.empty()) {
+    for (size_t i = 0; i < node->input_dims.size(); i++) {
+      node->inputs.push_back(acquire(node->name));
+    }
+  }
+
+  // Allocate outputs
+  if(node->op_type()=="Split"){
+    node->outputs=node->inputs;
+  }
+  else{
+  if (node->outputs.empty()) {
+    for (size_t i = 0; i < node->output_dims.size(); i++) {
+      node->outputs.push_back(acquire(node->name));
+    }
+  }}
+
+  // Traverse outgoing edges
+  for (auto e : boost::make_iterator_range(boost::out_edges(v, g))) {
+    Op::Vertex dest = boost::target(e, g);
+    traverse(&g, v, dest,reg_uses);
+  }
+  
+  for(Op::VirtualAddress in_reg : node->inputs) {
+    // Release output registers if no longer needed
+    reg_uses[in_reg]--;
+    if(reg_uses[in_reg]==0) {
+      relinquish(in_reg);
+    }
+  }
+
+}
+
+
 }
 
 Op::VirtualAddress
@@ -4003,39 +4114,32 @@ void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
   }
 }
 
-void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
-                                     Op::Vertex target) {
+void Op::RegisterAllocator::traverse(Op::Graph *g,
+                                     Op::Vertex source,
+                                     Op::Vertex target,
+                                     std::unordered_map<Op::VirtualAddress, int>& reg_uses) {
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
 
+
+
+  // Propagate edge names
   for (auto output_name : src_node->output_names) {
     dst_node->input_edge_names.push_back(output_name);
   }
 
-  for(Op::VirtualAddress out_reg : src_node->outputs){
+  // Forward registers
+  // std::cout<<"Traversing from node "<<src_node->name<<" to node "<<dst_node->name<<std::endl;
+
+
+  for (Op::VirtualAddress out_reg : src_node->outputs) {
     dst_node->inputs.push_back(out_reg);
-    int size = dst_node->inputs.size();
-    ref(dst_node->name, dst_node->inputs.at(size - 1));
-  }
+    reg_uses[out_reg]++;
 
-  int od = boost::out_degree(source, *g);
-  if (od == 1) {
-    for (Op::VirtualAddress reg_val : src_node->inputs) {
-      if (register_set.at(reg_val) == string_hash(src_node->name)) {
-        relinquish(reg_val);
-      }
-    }
-  }
-
-  if (dst_node->outputs.size() == 0) {
-    if (is_op_type(dst_node, "Split")) { //reg value should stay the same
-      dst_node->outputs.push_back(dst_node->inputs.at(0));
-    }
-    else { 
-        dst_node->outputs.push_back(acquire(dst_node->name));
-    }
   }
 }
+
+
 
 void Op::RegisterAllocator::clear_regs(Op::Graph g) {
   std::queue<Op::Vertex> S;

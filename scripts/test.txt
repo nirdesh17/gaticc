@@ -1,0 +1,10 @@
+
+
+
+
+Execution order size: 225
+WARNING: Using a hacky (incorrect) implementation of reduce_sum. Inputs pass through
+WARNING: Using a hacky (incorrect) implementation of reduce_sum. Inputs pass through
+WARNING: Using a hacky (incorrect) implementation of reduce_sum. Inputs pass through
+Register Allocator invoked
+✔ Inference succeeded on sample 0

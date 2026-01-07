@@ -56,10 +56,10 @@ Op::Vertex create_qconv(Op::Graph &g, const Op::Layer::QLinearConv *cc,
 }
 
 Op::Vertex create_concat_elt(Op::Graph &g, const Op::Layer::QLinearConcat *cc,
-                             Op::Vertex true_parent, int i) {
+                             Op::Vertex true_parent, int i,std::string inp_name) {
   Op::Vertex new_vertex = boost::add_vertex(g);
   auto *new_add = new Op::Layer::QLinearEltwise(ELTWISE_ADD);
-  new_add->name = "_concat_eltwise_" + std::to_string(i);
+  new_add->name = cc->name + "_concat_eltwise_" + std::to_string(i);
   new_add->a_scale = cc->x_scale[i];
   new_add->b_scale = 0;
   new_add->o_scale = cc->y_scale;
@@ -67,12 +67,13 @@ Op::Vertex create_concat_elt(Op::Graph &g, const Op::Layer::QLinearConcat *cc,
                              cc->x_zero_point[i]);
   new_add->b_zp = 0;
   new_add->zero_point = cc->y_zero_point;
-
-  new_add->input_dims = g[true_parent]->output_dims;
+  new_add->input_dims.resize(0);
+  new_add->input_dims.push_back(g[true_parent]->output_dims.at(0));
   new_add->output_dims = new_add->input_dims;
   new_add->pipelined_output_dims = new_add->output_dims;
 
-  new_add->input_names.push_back(new_add->name + "_inputs_" + std::to_string(i));
+    new_add->input_names.push_back(inp_name);
+  // new_add->input_names.push_back(new_add->name + "_inputs_" + std::to_string(i));
   new_add->output_names.push_back(new_add->name + "_outputs_" + std::to_string(i));
 
   new_add->input_type.push_back(onnx::TensorProto_DataType_INT8);
@@ -80,6 +81,7 @@ Op::Vertex create_concat_elt(Op::Graph &g, const Op::Layer::QLinearConcat *cc,
 
   new_add->device = DEVICE_FPGA;
   g[new_vertex] = new_add;
+  // true_parent->output_names[i] = new_add->input_names[0];
   boost::add_edge(true_parent, new_vertex, g);
   return new_vertex;
 }
@@ -159,6 +161,118 @@ slice_large_convolution(const onnx::TensorProto &initializer) {
   return kernel_proto;
 }
 
+
+void dump_graph(const Op::Graph &g, const std::string &tag) {
+  std::cout << "\n================ GRAPH DUMP: " << tag << " ================\n";
+
+  std::cout << "Total vertices: " << boost::num_vertices(g) << "\n";
+  std::cout << "Total edges   : " << boost::num_edges(g) << "\n\n";
+
+  auto vp = boost::vertices(g);
+  for (auto it = vp.first; it != vp.second; ++it) {
+    Op::Vertex v = *it;
+
+    std::cout << "Vertex [" << v << "] ";
+    if (g[v]) {
+      std::cout << g[v]->name<<std::endl;
+    } else {
+      std::cout << "NULL_LAYER_PTR";
+    }
+    std::cout << "\n";
+
+    // Outgoing edges
+    auto oe = boost::out_edges(v, g);
+    for (auto eit = oe.first; eit != oe.second; ++eit) {
+      Op::Vertex tgt = boost::target(*eit, g);
+      std::cout << "   --> [" << tgt << "] ";
+      if (g[tgt]) std::cout << g[tgt]->name;
+      else std::cout << "NULL_LAYER_PTR";
+      std::cout << "\n";
+    }
+
+    // Incoming edges
+    auto ie = boost::in_edges(v, g);
+    for (auto eit = ie.first; eit != ie.second; ++eit) {
+      Op::Vertex src = boost::source(*eit, g);
+      std::cout << "   <-- [" << src << "] ";
+      if (g[src]) std::cout << g[src]->name;
+      else std::cout << "NULL_LAYER_PTR";
+      std::cout << "\n";
+    }
+
+    std::cout << "\n";
+
+    // std::cout<<"channel offsets: "<<std::endl;
+    // for(auto i: g[v]->channel_offsets){
+    //   std::cout<<i<<" ";
+    // }
+
+    // std::cout<<std::endl;
+
+
+    // std::cout<<"input names: "<<std::endl;
+    // for(auto i: g[v]->input_names){
+    //   std::cout<<i<<" ";
+    // }
+
+    // std::cout<<std::endl;
+
+
+
+    // std::cout<<"-------------------------------------------"<<std::endl;
+    // std::cout<<std::endl;
+  }
+
+  // std::cout << "===========================================================\n";
+}
+
+
+
+
+void update_channel_offsets1(Op::Graph &g) {
+  //std::vector<int> sa_arch(3,0);
+  //sa_arch = get_sa_arch();
+  // std::cout<<std::endl;
+  // std::cout<<"---Updating channel offsets---"<<std::endl;
+  Op::Graph gcopy = g;
+  std::queue<Op::Vertex> S;
+  S.push(get_root_node(&gcopy));
+  Op::Vertex n = S.front();
+  Op::LayerBase *node = gcopy[n];
+
+  if (Op::is_root_node(n, &gcopy)) {
+    for( int i=0; i < node->inputs.size(); i++) {
+      node->channel_offsets.push_back(0);
+    // std::cout<<"For root node: "<<node->name<<", set the channel offset"<<std::endl<<std::endl;
+    }
+  }
+
+  while (!S.empty()) {
+    Op::Vertex n = S.front();
+    Op::LayerBase *node = gcopy[n];
+    S.pop();
+
+    auto out_edges = boost::out_edges(n, gcopy);
+    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
+    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+    }
+
+
+    for (auto [src, dest] : edges_to_remove) { 
+     if (!Op::are_equal_nodes(src, dest, &gcopy)) {
+      update_edge_channel(&gcopy, src, dest);
+      boost::remove_edge(src, dest, gcopy);
+      if (boost::in_degree(dest, g) == 0) {
+        S.push(dest);
+      }
+     }
+    }
+  }
+
+  // std::cout<<" -- Channel Offset done -- "<<std::endl;
+}
+
 void split_large_kernel(Op::Graph &g) {
   std::vector<Op::Vertex> vertices_to_remove;
 
@@ -181,7 +295,6 @@ void split_large_kernel(Op::Graph &g) {
         }
 
         vertices_to_remove.push_back(v);
-        boost::clear_vertex(v, g);
 
         std::vector<Op::Vertex> new_decomposed_conv;
         for (size_t i = 0; i < sliced_tensors.size(); i++) {
@@ -213,6 +326,9 @@ void split_large_kernel(Op::Graph &g) {
             boost::add_edge(qadd.back(), succ, g);
           }
         }
+
+        boost::clear_vertex(v, g);  
+
       }
     } else if (strcmp(g[v]->op_type(), "Maxpool") == 0) {
 
@@ -230,28 +346,57 @@ void split_large_kernel(Op::Graph &g) {
         new_pool1->name = "decomposed_" + cc->name + std::to_string(0);
         new_pool1->m_cp.k[TENSOR_2D_HEIGHT] = 1;
         new_pool1->m_cp.stride[TENSOR_2D_HEIGHT] = 1;
+        new_pool1->m_cp.pad[I_UP] = 0;
+        new_pool1->m_cp.pad[I_DOWN] = 0;
         new_pool1->infer_shape(new_pool1->input_dims);
+        new_pool1->input_names = cc->input_names;
+        new_pool1->output_names = {new_pool1->name + "_output"};
+        // for(auto i: new_pool1->input_dims.at(0)){
+        //   std::cout<<i<<" ";
+        // }
+        // std::cout<<std::endl;
+
+        // for(auto i: new_pool1->output_dims.at(0)){
+        //   std::cout<<i<<" ";
+        // }
+        // std::cout<<std::endl;
         g[new_vertex1] = new_pool1;
 
         for (auto pred : predecessors) {
           boost::add_edge(pred, new_vertex1, g);
         }
 
-        predecessors = {new_vertex1};
+    
 
         Op::Vertex new_vertex2 = boost::add_vertex(g);
         auto *new_pool2 = new Op::Layer::Maxpool(*cc);
         new_pool2->name = "decomposed_" + cc->name + std::to_string(1);
         new_pool2->m_cp.k[TENSOR_2D_WIDTH] = 1;
         new_pool2->m_cp.stride[TENSOR_2D_WIDTH] = 1;
+        new_pool2->m_cp.pad[I_LEFT] = 0;
+        new_pool2->m_cp.pad[I_RIGHT] = 0;
         new_pool2->infer_shape(new_pool1->output_dims);
+        new_pool2->input_names = {new_pool1->output_names[0]};
+        new_pool2->output_names = cc->output_names;
+        
         g[new_vertex2] = new_pool2;
 
-        for (auto pred : predecessors) {
-          boost::add_edge(pred, new_vertex2, g);
-        }
+        //  for(auto i: new_pool2->input_dims.at(0)){
+        //   std::cout<<i<<" ";
+        // }
+        // std::cout<<std::endl;
 
+        // for(auto i: new_pool2->output_dims.at(0)){
+        //   std::cout<<i<<" ";
+        // }
+        // std::cout<<std::endl;
+
+        
+          boost::add_edge(new_vertex1, new_vertex2, g);
+        
+        // std::cout<<g[new_vertex2]->name<<std::endl;
         for (auto succ : successors) {
+          // std::cout<<"Connecting to successor: "<<g[succ]->name<<std::endl;
           boost::add_edge(new_vertex2, succ, g);
         }
       }
@@ -265,7 +410,6 @@ void split_large_kernel(Op::Graph &g) {
         std::vector<Op::Vertex> successors = get_children(v, g);
         vertices_to_remove.push_back(v);
 
-        boost::clear_vertex(v, g);
 
         Op::Vertex new_vertex1 = boost::add_vertex(g);
         auto *new_pool1 = new Op::Layer::QLinearAveragePool(*cc);
@@ -296,12 +440,26 @@ void split_large_kernel(Op::Graph &g) {
         for (auto succ : successors) {
           boost::add_edge(new_vertex2, succ, g);
         }
+
+        for (auto succ : successors) {
+          for (auto &iname : g[succ]->input_names) {
+            if (iname == cc->output_names[0]) {
+              iname = new_pool2->output_names[0];
+            }
+          }
+        }
+
+
+        boost::clear_vertex(v, g);
+
       }
-    } else if (strcmp(g[v]->op_type(), "QLinearConcat") == 0) {
+    } 
+else if (strcmp(g[v]->op_type(), "QLinearConcat") == 0) {
       auto node = g[v];
       if (node->name.find("_concat_") != std::string::npos) {
         continue;
       }
+
       vertices_to_remove.push_back(v);
 
       Op::Layer::QLinearConcat *cc = dynamic_cast<Op::Layer::QLinearConcat *>(g[v]);
@@ -315,32 +473,44 @@ void split_large_kernel(Op::Graph &g) {
         }
       }
 
-      std::vector<Op::Vertex> true_parent;
-      for (auto &inp_name : real_inputs) {
-        for (auto vp2 = boost::vertices(g); vp2.first != vp2.second; ++vp2.first) {
-          auto v2 = *vp2.first;
-          if (std::find(g[v2]->output_names.begin(), g[v2]->output_names.end(), inp_name) != g[v2]->output_names.end()) {
-            true_parent.push_back(v2);
-            break;
-          }
-        }
-      }
-      boost::clear_vertex(v, g);
 
+
+      std::vector<Op::Vertex> true_parent = get_parents(v, g);
+      // for (auto &inp_name : real_inputs) {
+      //   for (auto vp2 = boost::vertices(g); vp2.first != vp2.second; ++vp2.first) {
+      //     auto v2 = *vp2.first;
+      //     if (std::find(g[v2]->output_names.begin(), g[v2]->output_names.end(), inp_name) != g[v2]->output_names.end()) {
+      //       true_parent.push_back(v2);
+      //       break;
+      //     }
+      //   }
+      // }
+      boost::clear_vertex(v, g);
       std::vector<Op::Vertex> eltwise_vertices;
       for (int i = 0; i < true_parent.size(); i++) {
-        Op::Vertex eltwise_vertex = create_concat_elt(g, cc, true_parent[i], i);
+        Op::Vertex eltwise_vertex = create_concat_elt(g, cc, true_parent[i], i,real_inputs[i]);
         eltwise_vertices.push_back(eltwise_vertex);
       }
 
-      int tot_concat = ((eltwise_vertices.size() - 1) / 3) +
-                       ((eltwise_vertices.size() - 1) % 3);
+
+    int eltwise_count = eltwise_vertices.size();
+
+    int tot_concat = 1;
+    eltwise_count -= 4;
+    if(eltwise_count > 0) {
+       tot_concat += ((eltwise_count) / 3) +
+                       ((eltwise_count ) % 3);
+    }
+     
+
+ 
 
       std::vector<Op::Vertex> concat_vertices;
       for (int i = 0; i < tot_concat; i++) {
         Op::Vertex concat_vertex = boost::add_vertex(g);
         auto *new_concat = new Op::Layer::QLinearConcat();
         new_concat->name = node->name + "_concat_" + std::to_string(i);
+        // std::cout<<"Creating concat vertex: "<<new_concat->name<<std::endl;
         new_concat->m_axis = cc->m_axis;
         new_concat->output_names.push_back(new_concat->name + "_outputs_" + std::to_string(i));
         new_concat->input_type.push_back(onnx::TensorProto_DataType_INT8);
@@ -362,7 +532,7 @@ void split_large_kernel(Op::Graph &g) {
         }
 
         for (int j = 1; j <= 3; j++) {
-          int idx = i * 2 + j;
+          int idx = i * 3 + j;
           if (idx < eltwise_vertices.size()) {
             boost::add_edge(eltwise_vertices[idx], concat_vertex, g);
             new_concat->input_names.push_back(g[eltwise_vertices[idx]]->output_names[0]);
@@ -381,27 +551,43 @@ void split_large_kernel(Op::Graph &g) {
     }
   }
 
-  for (auto v : vertices_to_remove) {
-    boost::remove_vertex(v, g);
-  }
 
+
+  for (auto v1 : vertices_to_remove) {
+    boost::remove_vertex(v1, g);
+  }
   auto vp = boost::vertices(g);
-  Op::Vertex v = *(vp.first);
-  Op::Vertex new_vertex = boost::add_vertex(g);
+  Op::Vertex v3 = get_root_node(&g);
+  // std::cout<<"vvv "<<g[v3]->name<<std::endl;
+  Op::Vertex new_vertex_noop = boost::add_vertex(g);
+
 
   auto *dum = new Op::Layer::NoOp();
   dum->name = "NoOp";
-  dum->input_dims = g[v]->input_dims;
-  dum->output_dims = g[v]->input_dims;
+  dum->input_dims = g[v3]->input_dims;
+  dum->output_dims = g[v3]->input_dims;
   dum->device = DEVICE_CPU;
-  dum->input_type = g[v]->input_type;
-  dum->output_type = g[v]->input_type;
-  for (size_t i = 0; i < g[v]->input_type.size(); ++i) {
+  dum->input_type = g[v3]->input_type;
+  dum->output_type = g[v3]->input_type;
+  for (size_t i = 0; i < g[v3]->input_type.size(); ++i) {
     dum->input_names.push_back("noop_input_" + std::to_string(i));
     dum->output_names.push_back("noop_output_" + std::to_string(i));
   }
-  g[new_vertex] = dum;
-  boost::add_edge(new_vertex, v, g);
+  g[new_vertex_noop] = dum;
+  boost::add_edge(new_vertex_noop, v3, g);
+
+  // std::cout << "After adding dummy node, total vertices: "  << std::endl;
+  update_channel_offsets1(g);
+
+  // dump_graph(g, "After split large kernel");
+
+
+  // std::cout<<"Invoking register allocato11r"<<std::endl;
+
 
   Op::RegisterAllocator allocator(g);
+
+  
+
+  // std::cout << "After split large kernel, total vertices: "  << std::endl;
 }

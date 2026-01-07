@@ -8,6 +8,7 @@ from tqdm import tqdm
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
+
 IOU_THRESHOLD = 0.45
 OBJ_THRESH = 0.4
 NMS_THRESH = 0.45
@@ -65,6 +66,8 @@ def box_process(position):
     xyxy = np.concatenate((box_xy * stride, box_xy2 * stride), axis=1)
     return xyxy
 
+
+np.set_printoptions(threshold=np.inf)
 def filter_boxes(boxes, box_confidences, box_class_probs):
     """Filter boxes with object threshold.
     """
@@ -135,9 +138,9 @@ def draw(image, boxes, scores, classes, height, width):
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.6, (0, 0, 255), 2)
         
-        cv2.imwrite('output.jpg', image)
-        cv2.imshow('frame', image)
-        cv2.waitKey(0)
+        cv2.imwrite('output1.jpg', image)
+        # cv2.imshow('frame', image)
+        # cv2.waitKey(0)
 
 # 2014 to 2017
 class_map = [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90, ]
@@ -162,6 +165,13 @@ def postprocess(img_id, inference_output, frame, height, width):
     boxes = np.concatenate([sp_flatten(b) for b in boxes])
     classes_conf = np.concatenate([sp_flatten(c) for c in classes_conf])
     scores = np.concatenate([sp_flatten(s) for s in scores])
+
+    print("Boxes shape:", boxes.shape)
+    print("Classes shape:", classes_conf.shape)
+    print("Scores shape:", scores.shape)
+    print(boxes)
+    print(classes_conf)
+    print(scores)
 
     boxes, classes, scores = filter_boxes(boxes, scores, classes_conf)
 
@@ -198,9 +208,10 @@ def postprocess(img_id, inference_output, frame, height, width):
 
 
 if __name__ == '__main__':
-    modelPath = sys.argv[1]
-    val_images_dir = "/home/nirdesh/vicharak/sysim/images/coco/val2017"
-    ann_path = "/home/nirdesh/vicharak/sysim/images/instances_val2017.json"
+    modelPath = "/home/nirdesh/hdd/gaticc/onnx/yolov8n_quantized_nonms_mAP_20_3.onnx"
+    # modelPath="/home/nirdesh/hdd/gaticc/onnx/yolov8n.onnx"
+    val_images_dir = "/home/nirdesh/hdd/gaticc/images/coco/val2017"
+    ann_path = "/home/nirdesh/hdd/gaticc/images/instances_val2017.json"
 
     session = ort.InferenceSession(modelPath, providers=["CPUExecutionProvider"])
     input_name = session.get_inputs()[0].name
@@ -212,7 +223,7 @@ if __name__ == '__main__':
     image_ids = coco.getImgIds()
     coco_results = []
 
-    for image_id in tqdm(image_ids[5:6]):
+    for image_id in tqdm(image_ids[100:101]):
         #print(image_id)
         img_info = coco.loadImgs(image_id)[0]
         filename = img_info['file_name']
@@ -223,6 +234,7 @@ if __name__ == '__main__':
         print(len(outputs))
         for i in range(len(outputs)):
           print(outputs[i].shape)
+          np.save(f"onnx_output_{i}.npy", outputs[i])
         coco_results.append(postprocess(image_id, outputs, image, height, width))
     # with open("results.json", "w") as f:
     #   ll = []

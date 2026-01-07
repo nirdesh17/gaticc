@@ -7,15 +7,7 @@ def post(arr):
   return m
 
 if __name__ == "__main__":
-<<<<<<< HEAD
-
-  onnx_path = "../../working_models/" + sys.argv[1]
+  onnx_path = "/home/nirdesh/hdd/gaticc/onnx/imagenet_mobilenetv2-int8-symmetric.onnx"
   name = gati.get_model_inputs(onnx_path)[0]
-  ret = post(gati.sim(onnx_path, {name: np.load("mnist_100.npy")}))
-  print(f"Match: {gati.match('mnist_100_labels.txt', ret)}%")
-=======
-  onnx_path = "/home/nirdesh/vicharak/sysim/onnx/cifar10_resize_int8.onnx"
-  name = gati.get_model_inputs(onnx_path)[0]
-  ret = post(gati.sim(onnx_path, {name: np.load("cifar_100.npy")}))
-  print(f"Match: {gati.match('cifar_100_labels.txt', ret)}%")
->>>>>>> 1aa4bee (k iter)
+  ret = post(gati.sim(onnx_path, {name: np.load("/home/nirdesh/hdd/gaticc/examples/mnist/imagenet_100.npy")}))
+  print(f"Match: {gati.match('/home/nirdesh/hdd/gaticc/examples/mnist/imagenet_100_labels.txt', ret)}%")
