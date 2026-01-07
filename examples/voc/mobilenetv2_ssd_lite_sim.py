@@ -180,7 +180,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--video", help="Path to a video file.")
     parser.add_argument("-c", "--camera", action="store_true", help="Use camera for detection.")
     args = parser.parse_args()
-    onnx_path = "mobilenetv2_ssd_lite_tailfree_VOC_mAP_57.onnx"
+    onnx_path = "/home/nirdesh/vicharak/sysim/onnx/mobilenetv2_ssd_lite_tailfree_VOC_mAP_57.onnx"
     class_names = ["bg", "aeroplane", "bicycle", "bird", "boat",
                     "bottle", "bus", "car", "cat", "chair",
                     "cow", "diningtable", "dog", "horse", "motorbike",
