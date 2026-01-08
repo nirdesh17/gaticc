@@ -1,13 +1,17 @@
 import onnx, onnxruntime as ort, numpy as np, argparse, sys
 from onnx import helper, TensorProto, shape_inference
 import gati
-
+import os
 ONNX_DTYPE_MAP = {k: getattr(TensorProto, k) for k in dir(TensorProto) if not k.startswith("_")}
 NUMPY_DTYPE_MAP = {
     "tensor(float)": np.float32, "tensor(float16)": np.float16, "tensor(double)": np.float64,
     "tensor(int64)": np.int64, "tensor(int32)": np.int32, "tensor(int8)": np.int8,
     "tensor(uint8)": np.uint8, "tensor(bool)": np.bool_
 }
+
+def safe_name(s):
+    return s.replace("/", "_").replace(":", "_")
+
 
 def get_dtype_from_graph(graph, tensor_name, fallback_dtype=TensorProto.INT8):
     for vi in list(graph.output) + list(graph.value_info) + list(graph.input):
@@ -49,25 +53,41 @@ def load_samples(npy, shape, sample_idx):
         return [data[sample_idx]]
     return [data[i] for i in range(data.shape[0])]
 
-def run_inference(model_bytes, input_data, input_name, out_n, dtype):
+def run_inference(model_bytes, input_data, input_name, out_n, dtype, dump_dir="onnx_outputs"):
     sess = ort.InferenceSession(model_bytes)
-    out_names = [i[1] for i in out_n]
-    layer_names = [i[0] for i in out_n]
+    out_names = [i[1] for i in out_n]     # tensor names
+    layer_names = [i[0] for i in out_n]   # node names
+
+    os.makedirs(dump_dir, exist_ok=True)
+
     for i, x in enumerate(input_data):
-        x_b = np.expand_dims(x, 0).astype(dtype)
+        x = x.astype(dtype)
+
+        if x.ndim == 3:          # (C,H,W)
+            x_b = np.expand_dims(x, 0)
+        elif x.ndim == 4:        # (N,C,H,W)
+            x_b = x
+        else:
+            raise ValueError(f"Unsupported input rank {x.ndim}, shape={x.shape}")
+
+
         try:
             outs = sess.run(out_names, {input_name: x_b})
+            print(f"✔ Inference succeeded on sample {i}")
         except Exception as e:
-            print(f"Error on sample {i}: {e}", file=sys.stderr); continue
-        #print(f"\n--- Sample {i} ---")
-        #for name, out in zip(out_names, outs):
-        #    print(f"Output '{name}' {out.shape}:")
-        #    for ind, vv in enumerate(out.flatten()):
-        #      if ind % 32 == 0 and ind != 0:
-        #        print()
-        #      print(f"{vv} ", end='')
-        #    #print(f"{name} {out.shape}:\n", ' '.join(map(str, out.flatten()))
+            print(f"❌ Error on sample {i}: {e}", file=sys.stderr)
+            continue
+
+        # 🔥 dump ALL outputs
+        for (layer, name), arr in zip(out_n, outs):
+            safe_layer = layer.replace("/", "_")
+            safe_tensor = name.replace("/", "_")
+            fname = f"{safe_layer}__{safe_tensor}.npy"
+            np.save(os.path.join(dump_dir, fname), arr)
+
+
     return list(zip(layer_names, outs))
+
 
 def run_gati_sim(onnx_path, in_data, layers):
   gati.set_dispatch(layers)
@@ -115,7 +135,15 @@ def main():
         samples = load_samples(args.npy_path, input_shape, args.sample_index)
     except Exception as e: sys.exit(f"Inference prep error: {e}")
 
-    run_inf_ret = run_inference(model_bytes, samples[0], input_name, output_tensor_names, dtype_np)
+    run_inf_ret = run_inference(
+    model_bytes,
+    samples,                 # ✅ list of samples
+    input_name,
+    output_tensor_names,
+    dtype_np,
+    dump_dir="onnx_outputs"
+)
+
     name = gati.get_model_inputs(args.original_onnx_path)[0]
     run_sim_ret = run_gati_sim(args.original_onnx_path, {name: np.expand_dims(samples[0],0)}, args.intermediate_names)
     rr = compare_layers(run_inf_ret, run_sim_ret, dump=[])

@@ -1045,14 +1045,14 @@ class RegisterAllocator {
   const int default_size = 512;
   std::vector<int> register_set;
 
-  void traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target);
+  void traverse(Op::Graph *g, Op::Vertex source, Op::Vertex target, std::unordered_map<Op::VirtualAddress, int>& reg_uses);
   VirtualAddress acquire(const std::string &node_name);
   void relinquish(VirtualAddress a);
   void ref(const std::string &node_name, VirtualAddress a);
   void clear_regs(Op::Graph g);
 
 public:
-  RegisterAllocator(Op::Graph& g);
+  RegisterAllocator(Op::Graph g);
 };
 
 template <typename T> bool isa(const Op::LayerBase *l) {

@@ -3356,49 +3356,35 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return crt_exec_order(g);
 }
 
-std::vector<Op::LayerBase *> traverse(Op::Graph &g, Op::Vertex v) {
-  std::vector<Op::LayerBase *> execution_order;
+std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
+
   std::queue<Op::Vertex> Q;
-  Q.push(v);
+  std::unordered_map<Op::Vertex, int> indeg;
+  std::vector<Op::LayerBase *> execution_order;
+
+  for (auto v : boost::make_iterator_range(boost::vertices(gcopy))) {
+    indeg[v] = boost::in_degree(v, gcopy);
+  }
+  Op::Vertex root = Op::get_root_node(&gcopy);
+
+  Q.push(root);
 
   while (!Q.empty()) {
-    Op::Vertex current = Q.front();
-    int out_degree = boost::out_degree(current, g);
+    Op::Vertex cur = Q.front();
+    execution_order.push_back(gcopy[cur]);
     Q.pop();
-    execution_order.push_back(g[current]);
 
-    auto out_edges = boost::out_edges(current, g);
-    std::vector<Op::Vertex> next_nodes;
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, gcopy))) {
+      Op::Vertex dest = boost::target(e, gcopy);
+      indeg[dest]--;
 
-    for (auto it = out_edges.first; it != out_edges.second; ++it) {
-      Op::Vertex target = boost::target(*it, g);
-      if (!Op::are_equal_nodes(current, target, &g)) {
-        next_nodes.push_back(target);
+      if (indeg[dest] == 0) {
+        Q.push(dest);
       }
     }
-    for (auto target : next_nodes) {
-      if (boost::in_degree(target, g) <= 1) {
-        if (out_degree > 1) {
-          auto sub_order = traverse(g, target);
-          execution_order.insert(execution_order.end(), sub_order.begin(),
-                                 sub_order.end());
-          out_degree--;
-        } else {
-          Q.push(target);
-        }
-      }
-    }
-    for (auto target : next_nodes) {
-      boost::remove_edge(current, target, g);
-    }
-
   }
-  return execution_order;
-}
 
-std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
-  Op::Vertex root = Op::get_root_node(&gcopy);
-  return traverse(gcopy, root);
+  return execution_order;
 }
 
 std::vector<Op::Vertex> get_leaf_nodes(const Op::Graph& g, const std::map<std::string, Op::Vertex>& name_vertex_map) {
@@ -3741,108 +3727,108 @@ void Op::Parser::pass_save_nodes(const onnx::GraphProto &graph) {
 
 Op::Parser::~Parser() { loaded_model.close(); }
 
-Op::RegisterAllocator::RegisterAllocator(Op::Graph& gr) {
-  Op::Graph g=gr;
-  register_set.resize(default_size, 0);
-  clear_regs(g);
+// Op::RegisterAllocator::RegisterAllocator(Op::Graph& gr) {
+//   Op::Graph g=gr;
+//   register_set.resize(default_size, 0);
+//   clear_regs(g);
 
-  std::queue<Op::Vertex> S;
-  S.push(get_root_node(&g));
-  Op::Vertex n = S.front();
-  Op::LayerBase *node = g[n];
+//   std::queue<Op::Vertex> S;
+//   S.push(get_root_node(&g));
+//   Op::Vertex n = S.front();
+//   Op::LayerBase *node = g[n];
 
-  if (Op::is_root_node(n, &g)) {
-    for (int i = 0; i < node->input_dims.size(); i++) {
-      node->inputs.push_back(acquire(node->name));
-    }
-    for (int i = 0; i < node->output_dims.size(); i++) {
-      node->outputs.push_back(acquire(node->name));
-    }
-    if (register_set.at(node->inputs.at(0)) == 1) {
-      relinquish(node->inputs.at(0));
-    }
-  }
+//   if (Op::is_root_node(n, &g)) {
+//     for (int i = 0; i < node->input_dims.size(); i++) {
+//       node->inputs.push_back(acquire(node->name));
+//     }
+//     for (int i = 0; i < node->output_dims.size(); i++) {
+//       node->outputs.push_back(acquire(node->name));
+//     }
+//     if (register_set.at(node->inputs.at(0)) == 1) {
+//       relinquish(node->inputs.at(0));
+//     }
+//   }
 
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    Op::LayerBase *node = g[n];
-    S.pop();
+//   while (!S.empty()) {
+//     Op::Vertex n = S.front();
+//     Op::LayerBase *node = g[n];
+//     S.pop();
 
-    auto out_edges = boost::out_edges(n, g);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, g)});
-    }
+//     auto out_edges = boost::out_edges(n, g);
+//     std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
+//     for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
+//       edges_to_remove.push_back({n, boost::target(*itr, g)});
+//     }
 
-    for (auto [src, dest] : edges_to_remove) {
-      if (!Op::are_equal_nodes(src, dest, &g)) {
-        traverse(&g, src, dest);
-        boost::remove_edge(src, dest, g);
-        if (boost::in_degree(dest, g) == 0) {
-          S.push(dest);
-        }
-      }
-    }
-  }
-}
+//     for (auto [src, dest] : edges_to_remove) {
+//       if (!Op::are_equal_nodes(src, dest, &g)) {
+//         traverse(&g, src, dest);
+//         boost::remove_edge(src, dest, g);
+//         if (boost::in_degree(dest, g) == 0) {
+//           S.push(dest);
+//         }
+//       }
+//     }
+//   }
+// }
 
-Op::VirtualAddress
-Op::RegisterAllocator::acquire(const std::string &node_name) {
-  // find the first available register
-  auto itr = std::find(register_set.begin(), register_set.end(), 0);
-  if (itr != register_set.end()) {
-    Op::VirtualAddress reg_num = itr - register_set.begin();
-    ref(node_name, reg_num);
-    return reg_num;
-  } else {
-    log_fatal("Out of registers!\n");
-    return -1; // will never reach here
-  }
-}
+// Op::VirtualAddress
+// Op::RegisterAllocator::acquire(const std::string &node_name) {
+//   // find the first available register
+//   auto itr = std::find(register_set.begin(), register_set.end(), 0);
+//   if (itr != register_set.end()) {
+//     Op::VirtualAddress reg_num = itr - register_set.begin();
+//     ref(node_name, reg_num);
+//     return reg_num;
+//   } else {
+//     log_fatal("Out of registers!\n");
+//     return -1; // will never reach here
+//   }
+// }
 
-void Op::RegisterAllocator::ref(const std::string &node_name,
-                                Op::VirtualAddress a) {
-  register_set.at(a) = string_hash(node_name);
-}
+// void Op::RegisterAllocator::ref(const std::string &node_name,
+//                                 Op::VirtualAddress a) {
+//   register_set.at(a) = string_hash(node_name);
+// }
 
-void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
-  if (register_set.at(a) != 0) {
-    register_set.at(a) = 0;
-  }
-}
+// void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
+//   if (register_set.at(a) != 0) {
+//     register_set.at(a) = 0;
+//   }
+// }
 
-void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
-                                     Op::Vertex target) {
-  Op::LayerBase *src_node = (*g)[source];
-  Op::LayerBase *dst_node = (*g)[target];
+// void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
+//                                      Op::Vertex target) {
+//   Op::LayerBase *src_node = (*g)[source];
+//   Op::LayerBase *dst_node = (*g)[target];
 
-  for (auto output_name : src_node->output_names) {
-    dst_node->input_edge_names.push_back(output_name);
-  }
+//   for (auto output_name : src_node->output_names) {
+//     dst_node->input_edge_names.push_back(output_name);
+//   }
   
-  for(Op::VirtualAddress out_reg : src_node->outputs){
-    dst_node->inputs.push_back(out_reg);
-    int size = dst_node->inputs.size();
-    ref(dst_node->name, dst_node->inputs.at(size - 1));
-  }
+//   for(Op::VirtualAddress out_reg : src_node->outputs){
+//     dst_node->inputs.push_back(out_reg);
+//     int size = dst_node->inputs.size();
+//     ref(dst_node->name, dst_node->inputs.at(size - 1));
+//   }
 
-  int od = boost::out_degree(source, *g);
-  if (od == 1) {
-    for (Op::VirtualAddress reg_val : src_node->inputs) {
-      if (register_set.at(reg_val) == string_hash(src_node->name)) {
-        relinquish(reg_val);
-      }
-    }
-  }
+//   int od = boost::out_degree(source, *g);
+//   if (od == 1) {
+//     for (Op::VirtualAddress reg_val : src_node->inputs) {
+//       if (register_set.at(reg_val) == string_hash(src_node->name)) {
+//         relinquish(reg_val);
+//       }
+//     }
+//   }
 
-  if (dst_node->outputs.size() == 0) {
-    if (is_op_type(dst_node, "Split")) { 
-      dst_node->outputs.push_back(dst_node->inputs.at(0));
-    } else { 
-      dst_node->outputs.push_back(acquire(dst_node->name));
-    }
-  }
-}
+//   if (dst_node->outputs.size() == 0) {
+//     if (is_op_type(dst_node, "Split")) { 
+//       dst_node->outputs.push_back(dst_node->inputs.at(0));
+//     } else { 
+//       dst_node->outputs.push_back(acquire(dst_node->name));
+//     }
+//   }
+// }
 
 void Op::RegisterAllocator::clear_regs(Op::Graph g) {
   std::queue<Op::Vertex> S;
@@ -3872,143 +3858,159 @@ void Op::RegisterAllocator::clear_regs(Op::Graph g) {
 
 
 
-// Op::RegisterAllocator::RegisterAllocator(Op::Graph& g) {
+Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
 
 
-//   std::cout << "Register Allocator invoked" << std::endl;
+  std::cout << "Register Allocator invoked" << std::endl;
 
-//   // Op::Graph g = gr;
-//   // std::cout<<"Register Allocator ( ) invoked"<<std::endl;
-//   // std::cout<<std::endl;
-//   register_set.resize(default_size, 0);
-//   clear_regs(g);
-
-
-//   std::queue<Op::Vertex> Q;
-//   std::unordered_map<Op::Vertex, int> indeg;
-//   std::vector<Op::Vertex > execution_order;
-//     std::unordered_map<Op::VirtualAddress, int> reg_uses;
-
-//   for (auto v : boost::make_iterator_range(boost::vertices(g))) {
-//     indeg[v] = boost::in_degree(v, g);
-//   }
-//   Op::Vertex root = Op::get_root_node(&g);
-
-//   Q.push(root);
-
-//   while (!Q.empty()) {
-//     Op::Vertex cur = Q.front();
-//     execution_order.push_back(cur);
-//     Q.pop();
-
-//     int nn=g[cur]->input_names.size();
-//     g[cur]->inputs.resize(0);
-//     g[cur]->outputs.resize(0);
-
-//     for (auto e : boost::make_iterator_range(boost::out_edges(cur, g))) {
-//       Op::Vertex dest = boost::target(e, g);
-//       indeg[dest]--;
-
-//       if (indeg[dest] == 0) {
-//         Q.push(dest);
-//       }
-//     }
-//   }
+  // std::cout<<"Register Allocator ( ) invoked"<<std::endl;
+  // std::cout<<std::endl;
+  register_set.resize(default_size, 0);
+  clear_regs(g);
 
 
-//   std::unordered_map<Op::Vertex, int> remaining_uses;
-// for (auto v : boost::make_iterator_range(boost::vertices(g))) {
-//   remaining_uses[v] = boost::out_degree(v, g);
-// }
+  std::queue<Op::Vertex> Q;
+  std::unordered_map<Op::Vertex, int> indeg;
+  std::vector<Op::Vertex > execution_order;
+    std::unordered_map<Op::VirtualAddress, int> reg_uses;
 
-//  for (Op::Vertex v : execution_order) {
-//   Op::LayerBase* node = g[v];
+  for (auto v : boost::make_iterator_range(boost::vertices(g))) {
+    indeg[v] = boost::in_degree(v, g);
+  }
+  Op::Vertex root = Op::get_root_node(&g);
 
-//   // Allocate inputs
-//   if (node->inputs.empty()) {
-//     for (size_t i = 0; i < node->input_dims.size(); i++) {
-//       node->inputs.push_back(acquire(node->name));
-//     }
-//   }
+  Q.push(root);
 
-//   // Allocate outputs
-//   if(node->op_type()=="Split"){
-//     node->outputs=node->inputs;
-//   }
-//   else{
-//   if (node->outputs.empty()) {
-//     for (size_t i = 0; i < node->output_dims.size(); i++) {
-//       node->outputs.push_back(acquire(node->name));
-//     }
-//   }}
+  while (!Q.empty()) {
+    Op::Vertex cur = Q.front();
+    execution_order.push_back(cur);
+    Q.pop();
 
-//   // Traverse outgoing edges
-//   for (auto e : boost::make_iterator_range(boost::out_edges(v, g))) {
-//     Op::Vertex dest = boost::target(e, g);
-//     traverse(&g, v, dest,reg_uses);
-//   }
+    int nn=g[cur]->input_names.size();
+    g[cur]->inputs.resize(0);
+    g[cur]->outputs.resize(0);
+
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, g))) {
+      Op::Vertex dest = boost::target(e, g);
+      indeg[dest]--;
+
+      if (indeg[dest] == 0) {
+        Q.push(dest);
+      }
+    }
+  }
+
+  // for(auto i:execution_order){
+  //   std::cout<<g[i]->name<<std::endl;
+  // }
+
+  std::unordered_map<Op::Vertex, int> remaining_uses;
+for (auto v : boost::make_iterator_range(boost::vertices(g))) {
+  remaining_uses[v] = boost::out_degree(v, g);
+}
+
+ for (Op::Vertex v : execution_order) {
+  Op::LayerBase* node = g[v];
+
+  // std::cout<<"layer name: "<<node->name<<std::endl;
+
+  // Allocate inputs
+  if (node->inputs.empty()) {
+    for (size_t i = 0; i < node->input_dims.size(); i++) {
+      node->inputs.push_back(acquire(node->name));
+    }
+  }
+
+  // for(auto i: node->inputs){
+  //   std::cout<<i<<" ";
+  // }
+
+  // std::cout<<std::endl;
+
+  // Allocate outputs
+  if(node->op_type()=="Split"){
+    node->outputs=node->inputs;
+  }
+  else{
+  if (node->outputs.empty()) {
+    for (size_t i = 0; i < node->output_dims.size(); i++) {
+      node->outputs.push_back(acquire(node->name));
+    }
+  }}
+
+  // for(auto i: node->outputs){
+  //   std::cout<<i<<" ";
+  // }
+
+  // std::cout<<std::endl;
+
+  // Traverse outgoing edges
+  for (auto e : boost::make_iterator_range(boost::out_edges(v, g))) {
+    Op::Vertex dest = boost::target(e, g);
+    traverse(&g, v, dest,reg_uses);
+  }
   
-//   for(Op::VirtualAddress in_reg : node->inputs) {
-//     // Release output registers if no longer needed
-//     reg_uses[in_reg]--;
-//     if(reg_uses[in_reg]==0) {
-//       relinquish(in_reg);
-//     }
-//   }
+  for(Op::VirtualAddress in_reg : node->inputs) {
+    // Release output registers if no longer needed
+    reg_uses[in_reg]--;
+    if(reg_uses[in_reg]==0) {
+      relinquish(in_reg);
+    }
+  }
 
-// }
-
-
-// }
-
-// Op::VirtualAddress
-// Op::RegisterAllocator::acquire(const std::string &node_name) {
-//   // find the first available register
-//   auto itr = std::find(register_set.begin(), register_set.end(), 0);
-//   if (itr != register_set.end()) {
-//     Op::VirtualAddress reg_num = itr - register_set.begin();
-//     ref(node_name, reg_num);
-//     return reg_num;
-//   } else {
-//     log_fatal("Out of registers!\n");
-//     return -1; // will never reach here
-//   }
-// }
-
-// void Op::RegisterAllocator::ref(const std::string &node_name,
-//                                 Op::VirtualAddress a) {
-//   register_set.at(a) = string_hash(node_name);
-// }
-
-// void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
-//   if (register_set.at(a) != 0) {
-//     register_set.at(a) = 0;
-//   }
-// }
-// void Op::RegisterAllocator::traverse(Op::Graph *g,
-//                                      Op::Vertex source,
-//                                      Op::Vertex target,
-//                                      std::unordered_map<Op::VirtualAddress, int>& reg_uses) {
-//   Op::LayerBase *src_node = (*g)[source];
-//   Op::LayerBase *dst_node = (*g)[target];
+}
 
 
+}
 
-//   // Propagate edge names
-//   for (auto output_name : src_node->output_names) {
-//     dst_node->input_edge_names.push_back(output_name);
-//   }
+Op::VirtualAddress
+Op::RegisterAllocator::acquire(const std::string &node_name) {
+  // find the first available register
+  auto itr = std::find(register_set.begin(), register_set.end(), 0);
+  if (itr != register_set.end()) {
+    Op::VirtualAddress reg_num = itr - register_set.begin();
+    ref(node_name, reg_num);
+    return reg_num;
+  } else {
+    log_fatal("Out of registers!\n");
+    return -1; // will never reach here
+  }
+}
 
-//   // Forward registers
-//   // std::cout<<"Traversing from node "<<src_node->name<<" to node "<<dst_node->name<<std::endl;
+void Op::RegisterAllocator::ref(const std::string &node_name,
+                                Op::VirtualAddress a) {
+  register_set.at(a) = string_hash(node_name);
+}
+
+void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
+  if (register_set.at(a) != 0) {
+    register_set.at(a) = 0;
+  }
+}
+void Op::RegisterAllocator::traverse(Op::Graph *g,
+                                     Op::Vertex source,
+                                     Op::Vertex target,
+                                     std::unordered_map<Op::VirtualAddress, int>& reg_uses) {
+  Op::LayerBase *src_node = (*g)[source];
+  Op::LayerBase *dst_node = (*g)[target];
 
 
-//   for (Op::VirtualAddress out_reg : src_node->outputs) {
-//     dst_node->inputs.push_back(out_reg);
-//     reg_uses[out_reg]++;
 
-//   }
-// }
+  // Propagate edge names
+  for (auto output_name : src_node->output_names) {
+    dst_node->input_edge_names.push_back(output_name);
+  }
+
+  // Forward registers
+  // std::cout<<"Traversing from node "<<src_node->name<<" to node "<<dst_node->name<<std::endl;
+
+
+  for (Op::VirtualAddress out_reg : src_node->outputs) {
+    dst_node->inputs.push_back(out_reg);
+    reg_uses[out_reg]++;
+
+  }
+}
 
 
 

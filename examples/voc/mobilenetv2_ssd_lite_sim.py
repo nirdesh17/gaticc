@@ -140,9 +140,11 @@ def postprocess(boxes, scores, width, height, class_names,
 
 def run_inference(onnx_path, img, frame):
     output_tensor = gati.sim(onnx_path, {name: img})
-    outputs = [out[1] for out in reversed(output_tensor)]
-    scores = outputs[0:12:2]
-    boxes  = outputs[1:12:2]
+    outputs = [out[1] for out in (output_tensor)]
+    for i in range(len(outputs)):
+        print(f"Output {i} shape: {outputs[i].shape}")
+    scores = outputs[1:12:2]
+    boxes  = outputs[0:12:2]
 
     all_scores = [reshape_scores(s) for s in scores]
     all_boxes = [reshape_boxes(b) for b in boxes]
@@ -185,6 +187,9 @@ if __name__ == "__main__":
                     "bottle", "bus", "car", "cat", "chair",
                     "cow", "diningtable", "dog", "horse", "motorbike",
                     "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+    
+    # gati.compile(onnx_path,"model.gml",)
+    # exit(0)
 
     priors = np.load("priors.npy")
     name = gati.get_model_inputs(onnx_path)[0]
@@ -249,6 +254,7 @@ if __name__ == "__main__":
         image_path = os.path.join(dir_image, fname)
         print(f"Processing {idx + 1}/{len(files_to_process)}: {image_path}")
         img = preprocess(image_path)
+        np.save(f"input_{fname}.npy", img)
         orig_image = run_inference(onnx_path, img, cv2.imread(image_path))
         cv2.imwrite(f"output_{fname}" ,orig_image)
         

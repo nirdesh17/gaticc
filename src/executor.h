@@ -98,6 +98,16 @@ TensorPool Executor::run_aux(const Op::Parser& parser, const std::vector<Tensor<
     for (Op::LayerBase* l : order) {
       print_extra_info(l);
       l->dispatch = dispatch_table.should_dispatch(l);
+      // std::cout<<"layer name: "<<l->name<<std::endl;
+
+      // for(auto i: l->inputs){
+      //   std::cout<<i<<" ";
+      // }
+      // std::cout<<std::endl;
+      // for(auto i: l->outputs){
+      //   std::cout<<i<<" ";
+      // }
+      // std::cout<<std::endl;
       l->run(tensor_pool);    
 
       if (parser.has_graph_output(l) || l->dispatch) {

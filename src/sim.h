@@ -660,7 +660,7 @@ int get_calib_scale(float scale);
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val, int index) {
-#if 1 /* switch this off for debugging with regular float quantization */
+#if 0 /* switch this off for debugging with regular float quantization */
   constexpr int fpwidth = 16;
   /* FPGA style quantization (this is how it's implemented on the FPGA) */
   if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) && (std::is_same<inputT, int32_t>())) {
