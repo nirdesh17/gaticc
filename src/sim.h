@@ -363,6 +363,11 @@ void tensor_eltwise(Tensor<outputT> *output, const Tensor<inputT> *input1,
     sigmoid<inputT, outputT>(input1, output);
   } else if (op == ELTWISE_TANH) {
     tanh<inputT, outputT>(input1, output);
+  } else  if (op == ELTWISE_ADD) {
+    for (int i = 0; i < input1->dims_iterator(-1); ++i) {
+      inputT v1 = input1->at(i);
+      output->set(i, v1);
+    }
   } else {
     log_fatal("Unsupported eltwise operation %d\n", op);
   }
@@ -660,7 +665,7 @@ int get_calib_scale(float scale);
 template <typename inputT, typename outputT>
 inline outputT quantize_fn(inputT v, float scale, int zero_point, int min_lim,
                            int max_lim, int shift_val, int index) {
-#if 0 /* switch this off for debugging with regular float quantization */
+#if 1 /* switch this off for debugging with regular float quantization */
   constexpr int fpwidth = 16;
   /* FPGA style quantization (this is how it's implemented on the FPGA) */
   if constexpr ((std::is_same<outputT, int8_t>() || std::is_same<outputT, uint8_t>()) && (std::is_same<inputT, int32_t>())) {
@@ -1164,16 +1169,16 @@ void reduce_sum(const Tensor<T> *input, Tensor<T> *output, int axis,
   int c=input->dims_at(TENSOR_4D_CHANNELS);
   int h=input->dims_at(TENSOR_4D_HEIGHT);
   int w=input->dims_at(TENSOR_4D_WIDTH);
-  T sum=0;
   
   for (int i = 0; i < n; ++i) {
       for (int k = 0; k < h; ++k) {
         for (int l = 0; l < w; ++l) {
-          float sum=0.0;
+          T sum = static_cast<T>(0);
+
           for (int j = 0; j < c; ++j) {
           sum += input->at({i, j, k, l});
-        } 
-        std::vector<int> out_index{n, 1, h, w};
+        }
+        std::vector<int> out_index{i, 0, k, l};
         output->insert(out_index, sum);
       }
     }

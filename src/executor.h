@@ -99,6 +99,14 @@ TensorPool Executor::run_aux(const Op::Parser& parser, const std::vector<Tensor<
       print_extra_info(l);
       l->dispatch = dispatch_table.should_dispatch(l);
       // std::cout<<"layer name: "<<l->name<<std::endl;
+      // for(auto i:l->input_edge_names){
+      //   std::cout<<i<<" ";
+      // }
+      // std::cout<<std::endl;
+
+      // for(auto i: l->input_names){
+      //   std::cout<<i<<" ";
+      // }
 
       // for(auto i: l->inputs){
       //   std::cout<<i<<" ";

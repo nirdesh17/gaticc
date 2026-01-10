@@ -245,6 +245,7 @@ static void run_conv(Op::LayerBase *l, TensorPool &tensor_pool) {
   std::tie(input, output) = get_tensorpool_io<inputT, outputT>(tensor_pool, l);
   //Split section starts
   int tensor_size = input->dims_iterator(-1);
+  int contndj=0;
   bool need_split = false;
   int actual_size = get_dims_size(cc->input_dims[0]);
   if (actual_size < tensor_size) {
@@ -1284,10 +1285,20 @@ static void run_concat(Op::LayerBase *l, TensorPool &tensor_pool) {
     inputs.push_back(tensor_pool.get<Tensor<T> *>(in_name));
   }
 
+   std::vector<Tensor<T> *> fetched_inputs;
+  for(auto i:cc->input_names){
+    for(auto j:inputs){
+      if(i == j->name()){
+        fetched_inputs.push_back(j);
+
+      }
+    }
+  }
+
   Tensor<T> *output = new TensorCreate<T>(cc->output_dims[0], cc->output_names.at(0));
   tensor_pool.set<Tensor<T> *>(cc->outputs.at(0), output);
 
-  concat<T>(inputs, output, cc->m_axis);
+  concat<T>(fetched_inputs, output, cc->m_axis);
   check_dispatch(l, output);
 }
 void Op::Layer::Concat::run(TensorPool &tensor_pool) {

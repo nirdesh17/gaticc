@@ -1,169 +1,1097 @@
--- Install configuration: "Debug"
--- Up-to-date: /usr/local/lib/libprotobuf-lited.so.3.21.12.0
--- Up-to-date: /usr/local/lib/libprotobuf-lited.so.32
--- Up-to-date: /usr/local/lib/libprotobuf-lited.so
--- Up-to-date: /usr/local/lib/libprotobufd.so.3.21.12.0
--- Up-to-date: /usr/local/lib/libprotobufd.so.32
--- Up-to-date: /usr/local/lib/libprotobufd.so
--- Up-to-date: /usr/local/lib/libprotocd.so.3.21.12.0
--- Up-to-date: /usr/local/lib/libprotocd.so.32
--- Up-to-date: /usr/local/lib/libprotocd.so
--- Up-to-date: /usr/local/bin/protoc-3.21.12.0
--- Up-to-date: /usr/local/bin/protoc
--- Up-to-date: /usr/local/lib/pkgconfig/protobuf.pc
--- Up-to-date: /usr/local/lib/pkgconfig/protobuf-lite.pc
--- Up-to-date: /usr/local/include/google/protobuf/any.h
--- Up-to-date: /usr/local/include/google/protobuf/any.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/api.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/arena.h
--- Up-to-date: /usr/local/include/google/protobuf/arena_impl.h
--- Up-to-date: /usr/local/include/google/protobuf/arenastring.h
--- Up-to-date: /usr/local/include/google/protobuf/arenaz_sampler.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/code_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/command_line_interface.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/cpp/file.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/cpp/cpp_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/cpp/generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/cpp/helpers.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/cpp/names.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/csharp/csharp_doc_comment.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/csharp/csharp_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/csharp/csharp_names.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/csharp/csharp_options.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/importer.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/java/generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/java/java_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/java/kotlin_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/java/names.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/objectivec/objectivec_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/objectivec/objectivec_helpers.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/parser.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/php/php_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/plugin.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/plugin.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/python/generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/python/pyi_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/python/python_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/compiler/ruby/ruby_generator.h
--- Up-to-date: /usr/local/include/google/protobuf/descriptor.h
--- Up-to-date: /usr/local/include/google/protobuf/descriptor.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/descriptor_database.h
--- Up-to-date: /usr/local/include/google/protobuf/duration.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/dynamic_message.h
--- Up-to-date: /usr/local/include/google/protobuf/empty.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/endian.h
--- Up-to-date: /usr/local/include/google/protobuf/explicitly_constructed.h
--- Up-to-date: /usr/local/include/google/protobuf/extension_set.h
--- Up-to-date: /usr/local/include/google/protobuf/extension_set_inl.h
--- Up-to-date: /usr/local/include/google/protobuf/field_access_listener.h
--- Up-to-date: /usr/local/include/google/protobuf/field_mask.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/generated_enum_reflection.h
--- Up-to-date: /usr/local/include/google/protobuf/generated_enum_util.h
--- Up-to-date: /usr/local/include/google/protobuf/generated_message_bases.h
--- Up-to-date: /usr/local/include/google/protobuf/generated_message_reflection.h
--- Up-to-date: /usr/local/include/google/protobuf/generated_message_tctable_decl.h
--- Up-to-date: /usr/local/include/google/protobuf/generated_message_tctable_impl.h
--- Up-to-date: /usr/local/include/google/protobuf/generated_message_util.h
--- Up-to-date: /usr/local/include/google/protobuf/has_bits.h
--- Up-to-date: /usr/local/include/google/protobuf/implicit_weak_message.h
--- Up-to-date: /usr/local/include/google/protobuf/inlined_string_field.h
--- Up-to-date: /usr/local/include/google/protobuf/io/coded_stream.h
--- Up-to-date: /usr/local/include/google/protobuf/io/gzip_stream.h
--- Up-to-date: /usr/local/include/google/protobuf/io/io_win32.h
--- Up-to-date: /usr/local/include/google/protobuf/io/printer.h
--- Up-to-date: /usr/local/include/google/protobuf/io/strtod.h
--- Up-to-date: /usr/local/include/google/protobuf/io/tokenizer.h
--- Up-to-date: /usr/local/include/google/protobuf/io/zero_copy_stream.h
--- Up-to-date: /usr/local/include/google/protobuf/io/zero_copy_stream_impl.h
--- Up-to-date: /usr/local/include/google/protobuf/io/zero_copy_stream_impl_lite.h
--- Up-to-date: /usr/local/include/google/protobuf/map.h
--- Up-to-date: /usr/local/include/google/protobuf/map_entry.h
--- Up-to-date: /usr/local/include/google/protobuf/map_entry_lite.h
--- Up-to-date: /usr/local/include/google/protobuf/map_field.h
--- Up-to-date: /usr/local/include/google/protobuf/map_field_inl.h
--- Up-to-date: /usr/local/include/google/protobuf/map_field_lite.h
--- Up-to-date: /usr/local/include/google/protobuf/map_type_handler.h
--- Up-to-date: /usr/local/include/google/protobuf/message.h
--- Up-to-date: /usr/local/include/google/protobuf/message_lite.h
--- Up-to-date: /usr/local/include/google/protobuf/metadata.h
--- Up-to-date: /usr/local/include/google/protobuf/metadata_lite.h
--- Up-to-date: /usr/local/include/google/protobuf/parse_context.h
--- Up-to-date: /usr/local/include/google/protobuf/port.h
--- Up-to-date: /usr/local/include/google/protobuf/port_def.inc
--- Up-to-date: /usr/local/include/google/protobuf/port_undef.inc
--- Up-to-date: /usr/local/include/google/protobuf/reflection.h
--- Up-to-date: /usr/local/include/google/protobuf/reflection_ops.h
--- Up-to-date: /usr/local/include/google/protobuf/repeated_field.h
--- Up-to-date: /usr/local/include/google/protobuf/repeated_ptr_field.h
--- Up-to-date: /usr/local/include/google/protobuf/service.h
--- Up-to-date: /usr/local/include/google/protobuf/source_context.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/struct.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/bytestream.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/callback.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/casts.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/common.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/hash.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/logging.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/macros.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/map_util.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/mutex.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/once.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/platform_macros.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/port.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/status.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/stl_util.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/stringpiece.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/strutil.h
--- Up-to-date: /usr/local/include/google/protobuf/stubs/template_util.h
--- Up-to-date: /usr/local/include/google/protobuf/text_format.h
--- Up-to-date: /usr/local/include/google/protobuf/timestamp.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/type.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/unknown_field_set.h
--- Up-to-date: /usr/local/include/google/protobuf/util/delimited_message_util.h
--- Up-to-date: /usr/local/include/google/protobuf/util/field_comparator.h
--- Up-to-date: /usr/local/include/google/protobuf/util/field_mask_util.h
--- Up-to-date: /usr/local/include/google/protobuf/util/json_util.h
--- Up-to-date: /usr/local/include/google/protobuf/util/message_differencer.h
--- Up-to-date: /usr/local/include/google/protobuf/util/time_util.h
--- Up-to-date: /usr/local/include/google/protobuf/util/type_resolver.h
--- Up-to-date: /usr/local/include/google/protobuf/util/type_resolver_util.h
--- Up-to-date: /usr/local/include/google/protobuf/wire_format.h
--- Up-to-date: /usr/local/include/google/protobuf/wire_format_lite.h
--- Up-to-date: /usr/local/include/google/protobuf/wrappers.pb.h
--- Up-to-date: /usr/local/include/google/protobuf/any.proto
--- Up-to-date: /usr/local/include/google/protobuf/api.proto
--- Up-to-date: /usr/local/include/google/protobuf/compiler/plugin.proto
--- Up-to-date: /usr/local/include/google/protobuf/descriptor.proto
--- Up-to-date: /usr/local/include/google/protobuf/duration.proto
--- Up-to-date: /usr/local/include/google/protobuf/empty.proto
--- Up-to-date: /usr/local/include/google/protobuf/field_mask.proto
--- Up-to-date: /usr/local/include/google/protobuf/source_context.proto
--- Up-to-date: /usr/local/include/google/protobuf/struct.proto
--- Up-to-date: /usr/local/include/google/protobuf/timestamp.proto
--- Up-to-date: /usr/local/include/google/protobuf/type.proto
--- Up-to-date: /usr/local/include/google/protobuf/wrappers.proto
--- Up-to-date: /usr/local/include/google/protobuf/any.proto
--- Up-to-date: /usr/local/include/google/protobuf/api.proto
--- Up-to-date: /usr/local/include/google/protobuf/compiler/plugin.proto
--- Up-to-date: /usr/local/include/google/protobuf/descriptor.proto
--- Up-to-date: /usr/local/include/google/protobuf/duration.proto
--- Up-to-date: /usr/local/include/google/protobuf/empty.proto
--- Up-to-date: /usr/local/include/google/protobuf/field_mask.proto
--- Up-to-date: /usr/local/include/google/protobuf/source_context.proto
--- Up-to-date: /usr/local/include/google/protobuf/struct.proto
--- Up-to-date: /usr/local/include/google/protobuf/timestamp.proto
--- Up-to-date: /usr/local/include/google/protobuf/type.proto
--- Up-to-date: /usr/local/include/google/protobuf/wrappers.proto
--- Up-to-date: /usr/local/lib/cmake/protobuf/protobuf-targets.cmake
--- Up-to-date: /usr/local/lib/cmake/protobuf/protobuf-targets-debug.cmake
--- Up-to-date: /usr/local/lib/cmake/protobuf
--- Up-to-date: /usr/local/lib/cmake/protobuf/protobuf-config-version.cmake
--- Up-to-date: /usr/local/lib/cmake/protobuf/protobuf-config.cmake
--- Up-to-date: /usr/local/lib/cmake/protobuf/protobuf-options.cmake
--- Up-to-date: /usr/local/lib/cmake/protobuf/protobuf-module.cmake
--- Installing: /usr/local/lib/libgati.so
--- Set non-toolchain portion of runtime path of "/usr/local/lib/libgati.so" to ""
--- Installing: /usr/local/bin/gaticc
--- Set non-toolchain portion of runtime path of "/usr/local/bin/gaticc" to "/usr/local/lib"
--- Installing: /usr/local/lib/python3.10/dist-packages/_gati.cpython-310-x86_64-linux-gnu.so
--- Set non-toolchain portion of runtime path of "/usr/local/lib/python3.10/dist-packages/_gati.cpython-310-x86_64-linux-gnu.so" to "/usr/local/lib"
+[ 15%] Built target libprotobuf-lite
+[ 52%] Built target libprotobuf
+[ 89%] Built target libprotoc
+[ 90%] Built target protoc
+[ 91%] Built target pbgen
+[ 91%] Building CXX object CMakeFiles/gati.dir/src/archgen.cpp.o
+[ 91%] Building CXX object CMakeFiles/gati.dir/src/executor.cpp.o
+[ 92%] Building CXX object CMakeFiles/gati.dir/src/gati.cpp.o
+[ 92%] Building CXX object CMakeFiles/gati.dir/src/instgen.cpp.o
+[ 92%] Building CXX object CMakeFiles/gati.dir/src/onnx_parser.cpp.o
+[ 93%] Building CXX object CMakeFiles/gati.dir/src/optimization.cpp.o
+[ 93%] Building CXX object CMakeFiles/gati.dir/src/options.cpp.o
+[ 94%] Building CXX object CMakeFiles/gati.dir/src/pch.cpp.o
+[ 94%] Building CXX object CMakeFiles/gati.dir/src/rt.cpp.o
+[ 95%] Building CXX object CMakeFiles/gati.dir/src/sim.cpp.o
+[ 95%] Building CXX object CMakeFiles/gati.dir/src/tensor.cpp.o
+[ 96%] Building CXX object CMakeFiles/gati.dir/src/utils.cpp.o
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In function ‘bool is_broadcastable(const std::vector<int>&, const std::vector<int>&)’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:189:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  189 |   for (int i = 0; i < shape1.size(); ++i) {
+      |                   ~~^~~~~~~~~~~~~~~
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/src/pch.h:9,
+                 from /home/nirdesh/hdd/gaticc/src/utils.cpp:3:
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In lambda function:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:472:15: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  472 |     assert((i < v.size()) ? true : false);
+      |             ~~^~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp: In member function ‘virtual void Op::LayerBase::set_constant_params(int, const onnx::NodeProto&)’:
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:43:45: warning: unused parameter ‘n’ [-Wunused-parameter]
+   43 | void Op::LayerBase::set_constant_params(int n, const onnx::NodeProto &) {
+      |                                         ~~~~^
+/home/nirdesh/hdd/gaticc/src/optimization.cpp: In function ‘void update_channel_offsets(Op::Graph)’:
+/home/nirdesh/hdd/gaticc/src/optimization.cpp:228:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  228 |     for( int i=0; i < node->inputs.size(); i++) {
+      |                   ~~^~~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/optimization.cpp:235:20: warning: unused variable ‘node’ [-Wunused-variable]
+  235 |     Op::LayerBase *node = gcopy[n];
+      |                    ^~~~
+/home/nirdesh/hdd/gaticc/src/archgen.cpp: In function ‘ArchParams combine(const std::vector<ArchParams>&)’:
+/home/nirdesh/hdd/gaticc/src/archgen.cpp:85:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<ArchParams>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+   85 |   for (int i = 0; i < ap.size(); ++i) {
+      |                   ~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/optimization.cpp: In function ‘void split_large_kernel(Op::Graph&)’:
+/home/nirdesh/hdd/gaticc/src/optimization.cpp:472:25: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<void*>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  472 |       for (int i = 0; i < true_parent.size(); i++) {
+      |                       ~~^~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/optimization.cpp:518:19: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<void*>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  518 |           if (idx < eltwise_vertices.size()) {
+      |               ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/gati.cpp: In function ‘pybind11::list run(pybind11::dict, const vss&)’:
+/home/nirdesh/hdd/gaticc/src/gati.cpp:75:8: warning: unused variable ‘output_type’ [-Wunused-variable]
+   75 |   TPDT output_type = runner->get_model_output_type();
+      |        ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/optimization.cpp:569:25: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<void*>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  569 |       for (int i = 0; i < true_parent.size(); i++) {
+      |                       ~~^~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/optimization.cpp:613:19: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<void*>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  613 |           if (idx < eltwise_vertices.size()) {
+      |               ~~~~^~~~~~~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/optimization.cpp:636:8: warning: variable ‘vp’ set but not used [-Wunused-but-set-variable]
+  636 |   auto vp = boost::vertices(g);
+      |        ^~
+/home/nirdesh/hdd/gaticc/src/executor.cpp: In function ‘int get_dims_size(const std::vector<int>&)’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:44:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+   44 |   for (int i = 0; i < dims.size() ; i++) {
+      |                   ~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘void Pass::absorb(Op::Graph&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:219:22: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  219 |     if (l->op_type() == "QLinearEltwise" &&
+      |         ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/options.cpp: In function ‘void dispatch_archgen_ops()’:
+/home/nirdesh/hdd/gaticc/src/options.cpp:69:8: warning: variable ‘arch’ set but not used [-Wunused-but-set-variable]
+   69 |   auto arch = archgen(graph, fpga);
+      |        ^~~~
+/home/nirdesh/hdd/gaticc/src/executor.cpp: In function ‘void run_split(Op::LayerBase*, TensorPool&)’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:788:38: warning: unused parameter ‘l’ [-Wunused-parameter]
+  788 | static void run_split(Op::LayerBase *l,TensorPool &tensor_pool) {
+      |                       ~~~~~~~~~~~~~~~^
+/home/nirdesh/hdd/gaticc/src/executor.cpp:788:52: warning: unused parameter ‘tensor_pool’ [-Wunused-parameter]
+  788 | static void run_split(Op::LayerBase *l,TensorPool &tensor_pool) {
+      |                                        ~~~~~~~~~~~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp: In constructor ‘Op::Layer::Split::Split()’:
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:1707:7: warning: unused variable ‘num_outputs’ [-Wunused-variable]
+ 1707 |   int num_outputs = 1;
+      |       ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp: In constructor ‘Op::Layer::GlobalAveragePool::GlobalAveragePool(bool)’:
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:1852:54: warning: unused parameter ‘gbl’ [-Wunused-parameter]
+ 1852 | Op::Layer::GlobalAveragePool::GlobalAveragePool(bool gbl) {
+      |                                                 ~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp: In constructor ‘Op::Layer::AveragePool::AveragePool(bool)’:
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:1990:42: warning: unused parameter ‘gbl’ [-Wunused-parameter]
+ 1990 | Op::Layer::AveragePool::AveragePool(bool gbl) {
+      |                                     ~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘IVec2D aligned_qle_dims(const IVec2D&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:485:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<std::vector<int> >::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  485 |   for (int i = 0; i < d.size(); ++i) {
+      |                   ~~^~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘std::vector<int> aligned_qle(const IVec2D&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:497:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<std::vector<int> >::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  497 |   for (int i = 0; i < ad.size(); ++i) {
+      |                   ~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp: In member function ‘virtual void Op::Layer::Resize::set_constant_params(int, const onnx::NodeProto&)’:
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:2399:9: warning: unused parameter ‘n’ [-Wunused-parameter]
+ 2399 |     int n,
+      |     ~~~~^
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp: In function ‘int find_edge_index(Op::LayerBase*, std::vector<int>&)’:
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:2564:11: warning: unused variable ‘input_index’ [-Wunused-variable]
+ 2564 |       int input_index = std::distance(node->input_names.begin(), itr);
+      |           ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp: In member function ‘virtual void Op::LayerBase::receive_output(TensorPool&, Rah&) const’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:413:48: warning: unused parameter ‘tensor_pool’ [-Wunused-parameter]
+  413 | void Op::LayerBase::receive_output(TensorPool &tensor_pool, Rah &rah) const {
+      |                                    ~~~~~~~~~~~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:413:66: warning: unused parameter ‘rah’ [-Wunused-parameter]
+  413 | void Op::LayerBase::receive_output(TensorPool &tensor_pool, Rah &rah) const {
+      |                                                             ~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp: In function ‘void unalign_sa_output(const Op::LayerBase*, Tensor<T>*, const uint8_t*)’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:613:21: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  613 |   if (lb->op_type() == "QLinearConv") {
+      |       ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:616:28: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  616 |   } else if (lb->op_type() == "Maxpool") {
+      |              ~~~~~~~~~~~~~~^~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:619:28: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  619 |   } else if (lb->op_type() == "QLinearAveragePool") {
+      |              ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘void decomp_inst(std::bitset<256>&, const Op::Layer::QLinearConv*, uint32_t&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:660:28: warning: unused parameter ‘input_addr_start’ [-Wunused-parameter]
+  660 |                  uint32_t &input_addr_start) {
+      |                  ~~~~~~~~~~^~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘std::bitset<256> gen_conv_inst(const Op::Layer::QLinearConv*, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:703:7: warning: unused variable ‘pad_cnt’ [-Wunused-variable]
+  703 |   int pad_cnt = cc->m_cp.pad[I_LEFT];
+      |       ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘std::bitset<256> gen_pool_inst(const Op::LayerBase*, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:932:27: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  932 |   } else if (l->op_type() == "QLinearAveragePool") {
+      |              ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:920:74: warning: unused parameter ‘tbl’ [-Wunused-parameter]
+  920 | gen_pool_inst(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
+      |                                                        ~~~~~~~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘virtual int Op::Layer::NoOp::get_inst(InstBlob&, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1018:41: warning: unused parameter ‘insts’ [-Wunused-parameter]
+ 1018 | int Op::Layer::NoOp::get_inst(InstBlob &insts, AddressGen &,
+      |                               ~~~~~~~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘virtual void Op::Layer::NoOp::get_opcodes(std::vector<int>&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1279:53: warning: unused parameter ‘opcodes’ [-Wunused-parameter]
+ 1279 | void Op::Layer::NoOp::get_opcodes(std::vector<int> &opcodes) {}
+      |                                   ~~~~~~~~~~~~~~~~~~^~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘virtual int Op::Layer::GlobalAveragePool::get_inst(InstBlob&, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1382:73: warning: unused parameter ‘gen’ [-Wunused-parameter]
+ 1382 | int Op::Layer::GlobalAveragePool::get_inst(InstBlob &insts, AddressGen &gen,
+      |                                                             ~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1383:62: warning: unused parameter ‘tbl’ [-Wunused-parameter]
+ 1383 |                                            InitializerTable &tbl) {
+      |                                            ~~~~~~~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘void gen_eltwise_input_quant(const Op::LayerBase*, std::bitset<256>&, float, float, int, int)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1477:71: warning: unused parameter ‘a_zp’ [-Wunused-parameter]
+ 1477 |                                     float a_scale, float b_scale, int a_zp,
+      |                                                                   ~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1478:41: warning: unused parameter ‘b_zp’ [-Wunused-parameter]
+ 1478 |                                     int b_zp) {
+      |                                     ~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘std::bitset<256> gen_sigmoid(const Op::LayerBase*, AddressGen&, InitializerTable&, int)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1662:66: warning: unused parameter ‘tbl’ [-Wunused-parameter]
+ 1662 |                                                InitializerTable &tbl,
+      |                                                ~~~~~~~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘void gen_sigmoid_input_quant(std::bitset<256>&, float, int)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1685:56: warning: unused parameter ‘a_zp’ [-Wunused-parameter]
+ 1685 |                                     float a_scale, int a_zp) {
+      |                                                    ~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘std::bitset<256> gen_sigmoid_quant(const Op::Layer::QLinearSigmoid*)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1693:52: warning: unused parameter ‘cc’ [-Wunused-parameter]
+ 1693 | gen_sigmoid_quant(const Op::Layer::QLinearSigmoid *cc) {
+      |                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘std::bitset<256> gen_concat(const Op::LayerBase*, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1744:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+ 1744 |   for(int i=0;i<l->inputs.size();i++){
+      |               ~^~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1732:71: warning: unused parameter ‘tbl’ [-Wunused-parameter]
+ 1732 | gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
+      |                                                     ~~~~~~~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘virtual int Op::Layer::Clip::get_inst(InstBlob&, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1825:60: warning: unused parameter ‘gen’ [-Wunused-parameter]
+ 1825 | int Op::Layer::Clip::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl){
+      |                                                ~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1825:83: warning: unused parameter ‘tbl’ [-Wunused-parameter]
+ 1825 | int Op::Layer::Clip::get_inst(InstBlob &insts, AddressGen &gen, InitializerTable &tbl){
+      |                                                                 ~~~~~~~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘virtual int Op::Layer::Transpose::get_inst(InstBlob&, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1911:87: warning: unused parameter ‘tbl’ [-Wunused-parameter]
+ 1911 | int Op::Layer::Transpose::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+      |                                                                     ~~~~~~~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘virtual void Op::Layer::Reshape::get_opcodes(std::vector<int>&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1930:56: warning: unused parameter ‘op_codes’ [-Wunused-parameter]
+ 1930 | void Op::Layer::Reshape::get_opcodes(std::vector<int> &op_codes) {
+      |                                      ~~~~~~~~~~~~~~~~~~^~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘virtual int Op::Layer::Reshape::get_inst(InstBlob&, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1938:44: warning: unused parameter ‘blob’ [-Wunused-parameter]
+ 1938 | int Op::Layer::Reshape::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+      |                                  ~~~~~~~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1938:62: warning: unused parameter ‘gen’ [-Wunused-parameter]
+ 1938 | int Op::Layer::Reshape::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+      |                                                  ~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1938:85: warning: unused parameter ‘tbl’ [-Wunused-parameter]
+ 1938 | int Op::Layer::Reshape::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+      |                                                                   ~~~~~~~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘virtual int Op::Layer::Resize::get_inst(InstBlob&, AddressGen&, InitializerTable&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:1952:84: warning: unused parameter ‘tbl’ [-Wunused-parameter]
+ 1952 | int Op::Layer::Resize::get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) {
+      |                                                                  ~~~~~~~~~~~~~~~~~~^~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘void print_table(const Table&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2193:18: warning: non-ISO-standard escape sequence, '\e'
+ 2193 |     std::cout << "\e[93m";
+      |                  ^~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2204:18: warning: non-ISO-standard escape sequence, '\e'
+ 2204 |     std::cout << "\e[39m";
+      |                  ^~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘void BinBlob::append(float)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2285:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+ 2285 |   for (int i = 0; i < sizeof(a); ++i) {
+      |                   ~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In instantiation of ‘meta_info get_meta_info(const std::any&) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:131:35:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.cpp:119:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  119 |   for (int i = 0; i < strides.size(); ++i) {
+      |                   ~~^~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In instantiation of ‘meta_info get_meta_info(const std::any&) [with T = short int]’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:133:36:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.cpp:119:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In instantiation of ‘meta_info get_meta_info(const std::any&) [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:135:32:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.cpp:119:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In instantiation of ‘meta_info get_meta_info(const std::any&) [with T = long int]’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:137:36:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.cpp:119:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In instantiation of ‘meta_info get_meta_info(const std::any&) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:139:34:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.cpp:119:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In instantiation of ‘meta_info get_meta_info(const std::any&) [with T = double]’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:141:35:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.cpp:119:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.cpp: In instantiation of ‘meta_info get_meta_info(const std::any&) [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:143:36:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.cpp:119:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/pybind11.h:26,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/numpy.h:12,
+                 from /home/nirdesh/hdd/gaticc/src/utils.h:21,
+                 from /home/nirdesh/hdd/gaticc/src/utils.cpp:1:
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘std::vector<T> broadcast_vec(const std::vector<T>&, int) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/utils.cpp:200:35:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:667:22: warning: comparison of integer expressions of different signedness: ‘std::vector<float>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  667 |     assert(in.size() == new_size);
+      |            ~~~~~~~~~~^~~~~~~~~~~
+In file included from /home/nirdesh/hdd/gaticc/src/onnx_parser.h:14,
+                 from /home/nirdesh/hdd/gaticc/src/pch.h:6,
+                 from /home/nirdesh/hdd/gaticc/src/instgen.cpp:1:
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘class TensorBroadcast<signed char>’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2654:26:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:110:34: warning: ‘Tensor<T>& Tensor<T>::operator=(Tensor<T>&&) [with T = signed char]’ was hidden [-Woverloaded-virtual=]
+  110 | template <typename T> Tensor<T> &Tensor<T>::operator=(Tensor<T> &&) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<signed char>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:106:34: warning: ‘Tensor<T>& Tensor<T>::operator=(const Tensor<T>&) [with T = signed char]’ was hidden [-Woverloaded-virtual=]
+  106 | template <typename T> Tensor<T> &Tensor<T>::operator=(const Tensor<T> &) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<signed char>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In member function ‘void GmlCheck::check_dwp(const BinBlob&) const’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:3085:32: warning: comparison of integer expressions of different signedness: ‘int’ and ‘uint32_t’ {aka ‘unsigned int’} [-Wsign-compare]
+ 3085 |         for (int j = i+ds-1; j > i+ds-1-8; --j) {
+      |                              ~~^~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:3089:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘uint32_t’ {aka ‘unsigned int’} [-Wsign-compare]
+ 3089 |         for (int j = i; j < i+ds; ++j) {
+      |                         ~~^~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘int get_nms_index(AddressGen&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:3135:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<Op::LayerBase*>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+ 3135 |   for (int i = 0; i < order.size(); i++) {
+      |                   ~~^~~~~~~~~~~~~~
+In file included from /home/nirdesh/hdd/gaticc/src/gati.cpp:11:
+/home/nirdesh/hdd/gaticc/src/rt.h: In instantiation of ‘TensorPool Runner::infer_aux(std::vector<Tensor<T>*>) [with inputT = float]’:
+/home/nirdesh/hdd/gaticc/src/gati.cpp:86:35:   required from here
+/home/nirdesh/hdd/gaticc/src/rt.h:145:8: warning: variable ‘is_last_layer’ set but not used [-Wunused-but-set-variable]
+  145 |   bool is_last_layer = true;
+      |        ^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.h:242:1: warning: label ‘_dump’ defined but not used [-Wunused-label]
+  242 | _dump:
+      | ^~~~~
+/home/nirdesh/hdd/gaticc/src/rt.h: In instantiation of ‘TensorPool Runner::infer_aux(std::vector<Tensor<T>*>) [with inputT = signed char]’:
+/home/nirdesh/hdd/gaticc/src/gati.cpp:88:36:   required from here
+/home/nirdesh/hdd/gaticc/src/rt.h:145:8: warning: variable ‘is_last_layer’ set but not used [-Wunused-but-set-variable]
+  145 |   bool is_last_layer = true;
+      |        ^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.h:242:1: warning: label ‘_dump’ defined but not used [-Wunused-label]
+  242 | _dump:
+      | ^~~~~
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp: In constructor ‘Op::RegisterAllocator::RegisterAllocator(Op::Graph)’:
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:3889:9: warning: unused variable ‘nn’ [-Wunused-variable]
+ 3889 |     int nn=g[cur]->input_names.size();
+      |         ^~
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:3931:21: warning: comparison with string literal results in unspecified behavior [-Waddress]
+ 3931 |   if(node->op_type()=="Split"){
+      |      ~~~~~~~~~~~~~~~^~~~~~~~~
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/pybind11.h:26,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/numpy.h:12,
+                 from /home/nirdesh/hdd/gaticc/src/utils.h:21,
+                 from /home/nirdesh/hdd/gaticc/src/tensor.h:3,
+                 from /home/nirdesh/hdd/gaticc/src/onnx_parser.h:14,
+                 from /home/nirdesh/hdd/gaticc/src/executor.h:4,
+                 from /home/nirdesh/hdd/gaticc/src/rt.h:3,
+                 from /home/nirdesh/hdd/gaticc/src/rt.cpp:1:
+/home/nirdesh/hdd/gaticc/src/instgen.h: In instantiation of ‘char get_byte(T, int) [with T = unsigned int]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:163:24:   required from here
+/home/nirdesh/hdd/gaticc/src/instgen.h:372:12: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+  372 |   assert(n < sizeof(T) && n >= 0);
+      |          ~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/executor.cpp: In instantiation of ‘void run_conv(Op::LayerBase*, TensorPool&) [with inputT = float; weightT = float; outputT = float]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:282:34:   required from here
+/home/nirdesh/hdd/gaticc/src/executor.cpp:248:7: warning: unused variable ‘contndj’ [-Wunused-variable]
+  248 |   int contndj=0;
+      |       ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp: In instantiation of ‘void append_nms_input_tensor(BinBlob&, const Tensor<T>*, uint32_t, QuantizeFn) [with T = float; QuantizeFn = Op::Layer::NMS::send_input(TensorPool&, AddressGen&, Rah&, Op::IOAddrTbl&) const::<lambda(float)>; uint32_t = unsigned int]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:773:26:   required from here
+/home/nirdesh/hdd/gaticc/src/rt.cpp:734:24: warning: comparison of integer expressions of different signedness: ‘size_t’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  734 |   for (size_t i = 0; i < tensor->size(); ++i) {
+      |                      ~~^~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp: In instantiation of ‘void append_nms_input_tensor(BinBlob&, const Tensor<T>*, uint32_t, QuantizeFn) [with T = float; QuantizeFn = Op::Layer::NMS::send_input(TensorPool&, AddressGen&, Rah&, Op::IOAddrTbl&) const::<lambda(float)>; uint32_t = unsigned int]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:777:26:   required from here
+/home/nirdesh/hdd/gaticc/src/rt.cpp:734:24: warning: comparison of integer expressions of different signedness: ‘size_t’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/pybind11.h:26,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/numpy.h:12,
+                 from /home/nirdesh/hdd/gaticc/src/utils.h:21,
+                 from /home/nirdesh/hdd/gaticc/src/tensor.h:3:
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘std::vector<T> broadcast_vec(const std::vector<T>&, int) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:271:24:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:667:22: warning: comparison of integer expressions of different signedness: ‘std::vector<float>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  667 |     assert(in.size() == new_size);
+      |            ~~~~~~~~~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 4]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:458:19:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+  684 |   assert(stop - start + 1 == src.size());
+      |          ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 12]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:461:19:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 16]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:644:19:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 5]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:648:19:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 1]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:653:19:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 3]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:666:3:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 10]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:682:3:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 32]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:734:3:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 2]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:749:5:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 8]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:779:9:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘void bitset_range_set(std::bitset<_Nb>&, const std::bitset<b2N>&, int, int) [with long unsigned int b1N = 256; long unsigned int b2N = 20]’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:807:3:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:684:27: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/rt.cpp: In instantiation of ‘void unalign_sa_output(const Op::LayerBase*, Tensor<T>*, const uint8_t*) [with T = signed char; uint8_t = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:640:20:   required from ‘void sa_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = signed char; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:649:23:   required from here
+/home/nirdesh/hdd/gaticc/src/rt.cpp:613:21: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  613 |   if (lb->op_type() == "QLinearConv") {
+      |       ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:616:28: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  616 |   } else if (lb->op_type() == "Maxpool") {
+      |              ~~~~~~~~~~~~~~^~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:617:31: warning: unused variable ‘l’ [-Wunused-variable]
+  617 |     const Op::Layer::Maxpool *l = dynamic_cast<const Op::Layer::Maxpool *>(lb);
+      |                               ^
+/home/nirdesh/hdd/gaticc/src/rt.cpp:619:28: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  619 |   } else if (lb->op_type() == "QLinearAveragePool") {
+      |              ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:620:42: warning: unused variable ‘l’ [-Wunused-variable]
+  620 |     const Op::Layer::QLinearAveragePool *l = dynamic_cast<const Op::Layer::QLinearAveragePool *>(lb);
+      |                                          ^
+/home/nirdesh/hdd/gaticc/src/rt.cpp: In instantiation of ‘void unalign_sa_output(const Op::LayerBase*, Tensor<T>*, const uint8_t*) [with T = unsigned char; uint8_t = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:640:20:   required from ‘void sa_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = unsigned char; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:651:24:   required from here
+/home/nirdesh/hdd/gaticc/src/rt.cpp:613:21: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  613 |   if (lb->op_type() == "QLinearConv") {
+      |       ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:616:28: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  616 |   } else if (lb->op_type() == "Maxpool") {
+      |              ~~~~~~~~~~~~~~^~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:617:31: warning: unused variable ‘l’ [-Wunused-variable]
+  617 |     const Op::Layer::Maxpool *l = dynamic_cast<const Op::Layer::Maxpool *>(lb);
+      |                               ^
+/home/nirdesh/hdd/gaticc/src/rt.cpp:619:28: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  619 |   } else if (lb->op_type() == "QLinearAveragePool") {
+      |              ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:620:42: warning: unused variable ‘l’ [-Wunused-variable]
+  620 |     const Op::Layer::QLinearAveragePool *l = dynamic_cast<const Op::Layer::QLinearAveragePool *>(lb);
+      |                                          ^
+/home/nirdesh/hdd/gaticc/src/rt.cpp: In instantiation of ‘void unalign_sa_output(const Op::LayerBase*, Tensor<T>*, const uint8_t*) [with T = int; uint8_t = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:640:20:   required from ‘void sa_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = int; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:653:20:   required from here
+/home/nirdesh/hdd/gaticc/src/rt.cpp:613:21: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  613 |   if (lb->op_type() == "QLinearConv") {
+      |       ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:616:28: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  616 |   } else if (lb->op_type() == "Maxpool") {
+      |              ~~~~~~~~~~~~~~^~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:617:31: warning: unused variable ‘l’ [-Wunused-variable]
+  617 |     const Op::Layer::Maxpool *l = dynamic_cast<const Op::Layer::Maxpool *>(lb);
+      |                               ^
+/home/nirdesh/hdd/gaticc/src/rt.cpp:619:28: warning: comparison with string literal results in unspecified behavior [-Waddress]
+  619 |   } else if (lb->op_type() == "QLinearAveragePool") {
+      |              ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/rt.cpp:620:42: warning: unused variable ‘l’ [-Wunused-variable]
+  620 |     const Op::Layer::QLinearAveragePool *l = dynamic_cast<const Op::Layer::QLinearAveragePool *>(lb);
+      |                                          ^
+In file included from /home/nirdesh/hdd/gaticc/src/onnx_parser.h:14,
+                 from /home/nirdesh/hdd/gaticc/src/gati.cpp:8:
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorCreate<T>::TensorCreate(pybind11::array) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:299:74:   required from ‘TensorCreate<T>::TensorCreate(pybind11::array, const std::string&) [with T = float; std::string = std::__cxx11::basic_string<char>]’
+/home/nirdesh/hdd/gaticc/src/tensor.h:764:26:   required from ‘std::vector<Tensor<T>*> dict2arr(pybind11::dict, const std::vector<std::__cxx11::basic_string<char> >&) [with T = float]’
+/home/nirdesh/hdd/gaticc/src/gati.cpp:86:51:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:293:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<long int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  293 |     for (int i = 0; i < buf.shape.size(); ++i) {
+      |                     ~~^~~~~~~~~~~~~~~~~~
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/third_party/protobuf/src/google/protobuf/extension_set.h:43,
+                 from /home/nirdesh/hdd/gaticc/build/onnx.pb.h:30,
+                 from /home/nirdesh/hdd/gaticc/src/onnx_parser.h:13:
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorSlice<T>::TensorSlice(Tensor<T>*, std::vector<int>) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:700:18:   required from ‘Tensor<T>* get_slice(Tensor<T>*, std::vector<int>) [with T = float]’
+/home/nirdesh/hdd/gaticc/src/rt.h:191:29:   required from ‘TensorPool Runner::infer_aux(std::vector<Tensor<T>*>) [with inputT = float]’
+/home/nirdesh/hdd/gaticc/src/gati.cpp:86:35:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:450:23: warning: comparison of integer expressions of different signedness: ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  450 |   assert(slice.size() <= src->dims_size());
+      |          ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorCreate<T>::TensorCreate(pybind11::array) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:299:74:   required from ‘TensorCreate<T>::TensorCreate(pybind11::array, const std::string&) [with T = signed char; std::string = std::__cxx11::basic_string<char>]’
+/home/nirdesh/hdd/gaticc/src/tensor.h:764:26:   required from ‘std::vector<Tensor<T>*> dict2arr(pybind11::dict, const std::vector<std::__cxx11::basic_string<char> >&) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/gati.cpp:88:53:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:293:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<long int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  293 |     for (int i = 0; i < buf.shape.size(); ++i) {
+      |                     ~~^~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorSlice<T>::TensorSlice(Tensor<T>*, std::vector<int>) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:700:18:   required from ‘Tensor<T>* get_slice(Tensor<T>*, std::vector<int>) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/rt.h:191:29:   required from ‘TensorPool Runner::infer_aux(std::vector<Tensor<T>*>) [with inputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/gati.cpp:88:36:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:450:23: warning: comparison of integer expressions of different signedness: ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  450 |   assert(slice.size() <= src->dims_size());
+      |          ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/pybind11.h:26,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/numpy.h:12,
+                 from /home/nirdesh/hdd/gaticc/src/utils.h:21,
+                 from /home/nirdesh/hdd/gaticc/src/tensor.h:3,
+                 from /home/nirdesh/hdd/gaticc/src/tensor.cpp:1:
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = double]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = double]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = long int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = long int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+In file included from /home/nirdesh/hdd/gaticc/src/onnx_parser.h:14,
+                 from /home/nirdesh/hdd/gaticc/src/executor.h:4,
+                 from /home/nirdesh/hdd/gaticc/src/executor.cpp:1:
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘class TensorBroadcast<float>’:
+/home/nirdesh/hdd/gaticc/src/sim.h:383:55:   required from ‘void tensor_eltwise(Tensor<weightT>*, const Tensor<T>*, const Tensor<T>*, int) [with inputT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:595:19:   required from ‘void run_eltwise(Op::LayerBase*, TensorPool&) [with inputT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:621:30:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:110:34: warning: ‘Tensor<T>& Tensor<T>::operator=(Tensor<T>&&) [with T = float]’ was hidden [-Woverloaded-virtual=]
+  110 | template <typename T> Tensor<T> &Tensor<T>::operator=(Tensor<T> &&) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<float>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:106:34: warning: ‘Tensor<T>& Tensor<T>::operator=(const Tensor<T>&) [with T = float]’ was hidden [-Woverloaded-virtual=]
+  106 | template <typename T> Tensor<T> &Tensor<T>::operator=(const Tensor<T> &) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<float>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘class TensorBroadcast<signed char>’:
+/home/nirdesh/hdd/gaticc/src/sim.h:383:55:   required from ‘void tensor_eltwise(Tensor<weightT>*, const Tensor<T>*, const Tensor<T>*, int) [with inputT = signed char; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:595:19:   required from ‘void run_eltwise(Op::LayerBase*, TensorPool&) [with inputT = signed char; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:624:29:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:110:34: warning: ‘Tensor<T>& Tensor<T>::operator=(Tensor<T>&&) [with T = signed char]’ was hidden [-Woverloaded-virtual=]
+  110 | template <typename T> Tensor<T> &Tensor<T>::operator=(Tensor<T> &&) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<signed char>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:106:34: warning: ‘Tensor<T>& Tensor<T>::operator=(const Tensor<T>&) [with T = signed char]’ was hidden [-Woverloaded-virtual=]
+  106 | template <typename T> Tensor<T> &Tensor<T>::operator=(const Tensor<T> &) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<signed char>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = int; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:716:18:   required from ‘void run_qconv(Op::LayerBase*, TensorPool&) [with inputT = unsigned char; weightT = unsigned char; intrT = int; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:733:46:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+  717 |   size_t total_elems = t->size();
+      |          ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = signed char; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:547:18:   required from ‘void post_read(const Op::LayerBase*, TensorPool&, Tensor<T>*) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:641:12:   required from ‘void sa_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = signed char; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:649:23:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+  717 |   size_t total_elems = t->size();
+      |          ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘class TensorBroadcast<unsigned char>’:
+/home/nirdesh/hdd/gaticc/src/sim.h:563:53:   required from ‘void tensor_qeltwise(Tensor<weightT>*, const Tensor<T>*, const Tensor<T>*, float, float, int, int, int) [with inputT = unsigned char; outputT = FixedPoint<10, 18>]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:926:24:   required from ‘void run_qeltwise(Op::LayerBase*, TensorPool&) [with inputT = unsigned char; intrT = FixedPoint<10, 18>; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:987:41:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:110:34: warning: ‘Tensor<T>& Tensor<T>::operator=(Tensor<T>&&) [with T = unsigned char]’ was hidden [-Woverloaded-virtual=]
+  110 | template <typename T> Tensor<T> &Tensor<T>::operator=(Tensor<T> &&) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<unsigned char>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:106:34: warning: ‘Tensor<T>& Tensor<T>::operator=(const Tensor<T>&) [with T = unsigned char]’ was hidden [-Woverloaded-virtual=]
+  106 | template <typename T> Tensor<T> &Tensor<T>::operator=(const Tensor<T> &) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<unsigned char>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = unsigned char; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:547:18:   required from ‘void post_read(const Op::LayerBase*, TensorPool&, Tensor<T>*) [with T = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:641:12:   required from ‘void sa_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = unsigned char; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:651:24:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘class TensorBroadcast<int>’:
+/home/nirdesh/hdd/gaticc/src/sim.h:594:53:   required from ‘void tensor_qeltwise_32bit(Tensor<weightT>*, const Tensor<T>*, const Tensor<T>*, float, float, int, int, int) [with inputT = int; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:889:26:   required from ‘void run_qeltwise(Op::LayerBase*, TensorPool&) [with inputT = int; intrT = int; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:990:44:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:110:34: warning: ‘Tensor<T>& Tensor<T>::operator=(Tensor<T>&&) [with T = int]’ was hidden [-Woverloaded-virtual=]
+  110 | template <typename T> Tensor<T> &Tensor<T>::operator=(Tensor<T> &&) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<int>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:106:34: warning: ‘Tensor<T>& Tensor<T>::operator=(const Tensor<T>&) [with T = int]’ was hidden [-Woverloaded-virtual=]
+  106 | template <typename T> Tensor<T> &Tensor<T>::operator=(const Tensor<T> &) {
+      |                                  ^~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h:538:29: note:   by ‘TensorBroadcast<int>::operator=’
+  538 | template <typename T> class TensorBroadcast : public Tensor<T> {
+      |                             ^~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = int; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:547:18:   required from ‘void post_read(const Op::LayerBase*, TensorPool&, Tensor<T>*) [with T = int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:641:12:   required from ‘void sa_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = int; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:653:20:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+In file included from /home/nirdesh/hdd/gaticc/src/executor.cpp:2:
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void qsigmoid(const Tensor<T>*, Tensor<weightT>*, float, int) [with inputT = signed char; outputT = signed char]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1009:30:   required from ‘void run_qsigmoid(Op::LayerBase*, TensorPool&) [with inputT = signed char; outputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1027:33:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:493:34: warning: unused parameter ‘i_zp’ [-Wunused-parameter]
+  493 |               float i_scale, int i_zp) {
+      |                              ~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void qsigmoid(const Tensor<T>*, Tensor<weightT>*, float, int) [with inputT = unsigned char; outputT = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1009:30:   required from ‘void run_qsigmoid(Op::LayerBase*, TensorPool&) [with inputT = unsigned char; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1030:35:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:493:34: warning: unused parameter ‘i_zp’ [-Wunused-parameter]
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void qsigmoid(const Tensor<T>*, Tensor<weightT>*, float, int) [with inputT = float; outputT = float]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1009:30:   required from ‘void run_qsigmoid(Op::LayerBase*, TensorPool&) [with inputT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1033:31:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:493:34: warning: unused parameter ‘i_zp’ [-Wunused-parameter]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = long int; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/rt.cpp:547:18:   required from ‘void post_read(const Op::LayerBase*, TensorPool&, Tensor<T>*) [with T = long int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:674:12:   required from ‘void va_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = long int; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:880:24:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/src/pch.h:9:
+/home/nirdesh/hdd/gaticc/src/instgen.h: In instantiation of ‘char get_byte(T, int) [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/instgen.h:435:22:   required from ‘void BinBlob::generic_append(T) [with T = int]’
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2263:17:   required from here
+/home/nirdesh/hdd/gaticc/src/instgen.h:372:12: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+  372 |   assert(n < sizeof(T) && n >= 0);
+      |          ~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/instgen.h: In instantiation of ‘char get_byte(T, int) [with T = unsigned int]’:
+/home/nirdesh/hdd/gaticc/src/instgen.h:435:22:   required from ‘void BinBlob::generic_append(T) [with T = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2268:17:   required from here
+/home/nirdesh/hdd/gaticc/src/instgen.h:372:12: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/instgen.h: In instantiation of ‘char get_byte(T, int) [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/instgen.h:435:22:   required from ‘void BinBlob::generic_append(T) [with T = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2273:17:   required from here
+/home/nirdesh/hdd/gaticc/src/instgen.h:372:12: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/instgen.h: In instantiation of ‘char get_byte(T, int) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/instgen.h:435:22:   required from ‘void BinBlob::generic_append(T) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2278:17:   required from here
+/home/nirdesh/hdd/gaticc/src/instgen.h:372:12: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/instgen.h: In instantiation of ‘char get_byte(const std::bitset<_Nb>&, int) [with long unsigned int sz = 256]’:
+/home/nirdesh/hdd/gaticc/src/instgen.h:435:22:   required from ‘void BinBlob::generic_append(T) [with T = std::bitset<256>]’
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2307:19:   required from here
+/home/nirdesh/hdd/gaticc/src/instgen.h:379:12: warning: comparison of integer expressions of different signedness: ‘int’ and ‘long unsigned int’ [-Wsign-compare]
+  379 |   assert(n < (sz / 8) && n >= 0);
+      |          ~~^~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘static T TensorBroadcast<T>::broadcast_view(const Tensor<T>*, const std::vector<int>&, int) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:590:29:   required from ‘static void TensorBroadcast<T>::broadcast_tensor(Tensor<T>*, Tensor<T>*) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:2654:44:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:642:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  642 |   for (int j = 0; j < src_dims.size(); j++) {
+      |                   ~~^~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void reduce_sum(const Tensor<T>*, Tensor<T>*, int, int) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1398:16:   required from ‘void run_reduce_sum(Op::LayerBase*, TensorPool&) [with T = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1408:26:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:1166:64: warning: unused parameter ‘axis’ [-Wunused-parameter]
+ 1166 | void reduce_sum(const Tensor<T> *input, Tensor<T> *output, int axis,
+      |                                                            ~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:1167:22: warning: unused parameter ‘keepdims’ [-Wunused-parameter]
+ 1167 |                  int keepdims) {
+      |                  ~~~~^~~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void reduce_sum(const Tensor<T>*, Tensor<T>*, int, int) [with T = double]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1398:16:   required from ‘void run_reduce_sum(Op::LayerBase*, TensorPool&) [with T = double]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1410:27:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:1166:64: warning: unused parameter ‘axis’ [-Wunused-parameter]
+ 1166 | void reduce_sum(const Tensor<T> *input, Tensor<T> *output, int axis,
+      |                                                            ~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:1167:22: warning: unused parameter ‘keepdims’ [-Wunused-parameter]
+ 1167 |                  int keepdims) {
+      |                  ~~~~^~~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void reduce_sum(const Tensor<T>*, Tensor<T>*, int, int) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1398:16:   required from ‘void run_reduce_sum(Op::LayerBase*, TensorPool&) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1412:27:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:1166:64: warning: unused parameter ‘axis’ [-Wunused-parameter]
+ 1166 | void reduce_sum(const Tensor<T> *input, Tensor<T> *output, int axis,
+      |                                                            ~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:1167:22: warning: unused parameter ‘keepdims’ [-Wunused-parameter]
+ 1167 |                  int keepdims) {
+      |                  ~~~~^~~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void reduce_sum(const Tensor<T>*, Tensor<T>*, int, int) [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1398:16:   required from ‘void run_reduce_sum(Op::LayerBase*, TensorPool&) [with T = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1414:24:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:1166:64: warning: unused parameter ‘axis’ [-Wunused-parameter]
+ 1166 | void reduce_sum(const Tensor<T> *input, Tensor<T> *output, int axis,
+      |                                                            ~~~~^~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:1167:22: warning: unused parameter ‘keepdims’ [-Wunused-parameter]
+ 1167 |                  int keepdims) {
+      |                  ~~~~^~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorCreate<T>::TensorCreate(pybind11::array) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:299:74:   required from ‘TensorCreate<T>::TensorCreate(pybind11::array, const std::string&) [with T = float; std::string = std::__cxx11::basic_string<char>]’
+/home/nirdesh/hdd/gaticc/src/tensor.h:764:26:   required from ‘std::vector<Tensor<T>*> dict2arr(pybind11::dict, const std::vector<std::__cxx11::basic_string<char> >&) [with T = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:168:50:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:293:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<long int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  293 |     for (int i = 0; i < buf.shape.size(); ++i) {
+      |                     ~~^~~~~~~~~~~~~~~~~~
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/pybind11.h:26,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/numpy.h:12,
+                 from /home/nirdesh/hdd/gaticc/src/utils.h:21,
+                 from /home/nirdesh/hdd/gaticc/src/tensor.h:3:
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorSlice<T>::TensorSlice(Tensor<T>*, std::vector<int>) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:700:18:   required from ‘Tensor<T>* get_slice(Tensor<T>*, std::vector<int>) [with T = float]’
+/home/nirdesh/hdd/gaticc/src/executor.h:86:40:   required from ‘TensorPool Executor::run_aux(const Op::Parser&, const std::vector<Tensor<T>*>&) [with inputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:168:26:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:450:23: warning: comparison of integer expressions of different signedness: ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  450 |   assert(slice.size() <= src->dims_size());
+      |          ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorCreate<T>::TensorCreate(pybind11::array) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:299:74:   required from ‘TensorCreate<T>::TensorCreate(pybind11::array, const std::string&) [with T = signed char; std::string = std::__cxx11::basic_string<char>]’
+/home/nirdesh/hdd/gaticc/src/tensor.h:764:26:   required from ‘std::vector<Tensor<T>*> dict2arr(pybind11::dict, const std::vector<std::__cxx11::basic_string<char> >&) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:170:52:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:293:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<long int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  293 |     for (int i = 0; i < buf.shape.size(); ++i) {
+      |                     ~~^~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorSlice<T>::TensorSlice(Tensor<T>*, std::vector<int>) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:700:18:   required from ‘Tensor<T>* get_slice(Tensor<T>*, std::vector<int>) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.h:86:40:   required from ‘TensorPool Executor::run_aux(const Op::Parser&, const std::vector<Tensor<T>*>&) [with inputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:170:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:450:23: warning: comparison of integer expressions of different signedness: ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  450 |   assert(slice.size() <= src->dims_size());
+      |          ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorCreate<T>::TensorCreate(pybind11::array) [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:299:74:   required from ‘TensorCreate<T>::TensorCreate(pybind11::array, const std::string&) [with T = unsigned char; std::string = std::__cxx11::basic_string<char>]’
+/home/nirdesh/hdd/gaticc/src/tensor.h:764:26:   required from ‘std::vector<Tensor<T>*> dict2arr(pybind11::dict, const std::vector<std::__cxx11::basic_string<char> >&) [with T = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:172:54:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:293:23: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<long int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  293 |     for (int i = 0; i < buf.shape.size(); ++i) {
+      |                     ~~^~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorSlice<T>::TensorSlice(Tensor<T>*, std::vector<int>) [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:700:18:   required from ‘Tensor<T>* get_slice(Tensor<T>*, std::vector<int>) [with T = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.h:86:40:   required from ‘TensorPool Executor::run_aux(const Op::Parser&, const std::vector<Tensor<T>*>&) [with inputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:172:28:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:450:23: warning: comparison of integer expressions of different signedness: ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  450 |   assert(slice.size() <= src->dims_size());
+      |          ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void ConvEngine<inputT, weightT, outputT>::_dw_kernel(int, const Tensor<T>*, Tensor<biasT>*) [with inputT = float; weightT = float; outputT = float]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:974:32:   required from ‘void ConvEngine<inputT, weightT, outputT>::run(const Tensor<T>*, Tensor<biasT>*) [with inputT = float; weightT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:265:16:   required from ‘void run_conv(Op::LayerBase*, TensorPool&) [with inputT = float; weightT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:282:34:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:916:7: warning: unused variable ‘ic’ [-Wunused-variable]
+  916 |   int ic = input->dims_at(TENSOR_4D_CHANNELS);
+      |       ^~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = float; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:196:18:   required from ‘void check_dispatch(const Op::LayerBase*, const Tensor<T>*) [with T = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:267:17:   required from ‘void run_conv(Op::LayerBase*, TensorPool&) [with inputT = float; weightT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:282:34:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+  717 |   size_t total_elems = t->size();
+      |          ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = signed char; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:196:18:   required from ‘void check_dispatch(const Op::LayerBase*, const Tensor<T>*) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:316:17:   required from ‘void run_qleaky_relu(Op::LayerBase*, TensorPool&) [with T = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:327:28:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = unsigned char; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:196:18:   required from ‘void check_dispatch(const Op::LayerBase*, const Tensor<T>*) [with T = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:316:17:   required from ‘void run_qleaky_relu(Op::LayerBase*, TensorPool&) [with T = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:329:29:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘std::bitset<_Nb> extract_bitset(const T*, size_t, int, int) [with long unsigned int sz = 8; T = unsigned char; size_t = long unsigned int]’:
+/home/nirdesh/hdd/gaticc/src/utils.h:771:52:   required from ‘T read_typed_data(const uint8_t*) [with T = signed char; uint8_t = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:569:52:   required from ‘void unalign_sa_aux(Tensor<T>*, const uint8_t*, std::vector<int>&, std::vector<int>&) [with T = signed char; uint8_t = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:632:19:   required from ‘void unalign_sa_output(const Op::LayerBase*, Tensor<T>*, const uint8_t*) [with T = signed char; uint8_t = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:640:20:   required from ‘void sa_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = signed char; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:649:23:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:759:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+  759 |   assert(m - n < size);
+      |          ~~~~~~^~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘static T TensorBroadcast<T>::broadcast_view(const Tensor<T>*, const std::vector<int>&, int) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:388:58:   required from ‘void tensor_eltwise(Tensor<weightT>*, const Tensor<T>*, const Tensor<T>*, int) [with inputT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:595:19:   required from ‘void run_eltwise(Op::LayerBase*, TensorPool&) [with inputT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:621:30:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:642:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  642 |   for (int j = 0; j < src_dims.size(); j++) {
+      |                   ~~^~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘static T TensorBroadcast<T>::broadcast_view(const Tensor<T>*, const std::vector<int>&, int) [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:388:58:   required from ‘void tensor_eltwise(Tensor<weightT>*, const Tensor<T>*, const Tensor<T>*, int) [with inputT = signed char; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:595:19:   required from ‘void run_eltwise(Op::LayerBase*, TensorPool&) [with inputT = signed char; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:624:29:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:642:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘std::bitset<_Nb> extract_bitset(const T*, size_t, int, int) [with long unsigned int sz = 32; T = unsigned char; size_t = long unsigned int]’:
+/home/nirdesh/hdd/gaticc/src/utils.h:771:52:   required from ‘T read_typed_data(const uint8_t*) [with T = int; uint8_t = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:597:50:   required from ‘void unalign_sa_aux32(Tensor<T>*, const uint8_t*, std::vector<int>&, std::vector<int>&) [with T = int; uint8_t = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:630:21:   required from ‘void unalign_sa_output(const Op::LayerBase*, Tensor<T>*, const uint8_t*) [with T = int; uint8_t = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:640:20:   required from ‘void sa_receive(Rah&, TensorPool&, const Op::LayerBase*, uint32_t, uint32_t) [with T = int; uint32_t = unsigned int]’
+/home/nirdesh/hdd/gaticc/src/rt.cpp:653:20:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:759:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘size_t’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘std::vector<T> broadcast_vec(const std::vector<T>&, int) [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:725:22:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = float; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:648:28:   required from ‘void run_quantize_linear(Op::LayerBase*, TensorPool&) [with inputT = float; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:662:40:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:667:22: warning: comparison of integer expressions of different signedness: ‘std::vector<float>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  667 |     assert(in.size() == new_size);
+      |            ~~~~~~~~~~^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/utils.h: In instantiation of ‘std::vector<T> broadcast_vec(const std::vector<T>&, int) [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:729:22:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = float; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:648:28:   required from ‘void run_quantize_linear(Op::LayerBase*, TensorPool&) [with inputT = float; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:662:40:   required from here
+/home/nirdesh/hdd/gaticc/src/utils.h:667:22: warning: comparison of integer expressions of different signedness: ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘outputT quantize_fn(inputT, float, int, int, int, int, int) [with inputT = float; outputT = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:737:57:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = float; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:648:28:   required from ‘void run_quantize_linear(Op::LayerBase*, TensorPool&) [with inputT = float; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:662:40:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:669:17: warning: unused variable ‘fpwidth’ [-Wunused-variable]
+  669 |   constexpr int fpwidth = 16;
+      |                 ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:667:60: warning: unused parameter ‘index’ [-Wunused-parameter]
+  667 |                            int max_lim, int shift_val, int index) {
+      |                                                        ~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘outputT quantize_fn(inputT, float, int, int, int, int, int) [with inputT = float; outputT = signed char]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:737:57:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = float; outputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:648:28:   required from ‘void run_quantize_linear(Op::LayerBase*, TensorPool&) [with inputT = float; outputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:665:39:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:669:17: warning: unused variable ‘fpwidth’ [-Wunused-variable]
+  669 |   constexpr int fpwidth = 16;
+      |                 ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:667:60: warning: unused parameter ‘index’ [-Wunused-parameter]
+  667 |                            int max_lim, int shift_val, int index) {
+      |                                                        ~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void ConvEngine<inputT, weightT, outputT>::_dw_kernel(int, const Tensor<T>*, Tensor<biasT>*) [with inputT = unsigned char; weightT = unsigned char; outputT = int]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:974:32:   required from ‘void ConvEngine<inputT, weightT, outputT>::run(const Tensor<T>*, Tensor<biasT>*) [with inputT = unsigned char; weightT = unsigned char; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:698:16:   required from ‘void run_qconv(Op::LayerBase*, TensorPool&) [with inputT = unsigned char; weightT = unsigned char; intrT = int; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:733:46:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:916:7: warning: unused variable ‘ic’ [-Wunused-variable]
+  916 |   int ic = input->dims_at(TENSOR_4D_CHANNELS);
+      |       ^~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = long int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘outputT quantize_fn(inputT, float, int, int, int, int, int) [with inputT = int; outputT = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:737:57:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = int; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:711:29:   required from ‘void run_qconv(Op::LayerBase*, TensorPool&) [with inputT = unsigned char; weightT = unsigned char; intrT = int; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:733:46:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:669:17: warning: unused variable ‘fpwidth’ [-Wunused-variable]
+  669 |   constexpr int fpwidth = 16;
+      |                 ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:667:60: warning: unused parameter ‘index’ [-Wunused-parameter]
+  667 |                            int max_lim, int shift_val, int index) {
+      |                                                        ~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void ConvEngine<inputT, weightT, outputT>::_dw_kernel(int, const Tensor<T>*, Tensor<biasT>*) [with inputT = signed char; weightT = signed char; outputT = int]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:974:32:   required from ‘void ConvEngine<inputT, weightT, outputT>::run(const Tensor<T>*, Tensor<biasT>*) [with inputT = signed char; weightT = signed char; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:698:16:   required from ‘void run_qconv(Op::LayerBase*, TensorPool&) [with inputT = signed char; weightT = signed char; intrT = int; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:736:44:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:916:7: warning: unused variable ‘ic’ [-Wunused-variable]
+  916 |   int ic = input->dims_at(TENSOR_4D_CHANNELS);
+      |       ^~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘outputT quantize_fn(inputT, float, int, int, int, int, int) [with inputT = int; outputT = int]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:737:57:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = int; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:711:29:   required from ‘void run_qconv(Op::LayerBase*, TensorPool&) [with inputT = signed char; weightT = signed char; intrT = int; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:736:44:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:669:17: warning: unused variable ‘fpwidth’ [-Wunused-variable]
+  669 |   constexpr int fpwidth = 16;
+      |                 ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:667:60: warning: unused parameter ‘index’ [-Wunused-parameter]
+  667 |                            int max_lim, int shift_val, int index) {
+      |                                                        ~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘outputT quantize_fn(inputT, float, int, int, int, int, int) [with inputT = int; outputT = signed char]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:737:57:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = int; outputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:711:29:   required from ‘void run_qconv(Op::LayerBase*, TensorPool&) [with inputT = signed char; weightT = signed char; intrT = int; outputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:739:43:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:669:17: warning: unused variable ‘fpwidth’ [-Wunused-variable]
+  669 |   constexpr int fpwidth = 16;
+      |                 ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:667:60: warning: unused parameter ‘index’ [-Wunused-parameter]
+  667 |                            int max_lim, int shift_val, int index) {
+      |                                                        ~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘void ConvEngine<inputT, weightT, outputT>::_dw_kernel(int, const Tensor<T>*, Tensor<biasT>*) [with inputT = unsigned char; weightT = signed char; outputT = int]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:974:32:   required from ‘void ConvEngine<inputT, weightT, outputT>::run(const Tensor<T>*, Tensor<biasT>*) [with inputT = unsigned char; weightT = signed char; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:698:16:   required from ‘void run_qconv(Op::LayerBase*, TensorPool&) [with inputT = unsigned char; weightT = signed char; intrT = int; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:742:45:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:916:7: warning: unused variable ‘ic’ [-Wunused-variable]
+  916 |   int ic = input->dims_at(TENSOR_4D_CHANNELS);
+      |       ^~
+In file included from /usr/include/c++/13/cassert:44,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/pybind11.h:26,
+                 from /home/nirdesh/hdd/gaticc/third_party/pybind11/include/pybind11/numpy.h:12,
+                 from /home/nirdesh/hdd/gaticc/src/utils.h:21,
+                 from /home/nirdesh/hdd/gaticc/src/tensor.h:3,
+                 from /home/nirdesh/hdd/gaticc/src/onnx_parser.h:14,
+                 from /home/nirdesh/hdd/gaticc/src/pch.h:6,
+                 from /home/nirdesh/hdd/gaticc/src/optimization.cpp:1:
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘outputT quantize_fn(inputT, float, int, int, int, int, int) [with inputT = float; outputT = float]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:737:57:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:960:29:   required from ‘void run_qeltwise(Op::LayerBase*, TensorPool&) [with inputT = float; intrT = float; outputT = float]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:983:38:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:669:17: warning: unused variable ‘fpwidth’ [-Wunused-variable]
+  669 |   constexpr int fpwidth = 16;
+      |                 ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:667:60: warning: unused parameter ‘index’ [-Wunused-parameter]
+  667 |                            int max_lim, int shift_val, int index) {
+      |                                                        ~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘outputT quantize_fn(inputT, float, int, int, int, int, int) [with inputT = FixedPoint<10, 18>; outputT = signed char]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:737:57:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = FixedPoint<10, 18>; outputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:960:29:   required from ‘void run_qeltwise(Op::LayerBase*, TensorPool&) [with inputT = signed char; intrT = FixedPoint<10, 18>; outputT = signed char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:985:39:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:669:17: warning: unused variable ‘fpwidth’ [-Wunused-variable]
+  669 |   constexpr int fpwidth = 16;
+      |                 ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:667:60: warning: unused parameter ‘index’ [-Wunused-parameter]
+  667 |                            int max_lim, int shift_val, int index) {
+      |                                                        ~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘static T TensorBroadcast<T>::broadcast_view(const Tensor<T>*, const std::vector<int>&, int) [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:567:58:   required from ‘void tensor_qeltwise(Tensor<weightT>*, const Tensor<T>*, const Tensor<T>*, float, float, int, int, int) [with inputT = unsigned char; outputT = FixedPoint<10, 18>]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:926:24:   required from ‘void run_qeltwise(Op::LayerBase*, TensorPool&) [with inputT = unsigned char; intrT = FixedPoint<10, 18>; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:987:41:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:642:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  642 |   for (int j = 0; j < src_dims.size(); j++) {
+      |                   ~~^~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h: In instantiation of ‘outputT quantize_fn(inputT, float, int, int, int, int, int) [with inputT = FixedPoint<10, 18>; outputT = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:737:57:   required from ‘void quantize(const Tensor<T>*, Tensor<weightT>*, const std::vector<float>&, const std::vector<int>&) [with inputT = FixedPoint<10, 18>; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:960:29:   required from ‘void run_qeltwise(Op::LayerBase*, TensorPool&) [with inputT = unsigned char; intrT = FixedPoint<10, 18>; outputT = unsigned char]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:987:41:   required from here
+/home/nirdesh/hdd/gaticc/src/sim.h:669:17: warning: unused variable ‘fpwidth’ [-Wunused-variable]
+  669 |   constexpr int fpwidth = 16;
+      |                 ^~~~~~~
+/home/nirdesh/hdd/gaticc/src/sim.h:667:60: warning: unused parameter ‘index’ [-Wunused-parameter]
+  667 |                            int max_lim, int shift_val, int index) {
+      |                                                        ~~~~^~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘static T TensorBroadcast<T>::broadcast_view(const Tensor<T>*, const std::vector<int>&, int) [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:598:58:   required from ‘void tensor_qeltwise_32bit(Tensor<weightT>*, const Tensor<T>*, const Tensor<T>*, float, float, int, int, int) [with inputT = int; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:889:26:   required from ‘void run_qeltwise(Op::LayerBase*, TensorPool&) [with inputT = int; intrT = int; outputT = int]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:990:44:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:642:21: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  642 |   for (int j = 0; j < src_dims.size(); j++) {
+      |                   ~~^~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘TensorSlice<T>::TensorSlice(Tensor<T>*, std::vector<int>) [with T = double]’:
+/home/nirdesh/hdd/gaticc/src/sim.h:1053:18:   required from ‘void logsoftmax(Tensor<T>*, Tensor<T>*, int) [with T = double]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1088:13:   required from ‘void run_logsoftmax(Op::LayerBase*, TensorPool&) [with inputT = double; outputT = double]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1105:35:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:450:23: warning: comparison of integer expressions of different signedness: ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} and ‘int’ [-Wsign-compare]
+  450 |   assert(slice.size() <= src->dims_size());
+      |          ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘void pickle_tensor(const Tensor<T>*, std::string) [with T = double; std::string = std::__cxx11::basic_string<char>]’:
+/home/nirdesh/hdd/gaticc/src/executor.cpp:196:18:   required from ‘void check_dispatch(const Op::LayerBase*, const Tensor<T>*) [with T = double]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1089:17:   required from ‘void run_logsoftmax(Op::LayerBase*, TensorPool&) [with inputT = double; outputT = double]’
+/home/nirdesh/hdd/gaticc/src/executor.cpp:1105:35:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:717:10: warning: unused variable ‘total_elems’ [-Wunused-variable]
+  717 |   size_t total_elems = t->size();
+      |          ^~~~~~~~~~~
+In file included from /home/nirdesh/hdd/gaticc/src/onnx_parser.h:14,
+                 from /home/nirdesh/hdd/gaticc/src/pch.h:6:
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = double]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = long int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = short int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = long int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/instgen.cpp: In function ‘Op::LayerBase* Op::get_last_layer(const Parser&)’:
+/home/nirdesh/hdd/gaticc/src/instgen.cpp:196:1: warning: control reaches end of non-void function [-Wreturn-type]
+  196 | }
+      | ^
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = double]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = unsigned char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = FixedPoint<10, 18>]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = signed char]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+  226 |   assert(index < dims.size());
+      |          ~~~~~~^~~~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘int TensorExtant<T>::dims_at(int) const [with T = float]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:225:27:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:226:16: warning: comparison of integer expressions of different signedness: ‘int’ and ‘std::vector<int>::size_type’ {aka ‘long unsigned int’} [-Wsign-compare]
+/home/nirdesh/hdd/gaticc/src/tensor.h: In instantiation of ‘std::vector<T>&& Tensor<T>::rget() [with T = int]’:
+/home/nirdesh/hdd/gaticc/src/tensor.h:124:40:   required from here
+/home/nirdesh/hdd/gaticc/src/tensor.h:126:15: warning: returning reference to temporary [-Wreturn-local-addr]
+  126 |   return std::vector<T>();
+      |               ^~~~~~~~~~~
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp: In function ‘void* Op::get_root_node(const Graph*)’:
+/home/nirdesh/hdd/gaticc/src/onnx_parser.cpp:2543:1: warning: control reaches end of non-void function [-Wreturn-type]
+ 2543 | }
+      | ^
+[ 96%] Linking CXX shared library libgati.so
+[ 98%] Built target gati
+[ 98%] Linking CXX shared module _gati.cpython-312-x86_64-linux-gnu.so
+[ 99%] Building CXX object CMakeFiles/gaticc.dir/cmake_pch.hxx.gch
+[ 99%] Built target _gati
+[ 99%] Building CXX object CMakeFiles/gaticc.dir/src/main.cpp.o
+[100%] Linking CXX executable gaticc
+[100%] Built target gaticc

@@ -1456,8 +1456,8 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   } else if (l->inputs.size() == 1) {
     const Op::Layer::QLinearEltwise *cc = dynamic_cast<const Op::Layer::QLinearEltwise *>(l);
     if (cc->constant_data == nullptr) {
-      right_start = -1;
-      right_end = -1;
+      right_start = left_start;
+      right_end = left_end;
     } else {
       uint32_t right_size = left_size;
       right_start = gen.alloc(right_size);
@@ -1483,6 +1483,9 @@ static void gen_eltwise_input_quant(const Op::LayerBase *l,
 
   if (l->input_names.at(0) != l->input_edge_names.at(0)) {
     std::swap(fp_ascale, fp_bscale);
+    std::cout << "Swapped eltwise scales for layer " << l->name << "\n";
+    std::cout<< "input_names[0]: " << l->input_names.at(0)
+              << ", input_edge_names[0]: " << l->input_edge_names.at(0) << "\n";
   }
   inst_set(add_inst, fp_ascale, EltWise_AScale);
   inst_set(add_inst, fp_bscale, EltWise_BScale);
@@ -1672,6 +1675,9 @@ static std::bitset<INST_SIZE_BITS> gen_sigmoid(const Op::LayerBase *l,
   inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
   inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
 
+  inst_set(add_inst, left_start, EltWise_RightOperandStartAddress);
+  inst_set(add_inst, left_end, EltWise_RightOperandEndAddress);
+
   return add_inst;
 }
 
@@ -1728,10 +1734,32 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> concat_inst;
   inst_set(concat_inst, OP_CONCAT, CONCAT_Opcode);
 
-  int number_of_concat_inputs = l->inputs.size();
+  std::unordered_map<std::string,int> in_map;
+  for(auto i:l->input_names){
+    in_map[i]++;
+  }
+
+  std::vector<std::pair<Op::VirtualAddress, std::string>> unique_inputs;
+
+  for(int i=0;i<l->inputs.size();i++){
+     unique_inputs.push_back({l->inputs[i],l->input_edge_names[i]});
+  }
+
+  std::sort(unique_inputs.begin(),unique_inputs.end(),
+  [&](const std::pair<Op::VirtualAddress, std::string> &a,
+      const std::pair<Op::VirtualAddress, std::string> &b) {
+    return in_map[a.second] < in_map[b.second];
+  });
+
+  std::vector<Op::VirtualAddress> sorted_inputs;
+  for(auto &p:unique_inputs){
+    sorted_inputs.push_back(p.first);
+  }
+
+  int number_of_concat_inputs = sorted_inputs.size();
   inst_set(concat_inst, number_of_concat_inputs, CONCAT_InNum);
 
-  uint32_t input1_start = gen.io_addr_from_register(l->inputs.at(0));
+  uint32_t input1_start = gen.io_addr_from_register(sorted_inputs.at(0));
   inst_set(concat_inst, input1_start, CONCAT_Image1StartAddress);
 
   int kernel1_number = l->input_dims.at(0).at(TENSOR_4D_CHANNELS);
@@ -1740,8 +1768,8 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
   int input_height1 = l->input_dims.at(0).at(TENSOR_4D_HEIGHT);
   inst_set(concat_inst, input_height1, CONCAT_IH1);
 
-  if (l->inputs.size() == 2) {
-    uint32_t input2_start = gen.io_addr_from_register(l->inputs.at(1));
+  if (sorted_inputs.size() == 2) {
+    uint32_t input2_start = gen.io_addr_from_register(sorted_inputs.at(1));
     inst_set(concat_inst, input2_start, CONCAT_Image2StartAddress);
 
     int kernel2_number = l->input_dims.at(1).at(TENSOR_4D_CHANNELS);
@@ -1751,8 +1779,8 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
     inst_set(concat_inst, input_height2, CONCAT_IH2);
   }
 
-  if (l->inputs.size() == 3) {
-    uint32_t input3_start = gen.io_addr_from_register(l->inputs.at(2));
+  if (sorted_inputs.size() == 3) {
+    uint32_t input3_start = gen.io_addr_from_register(sorted_inputs.at(2));
     inst_set(concat_inst, input3_start, CONCAT_Image3StartAddress);
 
     int kernel3_number = l->input_dims.at(2).at(TENSOR_4D_CHANNELS);
@@ -1762,8 +1790,8 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
     inst_set(concat_inst, input_height3, CONCAT_IH3);
   }
 
-  if (l->inputs.size() == 4) {
-    uint32_t input4_start = gen.io_addr_from_register(l->inputs.at(3));
+  if (sorted_inputs.size() == 4) {
+    uint32_t input4_start = gen.io_addr_from_register(sorted_inputs.at(3));
     inst_set(concat_inst, input4_start, CONCAT_Image4StartAddress);
 
     int kernel4_number = l->input_dims.at(3).at(TENSOR_4D_CHANNELS);

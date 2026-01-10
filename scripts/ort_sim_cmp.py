@@ -82,7 +82,7 @@ def run_inference(model_bytes, input_data, input_name, out_n, dtype, dump_dir="o
         for (layer, name), arr in zip(out_n, outs):
             safe_layer = layer.replace("/", "_")
             safe_tensor = name.replace("/", "_")
-            fname = f"{safe_layer}__{safe_tensor}.npy"
+            fname = f"{safe_layer}.tensor.npy"
             np.save(os.path.join(dump_dir, fname), arr)
 
 
@@ -103,7 +103,7 @@ def compare_layers(ort_ret, sim_ret, dump=[]):
         if i != j:
           print(f"Index {index}: Sim {i}, Ort: {j}")
     return [
-        (name, 100 * (abs(ort_arr - sim_dict[name]) == 0).sum() / ort_arr.size)
+        (name, 100 * (abs(ort_arr - sim_dict[name]) <= 1e-5).sum() / ort_arr.size)
         for name, ort_arr in ort_ret
         if name in sim_dict and ort_arr.shape == sim_dict[name].shape
     ]

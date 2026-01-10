@@ -13,19 +13,15 @@ import os
 from PIL import Image
 
 def preprocess(img):
-    # scale b/w 0 and 1
-    img = img / 255.
-    # take a (224,224) center crop of the image
-    h, w = img.shape[0], img.shape[1]
-    y0 = (h - 224) // 2
-    x0 = (w - 224) // 2
-    img = img[y0 : y0+224, x0 : x0+224, :]
-    # Normalize (values obtained from millions of imagenet images)
-    img = (img - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
-    img = np.transpose(img, axes=[2, 0, 1])
+    # CIFAR-10 preprocessing
+    img = img / 255.0
+    # Normalization (same as training)
+    img = (img - [0.5, 0.5, 0.5]) / [0.5, 0.5, 0.5]
+    img = np.transpose(img, (2, 0, 1))   # HWC → CHW
     img = img.astype(np.float32)
-    img = np.expand_dims(img, axis=0)
+    img = np.expand_dims(img, axis=0)    # add batch dim
     return img
+
 
 
 def _preprocess_images(images_folder: str, height: int, width: int, size_limit=0):
@@ -47,7 +43,7 @@ def _preprocess_images(images_folder: str, height: int, width: int, size_limit=0
     for image_name in batch_filenames:
         image_filepath = images_folder + "/" + image_name
         pillow_img = Image.new("RGB", (width, height))
-        pillow_img.paste(Image.open(image_filepath).resize((256,256)))
+        pillow_img = Image.open(image_filepath).resize((32, 32))
         nchw_data = preprocess(np.array(pillow_img))
         unconcatenated_batch_data.append(nchw_data)
     batch_data = np.concatenate(
@@ -71,8 +67,8 @@ def raw_load_images(images_folder: str, height: int, width: int, size_limit=0):
     for image_name in batch_filenames:
         image_filepath = images_folder + "/" + image_name
         pillow_img = Image.new("RGB", (width, height))
-        pillow_img.paste(Image.open(image_filepath).resize((width,height)))
-        nchw_data = np.transpose(np.array(pillow_img), [2, 0, 1])
+        pillow_img = Image.open(image_filepath).resize((32, 32))
+        nchw_data = np.transpose(np.array(pillow_img), [2, 0, 1]).astype(np.float32)
         unconcatenated_batch_data.append(nchw_data)
     batch_data = np.concatenate(
         np.expand_dims(unconcatenated_batch_data, axis=0), axis=0
@@ -105,6 +101,39 @@ class ImageNetDataReader(CalibrationDataReader):
 
     def rewind(self):
         self.enum_data = None
+
+class NpyDataReader(CalibrationDataReader):
+    def __init__(self, npy_file: str, model_path: str):
+        self.enum_data = None
+
+        # Load npy file
+        data = np.load(npy_file)  # shape could be (N, 3, 32, 32) or (N, 32, 32, 3)
+        print("Loaded npy file with shape:", data.shape)
+
+        session = onnxruntime.InferenceSession(model_path, None, providers=['CPUExecutionProvider'])
+        self.input_name = session.get_inputs()[0].name
+        self.input_shape = session.get_inputs()[0].shape  # e.g. [1, 3, 32, 32]
+
+        # Fix data shape if necessary
+        if data.ndim == 4:
+            if data.shape[1] == 32:  
+                # probably NHWC → convert to NCHW
+                data = np.transpose(data, (0, 3, 1, 2))
+        else:
+            raise ValueError("Expected npy file with shape (N, H, W, C) or (N, C, H, W)")
+
+        # Add batch dimension = 1 when yielding
+        self.data_list = [np.expand_dims(img.astype(np.float32), axis=0) for img in data]
+        self.datasize = len(self.data_list)
+
+    def get_next(self):
+        if self.enum_data is None:
+            self.enum_data = iter([{self.input_name: d} for d in self.data_list])
+        return next(self.enum_data, None)
+
+    def rewind(self):
+        self.enum_data = None
+
 
 class RawDataReader(CalibrationDataReader):
     def __init__(self, calibration_image_folder: str, model_path: str):
@@ -160,7 +189,7 @@ def get_args():
     )
     parser.add_argument(
         "--quant_format",
-        default=QuantFormat.QDQ,
+        default=QuantFormat.QOperator,
         type=QuantFormat.from_string,
         choices=list(QuantFormat),
     )
@@ -177,7 +206,7 @@ def main():
     # Change this based on the model
     # defines necessary preprocessing function that were applied
     # during training and should be applied during calibration
-    dr = ImageNetDataReader(calibration_dataset_path, input_model_path)
+    dr = NpyDataReader(calibration_dataset_path, input_model_path)
     #dr = RawDataReader(calibration_dataset_path, input_model_path)
 
     model = shape_inference.quant_pre_process(
@@ -191,7 +220,7 @@ def main():
         output_model_path,
         dr,
         quant_format=args.quant_format,
-        per_channel=args.per_channel,
+        # per_channel=args.per_channel,
         weight_type=QuantType.QInt8,
         extra_options={"ActivationSymmetric":True}
     )
@@ -203,3 +232,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

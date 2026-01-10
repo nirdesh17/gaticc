@@ -8,7 +8,7 @@ def post(arr):
 
 if __name__ == "__main__":
   # path = "/home/metal/dev/datasets/gati/"
-  onnx_path = "/home/nirdesh/vicharak/sysim/examples/mnist/concat_deep_pool_int8.onnx"
+  onnx_path = "/home/nirdesh/hdd/gaticc/onnx/yolov8n_quantized_nonms_mAP_20_3.onnx"
   # onnx_path = "/home/nirdesh/vicharak/sysim/onnx/imagenet_resnet50-int8-symmetric.onnx"
   # bitstream = "gati_0.9.11_16116.hex"
   gml_path = "model.gml"

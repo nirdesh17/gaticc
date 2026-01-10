@@ -1,4 +1,3149 @@
-GATICC COMPILE: Using arch: {('vasize', '32'), ('ramsize', '512'), ('sa-arch', '16,1,16'), ('fcbuf-size', '16384'), ('pretty-print-inst-html', ''), ('im2colbuf-size', '512'), ('accbuf-size', '4096')}
-HTML file generated: pretty-print.html
-Run python -m http.server 5587 to start the server
-Open http://localhost:5587/pretty-print.html in your browser to view it
+
+
+
+
+WARNING: Using a hacky (incorrect) implementation of reduce_sum. Inputs pass through
+WARNING: Using a hacky (incorrect) implementation of reduce_sum. Inputs pass through
+WARNING: Using a hacky (incorrect) implementation of reduce_sum. Inputs pass through
+Register Allocator invoked
+Register Allocator invoked
+
+Register Allocator invoked
+Register Allocator invoked
+== Megablock Graph ==
+#0
+Type: NoOp
+Params: (null)
+Name: NoOp
+Input Registers: 0 
+Output Registers: 1 
+Input Type: FLOAT 
+Output Type: FLOAT 
+Device DEVICE_CPU
+Input dims: [1,  3,  640,  640,  ] 
+Output dims: [1,  3,  640,  640,  ] 
+
+#1
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 3,640,3) (KN,KC,KH,KW: 16,3,3,3) (S,P,D: 2,1,1) x_scale: 0.00787402 x_zero_point: 0 
+Pipeline Odims: 1 16 320 320 
+Name: /model.0/conv/Conv_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  3,  640,  640,  ] 
+Output dims: [1,  16,  320,  320,  ] 
+
+#2
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 16,320,16) x_scale: 0.514988 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 16 320 320 
+Name: /model.0/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  320,  320,  ] 
+Output dims: [1,  16,  320,  320,  ] 
+
+#3
+Type: QLinearEltwise
+Params: (null)
+Name: /model.0/act/Mul_quant
+Input Registers: 2 1 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  320,  320,  ] [1,  16,  320,  320,  ] 
+Output dims: [1,  16,  320,  320,  ] 
+
+#4
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 16,320,16) (KN,KC,KH,KW: 32,16,3,3) (S,P,D: 2,1,1) x_scale: 0.495253 x_zero_point: 0 
+Pipeline Odims: 1 32 160 160 
+Name: /model.1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  320,  320,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#5
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,160,32) x_scale: 1.40312 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 32 160 160 
+Name: /model.1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  160,  160,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#6
+Type: QLinearEltwise
+Params: (null)
+Name: /model.1/act/Mul_quant
+Input Registers: 1 2 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  160,  160,  ] [1,  32,  160,  160,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#7
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 32,160,32) (KN,KC,KH,KW: 32,32,1,1) (S,P,D: 1,0,1) x_scale: 1.36179 x_zero_point: 0 
+Pipeline Odims: 1 32 160 160 
+Name: /model.2/cv1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  160,  160,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#8
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,160,32) x_scale: 0.996042 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 32 160 160 
+Name: /model.2/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  160,  160,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#9
+Type: QLinearEltwise
+Params: (null)
+Name: /model.2/cv1/act/Mul_quant
+Input Registers: 1 2 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  160,  160,  ] [1,  32,  160,  160,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#10
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 16,160,16) (KN,KC,KH,KW: 16,16,3,3) (S,P,D: 1,1,1) x_scale: 0.364456 x_zero_point: 0 
+Pipeline Odims: 1 16 160 160 
+Name: /model.2/m.0/cv1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#11
+Type: QLinearEltwise
+Params: (null)
+Name: /model.2/Concat_quant_concat_eltwise_0
+Input Registers: 3 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#12
+Type: QLinearEltwise
+Params: (null)
+Name: /model.2/Concat_quant_concat_eltwise_1
+Input Registers: 3 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#13
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 16,160,16) x_scale: 0.3666 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 16 160 160 
+Name: /model.2/m.0/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#14
+Type: QLinearEltwise
+Params: (null)
+Name: /model.2/m.0/cv1/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 6 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#15
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 16,160,16) (KN,KC,KH,KW: 16,16,3,3) (S,P,D: 1,1,1) x_scale: 0.301589 x_zero_point: 0 
+Pipeline Odims: 1 16 160 160 
+Name: /model.2/m.0/cv2/conv/Conv_quant
+Input Registers: 6 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#16
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 16,160,16) x_scale: 0.394248 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 16 160 160 
+Name: /model.2/m.0/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#17
+Type: QLinearEltwise
+Params: (null)
+Name: /model.2/m.0/cv2/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 6 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#18
+Type: QLinearEltwise
+Params: (null)
+Name: /model.2/m.0/Add_quant
+Input Registers: 3 6 
+Output Registers: 1 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#19
+Type: QLinearEltwise
+Params: (null)
+Name: /model.2/Concat_quant_concat_eltwise_2
+Input Registers: 1 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] 
+Output dims: [1,  16,  160,  160,  ] 
+
+#20
+Type: QLinearConcat
+Params: (null)
+Name: /model.2/Concat_quant_concat_0
+Input Registers: 2 4 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  16,  160,  160,  ] [1,  16,  160,  160,  ] [1,  16,  160,  160,  ] 
+Output dims: [1,  48,  160,  160,  ] 
+
+#21
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 48,160,48) (KN,KC,KH,KW: 32,48,1,1) (S,P,D: 1,0,1) x_scale: 0.378646 x_zero_point: 0 
+Pipeline Odims: 1 32 160 160 
+Name: /model.2/cv2/conv/Conv_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  48,  160,  160,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#22
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,160,32) x_scale: 0.257133 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 32 160 160 
+Name: /model.2/cv2/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  160,  160,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#23
+Type: QLinearEltwise
+Params: (null)
+Name: /model.2/cv2/act/Mul_quant
+Input Registers: 2 1 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  160,  160,  ] [1,  32,  160,  160,  ] 
+Output dims: [1,  32,  160,  160,  ] 
+
+#24
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 32,160,32) (KN,KC,KH,KW: 64,32,3,3) (S,P,D: 2,1,1) x_scale: 0.170016 x_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.3/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  160,  160,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#25
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,80,64) x_scale: 0.178689 x_zero_point: 0 
+y_scale: 0.00787363 y_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.3/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#26
+Type: QLinearEltwise
+Params: (null)
+Name: /model.3/act/Mul_quant
+Input Registers: 1 2 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#27
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,80,64) (KN,KC,KH,KW: 64,64,1,1) (S,P,D: 1,0,1) x_scale: 0.0780757 x_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.4/cv1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#28
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,80,64) x_scale: 0.129972 x_zero_point: 0 
+y_scale: 0.00787399 y_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.4/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#29
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/cv1/act/Mul_quant
+Input Registers: 1 2 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#30
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 32,80,32) (KN,KC,KH,KW: 32,32,3,3) (S,P,D: 1,1,1) x_scale: 0.100293 x_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.4/m.0/cv1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#31
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/Concat_quant_concat_eltwise_0
+Input Registers: 3 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#32
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/Concat_quant_concat_eltwise_1
+Input Registers: 3 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#33
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,80,32) x_scale: 0.062442 x_zero_point: 0 
+y_scale: 0.0078557 y_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.4/m.0/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#34
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/m.0/cv1/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 6 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#35
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 32,80,32) (KN,KC,KH,KW: 32,32,3,3) (S,P,D: 1,1,1) x_scale: 0.0476169 x_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.4/m.0/cv2/conv/Conv_quant
+Input Registers: 6 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#36
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,80,32) x_scale: 0.0786001 x_zero_point: 0 
+y_scale: 0.00786588 y_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.4/m.0/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#37
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/m.0/cv2/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 6 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#38
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/m.0/Add_quant
+Input Registers: 3 6 
+Output Registers: 1 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#39
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 32,80,32) (KN,KC,KH,KW: 32,32,3,3) (S,P,D: 1,1,1) x_scale: 0.0676426 x_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.4/m.1/cv1/conv/Conv_quant
+Input Registers: 1 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#40
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/Concat_quant_concat_eltwise_2
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#41
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,80,32) x_scale: 0.0765897 x_zero_point: 0 
+y_scale: 0.00784602 y_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.4/m.1/cv1/act/Sigmoid_quant
+Input Registers: 3 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#42
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/m.1/cv1/act/Mul_quant
+Input Registers: 3 6 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#43
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 32,80,32) (KN,KC,KH,KW: 32,32,3,3) (S,P,D: 1,1,1) x_scale: 0.0442175 x_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.4/m.1/cv2/conv/Conv_quant
+Input Registers: 7 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#44
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,80,32) x_scale: 0.127116 x_zero_point: 0 
+y_scale: 0.00787391 y_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.4/m.1/cv2/act/Sigmoid_quant
+Input Registers: 3 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#45
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/m.1/cv2/act/Mul_quant
+Input Registers: 3 6 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#46
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/m.1/Add_quant
+Input Registers: 1 7 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#47
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/Concat_quant_concat_eltwise_3
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#48
+Type: QLinearConcat
+Params: (null)
+Name: /model.4/Concat_quant_concat_0
+Input Registers: 2 4 5 1 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  128,  80,  80,  ] 
+
+#49
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,80,128) (KN,KC,KH,KW: 64,128,1,1) (S,P,D: 1,0,1) x_scale: 0.122073 x_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.4/cv2/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#50
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,80,64) x_scale: 0.0911003 x_zero_point: 0 
+y_scale: 0.00787378 y_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.4/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#51
+Type: QLinearEltwise
+Params: (null)
+Name: /model.4/cv2/act/Mul_quant
+Input Registers: 1 2 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#52
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,80,64) (KN,KC,KH,KW: 128,64,3,3) (S,P,D: 2,1,1) x_scale: 0.0821025 x_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.5/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#53
+Type: QLinearEltwise
+Params: (null)
+Name: /model.14/Concat_quant_concat_eltwise_1
+Input Registers: 3 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#54
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,40,128) x_scale: 0.129761 x_zero_point: 0 
+y_scale: 0.00787219 y_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.5/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#55
+Type: QLinearEltwise
+Params: (null)
+Name: /model.5/act/Mul_quant
+Input Registers: 1 3 
+Output Registers: 4 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#56
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,40,128) (KN,KC,KH,KW: 128,128,1,1) (S,P,D: 1,0,1) x_scale: 0.0659024 x_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.6/cv1/conv/Conv_quant
+Input Registers: 4 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#57
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,40,128) x_scale: 0.0999548 x_zero_point: 0 
+y_scale: 0.0078739 y_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.6/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#58
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/cv1/act/Mul_quant
+Input Registers: 1 3 
+Output Registers: 4 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#59
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0875776 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.6/m.0/cv1/conv/Conv_quant
+Input Registers: 4 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#60
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/Concat_quant_concat_eltwise_0
+Input Registers: 4 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#61
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/Concat_quant_concat_eltwise_1
+Input Registers: 4 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#62
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.0954889 x_zero_point: 0 
+y_scale: 0.00787316 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.6/m.0/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#63
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/m.0/cv1/act/Mul_quant
+Input Registers: 1 6 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#64
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0718533 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.6/m.0/cv2/conv/Conv_quant
+Input Registers: 7 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#65
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.0752882 x_zero_point: 0 
+y_scale: 0.00787164 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.6/m.0/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#66
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/m.0/cv2/act/Mul_quant
+Input Registers: 1 6 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#67
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/m.0/Add_quant
+Input Registers: 4 7 
+Output Registers: 1 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#68
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0851162 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.6/m.1/cv1/conv/Conv_quant
+Input Registers: 1 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#69
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/Concat_quant_concat_eltwise_2
+Input Registers: 1 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#70
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.0849634 x_zero_point: 0 
+y_scale: 0.00787385 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.6/m.1/cv1/act/Sigmoid_quant
+Input Registers: 4 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#71
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/m.1/cv1/act/Mul_quant
+Input Registers: 4 7 
+Output Registers: 8 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#72
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0849616 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.6/m.1/cv2/conv/Conv_quant
+Input Registers: 8 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#73
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.213003 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.6/m.1/cv2/act/Sigmoid_quant
+Input Registers: 4 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#74
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/m.1/cv2/act/Mul_quant
+Input Registers: 4 7 
+Output Registers: 8 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#75
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/m.1/Add_quant
+Input Registers: 1 8 
+Output Registers: 4 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#76
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/Concat_quant_concat_eltwise_3
+Input Registers: 4 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#77
+Type: QLinearConcat
+Params: (null)
+Name: /model.6/Concat_quant_concat_0
+Input Registers: 3 5 6 1 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  256,  40,  40,  ] 
+
+#78
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 256,40,256) (KN,KC,KH,KW: 128,256,1,1) (S,P,D: 1,0,1) x_scale: 0.2087 x_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.6/cv2/conv/Conv_quant
+Input Registers: 4 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#79
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,40,128) x_scale: 0.0850252 x_zero_point: 0 
+y_scale: 0.00787366 y_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.6/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#80
+Type: QLinearEltwise
+Params: (null)
+Name: /model.6/cv2/act/Mul_quant
+Input Registers: 1 3 
+Output Registers: 4 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#81
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,40,128) (KN,KC,KH,KW: 256,128,3,3) (S,P,D: 2,1,1) x_scale: 0.0788062 x_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.7/conv/Conv_quant
+Input Registers: 4 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#82
+Type: QLinearEltwise
+Params: (null)
+Name: /model.11/Concat_quant_concat_eltwise_1
+Input Registers: 4 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#83
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 256,20,256) x_scale: 0.0881408 x_zero_point: 0 
+y_scale: 0.00787391 y_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.7/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#84
+Type: QLinearEltwise
+Params: (null)
+Name: /model.7/act/Mul_quant
+Input Registers: 1 4 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#85
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 256,20,256) (KN,KC,KH,KW: 256,256,1,1) (S,P,D: 1,0,1) x_scale: 0.0881396 x_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.8/cv1/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#86
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 256,20,256) x_scale: 0.136832 x_zero_point: 0 
+y_scale: 0.00787401 y_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.8/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#87
+Type: QLinearEltwise
+Params: (null)
+Name: /model.8/cv1/act/Mul_quant
+Input Registers: 1 4 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#88
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,20,128) (KN,KC,KH,KW: 128,128,3,3) (S,P,D: 1,1,1) x_scale: 0.120694 x_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.8/m.0/cv1/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#89
+Type: QLinearEltwise
+Params: (null)
+Name: /model.8/Concat_quant_concat_eltwise_0
+Input Registers: 5 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#90
+Type: QLinearEltwise
+Params: (null)
+Name: /model.8/Concat_quant_concat_eltwise_1
+Input Registers: 5 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#91
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,20,128) x_scale: 0.111439 x_zero_point: 0 
+y_scale: 0.00787401 y_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.8/m.0/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#92
+Type: QLinearEltwise
+Params: (null)
+Name: /model.8/m.0/cv1/act/Mul_quant
+Input Registers: 1 7 
+Output Registers: 8 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#93
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,20,128) (KN,KC,KH,KW: 128,128,3,3) (S,P,D: 1,1,1) x_scale: 0.111438 x_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.8/m.0/cv2/conv/Conv_quant
+Input Registers: 8 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#94
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,20,128) x_scale: 0.171025 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.8/m.0/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#95
+Type: QLinearEltwise
+Params: (null)
+Name: /model.8/m.0/cv2/act/Mul_quant
+Input Registers: 1 7 
+Output Registers: 8 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#96
+Type: QLinearEltwise
+Params: (null)
+Name: /model.8/m.0/Add_quant
+Input Registers: 5 8 
+Output Registers: 1 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#97
+Type: QLinearEltwise
+Params: (null)
+Name: /model.8/Concat_quant_concat_eltwise_2
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#98
+Type: QLinearConcat
+Params: (null)
+Name: /model.8/Concat_quant_concat_0
+Input Registers: 4 6 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  384,  20,  20,  ] 
+
+#99
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 384,20,384) (KN,KC,KH,KW: 256,384,1,1) (S,P,D: 1,0,1) x_scale: 0.16926 x_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.8/cv2/conv/Conv_quant
+Input Registers: 1 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  384,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#100
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 256,20,256) x_scale: 0.106938 x_zero_point: 0 
+y_scale: 0.00787397 y_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.8/cv2/act/Sigmoid_quant
+Input Registers: 4 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#101
+Type: QLinearEltwise
+Params: (null)
+Name: /model.8/cv2/act/Mul_quant
+Input Registers: 4 1 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#102
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 256,20,256) (KN,KC,KH,KW: 128,256,1,1) (S,P,D: 1,0,1) x_scale: 0.0949919 x_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.9/cv1/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#103
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,20,128) x_scale: 0.0732876 x_zero_point: 0 
+y_scale: 0.0078733 y_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.9/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#104
+Type: QLinearEltwise
+Params: (null)
+Name: /model.9/cv1/act/Mul_quant
+Input Registers: 1 4 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#105
+Type: Maxpool
+Params: (IC,IW,IH: 128,20,20) (KS: 1,5) (pad: 2,0,2,0) (stride: 1,1) (dilation: 1,1)
+Name: decomposed_/model.9/m/MaxPool0
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#106
+Type: QLinearEltwise
+Params: (null)
+Name: /model.9/Concat_quant_concat_eltwise_0
+Input Registers: 5 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#107
+Type: Maxpool
+Params: (IC,IW,IH: 128,20,20) (KS: 5,1) (pad: 0,2,0,2) (stride: 1,1) (dilation: 1,1)
+Name: decomposed_/model.9/m/MaxPool1
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#108
+Type: Maxpool
+Params: (IC,IW,IH: 128,20,20) (KS: 1,5) (pad: 2,0,2,0) (stride: 1,1) (dilation: 1,1)
+Name: decomposed_/model.9/m_1/MaxPool0
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#109
+Type: QLinearEltwise
+Params: (null)
+Name: /model.9/Concat_quant_concat_eltwise_1
+Input Registers: 5 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#110
+Type: Maxpool
+Params: (IC,IW,IH: 128,20,20) (KS: 5,1) (pad: 0,2,0,2) (stride: 1,1) (dilation: 1,1)
+Name: decomposed_/model.9/m_1/MaxPool1
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#111
+Type: Maxpool
+Params: (IC,IW,IH: 128,20,20) (KS: 1,5) (pad: 2,0,2,0) (stride: 1,1) (dilation: 1,1)
+Name: decomposed_/model.9/m_2/MaxPool0
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#112
+Type: QLinearEltwise
+Params: (null)
+Name: /model.9/Concat_quant_concat_eltwise_2
+Input Registers: 5 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#113
+Type: Maxpool
+Params: (IC,IW,IH: 128,20,20) (KS: 5,1) (pad: 0,2,0,2) (stride: 1,1) (dilation: 1,1)
+Name: decomposed_/model.9/m_2/MaxPool1
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#114
+Type: QLinearEltwise
+Params: (null)
+Name: /model.9/Concat_quant_concat_eltwise_3
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#115
+Type: QLinearConcat
+Params: (null)
+Name: /model.9/Concat_quant_concat_0
+Input Registers: 4 6 7 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  512,  20,  20,  ] 
+
+#116
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 512,20,512) (KN,KC,KH,KW: 256,512,1,1) (S,P,D: 1,0,1) x_scale: 0.0732809 x_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.9/cv2/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  512,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#117
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 256,20,256) x_scale: 0.0821704 x_zero_point: 0 
+y_scale: 0.00787378 y_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.9/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#118
+Type: QLinearEltwise
+Params: (null)
+Name: /model.9/cv2/act/Mul_quant
+Input Registers: 1 4 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#119
+Type: Resize
+Params: (mode: nearest)
+Name: /model.10/Resize
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  40,  40,  ] 
+
+#120
+Type: QLinearEltwise
+Params: (null)
+Name: /model.20/Concat_quant_concat_eltwise_1
+Input Registers: 5 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#121
+Type: QLinearEltwise
+Params: (null)
+Name: /model.11/Concat_quant_concat_eltwise_0
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  40,  40,  ] 
+Output dims: [1,  256,  40,  40,  ] 
+
+#122
+Type: QLinearConcat
+Params: (null)
+Name: /model.11/Concat_quant_concat_0
+Input Registers: 3 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  384,  40,  40,  ] 
+
+#123
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 384,40,384) (KN,KC,KH,KW: 128,384,1,1) (S,P,D: 1,0,1) x_scale: 0.082168 x_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.12/cv1/conv/Conv_quant
+Input Registers: 1 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  384,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#124
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,40,128) x_scale: 0.0812215 x_zero_point: 0 
+y_scale: 0.00787357 y_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.12/cv1/act/Sigmoid_quant
+Input Registers: 3 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#125
+Type: QLinearEltwise
+Params: (null)
+Name: /model.12/cv1/act/Mul_quant
+Input Registers: 3 1 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#126
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0769399 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.12/m.0/cv1/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#127
+Type: QLinearEltwise
+Params: (null)
+Name: /model.12/Concat_quant_concat_eltwise_0
+Input Registers: 5 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#128
+Type: QLinearEltwise
+Params: (null)
+Name: /model.12/Concat_quant_concat_eltwise_1
+Input Registers: 5 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#129
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.100463 x_zero_point: 0 
+y_scale: 0.00787307 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.12/m.0/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#130
+Type: QLinearEltwise
+Params: (null)
+Name: /model.12/m.0/cv1/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#131
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0710751 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.12/m.0/cv2/conv/Conv_quant
+Input Registers: 7 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#132
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.096974 x_zero_point: 0 
+y_scale: 0.00787398 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.12/m.0/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#133
+Type: QLinearEltwise
+Params: (null)
+Name: /model.12/m.0/cv2/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#134
+Type: QLinearEltwise
+Params: (null)
+Name: /model.12/Concat_quant_concat_eltwise_2
+Input Registers: 7 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#135
+Type: QLinearConcat
+Params: (null)
+Name: /model.12/Concat_quant_concat_0
+Input Registers: 3 6 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  192,  40,  40,  ] 
+
+#136
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 192,40,192) (KN,KC,KH,KW: 128,192,1,1) (S,P,D: 1,0,1) x_scale: 0.0969736 x_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.12/cv2/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  192,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#137
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,40,128) x_scale: 0.1027 x_zero_point: 0 
+y_scale: 0.00787293 y_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.12/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#138
+Type: QLinearEltwise
+Params: (null)
+Name: /model.12/cv2/act/Mul_quant
+Input Registers: 1 3 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#139
+Type: Resize
+Params: (mode: nearest)
+Name: /model.13/Resize
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  80,  80,  ] 
+
+#140
+Type: QLinearEltwise
+Params: (null)
+Name: /model.17/Concat_quant_concat_eltwise_1
+Input Registers: 5 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#141
+Type: QLinearEltwise
+Params: (null)
+Name: /model.14/Concat_quant_concat_eltwise_0
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  80,  80,  ] 
+Output dims: [1,  128,  80,  80,  ] 
+
+#142
+Type: QLinearConcat
+Params: (null)
+Name: /model.14/Concat_quant_concat_0
+Input Registers: 2 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  80,  80,  ] [1,  64,  80,  80,  ] 
+Output dims: [1,  192,  80,  80,  ] 
+
+#143
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 192,80,192) (KN,KC,KH,KW: 64,192,1,1) (S,P,D: 1,0,1) x_scale: 0.0821025 x_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.15/cv1/conv/Conv_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  192,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#144
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,80,64) x_scale: 0.102406 x_zero_point: 0 
+y_scale: 0.00786782 y_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.15/cv1/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#145
+Type: QLinearEltwise
+Params: (null)
+Name: /model.15/cv1/act/Mul_quant
+Input Registers: 2 1 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#146
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 32,80,32) (KN,KC,KH,KW: 32,32,3,3) (S,P,D: 1,1,1) x_scale: 0.0562306 x_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.15/m.0/cv1/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#147
+Type: QLinearEltwise
+Params: (null)
+Name: /model.15/Concat_quant_concat_eltwise_0
+Input Registers: 5 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#148
+Type: QLinearEltwise
+Params: (null)
+Name: /model.15/Concat_quant_concat_eltwise_1
+Input Registers: 5 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#149
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,80,32) x_scale: 0.0610457 x_zero_point: 0 
+y_scale: 0.00783904 y_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.15/m.0/cv1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#150
+Type: QLinearEltwise
+Params: (null)
+Name: /model.15/m.0/cv1/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#151
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 32,80,32) (KN,KC,KH,KW: 32,32,3,3) (S,P,D: 1,1,1) x_scale: 0.0424262 x_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.15/m.0/cv2/conv/Conv_quant
+Input Registers: 7 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#152
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 32,80,32) x_scale: 0.0740192 x_zero_point: 0 
+y_scale: 0.00787276 y_zero_point: 0 
+Pipeline Odims: 1 32 80 80 
+Name: /model.15/m.0/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#153
+Type: QLinearEltwise
+Params: (null)
+Name: /model.15/m.0/cv2/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#154
+Type: QLinearEltwise
+Params: (null)
+Name: /model.15/Concat_quant_concat_eltwise_2
+Input Registers: 7 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] 
+Output dims: [1,  32,  80,  80,  ] 
+
+#155
+Type: QLinearConcat
+Params: (null)
+Name: /model.15/Concat_quant_concat_0
+Input Registers: 2 6 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] [1,  32,  80,  80,  ] 
+Output dims: [1,  96,  80,  80,  ] 
+
+#156
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 96,80,96) (KN,KC,KH,KW: 64,96,1,1) (S,P,D: 1,0,1) x_scale: 0.0688647 x_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.15/cv2/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  96,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#157
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,80,64) x_scale: 0.10109 x_zero_point: 0 
+y_scale: 0.00787218 y_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.15/cv2/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#158
+Type: QLinearEltwise
+Params: (null)
+Name: /model.15/cv2/act/Mul_quant
+Input Registers: 1 2 
+Output Registers: 5 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#159
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,80,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 2,1,1) x_scale: 0.0658603 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.16/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#160
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,80,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0658603 x_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.22/cv2.0/cv2.0.0/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#161
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,80,64) (KN,KC,KH,KW: 80,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0658603 x_zero_point: 0 
+Pipeline Odims: 1 80 80 80 
+Name: /model.22/cv3.0/cv3.0.0/conv/Conv_quant
+Input Registers: 5 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  80,  80,  80,  ] 
+
+#162
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.0825854 x_zero_point: 0 
+y_scale: 0.00787298 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.16/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#163
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,80,64) x_scale: 0.179407 x_zero_point: 0 
+y_scale: 0.00787259 y_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.22/cv2.0/cv2.0.0/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#164
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,80,80) x_scale: 0.116602 x_zero_point: 0 
+y_scale: 0.00787263 y_zero_point: 0 
+Pipeline Odims: 1 80 80 80 
+Name: /model.22/cv3.0/cv3.0.0/act/Sigmoid_quant
+Input Registers: 6 
+Output Registers: 8 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  80,  80,  ] 
+Output dims: [1,  80,  80,  80,  ] 
+
+#165
+Type: QLinearEltwise
+Params: (null)
+Name: /model.16/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 9 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#166
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv2.0/cv2.0.0/act/Mul_quant
+Input Registers: 2 7 
+Output Registers: 1 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#167
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv3.0/cv3.0.0/act/Mul_quant
+Input Registers: 6 8 
+Output Registers: 2 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  80,  80,  ] [1,  80,  80,  80,  ] 
+Output dims: [1,  80,  80,  80,  ] 
+
+#168
+Type: QLinearEltwise
+Params: (null)
+Name: /model.17/Concat_quant_concat_eltwise_0
+Input Registers: 9 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#169
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,80,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0678252 x_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.22/cv2.0/cv2.0.1/conv/Conv_quant
+Input Registers: 1 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#170
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 80,80,80) (KN,KC,KH,KW: 80,80,3,3) (S,P,D: 1,1,1) x_scale: 0.068051 x_zero_point: 0 
+Pipeline Odims: 1 80 80 80 
+Name: /model.22/cv3.0/cv3.0.1/conv/Conv_quant
+Input Registers: 2 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  80,  80,  ] 
+Output dims: [1,  80,  80,  80,  ] 
+
+#171
+Type: QLinearConcat
+Params: (null)
+Name: /model.17/Concat_quant_concat_0
+Input Registers: 3 5 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  192,  40,  40,  ] 
+
+#172
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,80,64) x_scale: 0.408304 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.22/cv2.0/cv2.0.1/act/Sigmoid_quant
+Input Registers: 6 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#173
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,80,80) x_scale: 1.06072 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 80 80 80 
+Name: /model.22/cv3.0/cv3.0.1/act/Sigmoid_quant
+Input Registers: 1 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  80,  80,  ] 
+Output dims: [1,  80,  80,  80,  ] 
+
+#174
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 192,40,192) (KN,KC,KH,KW: 128,192,1,1) (S,P,D: 1,0,1) x_scale: 0.0703787 x_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.18/cv1/conv/Conv_quant
+Input Registers: 2 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  192,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#175
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv2.0/cv2.0.1/act/Mul_quant
+Input Registers: 6 3 
+Output Registers: 2 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#176
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv3.0/cv3.0.1/act/Mul_quant
+Input Registers: 1 5 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  80,  80,  ] [1,  80,  80,  80,  ] 
+Output dims: [1,  80,  80,  80,  ] 
+
+#177
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,40,128) x_scale: 0.0967743 x_zero_point: 0 
+y_scale: 0.00787398 y_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.18/cv1/act/Sigmoid_quant
+Input Registers: 7 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#178
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,80,64) (KN,KC,KH,KW: 64,64,1,1) (S,P,D: 1,0,1) x_scale: 0.408304 x_zero_point: 0 
+Pipeline Odims: 1 64 80 80 
+Name: /model.22/cv2.0/cv2.0.2/Conv_quant
+Input Registers: 2 
+Output Registers: 5 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  80,  80,  ] 
+Output dims: [1,  64,  80,  80,  ] 
+
+#179
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 80,80,80) (KN,KC,KH,KW: 80,80,1,1) (S,P,D: 1,0,1) x_scale: 1.02973 x_zero_point: 0 
+Pipeline Odims: 1 80 80 80 
+Name: /model.22/cv3.0/cv3.0.2/Conv_quant
+Input Registers: 3 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  80,  80,  ] 
+Output dims: [1,  80,  80,  80,  ] 
+
+#180
+Type: QLinearEltwise
+Params: (null)
+Name: /model.18/cv1/act/Mul_quant
+Input Registers: 7 1 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#181
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,80,80) x_scale: 0.329993 x_zero_point: 0 
+y_scale: 0.00733581 y_zero_point: 0 
+Pipeline Odims: 1 80 80 80 
+Name: /model.22/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 1 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  80,  80,  ] 
+Output dims: [1,  80,  80,  80,  ] 
+
+#182
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.0967739 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.18/m.0/cv1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#183
+Type: QLinearEltwise
+Params: (null)
+Name: /model.18/Concat_quant_concat_eltwise_0
+Input Registers: 3 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#184
+Type: QLinearEltwise
+Params: (null)
+Name: /model.18/Concat_quant_concat_eltwise_1
+Input Registers: 3 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#185
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.0820828 x_zero_point: 0 
+y_scale: 0.00785258 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.18/m.0/cv1/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#186
+Type: QLinearEltwise
+Params: (null)
+Name: /model.18/m.0/cv1/act/Mul_quant
+Input Registers: 2 3 
+Output Registers: 8 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#187
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.046357 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.18/m.0/cv2/conv/Conv_quant
+Input Registers: 8 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#188
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.11929 x_zero_point: 0 
+y_scale: 0.00787401 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.18/m.0/cv2/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#189
+Type: QLinearEltwise
+Params: (null)
+Name: /model.18/m.0/cv2/act/Mul_quant
+Input Registers: 2 3 
+Output Registers: 8 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#190
+Type: QLinearEltwise
+Params: (null)
+Name: /model.18/Concat_quant_concat_eltwise_2
+Input Registers: 8 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#191
+Type: QLinearConcat
+Params: (null)
+Name: /model.18/Concat_quant_concat_0
+Input Registers: 6 7 2 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  192,  40,  40,  ] 
+
+#192
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 192,40,192) (KN,KC,KH,KW: 128,192,1,1) (S,P,D: 1,0,1) x_scale: 0.106609 x_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.18/cv2/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  192,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#193
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,40,128) x_scale: 0.144568 x_zero_point: 0 
+y_scale: 0.00787193 y_zero_point: 0 
+Pipeline Odims: 1 128 40 40 
+Name: /model.18/cv2/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#194
+Type: QLinearEltwise
+Params: (null)
+Name: /model.18/cv2/act/Mul_quant
+Input Registers: 2 3 
+Output Registers: 6 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  40,  40,  ] 
+
+#195
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,40,128) (KN,KC,KH,KW: 128,128,3,3) (S,P,D: 2,1,1) x_scale: 0.0648388 x_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.19/conv/Conv_quant
+Input Registers: 6 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#196
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,40,128) (KN,KC,KH,KW: 64,128,3,3) (S,P,D: 1,1,1) x_scale: 0.0648388 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.22/cv2.1/cv2.1.0/conv/Conv_quant
+Input Registers: 6 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#197
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,40,128) (KN,KC,KH,KW: 80,128,3,3) (S,P,D: 1,1,1) x_scale: 0.0648388 x_zero_point: 0 
+Pipeline Odims: 1 80 40 40 
+Name: /model.22/cv3.1/cv3.1.0/conv/Conv_quant
+Input Registers: 6 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  40,  40,  ] 
+Output dims: [1,  80,  40,  40,  ] 
+
+#198
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,20,128) x_scale: 0.129655 x_zero_point: 0 
+y_scale: 0.00787393 y_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.19/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#199
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.167125 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.22/cv2.1/cv2.1.0/act/Sigmoid_quant
+Input Registers: 3 
+Output Registers: 8 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#200
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,40,80) x_scale: 0.142869 x_zero_point: 0 
+y_scale: 0.00787367 y_zero_point: 0 
+Pipeline Odims: 1 80 40 40 
+Name: /model.22/cv3.1/cv3.1.0/act/Sigmoid_quant
+Input Registers: 7 
+Output Registers: 9 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  40,  40,  ] 
+Output dims: [1,  80,  40,  40,  ] 
+
+#201
+Type: QLinearEltwise
+Params: (null)
+Name: /model.19/act/Mul_quant
+Input Registers: 2 6 
+Output Registers: 10 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#202
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv2.1/cv2.1.0/act/Mul_quant
+Input Registers: 3 8 
+Output Registers: 2 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#203
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv3.1/cv3.1.0/act/Mul_quant
+Input Registers: 7 9 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  40,  40,  ] [1,  80,  40,  40,  ] 
+Output dims: [1,  80,  40,  40,  ] 
+
+#204
+Type: QLinearEltwise
+Params: (null)
+Name: /model.20/Concat_quant_concat_eltwise_0
+Input Registers: 10 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#205
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.140536 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.22/cv2.1/cv2.1.1/conv/Conv_quant
+Input Registers: 2 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#206
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 80,40,80) (KN,KC,KH,KW: 80,80,3,3) (S,P,D: 1,1,1) x_scale: 0.0790932 x_zero_point: 0 
+Pipeline Odims: 1 80 40 40 
+Name: /model.22/cv3.1/cv3.1.1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  40,  40,  ] 
+Output dims: [1,  80,  40,  40,  ] 
+
+#207
+Type: QLinearConcat
+Params: (null)
+Name: /model.20/Concat_quant_concat_0
+Input Registers: 4 6 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  256,  20,  20,  ] 
+Output dims: [1,  384,  20,  20,  ] 
+
+#208
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,40,64) x_scale: 0.541753 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.22/cv2.1/cv2.1.1/act/Sigmoid_quant
+Input Registers: 7 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#209
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,40,80) x_scale: 1.23938 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 80 40 40 
+Name: /model.22/cv3.1/cv3.1.1/act/Sigmoid_quant
+Input Registers: 2 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  40,  40,  ] 
+Output dims: [1,  80,  40,  40,  ] 
+
+#210
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 384,20,384) (KN,KC,KH,KW: 256,384,1,1) (S,P,D: 1,0,1) x_scale: 0.0896557 x_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.21/cv1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 8 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  384,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#211
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv2.1/cv2.1.1/act/Mul_quant
+Input Registers: 7 4 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#212
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv3.1/cv3.1.1/act/Mul_quant
+Input Registers: 2 6 
+Output Registers: 4 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  40,  40,  ] [1,  80,  40,  40,  ] 
+Output dims: [1,  80,  40,  40,  ] 
+
+#213
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 256,20,256) x_scale: 0.114821 x_zero_point: 0 
+y_scale: 0.00787401 y_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.21/cv1/act/Sigmoid_quant
+Input Registers: 8 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#214
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,40,64) (KN,KC,KH,KW: 64,64,1,1) (S,P,D: 1,0,1) x_scale: 0.541753 x_zero_point: 0 
+Pipeline Odims: 1 64 40 40 
+Name: /model.22/cv2.1/cv2.1.2/Conv_quant
+Input Registers: 3 
+Output Registers: 6 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  40,  40,  ] 
+Output dims: [1,  64,  40,  40,  ] 
+
+#215
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 80,40,80) (KN,KC,KH,KW: 80,80,1,1) (S,P,D: 1,0,1) x_scale: 1.23938 x_zero_point: 0 
+Pipeline Odims: 1 80 40 40 
+Name: /model.22/cv3.1/cv3.1.2/Conv_quant
+Input Registers: 4 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  40,  40,  ] 
+Output dims: [1,  80,  40,  40,  ] 
+
+#216
+Type: QLinearEltwise
+Params: (null)
+Name: /model.21/cv1/act/Mul_quant
+Input Registers: 8 2 
+Output Registers: 4 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#217
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,40,80) x_scale: 0.493943 x_zero_point: 0 
+y_scale: 0.00767954 y_zero_point: 0 
+Pipeline Odims: 1 80 40 40 
+Name: /model.22/Sigmoid_1_quant
+Input Registers: 3 
+Output Registers: 2 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  40,  40,  ] 
+Output dims: [1,  80,  40,  40,  ] 
+
+#218
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,20,128) (KN,KC,KH,KW: 128,128,3,3) (S,P,D: 1,1,1) x_scale: 0.108641 x_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.21/m.0/cv1/conv/Conv_quant
+Input Registers: 4 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#219
+Type: QLinearEltwise
+Params: (null)
+Name: /model.21/Concat_quant_concat_eltwise_0
+Input Registers: 4 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#220
+Type: QLinearEltwise
+Params: (null)
+Name: /model.21/Concat_quant_concat_eltwise_1
+Input Registers: 4 
+Output Registers: 8 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#221
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,20,128) x_scale: 0.0877581 x_zero_point: 0 
+y_scale: 0.00787233 y_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.21/m.0/cv1/act/Sigmoid_quant
+Input Registers: 3 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#222
+Type: QLinearEltwise
+Params: (null)
+Name: /model.21/m.0/cv1/act/Mul_quant
+Input Registers: 3 4 
+Output Registers: 9 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#223
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 128,20,128) (KN,KC,KH,KW: 128,128,3,3) (S,P,D: 1,1,1) x_scale: 0.0665309 x_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.21/m.0/cv2/conv/Conv_quant
+Input Registers: 9 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#224
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 128,20,128) x_scale: 0.113061 x_zero_point: 0 
+y_scale: 0.00787401 y_zero_point: 0 
+Pipeline Odims: 1 128 20 20 
+Name: /model.21/m.0/cv2/act/Sigmoid_quant
+Input Registers: 3 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#225
+Type: QLinearEltwise
+Params: (null)
+Name: /model.21/m.0/cv2/act/Mul_quant
+Input Registers: 3 4 
+Output Registers: 9 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#226
+Type: QLinearEltwise
+Params: (null)
+Name: /model.21/Concat_quant_concat_eltwise_2
+Input Registers: 9 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] 
+Output dims: [1,  128,  20,  20,  ] 
+
+#227
+Type: QLinearConcat
+Params: (null)
+Name: /model.21/Concat_quant_concat_0
+Input Registers: 7 8 3 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] [1,  128,  20,  20,  ] 
+Output dims: [1,  384,  20,  20,  ] 
+
+#228
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 384,20,384) (KN,KC,KH,KW: 256,384,1,1) (S,P,D: 1,0,1) x_scale: 0.108641 x_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.21/cv2/conv/Conv_quant
+Input Registers: 4 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  384,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#229
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 256,20,256) x_scale: 0.280093 x_zero_point: 0 
+y_scale: 0.007874 y_zero_point: 0 
+Pipeline Odims: 1 256 20 20 
+Name: /model.21/cv2/act/Sigmoid_quant
+Input Registers: 3 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#230
+Type: QLinearEltwise
+Params: (null)
+Name: /model.21/cv2/act/Mul_quant
+Input Registers: 3 4 
+Output Registers: 7 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] [1,  256,  20,  20,  ] 
+Output dims: [1,  256,  20,  20,  ] 
+
+#231
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 256,20,256) (KN,KC,KH,KW: 64,256,3,3) (S,P,D: 1,1,1) x_scale: 0.101566 x_zero_point: 0 
+Pipeline Odims: 1 64 20 20 
+Name: /model.22/cv2.2/cv2.2.0/conv/Conv_quant
+Input Registers: 7 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  64,  20,  20,  ] 
+
+#232
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 256,20,256) (KN,KC,KH,KW: 80,256,3,3) (S,P,D: 1,1,1) x_scale: 0.101566 x_zero_point: 0 
+Pipeline Odims: 1 80 20 20 
+Name: /model.22/cv3.2/cv3.2.0/conv/Conv_quant
+Input Registers: 7 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  256,  20,  20,  ] 
+Output dims: [1,  80,  20,  20,  ] 
+
+#233
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,20,64) x_scale: 0.158772 x_zero_point: 0 
+y_scale: 0.00787401 y_zero_point: 0 
+Pipeline Odims: 1 64 20 20 
+Name: /model.22/cv2.2/cv2.2.0/act/Sigmoid_quant
+Input Registers: 3 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  20,  20,  ] 
+Output dims: [1,  64,  20,  20,  ] 
+
+#234
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,20,80) x_scale: 0.257322 x_zero_point: 0 
+y_scale: 0.00787401 y_zero_point: 0 
+Pipeline Odims: 1 80 20 20 
+Name: /model.22/cv3.2/cv3.2.0/act/Sigmoid_quant
+Input Registers: 4 
+Output Registers: 8 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  20,  20,  ] 
+Output dims: [1,  80,  20,  20,  ] 
+
+#235
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv2.2/cv2.2.0/act/Mul_quant
+Input Registers: 3 7 
+Output Registers: 9 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  20,  20,  ] [1,  64,  20,  20,  ] 
+Output dims: [1,  64,  20,  20,  ] 
+
+#236
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv3.2/cv3.2.0/act/Mul_quant
+Input Registers: 4 8 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  20,  20,  ] [1,  80,  20,  20,  ] 
+Output dims: [1,  80,  20,  20,  ] 
+
+#237
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,20,64) (KN,KC,KH,KW: 64,64,3,3) (S,P,D: 1,1,1) x_scale: 0.119159 x_zero_point: 0 
+Pipeline Odims: 1 64 20 20 
+Name: /model.22/cv2.2/cv2.2.1/conv/Conv_quant
+Input Registers: 9 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  20,  20,  ] 
+Output dims: [1,  64,  20,  20,  ] 
+
+#238
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 80,20,80) (KN,KC,KH,KW: 80,80,3,3) (S,P,D: 1,1,1) x_scale: 0.107151 x_zero_point: 0 
+Pipeline Odims: 1 80 20 20 
+Name: /model.22/cv3.2/cv3.2.1/conv/Conv_quant
+Input Registers: 3 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  20,  20,  ] 
+Output dims: [1,  80,  20,  20,  ] 
+
+#239
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 64,20,64) x_scale: 0.414873 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 64 20 20 
+Name: /model.22/cv2.2/cv2.2.1/act/Sigmoid_quant
+Input Registers: 4 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  20,  20,  ] 
+Output dims: [1,  64,  20,  20,  ] 
+
+#240
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,20,80) x_scale: 0.855773 x_zero_point: 0 
+y_scale: 0.00787402 y_zero_point: 0 
+Pipeline Odims: 1 80 20 20 
+Name: /model.22/cv3.2/cv3.2.1/act/Sigmoid_quant
+Input Registers: 7 
+Output Registers: 8 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  20,  20,  ] 
+Output dims: [1,  80,  20,  20,  ] 
+
+#241
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv2.2/cv2.2.1/act/Mul_quant
+Input Registers: 4 3 
+Output Registers: 9 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  20,  20,  ] [1,  64,  20,  20,  ] 
+Output dims: [1,  64,  20,  20,  ] 
+
+#242
+Type: QLinearEltwise
+Params: (null)
+Name: /model.22/cv3.2/cv3.2.1/act/Mul_quant
+Input Registers: 7 8 
+Output Registers: 3 
+Input Type: INT8 INT8 
+Output Type: INT8 INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  20,  20,  ] [1,  80,  20,  20,  ] 
+Output dims: [1,  80,  20,  20,  ] 
+
+#243
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 64,20,64) (KN,KC,KH,KW: 64,64,1,1) (S,P,D: 1,0,1) x_scale: 0.414873 x_zero_point: 0 
+Pipeline Odims: 1 64 20 20 
+Name: /model.22/cv2.2/cv2.2.2/Conv_quant
+Input Registers: 9 
+Output Registers: 4 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  64,  20,  20,  ] 
+Output dims: [1,  64,  20,  20,  ] 
+
+#244
+Type: QLinearConv
+Params: [ ], (IC,IH,IW: 80,20,80) (KN,KC,KH,KW: 80,80,1,1) (S,P,D: 1,0,1) x_scale: 0.855773 x_zero_point: 0 
+Pipeline Odims: 1 80 20 20 
+Name: /model.22/cv3.2/cv3.2.2/Conv_quant
+Input Registers: 3 
+Output Registers: 7 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  20,  20,  ] 
+Output dims: [1,  80,  20,  20,  ] 
+
+#245
+Type: QLinearSigmoid
+Params: [ ], (IC,IH,IW: 80,20,80) x_scale: 0.495016 x_zero_point: 0 
+y_scale: 0.00765628 y_zero_point: 0 
+Pipeline Odims: 1 80 20 20 
+Name: /model.22/Sigmoid_2_quant
+Input Registers: 7 
+Output Registers: 3 
+Input Type: INT8 
+Output Type: INT8 
+Device DEVICE_FPGA
+Input dims: [1,  80,  20,  20,  ] 
+Output dims: [1,  80,  20,  20,  ] 
+GATICC COMPILE: Using arch: {('accbuf-size', '4096'), ('vasize', '32'), ('sa-arch', '9,4,4'), ('im2colbuf-size', '1024'), ('print-megablock-graph', ''), ('fcbuf-size', '32768'), ('ramsize', '512')}
+

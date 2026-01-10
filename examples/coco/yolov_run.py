@@ -1,13 +1,23 @@
-import onnxruntime as ort
+# import onnxruntime as ort
 import os
 import numpy as np
-import sys
+# import sys
 import cv2
-import json
-from tqdm import tqdm
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
+# import json
+# from tqdm import tqdm
+# from pycocotools.coco import COCO
+# from pycocotools.cocoeval import COCOeval
+import gati
+import argparse
 
+is_video = False
+is_image_dir = False
+is_single_image = False
+temp_in_dir = None
+dir_image = None
+
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 IOU_THRESHOLD = 0.45
 OBJ_THRESH = 0.4
@@ -36,6 +46,8 @@ def preprocess(frame):
     img = img.astype(np.float32) / 255.0
     img = np.transpose(img, (2, 0, 1)) 
     img = np.expand_dims(img, axis=0)
+    img = np.expand_dims(img, axis=0)
+    img = np.ascontiguousarray(img, dtype=np.float32)
     return img
 
 def dfl(position):
@@ -66,8 +78,6 @@ def box_process(position):
     xyxy = np.concatenate((box_xy * stride, box_xy2 * stride), axis=1)
     return xyxy
 
-
-np.set_printoptions(threshold=np.inf)
 def filter_boxes(boxes, box_confidences, box_class_probs):
     """Filter boxes with object threshold.
     """
@@ -125,6 +135,7 @@ def draw(image, boxes, scores, classes, height, width):
         """
         
         for box, score, cl in zip(boxes, scores, classes):
+            print(box, score, cl)   
             top, left, right, bottom = box
             top = int(top*width/640) # x1
             left = int(left*height/640) # y1
@@ -136,9 +147,9 @@ def draw(image, boxes, scores, classes, height, width):
             cv2.putText(image, '{0} {1:.2f} {2}'.format(CLASSES[cl], score, cl),
                         (top, left - 6),
                         cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6, (0, 0, 255), 2)
+                        3, (0, 0, 255), 5)
         
-        cv2.imwrite('output11.jpg', image)
+        cv2.imwrite('output.jpg', image)
         # cv2.imshow('frame', image)
         # cv2.waitKey(0)
 
@@ -148,7 +159,7 @@ class_map = [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20,
 
     
     
-def postprocess(img_id, inference_output, frame, height, width):
+def postprocess(inference_output, frame, height, width):
     boxes, classes_conf, scores = [], [], []
     default_branch = 3
     pair_per_branch = len(inference_output) // default_branch
@@ -165,20 +176,8 @@ def postprocess(img_id, inference_output, frame, height, width):
     boxes = np.concatenate([sp_flatten(b) for b in boxes])
     classes_conf = np.concatenate([sp_flatten(c) for c in classes_conf])
     scores = np.concatenate([sp_flatten(s) for s in scores])
-
-    # print("Boxes shape:", boxes.shape)
-    # print("Classes shape:", classes_conf.shape)
-    # print("Scores shape:", scores.shape)
-    # print(boxes)
-    # print(classes_conf)
-    # print(scores)
-
-    
-    # print("Before NMS:", boxes.shape, classes_conf.shape, scores.shape)
-    # print(boxes, classes_conf, scores)
     boxes, classes, scores = filter_boxes(boxes, scores, classes_conf)
-    # print(boxes.shape, classes.shape, scores.shape)
-    # print(boxes, classes, scores)
+
 
     nboxes, nclasses, nscores = [], [], []
     for c in set(classes):
@@ -191,7 +190,9 @@ def postprocess(img_id, inference_output, frame, height, width):
             nclasses.append(np.full_like(keep, c))
             nscores.append(s[keep])
 
-    coco_results = []
+    print("After NMS:", len(nboxes), len(nclasses), len(nscores))
+
+
     if nclasses or nscores:
         boxes = np.concatenate(nboxes)
         classes = np.concatenate(nclasses)
@@ -200,74 +201,98 @@ def postprocess(img_id, inference_output, frame, height, width):
           box = [box[0]*width/640, box[1]*height/640, box[2]*width/640, box[3]*height/640]
           box_ = [box[0], box[1], box[2] - box[0], box[3] - box[1]]
           ss = class_map[int(cls)]
-          #print(box_, ss, scr)
-          coco_results.append({
-            "image_id": img_id,
-            "category_id": ss,
-            "bbox": box_,
-            "score": round(float(scr), 5)
-          })
     draw(frame, boxes, scores, classes, height, width)
-    return coco_results
 
 
 
 if __name__ == '__main__':
-    modelPath = "/home/nirdesh/hdd/gaticc/onnx/yolov8n_int8.onnx"
-    # modelPath="/home/nirdesh/hdd/gaticc/onnx/yolov8n.onnx"
-    val_images_dir = "/home/nirdesh/hdd/gaticc/images/coco/val2017"
-    ann_path = "/home/nirdesh/hdd/gaticc/images/instances_val2017.json"
+    parser = argparse.ArgumentParser(description="Run ONNX inference on NumPy data.")
+    parser.add_argument("-i", "--image", help="Path to an image or directory of images.")
+    parser.add_argument("-v", "--video", help="Path to a video file.")
+    parser.add_argument("-c", "--camera", action="store_true", help="Use camera for detection.")
+    args = parser.parse_args()
+    onnx_path = "/home/nirdesh/hdd/gaticc/onnx/yolov8n_quantized_nonms_mAP_20_3.onnx"
+    bitstream = "rah_yolov.hex"
+    gml_path = "model.gml"
+    gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
+    gati.compile(onnx_path, gml_path,"pretty-print-inst-html")
+    gati.set_remote("conan.local")
+    gati.flash(bitstream)
+    gati.load(onnx_path, gml_path,"verbose","receive-over-spi")
+    name = gati.get_model_inputs(onnx_path)[0]
 
-    session = ort.InferenceSession(modelPath, providers=["CPUExecutionProvider"])
-    input_name = session.get_inputs()[0].name
-    output_names = [session.get_outputs()[i].name for i in range(9)]
-    for out in session.get_outputs():
-        print("output name:", out.name, "output shape:", out.shape, "output type:", out.type)
+    if args.image:
+        if os.path.isdir(args.image):  
+            dir_image = args.image
+            is_image_dir = True
+        else:
+            is_single_image = True
+            dir_image = os.path.dirname(os.path.abspath(args.image))
+            image_files = [os.path.basename(args.image)]  
+    elif args.video:
+        is_video = True
+        temp_in_dir = os.path.join(script_dir, "temp_in")  
+        os.makedirs(temp_in_dir, exist_ok=True)
 
-    coco = COCO(ann_path)
-    image_ids = coco.getImgIds()
-    coco_results = []
+        dir_image = temp_in_dir
+        cap = cv2.VideoCapture(args.video)
+        idx = 1
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            out_frame = os.path.join(temp_in_dir, f"frame_{idx:06d}.jpg")
+            cv2.imwrite(out_frame, frame)
+            idx += 1
+        cap.release()
+    elif args.camera:
+        cap = cv2.VideoCapture(0)  
+        if not cap.isOpened():
+            print("Could not open camera")
+            exit(1)
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            img = preprocess(frame)
+            # frame = run_inference(onnx_path, img, frame)
+            cv2.imshow("Gati Real-Time Detection", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        cap.release()
+        cv2.destroyAllWindows()
+    else:
+        parser.print_help()
+        exit(1)
 
-    input_images = []
+    if is_single_image:
+        files_to_process = image_files
+    elif is_image_dir:
+        files_to_process = sorted([
+            f for f in os.listdir(dir_image) if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        ])
+    elif is_video:
+        files_to_process = sorted([
+            f for f in os.listdir(dir_image) if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        ])
 
-    for image_id in tqdm(image_ids[106:107]):
-        #print(image_id)
-        img_info = coco.loadImgs(image_id)[0]
-        filename = img_info['file_name']
-        image = cv2.imread(os.path.join(val_images_dir, filename))
+    for idx, fname in enumerate(files_to_process):
+        image_path = os.path.join(dir_image, fname)
+        print(f"Processing {idx + 1}/{len(files_to_process)}: {image_path}")
+        image = cv2.imread(image_path)
         height, width = image.shape[:2]
         input = preprocess(image)
-        # input_images.append(input)
-        # outputs = session.run(output_names, {input_name: input})
-        # print(len(outputs))
-        # for i in range(len(outputs)):
-        #   print(outputs[i].shape)
-        #   print(outputs[i])
-        #   np.save(f"onnx_output_{i}.npy", outputs[i])
-        a=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_cv2.0_cv2.0.2_Conv.tensor.npy")
-        b=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_Sigmoid.tensor.npy")
-        c=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_Clip.tensor.npy")
-        d=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_cv2.1_cv2.1.2_Conv.tensor.npy")
-        e=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_Sigmoid_1.tensor.npy")
-        f=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_Clip_1.tensor.npy")
-        g=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_cv2.2_cv2.2.2_Conv.tensor.npy")
-        h=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_Sigmoid_2.tensor.npy")
-        i=np.load("/home/nirdesh/hdd/gaticc/scripts/gati_outputs/_model.22_Clip_2.tensor.npy")
-        outputs=[a,b,c,d,e,f,g,h,i]
-        coco_results.append(postprocess(image_id, outputs, image, height, width))
+        outputs = gati.run({name: input})
+        new_outputs = []
+        for i in range(len(outputs)):
+          new_outputs.append(outputs[i][1])
+        outputs = new_outputs
+        postprocess(outputs, image, height, width)
 
-        # np.save("gati_outputs.npy",[a,b,c,d,e,f,g,h
-    # np.save("input_images.npy", np.concatenate(input_images, axis=0))
 
-    # with open("results.json", "w") as f:
-    #   ll = []
-    #   for i in coco_results:
-    #     for j in i:
-    #       ll.append(j)
-    #   json.dump(ll, f)
 
-    # coco_dt = coco.loadRes("results.json")
-    # coco_eval = COCOeval(coco, coco_dt, iouType='bbox')
-    # coco_eval.evaluate()
-    # coco_eval.accumulate()
-    # coco_eval.summarize()
+        
+
+        
+     
+
