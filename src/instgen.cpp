@@ -1481,22 +1481,33 @@ static void gen_eltwise_input_quant(const Op::LayerBase *l,
   int fp_bscale = fp_t(b_scale).raw();
   check_overflow(fp_bscale, EltWise_BScale_COUNT);
 
-  // if (l->input_names.at(0) == l->input_edge_names.at(1)) {
-  //   std::swap(fp_ascale, fp_bscale);
-  //   std::cout << "Swapped eltwise scales for layer " << l->name << std::endl;
-  //   for (auto& name : l->input_names) {
-  //     std::cout << name << ", ";
-  //   }
-  //   std::cout << std::endl;
+ std::vector<std::string> eltwise_input_names;
 
-  //   std::cout << "vs edge names: "<<std::endl;
-  //   for (auto& name : l->input_edge_names) {
-  //     std::cout << name << ", ";
-  //   }
-  //   std::cout << std::endl;
+for (const auto& i : l->input_edge_names) {
+    if (std::find(l->input_names.begin(),
+                  l->input_names.end(),
+                  i) != l->input_names.end()) {
+        eltwise_input_names.push_back(i);
+    }
+}
 
-  //   std::cout<<std::endl;
-  // }
+
+  if (eltwise_input_names.size()>1 && l->input_names.at(0) == eltwise_input_names.at(1)) {
+    std::swap(fp_ascale, fp_bscale);
+    // std::cout << "Swapped eltwise scales for layer " << l->name << std::endl;
+    // for (auto& name : l->input_names) {
+    //   std::cout << name << ", ";
+    // }
+    // std::cout << std::endl;
+
+    // std::cout << "vs edge names: "<<std::endl;
+    // for (auto& name : eltwise_input_names) {
+    //   std::cout << name << ", ";
+    // }
+    // std::cout << std::endl;
+
+    // std::cout<<std::endl;
+  }
   inst_set(add_inst, fp_ascale, EltWise_AScale);
   inst_set(add_inst, fp_bscale, EltWise_BScale);
 }

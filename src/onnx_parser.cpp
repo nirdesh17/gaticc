@@ -3839,6 +3839,7 @@ void Op::RegisterAllocator::clear_regs(Op::Graph g) {
     Op::LayerBase *node = g[n];
     node->inputs.resize(0);
     node->outputs.resize(0);
+    node->input_edge_names.resize(0);
     S.pop();
 
     auto out_edges = boost::out_edges(n, g);
