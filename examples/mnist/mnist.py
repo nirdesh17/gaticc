@@ -14,7 +14,7 @@ if __name__ == "__main__":
   gml_path = "model.gml"
   gati.set_arch(ramsize=512, sa_arch="9,4,4", vasize=32, accbuf_size=4096, fcbuf_size=32768)
 
-  gati.compile(onnx_path, gml_path,"print-megablock-graph")
+  gati.compile(onnx_path, gml_path,"pretty-print-inst-html")
   # gati.set_remote("conan.local")
   # gati.flash(bitstream)
   # name = gati.get_model_inputs(onnx_path)[0]

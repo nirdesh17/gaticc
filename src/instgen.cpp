@@ -1481,12 +1481,22 @@ static void gen_eltwise_input_quant(const Op::LayerBase *l,
   int fp_bscale = fp_t(b_scale).raw();
   check_overflow(fp_bscale, EltWise_BScale_COUNT);
 
-  if (l->input_names.at(0) != l->input_edge_names.at(0)) {
-    std::swap(fp_ascale, fp_bscale);
-    std::cout << "Swapped eltwise scales for layer " << l->name << "\n";
-    std::cout<< "input_names[0]: " << l->input_names.at(0)
-              << ", input_edge_names[0]: " << l->input_edge_names.at(0) << "\n";
-  }
+  // if (l->input_names.at(0) == l->input_edge_names.at(1)) {
+  //   std::swap(fp_ascale, fp_bscale);
+  //   std::cout << "Swapped eltwise scales for layer " << l->name << std::endl;
+  //   for (auto& name : l->input_names) {
+  //     std::cout << name << ", ";
+  //   }
+  //   std::cout << std::endl;
+
+  //   std::cout << "vs edge names: "<<std::endl;
+  //   for (auto& name : l->input_edge_names) {
+  //     std::cout << name << ", ";
+  //   }
+  //   std::cout << std::endl;
+
+  //   std::cout<<std::endl;
+  // }
   inst_set(add_inst, fp_ascale, EltWise_AScale);
   inst_set(add_inst, fp_bscale, EltWise_BScale);
 }
@@ -1734,10 +1744,16 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
   std::bitset<INST_SIZE_BITS> concat_inst;
   inst_set(concat_inst, OP_CONCAT, CONCAT_Opcode);
 
+  std::cout<<"Concat layer "<<l->name<<std::endl;
+
   std::unordered_map<std::string,int> in_map;
-  for(auto i:l->input_names){
-    in_map[i]++;
+
+  for(int i=0;i<l->input_names.size();i++){
+    in_map[l->input_names[i]] = i;
   }
+  // for(auto i:l->input_names){
+  //   in_map[i]++;
+  // }
 
   std::vector<std::pair<Op::VirtualAddress, std::string>> unique_inputs;
 
@@ -1756,6 +1772,11 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
     sorted_inputs.push_back(p.first);
   }
 
+  for(auto i:sorted_inputs){
+    std::cout<<i<<" ";
+  }
+  std::cout<<std::endl;
+
   int number_of_concat_inputs = sorted_inputs.size();
   inst_set(concat_inst, number_of_concat_inputs, CONCAT_InNum);
 
@@ -1768,7 +1789,7 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
   int input_height1 = l->input_dims.at(0).at(TENSOR_4D_HEIGHT);
   inst_set(concat_inst, input_height1, CONCAT_IH1);
 
-  if (sorted_inputs.size() == 2) {
+  if (sorted_inputs.size() >= 2) {
     uint32_t input2_start = gen.io_addr_from_register(sorted_inputs.at(1));
     inst_set(concat_inst, input2_start, CONCAT_Image2StartAddress);
 
@@ -1779,7 +1800,7 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
     inst_set(concat_inst, input_height2, CONCAT_IH2);
   }
 
-  if (sorted_inputs.size() == 3) {
+  if (sorted_inputs.size() >= 3) {
     uint32_t input3_start = gen.io_addr_from_register(sorted_inputs.at(2));
     inst_set(concat_inst, input3_start, CONCAT_Image3StartAddress);
 
@@ -1790,7 +1811,7 @@ gen_concat(const Op::LayerBase *l, AddressGen &gen, InitializerTable &tbl) {
     inst_set(concat_inst, input_height3, CONCAT_IH3);
   }
 
-  if (sorted_inputs.size() == 4) {
+  if (sorted_inputs.size() >= 4) {
     uint32_t input4_start = gen.io_addr_from_register(sorted_inputs.at(3));
     inst_set(concat_inst, input4_start, CONCAT_Image4StartAddress);
 
