@@ -1024,6 +1024,35 @@ void Op::Layer::QLinearAveragePool::run(TensorPool &tensor_pool) {
 }
 
 template <typename T>
+static void run_globalaveragepool(Op::LayerBase *l, TensorPool &tensor_pool) {
+  Op::Layer::GlobalAveragePool *cc =
+      dynamic_cast<Op::Layer::GlobalAveragePool *>(l);
+  Tensor<T> *input;
+  Tensor<T> *output;
+  std::tie(input, output) = get_tensorpool_io<T, T>(tensor_pool, l);
+  average_pool<T>(input, output, cc->m_cp);
+  check_dispatch(l, output);
+}
+
+void Op::Layer::GlobalAveragePool::run(TensorPool &tensor_pool) {
+  assert(input_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(output_type[0] != onnx::TensorProto_DataType_UNDEFINED);
+  assert(input_type[0] == output_type[0]);
+
+  if (input_type[0] == onnx::TensorProto_DataType_INT8) {
+    run_globalaveragepool<int8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_UINT8) {
+    run_globalaveragepool<uint8_t>(this, tensor_pool);
+  } else if (input_type[0] == onnx::TensorProto_DataType_FLOAT) {
+    run_globalaveragepool<float>(this, tensor_pool);
+  } else {
+    log_fatal("Unsupported type combo: {}, {}\n",
+              Op::get_tensorproto_dtype_name(input_type[0]),
+              Op::get_tensorproto_dtype_name(output_type[0]));
+  }
+}
+
+template <typename T>
 static void run_batchnorm(Op::LayerBase *l, TensorPool &tensor_pool) {
   Op::Layer::BatchNorm *cc = dynamic_cast<Op::Layer::BatchNorm *>(l);
   Tensor<T> *input; Tensor<T> *output;
