@@ -324,6 +324,7 @@ struct Maxpool : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
 struct Flatten : public LayerBase {
@@ -636,6 +637,7 @@ struct QLinearAveragePool : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
 };
 
 struct Abs : public LayerBase {
