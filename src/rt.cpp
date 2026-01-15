@@ -859,7 +859,7 @@ void Op::Layer::QLinearSigmoid::receive_output(TensorPool &tensor_pool, Rah &rah
 void Op::Layer::Resize::receive_output(TensorPool &tensor_pool, Rah &rah) const { 
   uint32_t expected_hash = string_hash(this->name);
   uint32_t expected_data_size = aligned_qle(this->pipelined_output_dims).at(0) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8);
-  sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  eltwise_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
 
   // if (this->output_type[0] == onnx::TensorProto_DataType_INT8) {
   //   eltwise_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
