@@ -2696,47 +2696,19 @@ void Op::Model::update_registers(void) { RegisterAllocator ral(g); }
  * nodes */
 
 /*
- * Consider the following directed graph:
- *           +-------+
- *      +--->|   1   |<-----+
- *      |    |       |      |
- *      |    +-------+      |
- *      |                   |
- *      |                   |
- *  +---v---+               |
- *  |   2   |               |
- *  |       |               |
- *  +---^---+               |
- *      |               +---v---+
- *      |               |   5   |
- *      |               |       |
- *  +---+---+           +-------+
- *  |   3   |               ^
- *  |       |               |
- *  +-------+               |
- *      ^                   |
- *      |                   |
- *      |       +-------+   |
- *      |       |   4   |   |
- *      +------>|       |<--+
- *              +-------+
- *
- * This function performs a breadth-first traversal of the graph nodes.
- * For each node, it calls `infer_shape` using the output shapes of its parent nodes.
- * The `infer_shape` function is only called when all parent nodes have already
- * had their shapes inferred.
- *
- * This ensures the traversal order is: 1, 2, 5, 3, 4.
- *
- * If the output shape of node 1 is X, then:
- * - The input shapes for nodes 2 and 5 become X
- * - Nodes 2 and 5 internally calculate their own output shapes (say Y1 and Y2, respectively)
- * - These shapes are then passed down to their child nodes
- * Consequently:
- * - The input shape for node 3 will be Y1
- * - The input shape for node 4 will be Y2
+ * Using Kahn's algorithm for topological sorting to deduce shapes in a
+ * directed acyclic graph (DAG)
+ 1. Calculate in-degrees of all vertices
+ 2. Initialize a queue with all vertices having in-degree of 0
+ 3. While the queue is not empty:
+    a. Dequeue a vertex from the queue
+    b. For each outgoing edge from the dequeued vertex:
+       i. Reduce the in-degree of the destination vertex by 1
+       ii. If the in-degree of the destination vertex becomes 0, enqueue it
+ 4. Repeat until all vertices are processed
  */
 void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
+
   IVec2D input_dims;
   for (const auto &i : m_graph.input()) {
     if (initializer_map.find(i.name()) == initializer_map.end()) {
@@ -2744,58 +2716,36 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
     }
   }
 
-  std::queue<Op::Vertex> S;
-  /* all nodes on which shape inference is done */
-  std::unordered_set<Op::Vertex> done_set;
   Op::Graph gcopy = g;
+  std::queue<Op::Vertex> Q;
+  std::unordered_map<Op::Vertex, int> indeg;
 
-  auto vitr = boost::vertices(gcopy);
-  Op::Vertex v = *(vitr.first);
-  /* set first layer's input dims */
-  IVec2D tmp = input_dims;
-  gcopy[v]->infer_shape(tmp);
-  done_set.insert(v);
-  S.push(v);
+  for (auto v : boost::make_iterator_range(boost::vertices(gcopy))) {
+    indeg[v] = boost::in_degree(v, gcopy);
+  }
 
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    S.pop();
+  Op::Vertex root = Op::get_root_node(&gcopy);
+  gcopy[root]->infer_shape(input_dims);
+  Q.push(root);
 
-    auto out_edges = boost::out_edges(n, gcopy);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
+  while (!Q.empty()) {
+    Op::Vertex cur = Q.front();
+    Q.pop();
+    LayerBase *src_node = gcopy[cur];
+
+    if (is_op_type(src_node, "Split")) {
+      Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
+      add_split_outputs_to_hash(split_node->output_names, split_node->hashes);
     }
 
-    for (auto [src, dest] : edges_to_remove) {
-      /* make sure all parents of 'dest' have underwent infer_shape */
-      Op::LayerBase *src_node = gcopy[src];
-      Op::LayerBase *dst_node = gcopy[dest];
-      if (is_op_type(src_node, "Split")) {
-        Op::Layer::Split *split_node = dynamic_cast<Op::Layer::Split *>(src_node);
-        add_split_outputs_to_hash(split_node->output_names, split_node->hashes);
-        
-      }
-      auto in_edges = boost::in_edges(dest, gcopy);
-      bool dest_parents_done = 1;
-      for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
-        Op::Vertex dsource = boost::source(*itr, gcopy);
-        auto present = done_set.find(dsource);
-        if (present == done_set.end()) {
-          dest_parents_done = 0;
-        } 
-      }
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, gcopy))) {
+      Op::Vertex dest = boost::target(e, gcopy);
 
-      if (dest_parents_done) {
-        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy); 
+      indeg[dest]--;
+      if (indeg[dest] == 0) {
+        auto in_dims = Op::get_dims_of_in_edges(dest, gcopy);
         gcopy[dest]->infer_shape(in_dims);
-        done_set.insert(dest);
-        boost::remove_edge(src, dest, gcopy); 
-        if (boost::in_degree(dest, gcopy) == 0) {
-          S.push(dest);
-        }
-      } else {
-        S.push(n);
+        Q.push(dest);
       }
     }
   }
@@ -2805,47 +2755,31 @@ void Op::Model::deduce_shapes(const onnx::GraphProto &m_graph) {
  * infer_shape
  */
 void Op::Model::deduce_types(const onnx::GraphProto &m_graph) {
+
   std::vector<TPDT> input_types;
   for (const auto &i : m_graph.input()) {
     if (initializer_map.find(i.name()) == initializer_map.end()) {
       input_types.push_back(get_type_from_value_info(i));
     }
   }
-
-  std::queue<Op::Vertex> S;
-  std::unordered_set<Op::Vertex> done_set;
   Op::Graph gcopy = g;
+  std::queue<Op::Vertex> Q;
+  std::unordered_map<Op::Vertex, int> indeg;
 
-  auto vitr = boost::vertices(gcopy);
-  Op::Vertex v = *(vitr.first);
-  /* set first layer's input dims */
-  gcopy[v]->infer_type(input_types);
-  done_set.insert(v);
-  S.push(v);
+  for (auto v : boost::make_iterator_range(boost::vertices(gcopy))) {
+    indeg[v] = boost::in_degree(v, gcopy);
+  }
+  Op::Vertex root = Op::get_root_node(&gcopy);
+  gcopy[root]->infer_type(input_types);
+  Q.push(root);
 
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    S.pop();
-
-    auto out_edges = boost::out_edges(n, gcopy);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, gcopy)});
-    }
-
-    for (auto [src, dest] : edges_to_remove) {
-      /* make sure all parents of 'dest' have underwent infer_shape */
-      auto in_edges = boost::in_edges(dest, gcopy);
-      bool dest_parents_done = 1;
-      for (auto itr = in_edges.first; itr != in_edges.second; ++itr) {
-        Op::Vertex dsource = boost::source(*itr, gcopy);
-        auto present = done_set.find(dsource);
-        if (present == done_set.end()) {
-          dest_parents_done = 0;
-        } 
-      }
-
-      if (dest_parents_done) {
+  while (!Q.empty()) {
+    Op::Vertex cur = Q.front();
+    Q.pop();
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, gcopy))) {
+      Op::Vertex dest = boost::target(e, gcopy);
+      indeg[dest]--;
+      if (indeg[dest] == 0) {
         auto itr2 = name_node_map.find(gcopy[dest]->name);
         if (itr2 == name_node_map.end()) {
           log_fatal("could not find {} in name_node_map\n", gcopy[dest]->name);
@@ -2853,14 +2787,8 @@ void Op::Model::deduce_types(const onnx::GraphProto &m_graph) {
         onnx::NodeProto &np = itr2->second;
         auto i_nodes = Op::get_input_nodes(np, g, output_map);
         auto in_types = Op::get_types_of_in_edges(dest, gcopy, i_nodes);
-        gcopy[dest]->infer_type(in_types);   
-        done_set.insert(dest);
-        boost::remove_edge(src, dest, gcopy);
-        if (boost::in_degree(dest, gcopy) == 0) {
-          S.push(dest);
-        }
-      } else {
-        S.push(n);
+        gcopy[dest]->infer_type(in_types);
+        Q.push(dest);
       }
     }
   }
@@ -3197,49 +3125,33 @@ std::vector<Op::LayerBase *> Op::Model::get_execution_order(void) const {
   return crt_exec_order(g);
 }
 
-std::vector<Op::LayerBase *> traverse(Op::Graph &g, Op::Vertex v) {
-  std::vector<Op::LayerBase *> execution_order;
+std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
+
   std::queue<Op::Vertex> Q;
-  Q.push(v);
+  std::unordered_map<Op::Vertex, int> indeg;
+  std::vector<Op::LayerBase *> execution_order;
+
+  for (auto v : boost::make_iterator_range(boost::vertices(gcopy))) {
+    indeg[v] = boost::in_degree(v, gcopy);
+  }
+  Op::Vertex root = Op::get_root_node(&gcopy);
+  Q.push(root);
 
   while (!Q.empty()) {
-    Op::Vertex current = Q.front();
-    int out_degree = boost::out_degree(current, g);
+    Op::Vertex cur = Q.front();
+    execution_order.push_back(gcopy[cur]);
     Q.pop();
-    execution_order.push_back(g[current]);
 
-    auto out_edges = boost::out_edges(current, g);
-    std::vector<Op::Vertex> next_nodes;
-
-    for (auto it = out_edges.first; it != out_edges.second; ++it) {
-      Op::Vertex target = boost::target(*it, g);
-      if (!Op::are_equal_nodes(current, target, &g)) {
-        next_nodes.push_back(target);
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, gcopy))) {
+      Op::Vertex dest = boost::target(e, gcopy);
+      indeg[dest]--;
+      if (indeg[dest] == 0) {
+        Q.push(dest);
       }
     }
-    for (auto target : next_nodes) {
-      if (boost::in_degree(target, g) <= 1) {
-        if (out_degree > 1) {
-          auto sub_order = traverse(g, target);
-          execution_order.insert(execution_order.end(), sub_order.begin(),
-                                 sub_order.end());
-          out_degree--;
-        } else {
-          Q.push(target);
-        }
-      }
-    }
-    for (auto target : next_nodes) {
-      boost::remove_edge(current, target, g);
-    }
-
   }
-  return execution_order;
-}
 
-std::vector<Op::LayerBase *> crt_exec_order(Op::Graph gcopy) {
-  Op::Vertex root = Op::get_root_node(&gcopy);
-  return traverse(gcopy, root);
+  return execution_order;
 }
 
 std::vector<Op::Vertex> get_leaf_nodes(const Op::Graph& g, const std::map<std::string, Op::Vertex>& name_vertex_map) {
