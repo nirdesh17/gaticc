@@ -690,14 +690,16 @@ void Op::Layer::QGemm::receive_output(TensorPool &tensor_pool, Rah &rah) const {
 void Op::Layer::Maxpool::receive_output(TensorPool &tensor_pool, Rah &rah) const {
   uint32_t expected_hash = string_hash(this->name);
   uint32_t expected_data_size = ceil_mod(prod(this->output_dims.at(0)), WORD_SIZE) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8);
-  if (this->output_type[0] == onnx::TensorProto_DataType_INT8) {
     sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
-  } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
-    sa_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
-  } else {
-    log_fatal("can't receive data of type {} from FPGA\n",
-              Op::get_tensorproto_dtype_name(this->output_type[0]));
-  }
+
+  // if (this->output_type[0] == onnx::TensorProto_DataType_INT8) {
+  //   sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  // } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
+  //   sa_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  // } else {
+  //   log_fatal("can't receive data of type {} from FPGA\n",
+  //             Op::get_tensorproto_dtype_name(this->output_type[0]));
+  // }
 }
 
 void Op::Layer::QLinearAveragePool::receive_output(TensorPool &tensor_pool, Rah &rah) const {
