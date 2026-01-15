@@ -106,6 +106,7 @@ struct LayerBase {
   std::string name;
   std::vector<std::string> input_names;
   std::vector<std::string> output_names;
+  std::vector<std::string> input_edge_names;
 
   virtual const char *op_type() const;
   /* Returns a pretty-formatted string of hyper-parameters that

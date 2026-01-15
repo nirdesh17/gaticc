@@ -1458,14 +1458,20 @@ static std::bitset<INST_SIZE_BITS> gen_eltwise(const Op::LayerBase *l,
   return add_inst;
 }
 
-static void gen_eltwise_input_quant(std::bitset<INST_SIZE_BITS> &add_inst,
+static void gen_eltwise_input_quant(const Op::LayerBase *l,
+                                    std::bitset<INST_SIZE_BITS> &add_inst,
                                     float a_scale, float b_scale, int a_zp,
                                     int b_zp) {
   int fp_ascale = fp_t(a_scale).raw();
   check_overflow(fp_ascale, EltWise_AScale_COUNT);
-  inst_set(add_inst, fp_ascale, EltWise_AScale);
   int fp_bscale = fp_t(b_scale).raw();
   check_overflow(fp_bscale, EltWise_BScale_COUNT);
+
+  std::vector<std::string> eltwise_input_names;
+  if (l->input_edge_names.size()>1 && l->input_names.at(0) == l->input_edge_names.at(1)) {
+    std::swap(fp_ascale, fp_bscale);
+  }
+  inst_set(add_inst, fp_ascale, EltWise_AScale);
   inst_set(add_inst, fp_bscale, EltWise_BScale);
 }
 
@@ -1566,7 +1572,7 @@ int Op::Layer::QLinearEltwise::get_inst(InstBlob &blob, AddressGen &gen,
                                     InitializerTable &tbl) {
   assert(this->device == DEVICE_FPGA);
   auto add_inst = gen_eltwise(this, gen, tbl, this->operator_type);
-  gen_eltwise_input_quant(add_inst, this->a_scale, this->b_scale, this->a_zp, this->b_zp);
+  gen_eltwise_input_quant(this, add_inst, this->a_scale, this->b_scale, this->a_zp, this->b_zp);
   auto out_inst = gen_eltwise_output(this, gen, tbl);
   auto quant_inst = gen_eltwise_quant(this);
   blob.push_back(add_inst);

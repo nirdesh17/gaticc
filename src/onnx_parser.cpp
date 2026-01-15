@@ -3606,6 +3606,10 @@ void Op::RegisterAllocator::traverse(
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
 
+  for (auto output_name : src_node->output_names) {
+    dst_node->input_edge_names.push_back(output_name);
+  }
+
   for (Op::VirtualAddress out_reg : src_node->outputs) {
     dst_node->inputs.push_back(out_reg);
     reg_uses[out_reg]++;
@@ -3621,6 +3625,7 @@ void Op::RegisterAllocator::clear_regs(Op::Graph g) {
     Op::LayerBase *node = g[n];
     node->inputs.resize(0);
     node->outputs.resize(0);
+    node->input_edge_names.resize(0);
     S.pop();
 
     auto out_edges = boost::out_edges(n, g);
