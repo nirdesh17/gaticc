@@ -159,7 +159,9 @@ public:
   /* get a address in weights/bias region */
   uint32_t alloc(uint32_t size);
   /* get a address in io region */
-  uint32_t io_addr_from_register(Op::VirtualAddress reg);
+  uint32_t io_addr_from_register(Op::VirtualAddress reg, int channel_offset = 0,
+                               int op_height = 0,
+                               int op_width = 0); 
   /* get a address in accumulant region */
   uint32_t ps_addr_from_register(Op::VirtualAddress reg);
   int io_reg_size() const;
@@ -511,8 +513,6 @@ inline size_t io_tensor_packet_size(size_t tensor_size) {
 
 void check_dwp_header(const uint8_t *data, size_t size, uint32_t expected_ds, uint32_t expected_addr);
 
-
-bool is_op_type(const Op::LayerBase *l, const char *op_type);
 
 /* This function is left here in a header because instgen.cpp and rt.cpp both share it */
 template <typename T>
