@@ -39,6 +39,24 @@ bool is_large_conv(Op::Layer::QLinearConv *cc) {
   return false;
 }
 
+bool is_large_maxpool(Op::Layer::Maxpool *cc) {
+  if (cc->m_cp.k[0] > 3 && cc->m_cp.k[1] > 3) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool is_large_avgpool(Op::Layer::QLinearAveragePool *cc) {
+  if (cc->m_cp.k[0] > 3 && cc->m_cp.k[1] > 3 &&
+      cc->output_dims[0][TENSOR_4D_HEIGHT] > 1 &&
+      cc->output_dims[0][TENSOR_4D_WIDTH] > 1) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 Op::Vertex create_qconv(Op::Graph &g, const Op::Layer::QLinearConv *cc,
                         onnx::TensorProto *tensor, int n, int i, std::string base_name) {
   Op::Vertex new_vertex = boost::add_vertex(g);
@@ -232,6 +250,89 @@ void split_large_kernel(Op::Graph &g) {
           for (auto succ : successors) {
             boost::add_edge(qadd.back(), succ, g);
           }
+        }
+      }
+    } else if (strcmp(g[v]->op_type(), "Maxpool") == 0) {
+
+      Op::Layer::Maxpool *cc = dynamic_cast<Op::Layer::Maxpool *>(g[v]);
+      if (cc && is_large_maxpool(cc) &&
+          cc->name.find("decomposed_") == std::string::npos) {
+        std::vector<Op::Vertex> predecessors = get_parents(v, g);
+        std::vector<Op::Vertex> successors = get_children(v, g);
+        vertices_to_remove.push_back(v);
+
+        boost::clear_vertex(v, g);
+
+        Op::Vertex new_vertex1 = boost::add_vertex(g);
+        auto *new_pool1 = new Op::Layer::Maxpool(*cc);
+        new_pool1->name = "decomposed_" + cc->name + std::to_string(0);
+        new_pool1->m_cp.k[TENSOR_2D_HEIGHT] = 1;
+        new_pool1->m_cp.stride[TENSOR_2D_HEIGHT] = 1;
+        new_pool1->infer_shape(new_pool1->input_dims);
+        g[new_vertex1] = new_pool1;
+
+        for (auto pred : predecessors) {
+          boost::add_edge(pred, new_vertex1, g);
+        }
+
+        predecessors = {new_vertex1};
+
+        Op::Vertex new_vertex2 = boost::add_vertex(g);
+        auto *new_pool2 = new Op::Layer::Maxpool(*cc);
+        new_pool2->name = "decomposed_" + cc->name + std::to_string(1);
+        new_pool2->m_cp.k[TENSOR_2D_WIDTH] = 1;
+        new_pool2->m_cp.stride[TENSOR_2D_WIDTH] = 1;
+        new_pool2->infer_shape(new_pool1->output_dims);
+        g[new_vertex2] = new_pool2;
+
+        for (auto pred : predecessors) {
+          boost::add_edge(pred, new_vertex2, g);
+        }
+
+        for (auto succ : successors) {
+          boost::add_edge(new_vertex2, succ, g);
+        }
+      }
+    } else if (strcmp(g[v]->op_type(), "QLinearAveragePool") == 0) {
+
+      Op::Layer::QLinearAveragePool *cc =
+          dynamic_cast<Op::Layer::QLinearAveragePool *>(g[v]);
+      if (cc && is_large_avgpool(cc) &&
+          cc->name.find("decomposed_") == std::string::npos) {
+        std::vector<Op::Vertex> predecessors = get_parents(v, g);
+        std::vector<Op::Vertex> successors = get_children(v, g);
+        vertices_to_remove.push_back(v);
+
+        boost::clear_vertex(v, g);
+
+        Op::Vertex new_vertex1 = boost::add_vertex(g);
+        auto *new_pool1 = new Op::Layer::QLinearAveragePool(*cc);
+        new_pool1->name = "decomposed_" + cc->name + std::to_string(0);
+        new_pool1->m_cp.k[TENSOR_2D_HEIGHT] = 1;
+        new_pool1->m_cp.stride[TENSOR_2D_HEIGHT] = 1;
+        new_pool1->infer_shape(new_pool1->input_dims);
+        g[new_vertex1] = new_pool1;
+
+        for (auto pred : predecessors) {
+          boost::add_edge(pred, new_vertex1, g);
+        }
+
+        predecessors = {new_vertex1};
+
+        Op::Vertex new_vertex2 = boost::add_vertex(g);
+        auto *new_pool2 = new Op::Layer::QLinearAveragePool(*cc);
+        new_pool2->name = "decomposed_" + cc->name + std::to_string(1);
+        new_pool2->m_cp.k[TENSOR_2D_WIDTH] = 1;
+        new_pool2->m_cp.stride[TENSOR_2D_WIDTH] = 1;
+        new_pool2->infer_shape(new_pool1->output_dims);
+        g[new_vertex2] = new_pool2;
+
+        for (auto pred : predecessors) {
+          boost::add_edge(pred, new_vertex2, g);
+        }
+
+        for (auto succ : successors) {
+          boost::add_edge(new_vertex2, succ, g);
         }
       }
     }

@@ -1754,7 +1754,7 @@ void Op::Layer::Split::infer_shape(const IVec2D &input_dims){
 }
 
 
-Op::Layer::QLinearAveragePool::QLinearAveragePool(bool gbl) {
+Op::Layer::QLinearAveragePool::QLinearAveragePool() {
   /* zero initialize */
   m_cp = {};
   /* overwrite with sane defaults */
@@ -1762,7 +1762,6 @@ Op::Layer::QLinearAveragePool::QLinearAveragePool(bool gbl) {
   m_cp.stride[TENSOR_2D_WIDTH] = 1;
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
-  m_cp.gbl = gbl;
   x_scale = 0;
   y_scale = 0;
   device = DEVICE_UNKNOWN;
@@ -1838,10 +1837,46 @@ void Op::Layer::QLinearAveragePool::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
-  if (this->m_cp.gbl) {
-    this->m_cp.k[0] = input_dims[0][2];
-    this->m_cp.k[1] = input_dims[0][3];
-  }
+
+  this->output_dims.resize(1);
+  this->output_dims[0].resize(4);
+  this->output_dims[0][0] = input_dims[0][0];
+  this->output_dims[0][1] = input_dims[0][1];
+  this->output_dims[0][2] = mp_odims_row(this->m_cp, input_dims[0]);
+  this->output_dims[0][3] = mp_odims_cols(this->m_cp, input_dims[0]);
+  this->pipelined_output_dims = this->output_dims;
+}
+
+Op::Layer::GlobalAveragePool::GlobalAveragePool(bool gbl) {
+  /* zero initialize */
+  m_cp = {};
+  /* overwrite with sane defaults */
+  m_cp.stride[TENSOR_2D_HEIGHT] = 1;
+  m_cp.stride[TENSOR_2D_WIDTH] = 1;
+  device = DEVICE_UNKNOWN;
+}
+
+const char *Op::Layer::GlobalAveragePool::op_type() const { return m_optype; }
+
+std::string Op::Layer::GlobalAveragePool::params() const {
+  return get_pool_params(this->input_dims[0], this->m_cp).str();
+}
+
+void Op::Layer::GlobalAveragePool::infer_type(
+    const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type = input_types;
+}
+
+void Op::Layer::GlobalAveragePool::infer_shape(const IVec2D &input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims;
+  assert(input_dims[0].size() == 4);
+
+  this->m_cp.k[0] = input_dims[0][2];
+  this->m_cp.k[1] = input_dims[0][3];
+
   this->output_dims.resize(1);
   this->output_dims[0].resize(4);
   this->output_dims[0][0] = input_dims[0][0];
@@ -1915,7 +1950,6 @@ Op::Layer::AveragePool::AveragePool(bool gbl) {
   m_cp.stride[TENSOR_2D_WIDTH] = 1;
   m_cp.dilation[TENSOR_2D_HEIGHT] = 1;
   m_cp.dilation[TENSOR_2D_WIDTH] = 1;
-  m_cp.gbl = gbl;
   device = DEVICE_UNKNOWN;
 }
 
@@ -1979,10 +2013,6 @@ void Op::Layer::AveragePool::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
   assert(input_dims[0].size() == 4);
-  if (this->m_cp.gbl) {
-    this->m_cp.k[0] = input_dims[0][2];
-    this->m_cp.k[1] = input_dims[0][3];
-  }
   this->output_dims[0].resize(4);
   this->output_dims[0][0] = input_dims[0][0];
   this->output_dims[0][1] = input_dims[0][1];
@@ -3321,7 +3351,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "Sub") {
     m_model.add(new Op::Layer::Eltwise(ELTWISE_SUB), node);
   } else if (opt == "GlobalAveragePool") {
-    m_model.add(new Op::Layer::QLinearAveragePool(true), node);
+    m_model.add(new Op::Layer::GlobalAveragePool(), node);
   } else if (opt == "BatchNormalization") {
     m_model.add(new Op::Layer::BatchNorm(), node);
   } else if (opt == "ReorderOutput") {
@@ -3359,7 +3389,7 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
   } else if (opt == "QLinearAveragePool") {
     m_model.add(new Op::Layer::QLinearAveragePool(), node);
   } else if (opt == "QLinearGlobalAveragePool") {
-    m_model.add(new Op::Layer::QLinearAveragePool(true), node);
+    m_model.add(new Op::Layer::GlobalAveragePool(), node);
   } else if (opt == "Abs") {
     m_model.add(new Op::Layer::Abs(), node);
   } else if (opt == "ReduceMean") {
