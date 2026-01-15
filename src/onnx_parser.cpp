@@ -3488,45 +3488,88 @@ void Op::Parser::pass_save_nodes(const onnx::GraphProto &graph) {
 
 Op::Parser::~Parser() { loaded_model.close(); }
 
+/*
+ * Using Kahn's algorithm for topological sorting
+ * to determine execution order of nodes in the graph
+ * and allocate registers accordingly
+ *
+ * To handle nested graphs we only relinquish registers when all
+ * users of a register have finished using it (i.e., when the remaining_uses
+ * count reaches zero)
+ * 
+ * In short when all children of a node have been processed, we
+ * can relinquish the input registers used by that node
+ */
+
 Op::RegisterAllocator::RegisterAllocator(Op::Graph g) {
+
   register_set.resize(default_size, 0);
   clear_regs(g);
 
-  std::queue<Op::Vertex> S;
-  S.push(get_root_node(&g));
-  Op::Vertex n = S.front();
-  Op::LayerBase *node = g[n];
+  std::queue<Op::Vertex> Q;
+  std::unordered_map<Op::Vertex, int> indeg;
+  std::vector<Op::Vertex> execution_order;
+  std::unordered_map<Op::VirtualAddress, int> reg_uses;
 
-  if (Op::is_root_node(n, &g)) {
-    for (int i = 0; i < node->input_dims.size(); i++) {
-      node->inputs.push_back(acquire(node->name));
-    }
-    for (int i = 0; i < node->output_dims.size(); i++) {
-      node->outputs.push_back(acquire(node->name));
-    }
-    if (register_set.at(node->inputs.at(0)) == 1) {
-      relinquish(node->inputs.at(0));
+  for (auto v : boost::make_iterator_range(boost::vertices(g))) {
+    indeg[v] = boost::in_degree(v, g);
+  }
+  Op::Vertex root = Op::get_root_node(&g);
+
+  Q.push(root);
+
+  while (!Q.empty()) {
+    Op::Vertex cur = Q.front();
+    execution_order.push_back(cur);
+    Q.pop();
+
+    int nn = g[cur]->input_names.size();
+    g[cur]->inputs.resize(0);
+    g[cur]->outputs.resize(0);
+
+    for (auto e : boost::make_iterator_range(boost::out_edges(cur, g))) {
+      Op::Vertex dest = boost::target(e, g);
+      indeg[dest]--;
+
+      if (indeg[dest] == 0) {
+        Q.push(dest);
+      }
     }
   }
 
-  while (!S.empty()) {
-    Op::Vertex n = S.front();
-    Op::LayerBase *node = g[n];
-    S.pop();
+  std::unordered_map<Op::Vertex, int> remaining_uses;
+  for (auto v : boost::make_iterator_range(boost::vertices(g))) {
+    remaining_uses[v] = boost::out_degree(v, g);
+  }
 
-    auto out_edges = boost::out_edges(n, g);
-    std::vector<std::pair<Op::Vertex, Op::Vertex>> edges_to_remove;
-    for (auto itr = out_edges.first; itr != out_edges.second; ++itr) {
-      edges_to_remove.push_back({n, boost::target(*itr, g)});
+  for (Op::Vertex v : execution_order) {
+    Op::LayerBase *node = g[v];
+
+    if (node->inputs.empty()) {
+      for (size_t i = 0; i < node->input_dims.size(); i++) {
+        node->inputs.push_back(acquire(node->name));
+      }
     }
 
-    for (auto [src, dest] : edges_to_remove) {
-      if (!Op::are_equal_nodes(src, dest, &g)) {
-        traverse(&g, src, dest);
-        boost::remove_edge(src, dest, g);
-        if (boost::in_degree(dest, g) == 0) {
-          S.push(dest);
+    if (node->op_type() == "Split") {
+      node->outputs = node->inputs;
+    } else {
+      if (node->outputs.empty()) {
+        for (size_t i = 0; i < node->output_dims.size(); i++) {
+          node->outputs.push_back(acquire(node->name));
         }
+      }
+    }
+
+    for (auto e : boost::make_iterator_range(boost::out_edges(v, g))) {
+      Op::Vertex dest = boost::target(e, g);
+      traverse(&g, v, dest, reg_uses);
+    }
+
+    for (Op::VirtualAddress in_reg : node->inputs) {
+      reg_uses[in_reg]--;
+      if (reg_uses[in_reg] == 0) {
+        relinquish(in_reg);
       }
     }
   }
@@ -3557,32 +3600,15 @@ void Op::RegisterAllocator::relinquish(Op::VirtualAddress a) {
   }
 }
 
-void Op::RegisterAllocator::traverse(Op::Graph *g, Op::Vertex source,
-                                     Op::Vertex target) {
+void Op::RegisterAllocator::traverse(
+    Op::Graph *g, Op::Vertex source, Op::Vertex target,
+    std::unordered_map<Op::VirtualAddress, int> &reg_uses) {
   Op::LayerBase *src_node = (*g)[source];
   Op::LayerBase *dst_node = (*g)[target];
-  
-  for(Op::VirtualAddress out_reg : src_node->outputs){
+
+  for (Op::VirtualAddress out_reg : src_node->outputs) {
     dst_node->inputs.push_back(out_reg);
-    int size = dst_node->inputs.size();
-    ref(dst_node->name, dst_node->inputs.at(size - 1));
-  }
-
-  int od = boost::out_degree(source, *g);
-  if (od == 1) {
-    for (Op::VirtualAddress reg_val : src_node->inputs) {
-      if (register_set.at(reg_val) == string_hash(src_node->name)) {
-        relinquish(reg_val);
-      }
-    }
-  }
-
-  if (dst_node->outputs.size() == 0) {
-    if (is_op_type(dst_node, "Split")) { 
-      dst_node->outputs.push_back(dst_node->inputs.at(0));
-    } else { 
-      dst_node->outputs.push_back(acquire(dst_node->name));
-    }
+    reg_uses[out_reg]++;
   }
 }
 
