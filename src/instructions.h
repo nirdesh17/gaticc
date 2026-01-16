@@ -448,7 +448,7 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 14
+#define ISA_VERSION 15
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define ACT_LEAKYRELU 0x02
@@ -485,6 +485,51 @@
 #define CONV_TYPE_DW 1
 #define CONV_TYPE_PW 2
 
+#define OP_CONCAT 0x09
+// Opcode
+#define CONCAT_Opcode_LOW 0
+#define CONCAT_Opcode_HIGH 3
+#define CONCAT_Opcode_COUNT 4
+#define CONCAT_Image1StartAddress_LOW 4
+#define CONCAT_Image1StartAddress_HIGH 35
+#define CONCAT_Image1StartAddress_COUNT 32
+#define CONCAT_IH1_LOW 36
+#define CONCAT_IH1_HIGH 45
+#define CONCAT_IH1_COUNT 10
+#define CONCAT_KN1_LOW 46
+#define CONCAT_KN1_HIGH 55
+#define CONCAT_KN1_COUNT 10
+#define CONCAT_Image2StartAddress_LOW 56
+#define CONCAT_Image2StartAddress_HIGH 87
+#define CONCAT_Image2StartAddress_COUNT 32
+#define CONCAT_IH2_LOW 88
+#define CONCAT_IH2_HIGH 97
+#define CONCAT_IH2_COUNT 10
+#define CONCAT_KN2_LOW 98
+#define CONCAT_KN2_HIGH 107
+#define CONCAT_KN2_COUNT 10
+#define CONCAT_Image3StartAddress_LOW 108
+#define CONCAT_Image3StartAddress_HIGH 139
+#define CONCAT_Image3StartAddress_COUNT 32
+#define CONCAT_IH3_LOW 140
+#define CONCAT_IH3_HIGH 149
+#define CONCAT_IH3_COUNT 10
+#define CONCAT_KN3_LOW 150
+#define CONCAT_KN3_HIGH 159
+#define CONCAT_KN3_COUNT 10
+#define CONCAT_Image4StartAddress_LOW 160
+#define CONCAT_Image4StartAddress_HIGH 191
+#define CONCAT_Image4StartAddress_COUNT 32
+#define CONCAT_IH4_LOW 192
+#define CONCAT_IH4_HIGH 201
+#define CONCAT_IH4_COUNT 10
+#define CONCAT_KN4_LOW 202
+#define CONCAT_KN4_HIGH 211
+#define CONCAT_KN4_COUNT 10
+#define CONCAT_InNum_LOW 212
+#define CONCAT_InNum_HIGH 214
+#define CONCAT_InNum_COUNT 3
+
 #define ZerothStartAddress_LOW 0
 #define ZerothStartAddress_HIGH 31
 #define ZerothStartAddress_COUNT 32
@@ -517,6 +562,7 @@ struct pretty_data {
   Table pool;
   Table transpose;
   Table reshape;
+  Table concat;
 
   void clear() {
     conv.clear();
@@ -529,6 +575,7 @@ struct pretty_data {
     pool.clear();
     transpose.clear();
     reshape.clear();
+    concat.clear();
   }
 };
 inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
@@ -857,6 +904,42 @@ inline void pretty_print_reshape(const std::bitset<INST_SIZE_BITS>& inst) {
 	auto tbl = get_reshape_table(inst);
 	print_table(tbl);
 }
+inline Table get_concat_table(const std::bitset<INST_SIZE_BITS>& inst) {
+	Table tbl;
+	tbl.tbl.insert({"Opcode", bitset_range_get<CONCAT_Opcode_COUNT, INST_SIZE_BITS>(inst, CONCAT_Opcode_LOW, CONCAT_Opcode_HIGH)});
+	tbl.order.push_back("Opcode");
+	tbl.tbl.insert({"Image1StartAddress", bitset_range_get<CONCAT_Image1StartAddress_COUNT, INST_SIZE_BITS>(inst, CONCAT_Image1StartAddress_LOW, CONCAT_Image1StartAddress_HIGH)});
+	tbl.order.push_back("Image1StartAddress");
+	tbl.tbl.insert({"IH1", bitset_range_get<CONCAT_IH1_COUNT, INST_SIZE_BITS>(inst, CONCAT_IH1_LOW, CONCAT_IH1_HIGH)});
+	tbl.order.push_back("IH1");
+	tbl.tbl.insert({"KN1", bitset_range_get<CONCAT_KN1_COUNT, INST_SIZE_BITS>(inst, CONCAT_KN1_LOW, CONCAT_KN1_HIGH)});
+	tbl.order.push_back("KN1");
+	tbl.tbl.insert({"Image2StartAddress", bitset_range_get<CONCAT_Image2StartAddress_COUNT, INST_SIZE_BITS>(inst, CONCAT_Image2StartAddress_LOW, CONCAT_Image2StartAddress_HIGH)});
+	tbl.order.push_back("Image2StartAddress");
+	tbl.tbl.insert({"IH2", bitset_range_get<CONCAT_IH2_COUNT, INST_SIZE_BITS>(inst, CONCAT_IH2_LOW, CONCAT_IH2_HIGH)});
+	tbl.order.push_back("IH2");
+	tbl.tbl.insert({"KN2", bitset_range_get<CONCAT_KN2_COUNT, INST_SIZE_BITS>(inst, CONCAT_KN2_LOW, CONCAT_KN2_HIGH)});
+	tbl.order.push_back("KN2");
+	tbl.tbl.insert({"Image3StartAddress", bitset_range_get<CONCAT_Image3StartAddress_COUNT, INST_SIZE_BITS>(inst, CONCAT_Image3StartAddress_LOW, CONCAT_Image3StartAddress_HIGH)});
+	tbl.order.push_back("Image3StartAddress");
+	tbl.tbl.insert({"IH3", bitset_range_get<CONCAT_IH3_COUNT, INST_SIZE_BITS>(inst, CONCAT_IH3_LOW, CONCAT_IH3_HIGH)});
+	tbl.order.push_back("IH3");
+	tbl.tbl.insert({"KN3", bitset_range_get<CONCAT_KN3_COUNT, INST_SIZE_BITS>(inst, CONCAT_KN3_LOW, CONCAT_KN3_HIGH)});
+	tbl.order.push_back("KN3");
+	tbl.tbl.insert({"Image4StartAddress", bitset_range_get<CONCAT_Image4StartAddress_COUNT, INST_SIZE_BITS>(inst, CONCAT_Image4StartAddress_LOW, CONCAT_Image4StartAddress_HIGH)});
+	tbl.order.push_back("Image4StartAddress");
+	tbl.tbl.insert({"IH4", bitset_range_get<CONCAT_IH4_COUNT, INST_SIZE_BITS>(inst, CONCAT_IH4_LOW, CONCAT_IH4_HIGH)});
+	tbl.order.push_back("IH4");
+	tbl.tbl.insert({"KN4", bitset_range_get<CONCAT_KN4_COUNT, INST_SIZE_BITS>(inst, CONCAT_KN4_LOW, CONCAT_KN4_HIGH)});
+	tbl.order.push_back("KN4");
+	tbl.tbl.insert({"InNum", bitset_range_get<CONCAT_InNum_COUNT, INST_SIZE_BITS>(inst, CONCAT_InNum_LOW, CONCAT_InNum_HIGH)});
+	tbl.order.push_back("InNum");
+	return tbl;
+}
+inline void pretty_print_concat(const std::bitset<INST_SIZE_BITS>& inst) {
+	auto tbl = get_concat_table(inst);
+	print_table(tbl);
+}
 
 inline void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
   int op_code = extract_opcode(inst);
@@ -890,6 +973,9 @@ inline void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
     break;
   case OP_RESHAPE:
     pretty_print_reshape(inst);
+    break;
+  case OP_CONCAT:
+    pretty_print_concat(inst);
     break;
   default:
     log_fatal("can't pretty print instruction with opcode {}\n", op_code);
@@ -935,6 +1021,9 @@ inline void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
   case OP_RESHAPE:
     inst_data.reshape = get_reshape_table(inst);
     break;
+  case OP_CONCAT:
+    inst_data.concat = get_concat_table(inst);
+    break;
   default:
     log_fatal("can't pretty print instruction with opcode {}\n", op_code);
     break;
@@ -975,6 +1064,7 @@ inline std::string generate_pretty(const pretty_data &pd, int index) {
   html << generate_table_html("v  POOL", pd.pool);
   html << generate_table_html("v  TRANSPOSE", pd.transpose);
   html << generate_table_html("v  RESHAPE", pd.reshape);
+  html << generate_table_html("v  CONCAT", pd.concat);
   html << "</div>\n";
   return html.str();
 }

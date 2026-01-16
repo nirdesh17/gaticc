@@ -2097,6 +2097,8 @@ void Op::Layer::Unsqueeze::set_attributes(const onnx::NodeProto &node) {
   }
 }
 
+Op::Layer::Concat::Concat() { device = DEVICE_UNKNOWN; }
+
 const char *Op::Layer::Concat::op_type() const { return m_optype; }
 
 void Op::Layer::Concat::infer_type(const std::vector<TPDT> &input_types) {
@@ -2108,7 +2110,7 @@ void Op::Layer::Concat::infer_type(const std::vector<TPDT> &input_types) {
 void Op::Layer::Concat::infer_shape(const IVec2D &input_dims) {
   assert(input_dims.size() >= 1);
   this->input_dims = input_dims;
-  this->output_dims[0] = concat_shape(input_dims, m_axis);
+  this->output_dims.push_back(concat_shape(input_dims, m_axis));
   this->pipelined_output_dims = this->output_dims;
 }
 
@@ -2120,6 +2122,74 @@ void Op::Layer::Concat::set_attributes(const onnx::NodeProto &node) {
         m_axis = static_cast<int>(itr->i());
       }
     }
+  }
+}
+
+Op::Layer::QLinearConcat::QLinearConcat() { device = DEVICE_UNKNOWN; }
+
+const char *Op::Layer::QLinearConcat::op_type() const { return m_optype; }
+
+void Op::Layer::QLinearConcat::infer_type(
+    const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type = input_types;
+}
+
+void Op::Layer::QLinearConcat::infer_shape(const IVec2D &input_dims) {
+  assert(input_dims.size() >= 1);
+  this->input_dims = input_dims;
+  this->output_dims.push_back(concat_shape(input_dims, m_axis));
+  this->pipelined_output_dims = this->output_dims;
+}
+void Op::Layer::QLinearConcat::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axis") {
+      if (itr->has_i()) {
+        m_axis = static_cast<int>(itr->i());
+      }
+    }
+  }
+}
+
+enum QLCC_INITIALIZERS { QLCC_Y_SCALE = 0, QLCC_Y_ZERO_POINT = 1 };
+
+void Op::Layer::QLinearConcat::set_initializer_params(
+    int n, const onnx::TensorProto &t) {
+
+  if (n == QLCC_Y_SCALE) {
+    assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+    for (auto i : t.float_data()) {
+      y_scale.push_back(i);
+    }
+  } else if (n == QLCC_Y_ZERO_POINT) {
+    if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+      for (int i = 0; i < t.int32_data_size(); ++i) {
+        y_zero_point.push_back((uint8_t)t.int32_data(i));
+      }
+    } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+      for (int i = 0; i < t.int32_data_size(); ++i) {
+        y_zero_point.push_back((int8_t)t.int32_data(i));
+      }
+    }
+  } else if (n % 3 == 0) {
+    assert(t.data_type() == onnx::TensorProto_DataType_FLOAT);
+    for (auto i : t.float_data()) {
+      x_scale.push_back(i);
+    }
+  } else if (n % 3 == 1) {
+    if (t.data_type() == onnx::TensorProto_DataType_UINT8) {
+      for (int i = 0; i < t.int32_data_size(); ++i) {
+        x_zero_point.push_back((uint8_t)t.int32_data(i));
+      }
+    } else if (t.data_type() == onnx::TensorProto_DataType_INT8) {
+      for (int i = 0; i < t.int32_data_size(); ++i) {
+        x_zero_point.push_back((int8_t)t.int32_data(i));
+      }
+    }
+  } else {
+    log_fatal("unknown input number {} for tensor {}\n", n, t.name());
   }
 }
 
@@ -3322,6 +3392,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::Eltwise(ELTWISE_SIG), node);
   } else if (opt == "Tanh") {
     m_model.add(new Op::Layer::QLinearSigmoid(ELTWISE_TANH), node);
+  } else if (opt == "QLinearConcat") {
+    m_model.add(new Op::Layer::QLinearConcat(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }
