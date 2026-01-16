@@ -156,48 +156,48 @@
 // oller flag is set to 1, this field is the product of ceil_mo
 // d(OC*OH*OW, AXI_WIDTH).
 #define OutputBlock_ImageDimOutput_LOW 93
-#define OutputBlock_ImageDimOutput_HIGH 112
-#define OutputBlock_ImageDimOutput_COUNT 20
+#define OutputBlock_ImageDimOutput_HIGH 124
+#define OutputBlock_ImageDimOutput_COUNT 32
 // Output of the conv operation (HxW)
-#define OutputBlock_ImageDimAcc_LOW 113
-#define OutputBlock_ImageDimAcc_HIGH 132
-#define OutputBlock_ImageDimAcc_COUNT 20
+#define OutputBlock_ImageDimAcc_LOW 125
+#define OutputBlock_ImageDimAcc_HIGH 156
+#define OutputBlock_ImageDimAcc_COUNT 32
 // For layer with fewer channels than number of columns in the 
 // systolic array, accumulation of partial sums across iteratio
 // ns is disabled
-#define OutputBlock_AccEn_LOW 133
-#define OutputBlock_AccEn_HIGH 133
+#define OutputBlock_AccEn_LOW 157
+#define OutputBlock_AccEn_HIGH 157
 #define OutputBlock_AccEn_COUNT 1
 // If this layer's output is supposed to be sent back to the CP
 // U, this flag is set
-#define OutputBlock_DispatchEn_LOW 134
-#define OutputBlock_DispatchEn_HIGH 134
+#define OutputBlock_DispatchEn_LOW 158
+#define OutputBlock_DispatchEn_HIGH 158
 #define OutputBlock_DispatchEn_COUNT 1
 // This is a integrity id that the FPGA should attach to the Ad
 // dr part of the receiving DWP packet.
-#define OutputBlock_DispatchID_LOW 135
-#define OutputBlock_DispatchID_HIGH 166
+#define OutputBlock_DispatchID_LOW 159
+#define OutputBlock_DispatchID_HIGH 190
 #define OutputBlock_DispatchID_COUNT 32
 // If output dimensions of a conv operation can fit on the FPGA
 //  output buffers, they should not be sent to the DRAM, all of
 //  the conv can happen on chip saving latency. This flag sets 
 // that bit.
-#define OutputBlock_OnChipAcc_LOW 167
-#define OutputBlock_OnChipAcc_HIGH 167
+#define OutputBlock_OnChipAcc_LOW 191
+#define OutputBlock_OnChipAcc_HIGH 191
 #define OutputBlock_OnChipAcc_COUNT 1
-#define OutputBlock_OH_LOW 168
-#define OutputBlock_OH_HIGH 177
+#define OutputBlock_OH_LOW 192
+#define OutputBlock_OH_HIGH 201
 #define OutputBlock_OH_COUNT 10
-#define OutputBlock_OW_LOW 178
-#define OutputBlock_OW_HIGH 187
+#define OutputBlock_OW_LOW 202
+#define OutputBlock_OW_HIGH 211
 #define OutputBlock_OW_COUNT 10
 // If 1, treat outputs from the megablock as flat bytes, not as
 //  aligned bytes with zeros in it
-#define OutputBlock_FlatController_LOW 188
-#define OutputBlock_FlatController_HIGH 188
+#define OutputBlock_FlatController_LOW 212
+#define OutputBlock_FlatController_HIGH 212
 #define OutputBlock_FlatController_COUNT 1
-#define OutputBlock_OpWidth_LOW 189
-#define OutputBlock_OpWidth_HIGH 191
+#define OutputBlock_OpWidth_LOW 213
+#define OutputBlock_OpWidth_HIGH 215
 #define OutputBlock_OpWidth_COUNT 3
 
 #define OP_FC 0x03
