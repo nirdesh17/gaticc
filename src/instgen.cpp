@@ -292,6 +292,44 @@ void Pass::adjust_scale_shift(Op::Graph graph) {
   }
 }
 
+/* Relu layers following megablocks can be absorbed into the
+ * megablock by setting activation parameters. This pass
+ * traverses the graph and for every relu found, sets the
+ * activation parameters of the preceding megablock
+ */
+void Pass::Fuse_relu(Op::Graph &graph) {
+  for (auto vp = boost::vertices(graph); vp.first != vp.second; ++vp.first) {
+    Op::Vertex v = *vp.first;
+    Op::LayerBase *l = graph[v];
+
+    if (std::string(l->op_type()) != "Relu") {
+      continue;
+    }
+
+    Op::Layer::Relu *cc = dynamic_cast<Op::Layer::Relu *>(l);
+
+    Op::Vertex parent = get_parents(v, graph)[0];
+    Op::Vertex pre_parent = get_parents(parent, graph)[0];
+
+    Op::LayerBase *target = graph[parent];
+    if (cc->alpha == 0.0f) {
+      target = graph[pre_parent];
+    }
+
+    target->activation.enabled = true;
+    target->activation.alpha = cc->alpha;
+    if (cc->alpha == 0.0f) {
+      target->activation.pos_alpha = 0;
+      target->activation.neg_alpha = 0;
+    } else {
+      float scale = cc->x_scale[0] / cc->y_scale[0];
+      target->activation.neg_alpha =
+          static_cast<int>(std::round(scale * cc->alpha * (1 << 8)));
+      target->activation.pos_alpha =
+          static_cast<int>(std::round(scale * (1 << 8)));
+    }
+  }
+}
 /* Megablocks like convolution are followed by miniblocks
  * like relu and/or maxpool in pipeline. relu does not change
  * the shape of its outputs but maxpool does. in case, where
@@ -535,7 +573,8 @@ InstGen::InstGen(const Op::Parser &parser) {
    */
   Pass::adjust_scale_shift(graph);
   log_info2("Pass: adjust scale shift done\n");
-
+  Pass::Fuse_relu(graph);
+  log_info2("Pass: fusing relu done\n");
   AddressGen generator(graph);
   auto exec_order = generator.get_exec_order();
   if (gbl_args.has_option("print-exec-graph")) {
@@ -654,6 +693,20 @@ gen_quant(const std::vector<float> &x_scale, const std::vector<float> &w_scale,
                    TailBlock_QuantEn_HIGH);
 
   return quant_inst;
+}
+
+void gen_activation(std::bitset<INST_SIZE_BITS> &inst,
+                    const Op::ActivationParams& acti) {
+  if (acti.enabled) {
+    inst_set(inst, 1, TailBlock_ActEn);
+    if (acti.alpha == 0.0f) {
+      inst_set(inst, ACT_RELU, TailBlock_ActType);
+    } else {
+      inst_set(inst, ACT_LEAKYRELU, TailBlock_ActType);
+      inst_set(inst, acti.neg_alpha, TailBlock_NegAlpha);
+      inst_set(inst, acti.pos_alpha, TailBlock_PosAlpha);
+    }
+  }
 }
 
 void decomp_inst(std::bitset<INST_SIZE_BITS> &conv_inst, const Op::Layer::QLinearConv *cc,
@@ -1048,6 +1101,8 @@ int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen,
     dwp_packets++;
   }
 
+  gen_activation(quant_inst, this->activation);
+
   /* order matters, be careful when messing with this */
   insts.push_back(conv_inst);
   insts.push_back(output_inst);
@@ -1058,22 +1113,6 @@ int Op::Layer::QLinearConv::get_inst(InstBlob &insts, AddressGen &gen,
 
 int Op::Layer::Relu::get_inst(InstBlob &insts, AddressGen &,
                               InitializerTable &) {
-  std::bitset<INST_SIZE_BITS> relu_inst;
-  inst_set(relu_inst, OP_TailBlock, TailBlock_Opcode);
-  inst_set(relu_inst, 1, TailBlock_ActEn);
-
-  if (this->alpha == 0.0f) {
-    inst_set(relu_inst, ACT_RELU, TailBlock_ActType);
-  } else {
-    inst_set(relu_inst, ACT_LEAKYRELU, TailBlock_ActType);
-    float scale = (this->x_scale[0] / this->y_scale[0]);
-    int neg = static_cast<int>(std::round(scale * this->alpha * (1 << 8)));
-    int pos = static_cast<int>(std::round(scale * (1 << 8)));
-
-    inst_set(relu_inst, neg, TailBlock_NegAlpha);
-    inst_set(relu_inst, pos, TailBlock_PosAlpha);
-  }
-  insts.push_back(relu_inst);
   return 0;
 }
 
@@ -1086,8 +1125,8 @@ int Op::Layer::Maxpool::get_inst(InstBlob &insts, AddressGen &gen,
   insts.push_back(output_inst);
   std::bitset<INST_SIZE_BITS> tail_inst;
   inst_set(tail_inst, OP_TailBlock, TailBlock_Opcode);
+  gen_activation(tail_inst, this->activation);
   insts.push_back(tail_inst);
-  
   return dwp_packets;
 }
 
@@ -1211,7 +1250,7 @@ int Op::Layer::QGemm::get_inst(InstBlob &insts, AddressGen &gen,
   if (has_bias) {
     dwp_packets++;
   }
-
+  gen_activation(quant_inst, this->activation);
   insts.push_back(fc_inst);
   insts.push_back(output_inst);
   insts.push_back(bias_inst);
@@ -1362,7 +1401,7 @@ int Op::Layer::QLinearAveragePool::get_inst(InstBlob &insts, AddressGen &gen,
   inst_set(tail_inst, 1, TailBlock_QuantEn);
   inst_set(tail_inst, scale_val, TailBlock_QuantScale);
   inst_set(tail_inst, shift_val, TailBlock_QuantShift);
-
+  gen_activation(tail_inst, this->activation);
   insts.push_back(tail_inst);
   return 0;
 }
@@ -1586,6 +1625,7 @@ int Op::Layer::QLinearEltwise::get_inst(InstBlob &blob, AddressGen &gen,
   gen_eltwise_input_quant(this, add_inst, this->a_scale, this->b_scale, this->a_zp, this->b_zp);
   auto out_inst = gen_eltwise_output(this, gen, tbl);
   auto quant_inst = gen_eltwise_quant(this);
+  gen_activation(quant_inst, this->activation);
   blob.push_back(add_inst);
   blob.push_back(out_inst);
   blob.push_back(quant_inst);
@@ -1705,6 +1745,7 @@ int Op::Layer::QLinearSigmoid::get_inst(InstBlob &blob, AddressGen &gen,
   gen_sigmoid_input_quant(add_inst, this->x_scale, this->x_zero_point);
   auto out_inst = gen_sigmoid_output(this, gen, tbl);
   auto quant_inst = gen_sigmoid_quant(this);
+  gen_activation(quant_inst, this->activation);
   blob.push_back(add_inst);
   blob.push_back(out_inst);
   blob.push_back(quant_inst);

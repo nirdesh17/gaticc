@@ -489,6 +489,7 @@ void mark_cfg(const std::vector<Op::LayerBase *> &order);
 InstBlob insert_start_inst(const InstBlob &insts);
 
 Op::Graph create_megablock_graph(Op::Graph graph);
+void Fuse_relu(Op::Graph &graph);
 
 }; // namespace Pass
 

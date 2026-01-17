@@ -140,9 +140,9 @@ def postprocess(boxes, scores, width, height, class_names,
 
 def run_inference(onnx_path, img, frame):
     output_tensor = gati.run({name: img})
-    outputs = [out[1] for out in reversed(output_tensor)]
-    scores = outputs[0:12:2]
-    boxes  = outputs[1:12:2]
+    outputs = [out[1] for out in (output_tensor)]
+    scores = outputs[1:12:2]
+    boxes  = outputs[0:12:2]
 
     all_scores = [reshape_scores(s) for s in scores]
     all_boxes = [reshape_boxes(b) for b in boxes]

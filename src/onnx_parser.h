@@ -97,6 +97,13 @@ struct PoolParams {
   std::string auto_pad; /* auto_pad attribute, if any */
 };
 
+struct ActivationParams {
+  bool enabled = false;
+  float alpha;
+  int pos_alpha;
+  int neg_alpha;
+};
+
 using VirtualAddress = int;
 using IOAddrPair =
     std::pair<std::vector<Op::VirtualAddress>, std::vector<Op::VirtualAddress>>;
@@ -227,7 +234,7 @@ struct LayerBase {
    * dumped by the simulator
    */
   bool dispatch;
-
+  ActivationParams activation;
 };
 
 namespace Layer {
