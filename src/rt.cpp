@@ -610,13 +610,13 @@ static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const 
   IVec2D og_dims_v{tensor->get_dims()};
   auto og_dims = og_dims_v.at(0);
 
-  if (lb->op_type() == "QLinearConv") {
+  if (std::string(lb->op_type()) == "QLinearConv") {
     const Op::Layer::QLinearConv *l = dynamic_cast<const Op::Layer::QLinearConv *>(lb);
     aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
-  } else if (lb->op_type() == "Maxpool") {
+  } else if (std::string(lb->op_type()) == "Maxpool") {
     const Op::Layer::Maxpool *l = dynamic_cast<const Op::Layer::Maxpool *>(lb);
     aligned_dims = aligned_qle_dims(og_dims_v).at(0);
-  } else if (lb->op_type() == "QLinearAveragePool") {
+  } else if (std::string(lb->op_type()) == "QLinearAveragePool") {
     const Op::Layer::QLinearAveragePool *l = dynamic_cast<const Op::Layer::QLinearAveragePool *>(lb);
     aligned_dims = aligned_qle_dims(og_dims_v).at(0);
   } else {
@@ -797,6 +797,21 @@ static void eltwise_receive(Rah &rah, TensorPool &tensor_pool, const Op::LayerBa
 
 
 void Op::Layer::QLinearEltwise::receive_output(TensorPool &tensor_pool, Rah &rah) const {
+  uint32_t expected_hash = string_hash(this->name);
+  uint32_t expected_data_size = aligned_qle(this->pipelined_output_dims).at(0) * Op::tpdt_sizeof(this->output_type.at(0));
+  if (this->output_type[0] == onnx::TensorProto_DataType_INT8) {
+    eltwise_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_UINT8) {
+    eltwise_receive<uint8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else if (this->output_type[0] == onnx::TensorProto_DataType_INT32) {
+    eltwise_receive<int>(rah, tensor_pool, this, expected_data_size, expected_hash);
+  } else {
+    log_fatal("can't receive data of type {} from FPGA\n",
+              Op::get_tensorproto_dtype_name(this->output_type[0]));
+  }
+}
+
+void Op::Layer::QLinearConcat::receive_output(TensorPool &tensor_pool, Rah &rah) const {
   uint32_t expected_hash = string_hash(this->name);
   uint32_t expected_data_size = aligned_qle(this->pipelined_output_dims).at(0) * Op::tpdt_sizeof(this->output_type.at(0));
   if (this->output_type[0] == onnx::TensorProto_DataType_INT8) {
