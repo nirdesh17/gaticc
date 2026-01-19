@@ -1709,6 +1709,8 @@ static std::bitset<INST_SIZE_BITS> gen_sigmoid(const Op::LayerBase *l,
   uint32_t left_end = left_start + left_size;
   inst_set(add_inst, left_start, EltWise_LeftOperandStartAddress);
   inst_set(add_inst, left_end, EltWise_LeftOperandEndAddress);
+  inst_set(add_inst, left_start, EltWise_RightOperandStartAddress);
+  inst_set(add_inst, left_end, EltWise_RightOperandEndAddress);
 
   return add_inst;
 }

@@ -301,8 +301,7 @@ void split_large_kernel(Op::Graph &g) {
     } else if (strcmp(g[v]->op_type(), "Maxpool") == 0) {
 
       Op::Layer::Maxpool *cc = dynamic_cast<Op::Layer::Maxpool *>(g[v]);
-      if (cc && is_large_maxpool(cc) &&
-          cc->name.find("decomposed_") == std::string::npos) {
+      if (cc && is_large_maxpool(cc) && cc->name.find("decomposed_") == std::string::npos) {
         std::vector<Op::Vertex> predecessors = get_parents(v, g);
         std::vector<Op::Vertex> successors = get_children(v, g);
         vertices_to_remove.push_back(v);
@@ -314,26 +313,32 @@ void split_large_kernel(Op::Graph &g) {
         new_pool1->name = "decomposed_" + cc->name + std::to_string(0);
         new_pool1->m_cp.k[TENSOR_2D_HEIGHT] = 1;
         new_pool1->m_cp.stride[TENSOR_2D_HEIGHT] = 1;
+        new_pool1->m_cp.pad[I_UP] = 0;
+        new_pool1->m_cp.pad[I_DOWN] = 0;
         new_pool1->infer_shape(new_pool1->input_dims);
+        new_pool1->input_names = cc->input_names;
+        new_pool1->output_names = {new_pool1->name + "_output"};
+
         g[new_vertex1] = new_pool1;
 
         for (auto pred : predecessors) {
           boost::add_edge(pred, new_vertex1, g);
         }
 
-        predecessors = {new_vertex1};
-
         Op::Vertex new_vertex2 = boost::add_vertex(g);
         auto *new_pool2 = new Op::Layer::Maxpool(*cc);
         new_pool2->name = "decomposed_" + cc->name + std::to_string(1);
         new_pool2->m_cp.k[TENSOR_2D_WIDTH] = 1;
         new_pool2->m_cp.stride[TENSOR_2D_WIDTH] = 1;
+        new_pool2->m_cp.pad[I_LEFT] = 0;
+        new_pool2->m_cp.pad[I_RIGHT] = 0;
         new_pool2->infer_shape(new_pool1->output_dims);
+        new_pool2->input_names = {new_pool1->output_names[0]};
+        new_pool2->output_names = cc->output_names;
+
         g[new_vertex2] = new_pool2;
 
-        for (auto pred : predecessors) {
-          boost::add_edge(pred, new_vertex2, g);
-        }
+        boost::add_edge(new_vertex1, new_vertex2, g);
 
         for (auto succ : successors) {
           boost::add_edge(new_vertex2, succ, g);
@@ -343,8 +348,7 @@ void split_large_kernel(Op::Graph &g) {
 
       Op::Layer::QLinearAveragePool *cc =
           dynamic_cast<Op::Layer::QLinearAveragePool *>(g[v]);
-      if (cc && is_large_avgpool(cc) &&
-          cc->name.find("decomposed_") == std::string::npos) {
+      if (cc && is_large_avgpool(cc) && cc->name.find("decomposed_") == std::string::npos) {
         std::vector<Op::Vertex> predecessors = get_parents(v, g);
         std::vector<Op::Vertex> successors = get_children(v, g);
         vertices_to_remove.push_back(v);
@@ -356,27 +360,32 @@ void split_large_kernel(Op::Graph &g) {
         new_pool1->name = "decomposed_" + cc->name + std::to_string(0);
         new_pool1->m_cp.k[TENSOR_2D_HEIGHT] = 1;
         new_pool1->m_cp.stride[TENSOR_2D_HEIGHT] = 1;
+        new_pool1->m_cp.pad[I_UP] = 0;
+        new_pool1->m_cp.pad[I_DOWN] = 0;
         new_pool1->infer_shape(new_pool1->input_dims);
+        new_pool1->input_names = cc->input_names;
+        new_pool1->output_names = {new_pool1->name + "_output"};
         g[new_vertex1] = new_pool1;
 
         for (auto pred : predecessors) {
           boost::add_edge(pred, new_vertex1, g);
         }
 
-        predecessors = {new_vertex1};
-
         Op::Vertex new_vertex2 = boost::add_vertex(g);
         auto *new_pool2 = new Op::Layer::QLinearAveragePool(*cc);
         new_pool2->name = "decomposed_" + cc->name + std::to_string(1);
         new_pool2->m_cp.k[TENSOR_2D_WIDTH] = 1;
         new_pool2->m_cp.stride[TENSOR_2D_WIDTH] = 1;
+        new_pool2->m_cp.pad[I_LEFT] = 0;
+        new_pool2->m_cp.pad[I_RIGHT] = 0;
         new_pool2->infer_shape(new_pool1->output_dims);
+        new_pool2->input_names = {new_pool1->output_names[0]};
+        new_pool2->output_names = cc->output_names;
+
         g[new_vertex2] = new_pool2;
 
-        for (auto pred : predecessors) {
-          boost::add_edge(pred, new_vertex2, g);
-        }
-
+        boost::add_edge(new_vertex1, new_vertex2, g);
+        
         for (auto succ : successors) {
           boost::add_edge(new_vertex2, succ, g);
         }
