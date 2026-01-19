@@ -448,7 +448,7 @@
 #define RESHAPE_ImageStartAddress_HIGH 67
 #define RESHAPE_ImageStartAddress_COUNT 32
 
-#define ISA_VERSION 15
+#define ISA_VERSION 16
 #define ACT_RELU 0x00
 #define ACT_CLIP 0x01
 #define ACT_LEAKYRELU 0x02
@@ -530,6 +530,30 @@
 #define CONCAT_InNum_HIGH 214
 #define CONCAT_InNum_COUNT 3
 
+#define OP_RESIZE 0xa
+// Opcode
+#define RESIZE_Opcode_LOW 0
+#define RESIZE_Opcode_HIGH 3
+#define RESIZE_Opcode_COUNT 4
+// Width of the input image
+#define RESIZE_IW_LOW 4
+#define RESIZE_IW_HIGH 13
+#define RESIZE_IW_COUNT 10
+// Height of the input image
+#define RESIZE_IH_LOW 14
+#define RESIZE_IH_HIGH 23
+#define RESIZE_IH_COUNT 10
+// Channel count for the input
+#define RESIZE_IC_LOW 24
+#define RESIZE_IC_HIGH 35
+#define RESIZE_IC_COUNT 12
+#define RESIZE_ImageStartAddress_LOW 36
+#define RESIZE_ImageStartAddress_HIGH 67
+#define RESIZE_ImageStartAddress_COUNT 32
+#define RESIZE_ImageEndAddress_LOW 68
+#define RESIZE_ImageEndAddress_HIGH 99
+#define RESIZE_ImageEndAddress_COUNT 32
+
 #define ZerothStartAddress_LOW 0
 #define ZerothStartAddress_HIGH 31
 #define ZerothStartAddress_COUNT 32
@@ -563,6 +587,7 @@ struct pretty_data {
   Table transpose;
   Table reshape;
   Table concat;
+  Table resize;
 
   void clear() {
     conv.clear();
@@ -576,6 +601,7 @@ struct pretty_data {
     transpose.clear();
     reshape.clear();
     concat.clear();
+    resize.clear();
   }
 };
 inline Table get_conv_table(const std::bitset<INST_SIZE_BITS>& inst) {
@@ -940,6 +966,26 @@ inline void pretty_print_concat(const std::bitset<INST_SIZE_BITS>& inst) {
 	auto tbl = get_concat_table(inst);
 	print_table(tbl);
 }
+inline Table get_resize_table(const std::bitset<INST_SIZE_BITS>& inst) {
+	Table tbl;
+	tbl.tbl.insert({"Opcode", bitset_range_get<RESIZE_Opcode_COUNT, INST_SIZE_BITS>(inst, RESIZE_Opcode_LOW, RESIZE_Opcode_HIGH)});
+	tbl.order.push_back("Opcode");
+	tbl.tbl.insert({"IW", bitset_range_get<RESIZE_IW_COUNT, INST_SIZE_BITS>(inst, RESIZE_IW_LOW, RESIZE_IW_HIGH)});
+	tbl.order.push_back("IW");
+	tbl.tbl.insert({"IH", bitset_range_get<RESIZE_IH_COUNT, INST_SIZE_BITS>(inst, RESIZE_IH_LOW, RESIZE_IH_HIGH)});
+	tbl.order.push_back("IH");
+	tbl.tbl.insert({"IC", bitset_range_get<RESIZE_IC_COUNT, INST_SIZE_BITS>(inst, RESIZE_IC_LOW, RESIZE_IC_HIGH)});
+	tbl.order.push_back("IC");
+	tbl.tbl.insert({"ImageStartAddress", bitset_range_get<RESIZE_ImageStartAddress_COUNT, INST_SIZE_BITS>(inst, RESIZE_ImageStartAddress_LOW, RESIZE_ImageStartAddress_HIGH)});
+	tbl.order.push_back("ImageStartAddress");
+	tbl.tbl.insert({"ImageEndAddress", bitset_range_get<RESIZE_ImageEndAddress_COUNT, INST_SIZE_BITS>(inst, RESIZE_ImageEndAddress_LOW, RESIZE_ImageEndAddress_HIGH)});
+	tbl.order.push_back("ImageEndAddress");
+	return tbl;
+}
+inline void pretty_print_resize(const std::bitset<INST_SIZE_BITS>& inst) {
+	auto tbl = get_resize_table(inst);
+	print_table(tbl);
+}
 
 inline void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
   int op_code = extract_opcode(inst);
@@ -976,6 +1022,9 @@ inline void pretty_print(const std::bitset<INST_SIZE_BITS> &inst) {
     break;
   case OP_CONCAT:
     pretty_print_concat(inst);
+    break;
+  case OP_RESIZE:
+    pretty_print_resize(inst);
     break;
   default:
     log_fatal("can't pretty print instruction with opcode {}\n", op_code);
@@ -1024,6 +1073,9 @@ inline void pretty_print_html(const std::bitset<INST_SIZE_BITS> &inst,
   case OP_CONCAT:
     inst_data.concat = get_concat_table(inst);
     break;
+  case OP_RESIZE:
+    inst_data.resize = get_resize_table(inst);
+    break;
   default:
     log_fatal("can't pretty print instruction with opcode {}\n", op_code);
     break;
@@ -1065,6 +1117,7 @@ inline std::string generate_pretty(const pretty_data &pd, int index) {
   html << generate_table_html("v  TRANSPOSE", pd.transpose);
   html << generate_table_html("v  RESHAPE", pd.reshape);
   html << generate_table_html("v  CONCAT", pd.concat);
+  html << generate_table_html("v  RESIZE", pd.resize);
   html << "</div>\n";
   return html.str();
 }

@@ -2428,6 +2428,33 @@ void Op::Layer::Resize::set_initializer_params(int n,
   }
 }
 
+void Op::Layer::Resize::set_constant_params(int n, const onnx::NodeProto &t) {
+
+  for (const auto &a : t.attribute()) {
+    if (a.name() == "value") {
+      const onnx::TensorProto &tensor = a.t();
+      std::vector<int64_t> dims;
+      for (auto d : tensor.dims()) {
+        dims.push_back(d);
+      }
+      std::vector<float> values;
+      if (tensor.float_data_size() > 0) {
+        for (float v : tensor.float_data()) {
+          values.push_back(v);
+        }
+      } else {
+        const std::string &raw = tensor.raw_data();
+        size_t count = raw.size() / sizeof(float);
+        const float *ptr = reinterpret_cast<const float *>(raw.data());
+        values.assign(ptr, ptr + count);
+      }
+      for (float v : values) {
+        scales.push_back(v);
+      }
+    }
+  }
+}
+
 /* Auxillary Graph Functions */
 
 bool is_op_type(const Op::LayerBase *l, const char *op_type) { 
