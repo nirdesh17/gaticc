@@ -2455,6 +2455,46 @@ void Op::Layer::Resize::set_constant_params(int n, const onnx::NodeProto &t) {
   }
 }
 
+Op::Layer::ReduceSum::ReduceSum() : m_axis{-1}, m_keepdims{1} {
+  device = DEVICE_UNKNOWN;
+}
+
+const char *Op::Layer::ReduceSum::op_type() const { return m_optype; }
+
+std::string Op::Layer::ReduceSum::params() const {
+  std::stringstream ss;
+  ss << "axis: " << m_axis << " keepdims: " << m_keepdims;
+  return ss.str();
+}
+
+void Op::Layer::ReduceSum::infer_shape(const IVec2D &input_dims) {
+  this->input_dims = input_dims;
+  this->output_dims = input_dims;
+  this->output_dims[0][TENSOR_4D_CHANNELS] = 1;
+  this->pipelined_output_dims = this->output_dims;
+}
+
+void Op::Layer::ReduceSum::infer_type(const std::vector<TPDT> &input_types) {
+  assert(input_types.size() >= 1);
+  this->input_type = input_types;
+  this->output_type = input_types;
+}
+
+void Op::Layer::ReduceSum::set_attributes(const onnx::NodeProto &node) {
+  const auto &attribute = node.attribute();
+  for (auto itr = attribute.begin(); itr != attribute.end(); ++itr) {
+    if (itr->name() == "axes") {
+      std::vector<int> axes;
+      parse_onnx_ints(*itr, axes);
+      m_axis = axes.at(0);
+    } else if (itr->name() == "keepdims") {
+      if (itr->has_i()) {
+        m_keepdims = static_cast<int>(itr->i());
+      }
+    }
+  }
+}
+
 /* Auxillary Graph Functions */
 
 bool is_op_type(const Op::LayerBase *l, const char *op_type) { 
@@ -3505,6 +3545,8 @@ void Op::Parser::add_operator(onnx::NodeProto &node) {
     m_model.add(new Op::Layer::QLinearConcat(), node);
   } else if (opt == "Resize") {
     m_model.add(new Op::Layer::Resize(), node);
+  } else if (opt == "ReduceSum") {
+    m_model.add(new Op::Layer::ReduceSum(), node);
   } else {
     log_fatal("Unimplemented Operator: {}\n", opt);
   }

@@ -2009,6 +2009,16 @@ int Op::Layer::Resize::get_inst(InstBlob &blob, AddressGen &gen,
   blob.push_back(tail_inst);
   return 0;
 }
+
+void Op::Layer::ReduceSum::get_opcodes(std::vector<int> &) {}
+
+uint32_t Op::Layer::ReduceSum::get_weight_size() { return 0; }
+
+int Op::Layer::ReduceSum::get_inst(InstBlob &, AddressGen &,
+                                   InitializerTable &) {
+  return 0;
+}
+
 AddressGen::AddressGen(Op::Graph graph) : current_address{0} {
   m_exec_order = crt_exec_order(graph);
 
