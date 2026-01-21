@@ -33,6 +33,20 @@ void dispatch_info_ops() {
   if (gbl_args.has_option("timeest")) {
     dispatch_timeest(parser);
   }
+
+  if (gbl_args.has_option("flops")) {
+    split_large_kernel(parser.get_graph());
+    Pass::absorb(parser.get_graph());
+    Op::Graph megablock_graph =
+        Pass::create_megablock_graph(parser.get_graph());
+    auto order = crt_exec_order(megablock_graph);
+    std::vector<std::pair<std::string, long long>> flops =
+        flops_estimate(order);
+    for (const auto &[name, count] : flops) {
+      std::cout << "FLOPs for " << name << ": " << count << " FLOPs"
+                << std::endl;
+    }
+  }
 }
 
 void dispatch_compile_ops() {

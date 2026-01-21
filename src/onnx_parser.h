@@ -914,6 +914,9 @@ std::vector<int> get_true_rc_inputs(const Op::LayerBase *l);
 /* Return the total cycles required by the entire model */
 long time_estimate(Op::Graph graph);
 
+std::vector<std::pair<std::string, long long>>
+flops_estimate(std::vector<Op::LayerBase *> execution_order);
+
 inline int sa_odims_row(Op::ConvParams const &cp,
                         const std::vector<int> &input_dims) {
   // o = ((iw - kw + 2p) / s) + 1

@@ -1047,7 +1047,7 @@ std::string Op::Layer::QLinearConv::params() const {
   std::string ret;
   std::stringstream ss;
   ss << "(IC,IH,IW: " << this->input_dims[0][TENSOR_4D_CHANNELS] << ","
-     << this->input_dims[0][TENSOR_4D_HEIGHT] << "," << this->input_dims[0][TENSOR_2D_WIDTH] << ") "
+     << this->input_dims[0][TENSOR_4D_HEIGHT] << "," << this->input_dims[0][TENSOR_4D_WIDTH] << ") "
      << "(KN,KC,KH,KW: " << m_cp.kn << ","
      << weights->dims()[TENSOR_4D_CHANNELS] << ","
      << m_cp.k[TENSOR_2D_WIDTH] << "," << m_cp.k[TENSOR_2D_HEIGHT] << ") "
@@ -2898,6 +2898,68 @@ long Op::time_estimate(Op::Graph graph) {
   std::cout << "Total Estimated time: "
             << (float)cycles / (frequency * 1e3) << "ms\n";
   return cycles;
+}
+
+std::vector<std::pair<std::string, long long>>
+Op::flops_estimate(std::vector<Op::LayerBase *> exec_order) {
+  long long total_ops = 0;
+  std::vector<std::pair<std::string, long long>> flops;
+  long long conv_flops = 0;
+  long long gemm_flops = 0;
+  long long eltwise_flops = 0;
+  for (auto l : exec_order) {
+    std::cout << "Type: " << l->op_type() << std::endl;
+    std::cout << "Layer Name: " << l->name << std::endl;
+    int N = l->input_dims[0][TENSOR_4D_BATCH];
+    int IC = l->input_dims[0][TENSOR_4D_CHANNELS];
+
+    int OC = l->output_dims[0][TENSOR_4D_CHANNELS];
+    int OH = l->output_dims[0][TENSOR_4D_HEIGHT];
+    int OW = l->output_dims[0][TENSOR_4D_WIDTH];
+
+    int MAC = 0;
+    int Ops = 0;
+
+    if (std::string(l->op_type()) == "QLinearConv") {
+      Op::Layer::QLinearConv const *cc =
+          dynamic_cast<Op::Layer::QLinearConv const *>(l);
+      int KH = cc->m_cp.k[TENSOR_2D_HEIGHT];
+      int KW = cc->m_cp.k[TENSOR_2D_WIDTH];
+
+      MAC = N * OC * OH * OW * (IC * KH * KW);
+      Ops = (MAC * 2); // total ops = multiply + add not subtracting  (N * OC *
+                       // OH * OW) bcoz in hardware it start from 0
+      conv_flops += Ops;
+    } else if (std::string(l->op_type()) == "QGemm") {
+      Op::Layer::QGemm const *gg = dynamic_cast<Op::Layer::QGemm const *>(l);
+      auto wr_wc = get_true_rc_weights(gg);
+      int WR = wr_wc[0];
+      int WC = wr_wc[1];
+
+      MAC = N * OC * OH * OW * WC;
+      Ops = (MAC * 2);
+      gemm_flops += Ops;
+    } else if (std::string(l->op_type()) == "QLinearEltwise") {
+      MAC = N * OC * OH * OW;
+      Ops = MAC;
+      eltwise_flops += Ops;
+    } else if (std::string(l->op_type()) == "QLinearSigmoid") {
+      MAC = N * OC * OH * OW;
+      Ops = MAC;
+      eltwise_flops += Ops;
+    }
+
+    std::cout << "MACs: " << MAC << std::endl;
+    std::cout << "Total Ops: " << Ops << std::endl;
+    total_ops += Ops;
+    std::cout << std::endl;
+    std::cout << std::endl;
+  }
+  flops.push_back({"QLinearConv", conv_flops});
+  flops.push_back({"QGemm", gemm_flops});
+  flops.push_back({"QLinearEltwise", eltwise_flops});
+  flops.push_back({"Total", total_ops});
+  return flops;
 }
 
 void Op::Model::bare_summary(void) const {

@@ -202,8 +202,11 @@ def run(
     
     return _gati.run(arr, rest)
 
-def summary(onnx_path: str):
-  return _gati.info(onnx_path, [("summary", "")])
+def summary(onnx_path: str,*args,
+        **kwargs,
+        ) -> list[tuple[str,str]]:
+  rest = remove_dupes(kwargs2list(**kwargs) + args2list(*args))
+  return _gati.info(onnx_path, rest)
 
 def match(label_file: str, predicted_labels: list) -> float:
   """
