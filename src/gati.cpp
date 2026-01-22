@@ -16,6 +16,20 @@ using namespace pybind11::literals;
 
 Argparse gbl_args;
 
+__attribute__((visibility("default"))) py::list compare_layer(const std::string& onnx_path) {
+  Op::Parser parser(onnx_path);
+  split_large_kernel(parser.get_graph());
+  Pass::absorb(parser.get_graph());
+  Op::Graph megablock_graph =
+      Pass::create_megablock_graph(parser.get_graph());
+  auto order = crt_exec_order(megablock_graph);
+  py::list ret;
+  for (const auto& l : order) {
+    ret.append(l->name);
+  }
+  return ret;
+}
+
 __attribute__((visibility("default"))) int compile(const std::string& onnx_path, const std::string &gml_path, const vss& rest) {
   gbl_args.set_option("compile", onnx_path.c_str());
   gbl_args.set_option("output", gml_path.c_str());

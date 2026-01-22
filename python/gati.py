@@ -269,7 +269,7 @@ def sim_npy_load(layer_names: list[str]) -> list[tuple[str, np.ndarray]]:
     return [(layer_name, np.load(layer_name.replace('/','_') + ".tensor.npy")) for layer_name in layer_names]
 
 
-def compare_layer(sim_layers: list[str], fpga_layers: list[str], base_dir: str = "."):
+def compare_layer(onnx_path: str, sim_layers: list[str], fpga_layers: list[str], print_data: bool = False, base_dir: str = "."):
     """
     Compare simulation vs FPGA output 
 
@@ -278,11 +278,17 @@ def compare_layer(sim_layers: list[str], fpga_layers: list[str], base_dir: str =
         fpga_layer : FPGA layers name in list of strings.
         base_dir (str): Directory where the .npy files are located.
     """
+    layer_name = _gati.compare_layer(onnx_path)
+    if sim_layers == ["all"]:
+      sim_layers = layer_name
+    if fpga_layers == ["all"]:
+      fpga_layers = layer_name
 
     def matcher(a1, a2):
       match_p = 0
       for index, (i, j) in enumerate(zip(a1.flatten(), a2.flatten())):
-        print(f"Index: {index} Sim: {i}, Run: {j}")
+        if print_data == True and i != j:
+          print(f"Index: {index} Sim: {i}, Run: {j}")
         if i == j:
           match_p += 1
       return (match_p / len(a1.flatten())) * 100
@@ -299,17 +305,18 @@ def compare_layer(sim_layers: list[str], fpga_layers: list[str], base_dir: str =
 
       if not os.path.exists(sim_file):
           print(f"   Missing simulation file: {sim_file}")
-          return
+          continue
+
       if not os.path.exists(fpga_file):
           print(f"   Missing FPGA file: {fpga_file}")
-          return
+          continue
 
       sim_arr = np.load(sim_file)
       fpga_arr = np.load(fpga_file)
 
       if sim_arr.shape != fpga_arr.shape:
           print(f"   Shape mismatch: sim={sim_arr.shape}, fpga={fpga_arr.shape}")
-          return
+          continue
 
       match_percent = matcher(sim_arr, fpga_arr)
       print(f"   Match Percentage: {match_percent:.2f}%")

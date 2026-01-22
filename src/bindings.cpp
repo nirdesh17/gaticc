@@ -74,4 +74,5 @@ PYBIND11_MODULE(_gati, m) {
   m.def("run", safe_run, "inp"_a, "rest"_a = py::list());
   m.def("get_model_inputs", safe_get_model_inputs,"onnx_path"_a);
   m.def("get_model_outputs", safe_get_model_outputs,"onnx_path"_a);
+  m.def("compare_layer", &compare_layer, "onnx_path"_a);
 }

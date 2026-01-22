@@ -16,3 +16,4 @@ __attribute__((visibility("default"))) void load(const string& onnx_path, const 
 __attribute__((visibility("default"))) py::list run(py::dict arr, const vss& rest);
 __attribute__((visibility("default"))) std::vector<std::string> get_model_inputs(const std::string& onnx_path);
 __attribute__((visibility("default"))) std::vector<std::string> get_model_outputs(const std::string& onnx_path);
+__attribute__((visibility("default"))) py::list compare_layer(const std::string& onnx_path);
