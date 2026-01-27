@@ -18,9 +18,20 @@ struct ArchParams {
   Param im2colbuf_size;
   Param fcbuf_size;
   Param vasize;
+  Param im2col_bound_gen_w;
+  Param n_mod_stages;
   int pw_flops; /* pointwise flops */
   int dw_flops; /* dw flops */
   int reg_flops; /* regular conv flops */
+  bool has_maxpool;
+  bool has_concat;
+  bool has_fc;
+  bool has_sigmoid;
+  bool has_transpose;
+  bool has_g_avg_pool;
+  bool has_leakyrelu;
+  bool has_qlmult;
+  bool has_resize;
   ArchParams();
 };
 

@@ -485,3 +485,9 @@ int dot(const std::vector<int> &a, const std::vector<int> &b) {
   }
   return sum;
 }
+
+int round8(double input) {
+    int base = static_cast<int>(std::ceil(input));
+    int result = ((base + 7) / 8) * 8;
+    return result;
+}
