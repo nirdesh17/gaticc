@@ -185,6 +185,7 @@ class Argparse {
            "Args: size in bytes (int)",
            1},
           {"archgen", {"-g", "--archgen"}, "Generate architecture file for a model. Args: <onnx>", 1},
+          {"archgen-file", {"-f", "--archgen-file"}, "Path of .vh file where the h/w macros should be written", 1},
           {"fpga", {"--fpga"}, "Specify FPGA Type. Eg: \"T120\" or \"TI180\"", 1},
           {"version", {"--version"}, "print version info and exit", 0},
           {"summary", {"--summary"}, "print a summary of the model", 0},
@@ -804,4 +805,4 @@ py::list extract_pool(TensorPool &pool);
 std::vector<int> permute(const std::vector<int> &v, std::vector<int> perm);
 int dot(const std::vector<int> &a, const std::vector<int> &b);
 
-int round8(double input);
+int round2pwr(double input);

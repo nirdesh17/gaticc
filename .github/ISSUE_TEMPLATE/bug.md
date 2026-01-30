@@ -1,3 +1,10 @@
+---
+name: Bug Report
+about: Report a reproducible bug in gaticc
+title: "[BUG] "
+labels: bug
+assignees: ''
+---
 ## Bug Report
 
 **Mandatory template.**

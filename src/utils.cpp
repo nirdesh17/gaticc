@@ -486,8 +486,13 @@ int dot(const std::vector<int> &a, const std::vector<int> &b) {
   return sum;
 }
 
-int round8(double input) {
-    int base = static_cast<int>(std::ceil(input));
-    int result = ((base + 7) / 8) * 8;
-    return result;
+// Calculates the nearest power of 2 for im2col_bound_gen_width.
+// Ensures the output is at least 8 and rounds values greater than 8 
+// up to the next power of 2.
+int round2pwr(double input) {
+  if (input <= 8.0) {
+    return 8;
+  }
+  unsigned int base = static_cast<unsigned int>(std::ceil(input));
+  return static_cast<int>(boost::core::bit_ceil(base));
 }

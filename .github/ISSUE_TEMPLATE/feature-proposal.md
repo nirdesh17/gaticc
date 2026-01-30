@@ -1,3 +1,10 @@
+---
+name: Feature Request
+about: Propose a new feature or operator implementation for gaticc / gati
+title: "[FEATURE] "
+labels: enhancement
+assignees: ''
+---
 (remove the comments before creating the issue) (comments are in round brackets)
 ## What (what feature are you adding, any link to explain it or you can explain it here)
 
