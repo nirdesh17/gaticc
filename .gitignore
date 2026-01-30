@@ -10,4 +10,7 @@ exe/
 *.gml
 *.a
 third_party
+*.npy
 tags
+*.jpg
+bitstreams/

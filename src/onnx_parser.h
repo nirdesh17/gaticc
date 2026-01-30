@@ -283,6 +283,7 @@ struct Relu : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct Clip : public LayerBase {
@@ -333,6 +334,7 @@ struct Maxpool : public LayerBase {
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct Flatten : public LayerBase {
@@ -521,6 +523,7 @@ struct QLinearEltwise : public LayerBase {
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
   void align_weights(BinBlob &blob, InitializerTable &tbl);
   void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct Transpose : public LayerBase {
@@ -540,6 +543,7 @@ struct Transpose : public LayerBase {
 
   void send_input(TensorPool &tensor_pool, AddressGen &generator, Rah &rah, IOAddrTbl &io_tbl) const override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct MatMul : public LayerBase {
@@ -590,6 +594,7 @@ struct QGemm : public LayerBase {
   void set_output_scale(const std::vector<float>& v) override;
   std::pair<int,int> get_iterations() const override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct QLinearConv : public LayerBase {
@@ -661,6 +666,7 @@ struct QLinearAveragePool : public LayerBase {
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct GlobalAveragePool : public LayerBase {
@@ -676,6 +682,7 @@ struct GlobalAveragePool : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   uint32_t get_weight_size() override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct Abs : public LayerBase {
@@ -783,6 +790,7 @@ struct QLinearConcat : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void run(TensorPool &tensor_pool) override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct NMS : public LayerBase {
@@ -824,6 +832,7 @@ struct QLinearSigmoid : public LayerBase {
   void get_opcodes(std::vector<int> &op_codes) override;
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct Resize : public LayerBase {
@@ -845,6 +854,7 @@ struct Resize : public LayerBase {
   int get_inst(InstBlob &blob, AddressGen &gen, InitializerTable &tbl) override;
   void receive_output(TensorPool &tensor_pool, Rah &rah) const override;
   void set_constant_params(int n, const onnx::NodeProto &) override;
+  ArchParams archgen(const ArchParams &ap) const override;
 };
 
 struct ReduceSum : public LayerBase {
