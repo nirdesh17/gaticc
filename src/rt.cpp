@@ -325,13 +325,12 @@ void Runner::infer(const std::string &onnx_path, const std::string &gml_path) {
 
   m_parser = std::make_unique<Op::Parser>(onnx_path);
 
+  split_large_kernel(m_parser->get_graph());
+  Pass::absorb(m_parser->get_graph());
   Op::Graph megablock_graph =
       Pass::create_megablock_graph(m_parser->get_graph());
   hdt = std::make_unique<DispatchTable>(megablock_graph,
                                         m_parser->get_name_vertex_map());
-
-  split_large_kernel(m_parser->get_graph());
-  Pass::absorb(m_parser->get_graph());
   Fstream fp(gml_path);
   if (gbl_args.has_option("dry-run")) {
     rah = std::make_unique<FakeRah>();

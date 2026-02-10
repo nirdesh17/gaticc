@@ -459,6 +459,7 @@ void split_large_kernel(Op::Graph &g) {
             new_concat->output_dims[0][cc->m_axis] += g[eltwise_vertices[idx]]->output_dims[0][cc->m_axis];
           }
         }
+        new_concat->pipelined_output_dims = new_concat->output_dims;
         g[concat_vertex] = new_concat;
         concat_vertices.push_back(concat_vertex);
       }

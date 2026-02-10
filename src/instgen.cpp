@@ -359,7 +359,7 @@ void Pass::extract_conv_true_odims(Op::Graph gcopy) {
       cc = l;
     } else if (is_megablock(l) || changes_dimension_count(l)) {
       cc = nullptr;
-    } else if (cc != nullptr) {
+    } else if (cc != nullptr && !is_op_type(l, "Split")) {
       cc->pipelined_output_dims = l->output_dims;
     }
 
