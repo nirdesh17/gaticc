@@ -615,10 +615,10 @@ static void unalign_sa_output(const Op::LayerBase *lb, Tensor<T> *tensor, const 
     aligned_dims = aligned_conv_input_dims(og_dims_v, l->weights->dims())[0];
   } else if (std::string(lb->op_type()) == "Maxpool") {
     const Op::Layer::Maxpool *l = dynamic_cast<const Op::Layer::Maxpool *>(lb);
-    aligned_dims = aligned_qle_dims(og_dims_v).at(0);
+    aligned_dims = aligned_conv_input_dims(og_dims_v, og_dims).at(0);
   } else if (std::string(lb->op_type()) == "QLinearAveragePool") {
     const Op::Layer::QLinearAveragePool *l = dynamic_cast<const Op::Layer::QLinearAveragePool *>(lb);
-    aligned_dims = aligned_qle_dims(og_dims_v).at(0);
+    aligned_dims = aligned_conv_input_dims(og_dims_v, og_dims).at(0);
   } else {
     log_fatal("unalign_sa_output() received unsupported layer type {}\n",
               lb->op_type());
@@ -690,13 +690,13 @@ void Op::Layer::QGemm::receive_output(TensorPool &tensor_pool, Rah &rah) const {
 // pools are originally floating operations, but on FPGA we use quantized inputs/outputs for efficiency 
 void Op::Layer::Maxpool::receive_output(TensorPool &tensor_pool, Rah &rah) const {
   uint32_t expected_hash = string_hash(this->name);
-  uint32_t expected_data_size = ceil_mod(prod(this->output_dims.at(0)), WORD_SIZE) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8);
+  uint32_t expected_data_size = aligned_conv_output(this->pipelined_output_dims) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8);
   sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
 }
 
 void Op::Layer::QLinearAveragePool::receive_output(TensorPool &tensor_pool, Rah &rah) const {
   uint32_t expected_hash = string_hash(this->name);
-  uint32_t expected_data_size = ceil_mod(prod(this->output_dims.at(0)), WORD_SIZE) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8);
+  uint32_t expected_data_size = aligned_conv_output(this->pipelined_output_dims) * Op::tpdt_sizeof(onnx::TensorProto_DataType_INT8);
   sa_receive<int8_t>(rah, tensor_pool, this, expected_data_size, expected_hash);
 }
 
