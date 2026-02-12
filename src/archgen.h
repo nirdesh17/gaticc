@@ -32,6 +32,7 @@ struct ArchParams {
   bool has_leakyrelu;
   bool has_qlmult;
   bool has_resize;
+  bool has_qladd;
   ArchParams();
 };
 
