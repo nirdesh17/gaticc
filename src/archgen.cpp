@@ -27,7 +27,7 @@ ArchParams::ArchParams()
       n_mod_stages{0, BUFFER_TYPE}, dw_flops{0}, reg_flops{0},
       has_maxpool{false}, has_concat{false}, has_fc{false}, has_sigmoid{false},
       has_transpose{false}, has_g_avg_pool{false}, has_leakyrelu{false},
-      has_qlmult{false}, has_resize{false} {}
+      has_qlmult{false}, has_resize{false}, has_qladd{false} {}
 
 ArchParams Op::LayerBase::archgen(const ArchParams &) const {
   return ArchParams();
@@ -134,6 +134,9 @@ ArchParams Op::Layer::QLinearEltwise::archgen(const ArchParams &ap) const {
   if (operator_type ==ELTWISE_MULT) {
     ret.has_qlmult = true;
   }
+  if (operator_type == ELTWISE_ADD) {
+    ret.has_qladd = true;
+  }
   return ret;
 }
 
@@ -164,6 +167,7 @@ ArchParams combine(const std::vector<ArchParams> &ap) {
     ret.has_leakyrelu |= ap.at(i).has_leakyrelu;
     ret.has_qlmult |= ap.at(i).has_qlmult;
     ret.has_resize |= ap.at(i).has_resize;
+    ret.has_qladd |= ap.at(i).has_qladd;
   }
   return ret;
 }
@@ -228,6 +232,9 @@ std::ostream &operator<<(std::ostream &os, const ArchParams &ap) {
   if (ap.has_fc) {
     os << "`define FC\n";
   }
+  if (ap.has_sigmoid || ap.has_qlmult || ap.has_qladd) {
+    os << "`define ELTWISE\n";
+  }  
   if (ap.has_sigmoid) {
     os << "`define ELTWISE_SIGMOID_TANH\n";
   }
