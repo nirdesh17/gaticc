@@ -1,4 +1,4 @@
-# gaticc - Compiler/Simulator/Runtime for Gati DNN accelerator
+# gaticc - Compiler/Simulator/Runtime for Gati CNN accelerator
 
 # Build
 
@@ -44,6 +44,15 @@ sudo apt update && sudo apt upgrade
 sudo apt install rah-service
 ```
 
+Create and activate a Python virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+
 ## Compile
 
 ```
@@ -52,7 +61,7 @@ cd /path/to/gaticc
 mkdir build
 cmake -B build
 cmake --build build && sudo cmake --install build
-sudo pip install -e .
+pip install -e .
 ```
 
 Compile with debug flags:
@@ -158,6 +167,3 @@ test primary function of gaticc. These files are:
 
 See their `-h` help messages to understand how they ought to be used. 
 
-# Model Zoo
-
-[Download models and other files](http://galactos.local:8471/)

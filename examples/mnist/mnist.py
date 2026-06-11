@@ -7,7 +7,7 @@ def post(arr):
   return m
 
 if __name__ == "__main__":
-  path = "/home/metal/dev/datasets/gati/"
+  path = "../../datasets/gati/"
   onnx_path = f"{path}/models/mnist_6_28_int8.onnx"
   bitstream = "../../hex/gati_0.8.1_944_c4.hex"
   gml_path = "model.gml"

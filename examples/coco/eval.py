@@ -199,8 +199,8 @@ def postprocess(img_id, inference_output, frame, height, width):
 
 if __name__ == '__main__':
     modelPath = sys.argv[1]
-    val_images_dir = "/home/metal/dev/datasets/coco/val2017"
-    ann_path = "/home/metal/dev/datasets/coco/annotations/instances_val2017.json"
+    val_images_dir = "../../datasets/coco/val2017"
+    ann_path = "../../datasets/coco/annotations/instances_val2017.json"
 
     session = ort.InferenceSession(modelPath, providers=["CPUExecutionProvider"])
     input_name = session.get_inputs()[0].name

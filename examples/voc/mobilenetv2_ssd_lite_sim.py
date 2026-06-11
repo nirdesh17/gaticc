@@ -253,7 +253,7 @@ if __name__ == "__main__":
         cv2.imwrite(f"output_{fname}" ,orig_image)
         
 
-dir_image="/home/nirdesh/vicharak/sysim/examples/voc/"
+dir_image="../../examples/voc/"
 if is_video:
     output_files = sorted([
         f for f in os.listdir(dir_image) if f.startswith("output_") and f.lower().endswith((".jpg", ".jpeg", ".png"))
