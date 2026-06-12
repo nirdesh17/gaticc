@@ -39,7 +39,7 @@ fi
 PLATFORM_PATH=$(realpath "$PLATFORM_PATH")
 MODEL_ONNX=$(realpath "$MODEL_ONNX")
 
-GEN_HW_FILE="$PLATFORM_PATH/hardware/Gati/src/rtl/common/gen_hardware.vh"
+GEN_HW_FILE="$PLATFORM_PATH/hardware/gati/src/rtl/common/gen_hardware.vh"
 
 echo "Platform : $PLATFORM_PATH"
 echo "Model    : $MODEL_ONNX"
