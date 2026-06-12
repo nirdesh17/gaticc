@@ -75,6 +75,17 @@ GATI runs **INT8 quantized ONNX models**, and supports the following operators i
 
 - **QLinearMul**
 
+- **QLinearConcat**
+
+- **QLinearSigmoid**
+
+- **QLinearleakyRelu**
+
+- **Tanh**
+
+- **Split**  
+  (Channel Wise)
+
 - **Pooling layers**  
   (MaxPool / AveragePool depending on model)
 

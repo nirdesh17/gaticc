@@ -77,6 +77,21 @@ gaticc -h
 ```
 for usage instructions.
 
+> [!NOTE]
+> If you encounter:
+>
+> ```text
+> gaticc: error while loading shared libraries: libprotobuf-lite.so.32: cannot open shared object file: No such file or directory
+> ```
+>
+> Refresh the system library cache:
+>
+> ```bash
+> sudo ldconfig
+> ```
+>
+> Then try running `gaticc -h` again.
+
 ## Python Interface
 
 Here's an example script to run simulation of a model (install model files from the model zoo):
@@ -167,3 +182,6 @@ test primary function of gaticc. These files are:
 
 See their `-h` help messages to understand how they ought to be used. 
 
+## LICENSE 
+
+This repository is under this [LICENSE](./LICENSE)

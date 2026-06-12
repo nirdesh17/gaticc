@@ -1,8 +1,8 @@
-# Gaticc - Compiler/Simulator/Runtime for Gati CNN accelerator
+# Gaticc - A Compiler/Simulator/Runtime for Gati CNN accelerator
 
-# Build
+## Build
 
-## Install Dependencies 
+### Install Dependencies 
 
 **Arch**:
 ```
@@ -52,7 +52,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Compile
+### Compile
 
 ```
 cd /path/to/gaticc
@@ -68,7 +68,7 @@ Compile with debug flags:
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
 ```
 
-# Usage
+## Usage
 
 See,
 ```
@@ -76,7 +76,22 @@ gaticc -h
 ```
 for usage instructions.
 
-## Python Interface
+> [!NOTE]
+> If you encounter:
+>
+> ```text
+> gaticc: error while loading shared libraries: libprotobuf-lite.so.32: cannot open shared object file: No such file or directory
+> ```
+>
+> Refresh the system library cache:
+>
+> ```bash
+> sudo ldconfig
+> ```
+>
+> Then try running `gaticc -h` again.
+
+### Python Interface
 
 Here's an example script to run simulation of a model (install model files from the model zoo):
 ```

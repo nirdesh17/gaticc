@@ -208,6 +208,10 @@ The repository includes ready-to-run examples:
 
 Users can copy these templates and plug in their own preprocessing and postprocessing code.
 
+>[!NOTE]
+>```
+> Make sure to update the required paths in example files
+
 More Usage & Full Command Reference
 ---------------------------------------
 
