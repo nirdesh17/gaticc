@@ -189,6 +189,11 @@ Important Notes
   - Flatten
   - QLinearAdd/Sub/Mul
   - MaxPool, AveragePool
+  - QLinearSigmoid
+  - QLinearConcat
+  - QLinearLeakyRelu
+  - Tanh
+  - Split
 
 - Simulation supports **FP32 and INT8**.
 

@@ -79,7 +79,7 @@ GATI runs **INT8 quantized ONNX models**, and supports the following operators i
 
 - **QLinearSigmoid**
 
-- **QLinearleakyRelu**
+- **QLinearLeakyRelu**
 
 - **Tanh**
 
